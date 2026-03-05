@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import type { FamilyTree } from '@/lib/types';
 import { getTreesForUser, deleteTree } from '@/lib/actions/trees';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { useRouter } from 'next/navigation';
 
 export function DashboardClient() {
   const { user, isUserLoading } = useUser();
+  const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [trees, setTrees] = useState<FamilyTree[]>([]);
@@ -36,14 +37,14 @@ export function DashboardClient() {
   const fetchTrees = useCallback(async () => {
     if (user && !user.isAnonymous) {
       setIsLoading(true);
-      const userTrees = await getTreesForUser(user.uid);
+      const userTrees = await getTreesForUser(db, user.uid);
       setTrees(userTrees);
       setIsLoading(false);
     } else {
       setTrees([]);
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, db]);
 
   useEffect(() => {
     if (!isUserLoading) {
@@ -64,7 +65,7 @@ export function DashboardClient() {
   const handleConfirmDelete = async () => {
     if (!treeToDelete || !user || user.isAnonymous) return;
     setIsDeleting(true);
-    const result = await deleteTree({ userId: user.uid, treeId: treeToDelete.id });
+    const result = await deleteTree(db, { userId: user.uid, treeId: treeToDelete.id });
 
     if (result.success) {
       toast({

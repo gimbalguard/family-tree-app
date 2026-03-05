@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import { createTree } from '@/lib/actions/trees';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -44,6 +44,7 @@ export function NewTreeDialog({
   onTreeCreated,
 }: NewTreeDialogProps) {
   const { user } = useUser();
+  const db = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +77,7 @@ export function NewTreeDialog({
     }
 
     setIsLoading(true);
-    const result = await createTree({ ...values, userId: user.uid });
+    const result = await createTree(db, { ...values, userId: user.uid });
 
     if (result.success && result.data) {
       toast({

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Node, Edge, Connection } from 'reactflow';
 import { ReactFlowProvider } from 'reactflow';
 
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
 import type { FamilyTree, Person, Relationship } from '@/lib/types';
 import {
   getTreeDetails,
@@ -35,6 +35,7 @@ import {
 
 export function TreeClient({ treeId }: { treeId: string }) {
   const { user, isUserLoading } = useUser();
+  const db = useFirestore();
   const { toast } = useToast();
 
   const [tree, setTree] = useState<FamilyTree | null>(null);
@@ -60,10 +61,10 @@ export function TreeClient({ treeId }: { treeId: string }) {
     setError(null);
     try {
       const [treeData, peopleData, relsData, posData] = await Promise.all([
-        getTreeDetails(user.uid, treeId),
-        getPeople(user.uid, treeId),
-        getRelationships(user.uid, treeId),
-        getCanvasPositions(user.uid, treeId),
+        getTreeDetails(db, user.uid, treeId),
+        getPeople(db, user.uid, treeId),
+        getRelationships(db, user.uid, treeId),
+        getCanvasPositions(db, user.uid, treeId),
       ]);
 
       if (!treeData) {
@@ -98,7 +99,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, [treeId, user]);
+  }, [treeId, user, db]);
 
   useEffect(() => {
     if (!isUserLoading) {
@@ -118,7 +119,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
 
   const handleCreatePerson = async (personData: any) => {
     if (!user) return;
-    const isDuplicate = await checkForDuplicate({personData, userId: user.uid, treeId});
+    const isDuplicate = await checkForDuplicate(db, {personData, userId: user.uid, treeId});
     if(isDuplicate) {
         setPersonToCreate(personData);
         setIsDuplicateAlertOpen(true);
@@ -129,7 +130,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
 
   const proceedWithCreation = async (personData: any) => {
     if (!user) return;
-    const result = await addPerson({personData, userId: user.uid, treeId});
+    const result = await addPerson(db, {personData, userId: user.uid, treeId});
     if (result.success && result.data) {
         toast({ title: 'Person Added', description: `${result.data.firstName} ${result.data.lastName} has been added.` });
         fetchData();
@@ -141,7 +142,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
 
   const handleUpdatePerson = async (personData: Person) => {
     if (!user) return;
-    const result = await updatePerson({personData, userId: user.uid, treeId});
+    const result = await updatePerson(db, {personData, userId: user.uid, treeId});
      if (result.success && result.data) {
         toast({ title: 'Person Updated', description: `${result.data.firstName} ${result.data.lastName} has been updated.` });
         fetchData();
@@ -163,7 +164,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
 
   const handleCreateRelationship = async (relData: Omit<Relationship, 'id' | 'treeId' | 'userId'>) => {
     if (!user) return;
-    const result = await addRelationship({ relData, userId: user.uid, treeId });
+    const result = await addRelationship(db, { relData, userId: user.uid, treeId });
     if (result.success && result.data) {
         toast({ title: 'Relationship Added'});
         fetchData();
@@ -175,7 +176,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
 
   const handleNodeDragStop = async (_: React.MouseEvent, node: Node) => {
     if (!user) return;
-    await updateCanvasPosition({ posData: { personId: node.id, x: node.position.x, y: node.position.y }, userId: user.uid, treeId });
+    await updateCanvasPosition(db, { posData: { personId: node.id, x: node.position.x, y: node.position.y }, userId: user.uid, treeId });
   };
   
   if (isLoading || isUserLoading) {
