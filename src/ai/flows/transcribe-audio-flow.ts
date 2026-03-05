@@ -5,7 +5,7 @@
  * - transcribeAudio - A function that handles the audio transcription.
  */
 
-import { ai, googleAI } from '@/ai/genkit';
+import { ai } from '@/ai/genkit';
 import {
   TranscribeAudioInputSchema,
   TranscribeAudioOutputSchema,
@@ -31,7 +31,7 @@ const transcribeAudioFlow = ai.defineFlow(
         { media: { url: input.audioDataUri } },
         { text: 'Transcribe the following audio. The user is telling a family story. The output should be in Hebrew.' },
       ],
-      model: googleAI.model('gemini-pro'),
+      model: 'googleai/gemini-2.0-flash',
     });
 
     return { transcript: text };
