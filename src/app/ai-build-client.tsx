@@ -27,6 +27,11 @@ import { generateTreeFromStory } from '@/ai/flows/ai-tree-generation-flow';
 import type { GenerateTreeOutput } from '@/ai/flows/ai-tree-generation.types';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface ChatMessage {
   id: string;
@@ -383,14 +388,28 @@ export function AiBuildClient() {
                 disabled={isGenerating}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <Button variant="ghost" size="icon" disabled>
-                  <Paperclip className="h-5 w-5" />
-                  <span className="sr-only">צרף קובץ</span>
-                </Button>
-                <Button variant="ghost" size="icon" disabled>
-                  <Mic className="h-5 w-5" />
-                  <span className="sr-only">הקלט הודעה</span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" disabled>
+                      <Paperclip className="h-5 w-5" />
+                      <span className="sr-only">צרף קובץ</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>בקרוב</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" disabled>
+                      <Mic className="h-5 w-5" />
+                      <span className="sr-only">הקלט הודעה</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>בקרוב</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <Button
                 variant="default"

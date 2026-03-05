@@ -13,9 +13,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
-import { LogIn, LogOut, UserPlus } from 'lucide-react';
+import { LogIn, LogOut, UserPlus, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
 
 export function AppHeader() {
   const { user, isUserLoading } = useUser();
@@ -28,7 +27,7 @@ export function AppHeader() {
     await signOut(auth);
     // signInAnonymously is called automatically by the provider
     router.push('/');
-  }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -47,19 +46,32 @@ export function AppHeader() {
             </Link>
           </nav>
         </div>
-        <div className="flex flex-1 items-center justify-end">
+        <div className="flex flex-1 items-center justify-end gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Globe className="h-5 w-5" />
+                <span className="sr-only">שנה שפה</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem>עברית</DropdownMenuItem>
+              <DropdownMenuItem disabled>English</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {isUserLoading ? (
-            <div className='h-8 w-20 animate-pulse rounded-md bg-muted'/>
+            <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
           ) : isAnonymous ? (
-            <div className='flex items-center gap-2'>
-                <Button variant="ghost" onClick={() => router.push('/login')}>
-                    <LogIn className="ml-2 h-4 w-4" />
-                    כניסה
-                </Button>
-                <Button onClick={() => router.push('/register')}>
-                    <UserPlus className="ml-2 h-4 w-4" />
-                    הרשמה
-                </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => router.push('/login')}>
+                <LogIn className="ml-2 h-4 w-4" />
+                כניסה
+              </Button>
+              <Button onClick={() => router.push('/register')}>
+                <UserPlus className="ml-2 h-4 w-4" />
+                הרשמה
+              </Button>
             </div>
           ) : (
             <DropdownMenu>
@@ -69,7 +81,10 @@ export function AppHeader() {
                   className="relative h-8 w-8 rounded-full"
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL ?? ''} alt={user?.displayName ?? ''} />
+                    <AvatarImage
+                      src={user?.photoURL ?? ''}
+                      alt={user?.displayName ?? ''}
+                    />
                     <AvatarFallback>{userInitial}</AvatarFallback>
                   </Avatar>
                 </Button>

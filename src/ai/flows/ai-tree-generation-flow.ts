@@ -25,7 +25,7 @@ const prompt = ai.definePrompt({
   name: 'generateTreePrompt',
   input: { schema: GenerateTreeInputSchema },
   output: { schema: GenerateTreeOutputSchema },
-  prompt: `You are an expert genealogist AI assistant. Your task is to analyze a family story provided by the user and extract all individuals and their relationships to build a family tree structure.
+  prompt: `You are an expert genealogist AI assistant. Your task is to analyze a family story provided by the user and extract all individuals and their relationships to build a family tree structure. **All your responses, including summaries and clarification questions, MUST be in Hebrew.**
 
 Carefully read the user's story:
 "{{{story}}}"
@@ -44,9 +44,9 @@ Based on the story, perform the following actions:
     *   For symmetrical relationships like 'spouse' or 'sibling', the order does not matter.
     *   Infer relationship types accurately (e.g., "my wife" is a 'spouse' relationship).
 
-3.  **Summarize Findings**: Write a brief, one-sentence summary of your findings (e.g., "I found 5 people and 3 relationships in your story.").
+3.  **Summarize Findings**: Write a brief, one-sentence summary of your findings (e.g., "מצאתי 5 אנשים ו-3 קשרים בסיפור שלך.").
 
-4.  **Ask for Clarification (if needed)**: If any part of the story is ambiguous or information is missing to establish a clear relationship, formulate a single, simple question to ask the user. For example, "Who is David's parent, John or Jane?" or "What is the relationship between Sarah and Mike?". If everything is clear, set this field to null.
+4.  **Ask for Clarification (if needed)**: If any part of the story is ambiguous or information is missing to establish a clear relationship, formulate a single, simple question to ask the user. For example, "מי ההורה של דוד, יוני או ג'יין?" or "מה הקשר בין שרה למייק?". If everything is clear, set this field to null.
 
 Produce the final output in the specified JSON format.
 `,

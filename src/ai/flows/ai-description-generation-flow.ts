@@ -21,7 +21,7 @@ const prompt = ai.definePrompt({
   name: 'generateDescriptionPrompt',
   input: { schema: GenerateDescriptionInputSchema },
   output: { schema: GenerateDescriptionOutputSchema },
-  prompt: `You are an expert biographer and storyteller. Your task is to write a concise, engaging, and rich biographical description for a person based on the provided details.
+  prompt: `You are an expert biographer and storyteller. Your task is to write a concise, engaging, and rich biographical description for a person based on the provided details. **The generated description MUST be in Hebrew.**
 
 Combine all available information to create a coherent narrative. If some information is missing, make reasonable inferences but do not invent facts.
 
@@ -36,7 +36,7 @@ Last Name: {{{lastName}}}
 {{#if relationshipsSummary}}Key Relationships: {{{relationshipsSummary}}}{{/if}}
 {{#if existingDescription}}Existing Description (use this as a base or to enrich): {{{existingDescription}}}{{/if}}
 
-Generate a biographical description up to 2000 characters. Focus on telling their story in an engaging way.`,
+Generate a biographical description in Hebrew, up to 2000 characters. Focus on telling their story in an engaging way.`,
 });
 
 const generateDescriptionFlow = ai.defineFlow(
