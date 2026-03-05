@@ -1,7 +1,7 @@
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserProfile = {
-  uid: string;
+  id: string;
   username: string;
   createdAt: Timestamp;
 };

@@ -68,7 +68,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
       ]);
 
       if (!treeData) {
-        throw new Error("Family tree not found or you don't have access.");
+        throw new Error("עץ המשפחה לא נמצא או שאין לך גישה.");
       }
 
       setTree(treeData);
@@ -132,10 +132,10 @@ export function TreeClient({ treeId }: { treeId: string }) {
     if (!user) return;
     const result = await addPerson(db, {personData, userId: user.uid, treeId});
     if (result.success && result.data) {
-        toast({ title: 'Person Added', description: `${result.data.firstName} ${result.data.lastName} has been added.` });
+        toast({ title: 'אדם נוסף', description: `${result.data.firstName} ${result.data.lastName} נוסף.` });
         fetchData();
     } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.error });
+        toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
     }
     setPersonToCreate(null);
   }
@@ -144,11 +144,11 @@ export function TreeClient({ treeId }: { treeId: string }) {
     if (!user) return;
     const result = await updatePerson(db, {personData, userId: user.uid, treeId});
      if (result.success && result.data) {
-        toast({ title: 'Person Updated', description: `${result.data.firstName} ${result.data.lastName} has been updated.` });
+        toast({ title: 'אדם עודכן', description: `${result.data.firstName} ${result.data.lastName} עודכן.` });
         fetchData();
         handleEditorClose();
     } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.error });
+        toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
     }
   };
 
@@ -166,11 +166,11 @@ export function TreeClient({ treeId }: { treeId: string }) {
     if (!user) return;
     const result = await addRelationship(db, { relData, userId: user.uid, treeId });
     if (result.success && result.data) {
-        toast({ title: 'Relationship Added'});
+        toast({ title: 'קשר נוסף'});
         fetchData();
         handleRelModalClose();
     } else {
-        toast({ variant: 'destructive', title: 'Error', description: result.error });
+        toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
     }
   }
 
@@ -184,7 +184,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
         <Logo className="h-12 w-12 text-primary" />
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className='text-muted-foreground'>Loading your family tree...</p>
+        <p className='text-muted-foreground'>טוען את עץ המשפחה שלך...</p>
       </div>
     );
   }
@@ -193,7 +193,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
     return (
       <div className="flex h-screen items-center justify-center text-center text-destructive">
         <div>
-          <h2 className="text-2xl font-bold">An Error Occurred</h2>
+          <h2 className="text-2xl font-bold">אירעה שגיאה</h2>
           <p>{error}</p>
         </div>
       </div>
@@ -203,7 +203,7 @@ export function TreeClient({ treeId }: { treeId: string }) {
   return (
     <ReactFlowProvider>
       <FamilyTreeCanvas
-        treeName={tree?.treeName ?? 'Family Tree'}
+        treeName={tree?.treeName ?? 'עץ משפחה'}
         nodes={nodes}
         edges={edges}
         setNodes={setNodes}
@@ -232,14 +232,14 @@ export function TreeClient({ treeId }: { treeId: string }) {
        <AlertDialog open={isDuplicateAlertOpen} onOpenChange={setIsDuplicateAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Potential Duplicate Found</AlertDialogTitle>
+            <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
-              A person with a similar name and birth date already exists in this tree. Do you still want to create this new person?
+              אדם עם שם ותאריך לידה דומים כבר קיים בעץ זה. האם אתה עדיין רוצה ליצור את האדם החדש הזה?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPersonToCreate(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => personToCreate && proceedWithCreation(personToCreate)}>Create Anyway</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setPersonToCreate(null)}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={() => personToCreate && proceedWithCreation(personToCreate)}>צור בכל זאת</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

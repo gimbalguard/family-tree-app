@@ -38,9 +38,9 @@ export default function RegisterPage() {
               <Link href="/">
                 <Logo className="mb-4 h-12 w-12 text-primary" />
               </Link>
-              <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
+              <CardTitle className="text-2xl font-bold">צור חשבון</CardTitle>
               <p className="text-muted-foreground">
-                Start building your family history today.
+                התחל לבנות את היסטוריית המשפחה שלך עוד היום.
               </p>
             </CardHeader>
             <CardContent>
@@ -48,9 +48,9 @@ export default function RegisterPage() {
             </CardContent>
           </Card>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Already have an account?{' '}
+            יש לך כבר חשבון?{' '}
             <Link href="/login" className="font-semibold text-primary hover:underline">
-              Sign in
+              התחבר
             </Link>
           </p>
         </div>

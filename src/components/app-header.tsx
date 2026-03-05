@@ -34,7 +34,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="mr-4 flex">
-          <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
+          <Link href="/dashboard" className="ml-6 flex items-center space-x-2">
             <Logo className="h-6 w-6 text-primary" />
             <span className="font-bold">FamilyTree</span>
           </Link>
@@ -45,12 +45,12 @@ export function AppHeader() {
           ) : isAnonymous ? (
             <div className='flex items-center gap-2'>
                 <Button variant="ghost" onClick={() => router.push('/login')}>
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Sign In
+                    <LogIn className="ml-2 h-4 w-4" />
+                    כניסה
                 </Button>
                 <Button onClick={() => router.push('/register')}>
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Sign Up
+                    <UserPlus className="ml-2 h-4 w-4" />
+                    הרשמה
                 </Button>
             </div>
           ) : (
@@ -67,10 +67,10 @@ export function AppHeader() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
+                <DropdownMenuLabel className="font-normal text-right">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {user?.displayName ?? 'User'}
+                      {user?.displayName ?? 'משתמש'}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
                       {user?.email}
@@ -80,9 +80,10 @@ export function AppHeader() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
+                  className="justify-end"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
+                  <LogOut className="ml-2 h-4 w-4" />
+                  <span>התנתקות</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

@@ -6,7 +6,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 export const metadata: Metadata = {
   title: 'FamilyTree',
-  description: 'Build and visualize your family history.',
+  description: 'בנו והציגו את היסטוריית המשפחה שלכם.',
 };
 
 export default function RootLayout({
@@ -15,12 +15,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="he" dir="rtl" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>

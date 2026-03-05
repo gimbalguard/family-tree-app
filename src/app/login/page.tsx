@@ -38,9 +38,9 @@ export default function LoginPage() {
               <Link href="/">
                 <Logo className="mb-4 h-12 w-12 text-primary" />
               </Link>
-              <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+              <CardTitle className="text-2xl font-bold">ברוכים השבים</CardTitle>
               <p className="text-muted-foreground">
-                Sign in to manage your family trees.
+                היכנסו כדי לנהל את עצי המשפחה שלכם.
               </p>
             </CardHeader>
             <CardContent>
@@ -48,9 +48,9 @@ export default function LoginPage() {
             </CardContent>
           </Card>
            <p className="mt-4 text-center text-sm text-muted-foreground">
-              Don&apos;t have an account?{' '}
+              אין לכם חשבון?{' '}
               <Link href="/register" className="font-semibold text-primary hover:underline">
-                Sign up
+                הרשמו
               </Link>
             </p>
         </div>

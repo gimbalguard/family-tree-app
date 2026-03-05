@@ -23,6 +23,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { he } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type TreeCardProps = {
@@ -32,8 +33,8 @@ type TreeCardProps = {
 
 export function TreeCard({ tree, onDelete }: TreeCardProps) {
   const creationDate = tree.createdAt?.toDate
-    ? format(tree.createdAt.toDate(), 'MMM d, yyyy')
-    : 'N/A';
+    ? format(tree.createdAt.toDate(), 'd MMM, yyyy', { locale: he })
+    : 'לא זמין';
 
   return (
     <Card className="flex flex-col transition-all hover:shadow-lg">
@@ -46,8 +47,8 @@ export function TreeCard({ tree, onDelete }: TreeCardProps) {
           </CardTitle>
           <CardDescription>
             <div className="flex items-center text-sm text-muted-foreground">
-              <Calendar className="mr-1 h-3 w-3" />
-              Created on {creationDate}
+              <Calendar className="ml-1 h-3 w-3" />
+              נוצר ב-{creationDate}
             </div>
           </CardDescription>
         </div>
@@ -58,10 +59,10 @@ export function TreeCard({ tree, onDelete }: TreeCardProps) {
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={onDelete} className="text-destructive">
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={onDelete} className="text-destructive justify-end">
+                <Trash2 className="ml-2 h-4 w-4" />
+                מחק
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -70,18 +71,18 @@ export function TreeCard({ tree, onDelete }: TreeCardProps) {
       <CardContent className="flex-grow">
         <div className="space-y-2 text-sm text-muted-foreground">
           <div className="flex items-center">
-            <Users className="mr-2 h-4 w-4" />
-            <span>{tree.personCount ?? 0} People</span>
+            <Users className="ml-2 h-4 w-4" />
+            <span>{tree.personCount ?? 0} אנשים</span>
           </div>
           <div className="flex items-center">
-            <GitCommit className="mr-2 h-4 w-4" />
-            <span>{tree.relationshipCount ?? 0} Relationships</span>
+            <GitCommit className="ml-2 h-4 w-4" />
+            <span>{tree.relationshipCount ?? 0} קשרים</span>
           </div>
         </div>
       </CardContent>
       <CardFooter>
         <Button asChild variant="secondary" className="w-full">
-          <Link href={`/tree/${tree.id}`}>Open Tree</Link>
+          <Link href={`/tree/${tree.id}`}>פתח עץ</Link>
         </Button>
       </CardFooter>
     </Card>

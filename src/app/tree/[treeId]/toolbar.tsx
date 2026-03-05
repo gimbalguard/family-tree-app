@@ -1,7 +1,7 @@
 'use client';
 import { Button } from '@/components/ui/button';
 import { PersonEditor } from './person-editor';
-import { ArrowLeft, UserPlus } from 'lucide-react';
+import { ArrowRight, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import type { Person } from '@/lib/types';
 import Link from 'next/link';
@@ -22,17 +22,17 @@ export function Toolbar({ treeName, treeId, onCreatePerson }: ToolbarProps) {
 
   return (
     <>
-      <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+      <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="outline" size="icon" asChild>
                 <Link href="/dashboard">
-                    <ArrowLeft className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" />
                 </Link>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Back to Dashboard</p>
+            <p>חזרה ללוח הבקרה</p>
           </TooltipContent>
         </Tooltip>
 
@@ -47,7 +47,7 @@ export function Toolbar({ treeName, treeId, onCreatePerson }: ToolbarProps) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Add New Person</p>
+            <p>הוסף אדם חדש</p>
           </TooltipContent>
         </Tooltip>
       </div>

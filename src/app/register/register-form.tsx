@@ -21,9 +21,9 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const formSchema = z.object({
-  username: z.string().min(3, { message: 'Username must be at least 3 characters.' }),
-  email: z.string().email({ message: 'Please enter a valid email.' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
+  username: z.string().min(3, { message: 'שם משתמש חייב להכיל לפחות 3 תווים.' }),
+  email: z.string().email({ message: 'אנא הזן כתובת אימייל חוקית.' }),
+  password: z.string().min(8, { message: 'סיסמה חייבת להכיל לפחות 8 תווים.' }),
 });
 
 export function RegisterForm() {
@@ -54,7 +54,7 @@ export function RegisterForm() {
         await updateProfile(user, { displayName: values.username });
 
         const userProfile = {
-          uid: user.uid,
+          id: user.uid,
           username: values.username,
           createdAt: serverTimestamp(),
         };
@@ -64,7 +64,7 @@ export function RegisterForm() {
       } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Registration Error',
+        title: 'שגיאת הרשמה',
         description: error.message,
       });
     } finally {
@@ -80,7 +80,7 @@ export function RegisterForm() {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>שם משתמש</FormLabel>
               <FormControl>
                 <Input placeholder="your_username" {...field} />
               </FormControl>
@@ -93,7 +93,7 @@ export function RegisterForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>אימייל</FormLabel>
               <FormControl>
                 <Input placeholder="name@example.com" {...field} />
               </FormControl>
@@ -106,7 +106,7 @@ export function RegisterForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>סיסמה</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
@@ -115,8 +115,8 @@ export function RegisterForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Create Account
+          {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+          צור חשבון
         </Button>
       </form>
     </Form>

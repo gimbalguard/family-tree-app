@@ -28,9 +28,9 @@ export const PersonNode = memo(({ data }: NodeProps<Person>) => {
 
   const getGenderBadge = () => {
     switch (gender) {
-      case 'male': return <Badge variant="outline" className="border-blue-500 text-blue-500">Male</Badge>;
-      case 'female': return <Badge variant="outline" className="border-pink-500 text-pink-500">Female</Badge>;
-      default: return <Badge variant="secondary">Other</Badge>;
+      case 'male': return <Badge variant="outline" className="border-blue-500 text-blue-500">זכר</Badge>;
+      case 'female': return <Badge variant="outline" className="border-pink-500 text-pink-500">נקבה</Badge>;
+      default: return <Badge variant="secondary">אחר</Badge>;
     }
   };
   

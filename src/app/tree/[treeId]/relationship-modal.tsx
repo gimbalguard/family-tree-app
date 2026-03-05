@@ -95,10 +95,10 @@ export function RelationshipModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Define Relationship</DialogTitle>
+          <DialogTitle>הגדרת קשר</DialogTitle>
           <DialogDescription>
-            Create a relationship between{' '}
-            <strong>{`${personA.firstName} ${personA.lastName}`}</strong> and{' '}
+            צור קשר בין{' '}
+            <strong>{`${personA.firstName} ${personA.lastName}`}</strong> ו-{' '}
             <strong>{`${personB.firstName} ${personB.lastName}`}</strong>.
           </DialogDescription>
         </DialogHeader>
@@ -109,14 +109,14 @@ export function RelationshipModal({
               name="relationshipType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Relationship Type</FormLabel>
+                  <FormLabel>סוג קשר</FormLabel>
                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
-                        <SelectItem value="parent">Parent</SelectItem>
-                        <SelectItem value="spouse">Spouse</SelectItem>
-                        <SelectItem value="adoptive_parent">Adoptive Parent</SelectItem>
-                        <SelectItem value="step_parent">Step Parent</SelectItem>
+                        <SelectItem value="parent">הורה</SelectItem>
+                        <SelectItem value="spouse">בן/בת זוג</SelectItem>
+                        <SelectItem value="adoptive_parent">הורה מאמץ</SelectItem>
+                        <SelectItem value="step_parent">הורה חורג</SelectItem>
                     </SelectContent>
                    </Select>
                   <FormMessage />
@@ -125,18 +125,18 @@ export function RelationshipModal({
             />
             <div className="grid grid-cols-2 gap-4">
                <FormField control={form.control} name="startDate" render={({ field }) => (
-                <FormItem><FormLabel>Start Date (Optional)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                <FormItem><FormLabel>תאריך התחלה (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
               )}/>
                <FormField control={form.control} name="endDate" render={({ field }) => (
-                <FormItem><FormLabel>End Date (Optional)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                <FormItem><FormLabel>תאריך סיום (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
               )}/>
             </div>
              <FormField control={form.control} name="notes" render={({ field }) => (
-                <FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+                <FormItem><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
               )}/>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit">Save Relationship</Button>
+              <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
+              <Button type="submit">שמור קשר</Button>
             </DialogFooter>
           </form>
         </Form>

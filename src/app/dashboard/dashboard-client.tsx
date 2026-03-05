@@ -69,14 +69,14 @@ export function DashboardClient() {
 
     if (result.success) {
       toast({
-        title: 'Tree Deleted',
-        description: `"${treeToDelete.treeName}" and all its data have been removed.`,
+        title: 'עץ נמחק',
+        description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
       });
       setTrees(trees.filter((tree) => tree.id !== treeToDelete.id));
     } else {
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'שגיאה',
         description: result.error,
       });
     }
@@ -108,13 +108,13 @@ export function DashboardClient() {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center">
           <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold">Welcome to FamilyTree</h3>
+          <h3 className="mt-4 text-lg font-semibold">ברוכים הבאים ל-FamilyTree</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sign in to create and manage your family trees.
+            היכנסו כדי ליצור ולנהל את עצי המשפחה שלכם.
           </p>
           <Button className="mt-6" onClick={() => router.push('/login')}>
-            <LogIn className="mr-2 h-4 w-4" />
-            Login or Sign Up
+            <LogIn className="ml-2 h-4 w-4" />
+            כניסה או הרשמה
           </Button>
         </div>
       );
@@ -137,13 +137,13 @@ export function DashboardClient() {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center">
         <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 text-lg font-semibold">No trees found</h3>
+        <h3 className="mt-4 text-lg font-semibold">לא נמצאו עצים</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Get started by creating your first family tree.
+          התחילו ביצירת עץ המשפחה הראשון שלכם.
         </p>
         <Button className="mt-6" onClick={handleNewTreeClick}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Create New Tree
+          <PlusCircle className="ml-2 h-4 w-4" />
+          צור עץ חדש
         </Button>
       </div>
     );
@@ -153,14 +153,14 @@ export function DashboardClient() {
   return (
     <div className="container mx-auto py-8 px-4">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Your Family Trees</h1>
+        <h1 className="text-3xl font-bold tracking-tight">עצי המשפחה שלך</h1>
         <Button onClick={handleNewTreeClick}>
           {isAnonymous ? (
-            <LogIn className="mr-2 h-4 w-4" />
+            <LogIn className="ml-2 h-4 w-4" />
           ) : (
-            <PlusCircle className="mr-2 h-4 w-4" />
+            <PlusCircle className="ml-2 h-4 w-4" />
           )}
-          New Tree
+          עץ חדש
         </Button>
       </div>
 
@@ -175,27 +175,26 @@ export function DashboardClient() {
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle>האם אתה בטוח לחלוטין?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the tree{' '}
+              פעולה זו תמחק לצמיתות את העץ{' '}
               <strong className="text-foreground">
                 {treeToDelete?.treeName}
               </strong>{' '}
-              and all associated people, relationships, and data. This action
-              cannot be undone.
+              וכל האנשים, הקשרים והנתונים המשויכים אליו. לא ניתן לבטל פעולה זו.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
               {isDeleting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
               )}
-              Delete
+              מחק
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

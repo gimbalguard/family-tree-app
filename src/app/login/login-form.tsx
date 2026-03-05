@@ -20,8 +20,8 @@ import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Please enter a valid email.' }),
-  password: z.string().min(1, { message: 'Password is required.' }),
+  email: z.string().email({ message: 'אנא הזן כתובת אימייל חוקית.' }),
+  password: z.string().min(1, { message: 'נדרשת סיסמה.' }),
 });
 
 export function LoginForm() {
@@ -46,7 +46,7 @@ export function LoginForm() {
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Authentication Error',
+        title: 'שגיאת אימות',
         description: error.message,
       });
     } finally {
@@ -62,7 +62,7 @@ export function LoginForm() {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>אימייל</FormLabel>
               <FormControl>
                 <Input placeholder="name@example.com" {...field} />
               </FormControl>
@@ -75,7 +75,7 @@ export function LoginForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>סיסמה</FormLabel>
               <FormControl>
                 <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
@@ -84,8 +84,8 @@ export function LoginForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Sign In
+          {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+          התחבר
         </Button>
       </form>
     </Form>

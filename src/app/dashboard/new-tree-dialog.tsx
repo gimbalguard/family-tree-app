@@ -29,7 +29,7 @@ import type { FamilyTree } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
-  treeName: z.string().min(3, 'Tree name must be at least 3 characters.'),
+  treeName: z.string().min(3, 'שם העץ חייב להכיל לפחות 3 תווים.'),
 });
 
 type NewTreeDialogProps = {
@@ -69,8 +69,8 @@ export function NewTreeDialog({
     if (!user || user.isAnonymous) {
       toast({
         variant: 'destructive',
-        title: 'Authentication Required',
-        description: 'Please log in to create a new tree.',
+        title: 'נדרש אימות',
+        description: 'אנא היכנס כדי ליצור עץ חדש.',
       });
       router.push('/login');
       return;
@@ -81,15 +81,15 @@ export function NewTreeDialog({
 
     if (result.success && result.data) {
       toast({
-        title: 'Tree Created',
-        description: `Your new tree "${result.data.treeName}" is ready.`,
+        title: 'עץ נוצר',
+        description: `העץ החדש שלך "${result.data.treeName}" מוכן.`,
       });
       onTreeCreated(result.data);
       handleOpenChange(false);
     } else {
       toast({
         variant: 'destructive',
-        title: 'Error Creating Tree',
+        title: 'שגיאה ביצירת עץ',
         description: result.error,
       });
     }
@@ -101,9 +101,9 @@ export function NewTreeDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Family Tree</DialogTitle>
+          <DialogTitle>צור עץ משפחה חדש</DialogTitle>
           <DialogDescription>
-            Give your new family tree a name. You can change it later.
+            תן שם לעץ המשפחה החדש שלך. תוכל לשנות אותו מאוחר יותר.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -113,10 +113,10 @@ export function NewTreeDialog({
               name="treeName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tree Name</FormLabel>
+                  <FormLabel>שם העץ</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., The Doe Family"
+                      placeholder="לדוגמה: משפחת כהן"
                       {...field}
                       disabled={isLoading}
                     />
@@ -127,13 +127,13 @@ export function NewTreeDialog({
             />
              <DialogFooter>
               <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
-                Cancel
+                ביטול
               </Button>
               <Button type="submit" disabled={isLoading}>
                 {isLoading && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
                 )}
-                Create Tree
+                צור עץ
               </Button>
             </DialogFooter>
           </form>
