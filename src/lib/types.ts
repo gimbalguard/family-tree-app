@@ -45,7 +45,16 @@ export type Relationship = {
   treeId: string;
   personAId: string;
   personBId: string;
-  relationshipType: 'parent' | 'spouse' | 'adoptive_parent' | 'step_parent';
+  relationshipType:
+    | 'parent'
+    | 'spouse'
+    | 'adoptive_parent'
+    | 'step_parent'
+    | 'sibling'
+    | 'twin'
+    | 'ex_spouse'
+    | 'guardian'
+    | 'godparent';
   startDate?: string;
   endDate?: string;
   notes?: string;

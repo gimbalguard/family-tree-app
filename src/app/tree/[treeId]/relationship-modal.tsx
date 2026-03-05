@@ -38,6 +38,11 @@ const relationshipSchema = z.object({
     'spouse',
     'adoptive_parent',
     'step_parent',
+    'sibling',
+    'twin',
+    'ex_spouse',
+    'guardian',
+    'godparent',
   ]),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -74,8 +79,8 @@ export function RelationshipModal({
     let personAId = connection.source;
     let personBId = connection.target;
     
-    // For spouses, order doesn't matter, but let's be consistent.
-    if(values.relationshipType === 'spouse' && connection.source > connection.target) {
+    // For symmetrical relationships, order doesn't matter, but let's be consistent for DB uniqueness.
+    if(['spouse', 'sibling', 'twin', 'ex_spouse'].includes(values.relationshipType) && connection.source > connection.target) {
         [personAId, personBId] = [connection.target, connection.source];
     }
     
@@ -93,8 +98,8 @@ export function RelationshipModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent dir="rtl">
+        <DialogHeader className="text-right">
           <DialogTitle>הגדרת קשר</DialogTitle>
           <DialogDescription>
             צור קשר בין{' '}
@@ -108,15 +113,20 @@ export function RelationshipModal({
               control={form.control}
               name="relationshipType"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="text-right">
                   <FormLabel>סוג קשר</FormLabel>
-                   <Select onValueChange={field.onChange} defaultValue={field.value}>
+                   <Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl">
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                         <SelectItem value="parent">הורה</SelectItem>
                         <SelectItem value="spouse">בן/בת זוג</SelectItem>
                         <SelectItem value="adoptive_parent">הורה מאמץ</SelectItem>
                         <SelectItem value="step_parent">הורה חורג</SelectItem>
+                        <SelectItem value="sibling">אח/אחות</SelectItem>
+                        <SelectItem value="twin">תאום</SelectItem>
+                        <SelectItem value="ex_spouse">בן/בת זוג לשעבר</SelectItem>
+                        <SelectItem value="guardian">אפוטרופוס</SelectItem>
+                        <SelectItem value="godparent">סנדק/סנדקית</SelectItem>
                     </SelectContent>
                    </Select>
                   <FormMessage />
@@ -125,16 +135,16 @@ export function RelationshipModal({
             />
             <div className="grid grid-cols-2 gap-4">
                <FormField control={form.control} name="startDate" render={({ field }) => (
-                <FormItem><FormLabel>תאריך התחלה (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                <FormItem className="text-right"><FormLabel>תאריך התחלה (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
               )}/>
                <FormField control={form.control} name="endDate" render={({ field }) => (
-                <FormItem><FormLabel>תאריך סיום (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                <FormItem className="text-right"><FormLabel>תאריך סיום (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
               )}/>
             </div>
              <FormField control={form.control} name="notes" render={({ field }) => (
-                <FormItem><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+                <FormItem className="text-right"><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
               )}/>
-            <DialogFooter>
+            <DialogFooter className="justify-end gap-2">
               <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
               <Button type="submit">שמור קשר</Button>
             </DialogFooter>
