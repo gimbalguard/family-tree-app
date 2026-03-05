@@ -27,17 +27,25 @@ export function AppHeader() {
   const handleLogout = async () => {
     await signOut(auth);
     // signInAnonymously is called automatically by the provider
-    router.push('/dashboard');
+    router.push('/');
   }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="mr-4 flex">
-          <Link href="/dashboard" className="ml-6 flex items-center space-x-2">
+          <Link href="/" className="ml-6 flex items-center space-x-2">
             <Logo className="h-6 w-6 text-primary" />
             <span className="font-bold">FamilyTree</span>
           </Link>
+          <nav className="flex items-center gap-6 text-sm">
+            <Link
+              href="/dashboard"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              עצים שלי
+            </Link>
+          </nav>
         </div>
         <div className="flex flex-1 items-center justify-end">
           {isUserLoading ? (

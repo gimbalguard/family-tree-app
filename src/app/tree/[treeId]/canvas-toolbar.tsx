@@ -5,7 +5,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { UserPlus, ArrowLeft } from 'lucide-react';
+import { UserPlus, ArrowLeft, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 
 type CanvasToolbarProps = {
@@ -36,6 +36,18 @@ export function CanvasToolbar({ onAddPerson }: CanvasToolbarProps) {
         <UserPlus className="h-6 w-6 mb-1" />
         <span className="text-xs">הוסף אדם חדש</span>
       </Button>
+
+      {/* New Chat Button */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" disabled> {/* Disabled for now */}
+              <MessageSquare className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>עריכה עם AI (בקרוב)</p>
+        </TooltipContent>
+      </Tooltip>
     </aside>
   );
 }

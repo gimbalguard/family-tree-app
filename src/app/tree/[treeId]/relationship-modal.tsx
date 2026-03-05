@@ -101,41 +101,48 @@ export function RelationshipModal({
   });
 
   const { sourcePerson, targetPerson } = useMemo(() => {
-    const sourceId = isEditing ? relationship?.personAId : connection?.source;
-    const targetId = isEditing ? relationship?.personBId : connection?.target;
-    
-    // For parent-child relationships, Firestore stores parent as personA.
-    // We need to figure out who is source/target from that for editing.
-    let sourceNode, targetNode;
-    if (isEditing && relationship) {
-        // This is a simplification. The user might have dragged from child to parent.
-        // For editing, we assume personA (parent) was the source.
-        sourceNode = people.find(p => p.id === sourceId);
-        targetNode = people.find(p => p.id === targetId);
-    } else {
-        sourceNode = people.find(p => p.id === sourceId);
-        targetNode = people.find(p => p.id === targetId);
-    }
-    return { sourcePerson: sourceNode, targetPerson: targetNode };
+    let sourceId, targetId;
 
+    if (isEditing && relationship) {
+        const sourceNodeIsPersonA = people.some(p => p.id === relationship.personAId);
+        
+        if (relationship.relationshipType === 'parent' || relationship.relationshipType === 'adoptive_parent' || relationship.relationshipType === 'step_parent') {
+            sourceId = relationship.personAId; // Parent
+            targetId = relationship.personBId; // Child
+        } else {
+             // For spouse and other symmetrical relationships, order doesn't strictly matter
+            sourceId = relationship.personAId;
+            targetId = relationship.personBId;
+        }
+
+    } else if (connection) {
+        sourceId = connection.source;
+        targetId = connection.target;
+    }
+
+    return { 
+        sourcePerson: people.find(p => p.id === sourceId), 
+        targetPerson: people.find(p => p.id === targetId) 
+    };
   }, [connection, relationship, people, isEditing]);
 
 
   useEffect(() => {
-    if (isOpen && isEditing && relationship && sourcePerson) {
-        const isParentSource = relationship.personAId === sourcePerson.id;
-        const parent = isParentSource ? sourcePerson : targetPerson;
+    if (isOpen && isEditing && relationship && sourcePerson && targetPerson) {
+        const parent = sourcePerson; // Assuming sourcePerson is the parent/primary
+        let selectedType;
         
-        let selectedType = relationshipOptions.find(o => 
-            o.type === relationship.relationshipType && 
-            o.gender === parent?.gender &&
-            o.direction === 'parent'
-        );
-
-        if (!selectedType) {
+        if (relationship.relationshipType === 'parent' || relationship.relationshipType === 'step_parent' || relationship.relationshipType === 'adoptive_parent') {
+            // It's a parent-child relationship, personA is parent.
+            selectedType = relationshipOptions.find(o => 
+                o.type === relationship.relationshipType && 
+                o.gender === parent?.gender &&
+                o.direction === 'parent'
+            );
+        } else {
             selectedType = relationshipOptions.find(o => o.type === relationship.relationshipType);
         }
-
+        
         form.reset({
             relationshipType: selectedType?.value || '',
             startDate: relationship.startDate || '',
@@ -156,25 +163,26 @@ export function RelationshipModal({
     const selectedOption = relationshipOptions.find(o => o.value === values.relationshipType);
     if (!selectedOption || !sourcePerson || !targetPerson) return;
     
-    let parentId, childId, genderUpdatePersonId, genderForUpdate;
+    let personAId, personBId, genderUpdatePersonId, genderForUpdate;
 
     if (selectedOption.direction === 'parent') {
-        parentId = sourcePerson.id;
-        childId = targetPerson.id;
+        personAId = sourcePerson.id;
+        personBId = targetPerson.id;
         genderUpdatePersonId = sourcePerson.id;
         genderForUpdate = selectedOption.gender;
     } else if (selectedOption.direction === 'child') {
-        parentId = targetPerson.id;
-        childId = sourcePerson.id;
+        personAId = targetPerson.id; // Parent is B
+        personBId = sourcePerson.id; // Child is A
         genderUpdatePersonId = sourcePerson.id;
         genderForUpdate = selectedOption.gender;
     } else { // Symmetrical, non-parental
-        [parentId, childId] = [sourcePerson.id, targetPerson.id].sort();
+        [personAId, personBId] = [sourcePerson.id, targetPerson.id].sort();
     }
     
     const relData = {
-      personAId: parentId,
-      personBId: childId,
+      id: isEditing ? relationship.id : undefined,
+      personAId: personAId,
+      personBId: personBId,
       relationshipType: selectedOption.type,
       startDate: values.startDate,
       endDate: values.endDate,
@@ -182,9 +190,9 @@ export function RelationshipModal({
     };
     
     let genderUpdate;
-    const genderUpdatePerson = people.find(p => p.id === genderUpdatePersonId);
-    if (genderUpdatePerson && genderForUpdate) {
-        if (genderUpdatePerson.gender !== genderForUpdate) {
+    if (genderUpdatePersonId && genderForUpdate) {
+        const genderUpdatePerson = people.find(p => p.id === genderUpdatePersonId);
+        if (genderUpdatePerson && genderUpdatePerson.gender !== genderForUpdate) {
             genderUpdate = { personId: genderUpdatePerson.id, gender: genderForUpdate as 'male' | 'female' };
         }
     }
@@ -260,8 +268,8 @@ export function RelationshipModal({
              <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem className="text-right"><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
               )}/>
-            <DialogFooter className="pt-2 sm:justify-between sm:flex-row-reverse">
-              <div className="flex gap-2 justify-end">
+            <DialogFooter className="pt-4 mt-4 border-t flex flex-row-reverse justify-between items-center">
+              <div className="flex items-center gap-2">
                 <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
                 <Button type="submit">שמור קשר</Button>
               </div>
