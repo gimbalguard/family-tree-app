@@ -4,19 +4,7 @@ import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick } f
 import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import type { FamilyTree, Person, Relationship } from '@/lib/types';
-import {
-  getTreeDetails,
-  getPeople,
-  getRelationships,
-  getCanvasPositions,
-  addPerson,
-  updatePerson,
-  deletePerson,
-  addRelationship,
-  updateCanvasPosition,
-  checkForDuplicate,
-} from '@/lib/actions/trees';
+import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
 import { RelationshipModal } from './relationship-modal';
@@ -35,6 +23,23 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  serverTimestamp,
+  doc,
+  deleteDoc,
+  writeBatch,
+  getDoc,
+  updateDoc,
+  limit,
+} from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+
 
 type TreePageClientProps = {
   treeId: string;
@@ -75,20 +80,30 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }, [user, isUserLoading, router]);
 
   const fetchData = useCallback(async () => {
-    if (!user || user.isAnonymous) return;
+    if (!user || user.isAnonymous || !db) return;
     setIsLoading(true);
     setError(null);
     try {
-      const [treeData, peopleData, relsData, posData] = await Promise.all([
-        getTreeDetails(db, user.uid, treeId),
-        getPeople(db, user.uid, treeId),
-        getRelationships(db, user.uid, treeId),
-        getCanvasPositions(db, user.uid, treeId),
+      const treeDetailsRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
+      const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
+      const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+      const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+
+      const [treeSnap, peopleSnap, relsSnap, posSnap] = await Promise.all([
+        getDoc(treeDetailsRef),
+        getDocs(peopleRef),
+        getDocs(relsRef),
+        getDocs(posRef)
       ]);
 
-      if (!treeData) {
+      if (!treeSnap.exists()) {
         throw new Error("עץ המשפחה לא נמצא או שאין לך גישה.");
       }
+      
+      const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
+      const peopleData = peopleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Person));
+      const relsData = relsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Relationship));
+      const posData = posSnap.docs.map(d => ({ id: d.id, ...d.data() } as CanvasPosition));
 
       setTree(treeData);
       setPeople(peopleData);
@@ -142,30 +157,45 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }
   
   const proceedWithCreation = async (personData: any) => {
-    if (!user || user.isAnonymous) return;
+    if (!user || !db) return;
     setIsDuplicateAlertOpen(false);
-    const result = await addPerson(db, {personData, userId: user.uid, treeId});
-    if (result.success && result.data) {
-        toast({ title: 'אדם נוסף', description: `${result.data.firstName} ${result.data.lastName} נוסף.` });
-        fetchData(); // Full refetch to get new person on canvas
-    } else {
-        toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
+
+    const data = { ...personData, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+    try {
+      const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
+      const docRef = await addDoc(peopleCollection, data);
+      const newPerson = { id: docRef.id, ...data };
+      toast({ title: 'אדם נוסף', description: `${newPerson.firstName} ${newPerson.lastName} נוסף.` });
+      fetchData();
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeId}/people`, operation: 'create', requestResourceData: data });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({ variant: 'destructive', title: 'שגיאה', description: permissionError.message });
     }
     setPersonToCreate(null);
   }
 
   const handleSavePerson = async (personData: any) => {
-    if (selectedPerson) { // It's an update
+    if (selectedPerson) {
       await handleUpdatePerson(personData as Person);
-    } else { // It's a creation
+    } else {
       await handleCreatePerson(personData);
     }
   }
 
   const handleCreatePerson = async (personData: any) => {
-    if (!user) return;
-    const isDuplicate = await checkForDuplicate(db, {personData, userId: user.uid, treeId});
-    if(isDuplicate) {
+    if (!user || !db) return;
+
+    const duplicateQuery = query(
+      collection(db, 'users', user.uid, 'familyTrees', treeId, 'people'),
+      where("firstName", "==", personData.firstName),
+      where("lastName", "==", personData.lastName),
+      where("birthDate", "==", personData.birthDate || null),
+      limit(1)
+    );
+    const duplicateSnapshot = await getDocs(duplicateQuery);
+    
+    if(!duplicateSnapshot.empty) {
         setPersonToCreate(personData);
         setIsDuplicateAlertOpen(true);
     } else {
@@ -175,14 +205,18 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
 
   const handleUpdatePerson = async (personData: Person) => {
-    if (!user) return;
-    const result = await updatePerson(db, {personData, userId: user.uid, treeId});
-     if (result.success && result.data) {
-        toast({ title: 'אדם עודכן', description: `${result.data.firstName} ${result.data.lastName} עודכן.` });
-        fetchData(); // Refetch to update all nodes/edges
-        handleEditorClose();
-    } else {
-        toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
+    if (!user || !db) return;
+    try {
+      const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
+      const dataToUpdate = { ...personData, updatedAt: serverTimestamp() };
+      await updateDoc(docRef, dataToUpdate);
+      toast({ title: 'אדם עודכן', description: `${personData.firstName} ${personData.lastName} עודכן.` });
+      fetchData();
+      handleEditorClose();
+    } catch (error: any) {
+      const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeId}/people/${personData.id}`, operation: 'update', requestResourceData: personData });
+      errorEmitter.emit('permission-error', permissionError);
+      toast({ variant: 'destructive', title: 'שגיאה', description: permissionError.message });
     }
   };
   
@@ -190,24 +224,49 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     const person = people.find(p => p.id === personId);
     if(person){
       setPersonToDelete(person);
-      setIsEditorOpen(false); // Close the editor first
+      setIsEditorOpen(false);
       setIsDeleteAlertOpen(true);
     }
   }
   
   const handleConfirmDelete = async () => {
-    if (!personToDelete || !user) return;
+    if (!personToDelete || !user || !db) return;
     setIsDeleting(true);
-    const result = await deletePerson(db, { userId: user.uid, treeId, personId: personToDelete.id });
-    if(result.success) {
-      toast({ title: 'אדם נמחק', description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`});
-      fetchData(); // Refetch everything
-    } else {
-      toast({ variant: 'destructive', title: 'שגיאת מחיקה', description: result.error });
+    try {
+        const batch = writeBatch(db);
+        const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personToDelete.id);
+        batch.delete(personRef);
+        
+        const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+        const relsQuery1 = query(relsRef, where('personAId', '==', personToDelete.id));
+        const relsQuery2 = query(relsRef, where('personBId', '==', personToDelete.id));
+        
+        const [rels1Snapshot, rels2Snapshot] = await Promise.all([getDocs(relsQuery1), getDocs(relsQuery2)]);
+        rels1Snapshot.forEach(doc => batch.delete(doc.ref));
+        rels2Snapshot.forEach(doc => batch.delete(doc.ref));
+
+        const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+        const posQuery = query(posRef, where('personId', '==', personToDelete.id), limit(1));
+        const posSnapshot = await getDocs(posQuery);
+        if (!posSnapshot.empty) {
+            batch.delete(posSnapshot.docs[0].ref);
+        }
+
+        await batch.commit();
+        toast({ title: 'אדם נמחק', description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`});
+        fetchData();
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid}/familyTrees/${treeId}/people/${personToDelete.id}`,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({ variant: 'destructive', title: 'שגיאת מחיקה', description: "Failed to delete person and their relationships." });
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteAlertOpen(false);
+      setPersonToDelete(null);
     }
-    setIsDeleting(false);
-    setIsDeleteAlertOpen(false);
-    setPersonToDelete(null);
   }
 
 
@@ -222,27 +281,65 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }
 
   const handleCreateRelationship = async (relData: Omit<Relationship, 'id' | 'treeId' | 'userId'>) => {
-    if (!user) return;
-    const result = await addRelationship(db, { relData, userId: user.uid, treeId });
-    if (result.success && result.data) {
-        toast({ title: 'קשר נוסף'});
-        const newEdge = {
-            id: result.data.id,
-            source: result.data.personAId,
-            target: result.data.personBId,
-            label: result.data.relationshipType,
-            type: 'smoothstep',
-        };
-        setEdges((eds) => eds.concat(newEdge));
-        handleRelModalClose();
-    } else {
-        toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
+    if (!user || !db) return;
+    const data = { ...relData, userId: user.uid, treeId };
+    try {
+      const relCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+      const docRef = await addDoc(relCollection, data);
+      
+      const newRelationship = { id: docRef.id, ...data } as Relationship;
+
+      toast({ title: 'קשר נוסף' });
+      const newEdge: Edge = {
+          id: newRelationship.id,
+          source: newRelationship.personAId,
+          target: newRelationship.personBId,
+          label: newRelationship.relationshipType.replace('_', ' ').charAt(0).toUpperCase() + newRelationship.relationshipType.replace('_', ' ').slice(1),
+          type: 'smoothstep',
+      };
+      setEdges((eds) => eds.concat(newEdge));
+      handleRelModalClose();
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+          path: `users/${user.uid}/familyTrees/${treeId}/relationships`,
+          operation: 'create',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({ variant: 'destructive', title: 'שגיאה', description: permissionError.message });
     }
   }
 
   const handleNodeDragStop: OnNodeDragStop = useCallback(async (_, node) => {
-    if (!user) return;
-    await updateCanvasPosition(db, { posData: { personId: node.id, x: node.position.x, y: node.position.y }, userId: user.uid, treeId });
+    if (!user || !db) return;
+    
+    const posData = { personId: node.id, x: node.position.x, y: node.position.y };
+    try {
+      const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+      const q = query(canvasPositionsRef,
+        where("personId", "==", posData.personId),
+        limit(1)
+      );
+      const snapshot = await getDocs(q);
+
+      const dataToSave = {
+        ...posData,
+        userId: user.uid,
+        treeId,
+        updatedAt: serverTimestamp()
+      };
+
+      if (snapshot.empty) {
+        await addDoc(canvasPositionsRef, dataToSave);
+      } else {
+        const docRef = snapshot.docs[0].ref;
+        await updateDoc(docRef, { x: posData.x, y: posData.y, updatedAt: serverTimestamp() });
+      }
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeId}/canvasPositions`, operation: 'write', requestResourceData: posData });
+        errorEmitter.emit('permission-error', permissionError);
+        // This is a background save, so we don't show a toast on error
+    }
   }, [user, treeId, db]);
   
   if (isUserLoading || (isLoading && !error)) {

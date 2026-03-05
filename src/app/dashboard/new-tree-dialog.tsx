@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useUser, useFirestore } from '@/firebase';
-import { createTree } from '@/lib/actions/trees';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -27,6 +26,9 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import type { FamilyTree } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 const formSchema = z.object({
   treeName: z.string().min(3, 'שם העץ חייב להכיל לפחות 3 תווים.'),
@@ -66,7 +68,7 @@ export function NewTreeDialog({
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user || user.isAnonymous) {
+    if (!user || user.isAnonymous || !db) {
       toast({
         variant: 'destructive',
         title: 'נדרש אימות',
@@ -77,20 +79,42 @@ export function NewTreeDialog({
     }
 
     setIsLoading(true);
-    const result = await createTree(db, { ...values, userId: user.uid });
 
-    if (result.success && result.data) {
+    const treeData = {
+      treeName: values.treeName,
+      userId: user.uid,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, 'users', user.uid, 'familyTrees'), treeData);
+      const newTree: FamilyTree = {
+        id: docRef.id,
+        treeName: values.treeName,
+        userId: user.uid,
+        createdAt: new Date() as any, 
+        updatedAt: new Date() as any,
+      };
+      
       toast({
         title: 'עץ נוצר',
-        description: `העץ החדש שלך "${result.data.treeName}" מוכן.`,
+        description: `העץ החדש שלך "${newTree.treeName}" מוכן.`,
       });
-      onTreeCreated(result.data);
+      onTreeCreated(newTree);
       handleOpenChange(false);
-    } else {
+
+    } catch (error: any) {
+      const permissionError = new FirestorePermissionError({
+        path: `users/${user.uid}/familyTrees`,
+        operation: 'create',
+        requestResourceData: { treeName: values.treeName, userId: user.uid }
+      });
+      errorEmitter.emit('permission-error', permissionError);
       toast({
         variant: 'destructive',
         title: 'שגיאה ביצירת עץ',
-        description: result.error,
+        description: permissionError.message,
       });
     }
 

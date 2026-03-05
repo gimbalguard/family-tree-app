@@ -2,7 +2,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUser, useFirestore } from '@/firebase';
 import type { FamilyTree } from '@/lib/types';
-import { getTreesForUser, deleteTree } from '@/lib/actions/trees';
 import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, Users, LogIn } from 'lucide-react';
 import { NewTreeDialog } from './new-tree-dialog';
@@ -19,6 +18,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { collection, query, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 export function DashboardClient() {
   const { user, isUserLoading } = useUser();
@@ -35,9 +37,17 @@ export function DashboardClient() {
   const isAnonymous = user?.isAnonymous ?? true;
 
   const fetchTrees = useCallback(async () => {
-    if (user && !user.isAnonymous) {
+    if (user && !user.isAnonymous && db) {
       setIsLoading(true);
-      const userTrees = await getTreesForUser(db, user.uid);
+      const treesRef = collection(db, 'users', user.uid, 'familyTrees');
+      const q = query(treesRef);
+      const querySnapshot = await getDocs(q);
+      const userTrees: FamilyTree[] = [];
+
+      for (const doc of querySnapshot.docs) {
+        const treeData = { id: doc.id, ...doc.data() } as FamilyTree;
+        userTrees.push(treeData);
+      }
       setTrees(userTrees);
       setIsLoading(false);
     } else {
@@ -45,6 +55,7 @@ export function DashboardClient() {
       setIsLoading(false);
     }
   }, [user, db]);
+
 
   useEffect(() => {
     if (!isUserLoading) {
@@ -63,23 +74,41 @@ export function DashboardClient() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!treeToDelete || !user || user.isAnonymous) return;
+    if (!treeToDelete || !user || user.isAnonymous || !db) return;
     setIsDeleting(true);
-    const result = await deleteTree(db, { userId: user.uid, treeId: treeToDelete.id });
 
-    if (result.success) {
+    try {
+      const batch = writeBatch(db);
+      const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
+
+      // Delete subcollections
+      const collectionsToDelete = ['people', 'relationships', 'canvasPositions'];
+      for (const coll of collectionsToDelete) {
+        const subCollectionRef = collection(db, 'users', user.uid, 'familyTrees', treeToDelete.id, coll);
+        const snapshot = await getDocs(subCollectionRef);
+        snapshot.docs.forEach((d) => batch.delete(d.ref));
+      }
+
+      batch.delete(treeDocRef);
+
+      await batch.commit();
+      
       toast({
         title: 'עץ נמחק',
         description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
       });
       setTrees(trees.filter((tree) => tree.id !== treeToDelete.id));
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'שגיאה',
-        description: result.error,
-      });
+
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeToDelete.id}`, operation: 'delete' });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({
+          variant: 'destructive',
+          title: 'שגיאה',
+          description: "Failed to delete tree and associated data.",
+        });
     }
+
     setIsDeleting(false);
     setIsAlertOpen(false);
     setTreeToDelete(null);
