@@ -148,12 +148,16 @@ export async function getRelationships(db: Firestore, userId: string, treeId: st
 }
 
 export async function addRelationship(db: Firestore, { relData, userId, treeId }: { relData: Omit<Relationship, 'id' | 'treeId' | 'userId'>, userId: string, treeId: string }) {
+  const data = { ...relData, userId, treeId };
   try {
-    const data = { ...relData, userId, treeId };
     const docRef = await addDoc(collection(db, 'users', userId, 'familyTrees', treeId, 'relationships'), data);
-    return { success: true, data: { id: docRef.id, ...relData, userId, treeId } as Relationship };
+    return { success: true, data: { id: docRef.id, ...data } as Relationship };
   } catch (error: any) {
-    const permissionError = new FirestorePermissionError({ path: `users/${userId}/familyTrees/${treeId}/relationships`, operation: 'create', requestResourceData: relData });
+    const permissionError = new FirestorePermissionError({
+      path: `users/${userId}/familyTrees/${treeId}/relationships`,
+      operation: 'create',
+      requestResourceData: data,
+    });
     errorEmitter.emit('permission-error', permissionError);
     return { success: false, error: permissionError.message };
   }
