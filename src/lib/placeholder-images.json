@@ -1,3 +1,22 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "male-avatar",
+      "description": "Placeholder avatar for a male person",
+      "imageUrl": "https://picsum.photos/seed/male-avatar/400/400",
+      "imageHint": "male portrait"
+    },
+    {
+      "id": "female-avatar",
+      "description": "Placeholder avatar for a female person",
+      "imageUrl": "https://picsum.photos/seed/female-avatar/400/400",
+      "imageHint": "female portrait"
+    },
+    {
+      "id": "other-avatar",
+      "description": "Placeholder avatar for a person of other gender",
+      "imageUrl": "https://picsum.photos/seed/other-avatar/400/400",
+      "imageHint": "abstract portrait"
+    }
+  ]
 }
