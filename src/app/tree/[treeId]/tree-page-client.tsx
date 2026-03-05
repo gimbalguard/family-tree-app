@@ -12,6 +12,7 @@ import {
   getCanvasPositions,
   addPerson,
   updatePerson,
+  deletePerson,
   addRelationship,
   updateCanvasPosition,
   checkForDuplicate,
@@ -61,6 +62,10 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
   const [isDuplicateAlertOpen, setIsDuplicateAlertOpen] = useState(false);
   const [personToCreate, setPersonToCreate] = useState<any | null>(null);
+
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [personToDelete, setPersonToDelete] = useState<Person | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && (!user || user.isAnonymous)) {
@@ -179,6 +184,31 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
     }
   };
+  
+  const handleDeleteRequest = (personId: string) => {
+    const person = people.find(p => p.id === personId);
+    if(person){
+      setPersonToDelete(person);
+      setIsEditorOpen(false); // Close the editor first
+      setIsDeleteAlertOpen(true);
+    }
+  }
+  
+  const handleConfirmDelete = async () => {
+    if (!personToDelete || !user) return;
+    setIsDeleting(true);
+    const result = await deletePerson(db, { userId: user.uid, treeId, personId: personToDelete.id });
+    if(result.success) {
+      toast({ title: 'אדם נמחק', description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`});
+      fetchData(); // Refetch everything
+    } else {
+      toast({ variant: 'destructive', title: 'שגיאת מחיקה', description: result.error });
+    }
+    setIsDeleting(false);
+    setIsDeleteAlertOpen(false);
+    setPersonToDelete(null);
+  }
+
 
   const handleConnect: OnConnect = useCallback((params) => {
     setNewConnection(params);
@@ -272,6 +302,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
             person={selectedPerson}
             treeId={treeId}
             onSave={handleSavePerson}
+            onDelete={handleDeleteRequest}
           />
           {newConnection && (
             <RelationshipModal
@@ -296,7 +327,30 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                      <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          פעולה זו תמחק לצמיתות את{' '}
+                          <strong className="text-foreground">
+                              {personToDelete?.firstName} {personToDelete?.lastName}
+                          </strong>
+                          , וכל הקשרים שלו. לא ניתן לבטל פעולה זו.
+                      </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
+                      <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+                          {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                          מחק
+                      </Button>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
         </ReactFlowProvider>
     </div>
   );
 }
+
+    

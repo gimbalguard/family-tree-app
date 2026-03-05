@@ -107,7 +107,7 @@ export async function addPerson(db: Firestore, { personData, userId, treeId }: {
   const data = { ...personData, userId, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
   try {
     const docRef = await addDoc(collection(db, 'users', userId, 'familyTrees', treeId, 'people'), data);
-    return { success: true, data: { id: docRef.id, ...personData, userId, treeId } as Person };
+    return { success: true, data: { id: docRef.id, ...data } as Person };
   } catch (error: any) {
     const permissionError = new FirestorePermissionError({ path: `users/${userId}/familyTrees/${treeId}/people`, operation: 'create', requestResourceData: data });
     errorEmitter.emit('permission-error', permissionError);
@@ -126,6 +126,44 @@ export async function updatePerson(db: Firestore, { personData, userId, treeId }
     errorEmitter.emit('permission-error', permissionError);
     return { success: false, error: permissionError.message };
   }
+}
+
+export async function deletePerson(db: Firestore, { userId, treeId, personId }: { userId: string, treeId: string, personId: string }) {
+    try {
+        const batch = writeBatch(db);
+        
+        // 1. Delete the person document
+        const personRef = doc(db, 'users', userId, 'familyTrees', treeId, 'people', personId);
+        batch.delete(personRef);
+        
+        // 2. Delete relationships involving the person
+        const relsRef = collection(db, 'users', userId, 'familyTrees', treeId, 'relationships');
+        const relsQuery1 = query(relsRef, where('personAId', '==', personId));
+        const relsQuery2 = query(relsRef, where('personBId', '==', personId));
+        
+        const [rels1Snapshot, rels2Snapshot] = await Promise.all([getDocs(relsQuery1), getDocs(relsQuery2)]);
+        rels1Snapshot.forEach(doc => batch.delete(doc.ref));
+        rels2Snapshot.forEach(doc => batch.delete(doc.ref));
+
+        // 3. Delete canvas position for the person
+        const posRef = collection(db, 'users', userId, 'familyTrees', treeId, 'canvasPositions');
+        const posQuery = query(posRef, where('personId', '==', personId), limit(1));
+        const posSnapshot = await getDocs(posQuery);
+        if (!posSnapshot.empty) {
+            batch.delete(posSnapshot.docs[0].ref);
+        }
+
+        await batch.commit();
+        return { success: true };
+
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+            path: `users/${userId}/familyTrees/${treeId}/people/${personId}`,
+            operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        return { success: false, error: "Failed to delete person and their relationships." };
+    }
 }
 
 export async function checkForDuplicate(db: Firestore, { personData, userId, treeId }: { personData: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'treeId' | 'userId'>, userId: string, treeId: string }) {
@@ -198,3 +236,5 @@ export async function updateCanvasPosition(db: Firestore, { posData, userId, tre
     return { success: false, error: permissionError.message };
   }
 }
+
+    

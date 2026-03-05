@@ -78,6 +78,7 @@ type PersonEditorProps = {
   person?: Person | null;
   treeId: string;
   onSave: (data: any) => Promise<void>;
+  onDelete: (personId: string) => void;
 };
 
 export function PersonEditor({
@@ -86,6 +87,7 @@ export function PersonEditor({
   person,
   treeId,
   onSave,
+  onDelete,
 }: PersonEditorProps) {
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -171,6 +173,12 @@ export function PersonEditor({
         setIsAiLoading(false);
     }
   };
+  
+  const handleDeleteClick = () => {
+    if (person) {
+      onDelete(person.id);
+    }
+  }
 
   async function onSubmit(values: z.infer<typeof personSchema>) {
     setIsSaving(true);
@@ -353,6 +361,12 @@ export function PersonEditor({
                         {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                         {buttonText}
                     </Button>
+                    {isEditing && (
+                        <Button type="button" variant="destructive" onClick={handleDeleteClick} disabled={isSaving}>
+                            <Trash2 className="ml-2 h-4 w-4"/>
+                            מחק
+                        </Button>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     <Label htmlFor="additional-fields-switch">פרטים נוספים</Label>
@@ -369,3 +383,5 @@ export function PersonEditor({
     </Dialog>
   );
 }
+
+    
