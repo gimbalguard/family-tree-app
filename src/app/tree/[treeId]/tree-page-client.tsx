@@ -283,6 +283,9 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const handleCreateRelationship = async (relData: Omit<Relationship, 'id' | 'treeId' | 'userId'>) => {
     if (!user || !db) return;
     const data = { ...relData, userId: user.uid, treeId };
+
+    console.log('Creating relationship with data:', data, 'user.uid:', user.uid);
+
     try {
       const relCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
       const docRef = await addDoc(relCollection, data);
@@ -300,13 +303,13 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       setEdges((eds) => eds.concat(newEdge));
       handleRelModalClose();
     } catch (error: any) {
-        const permissionError = new FirestorePermissionError({
-          path: `users/${user.uid}/familyTrees/${treeId}/relationships`,
-          operation: 'create',
-          requestResourceData: data,
+        console.error('Real error:', error);
+        toast({
+          variant: 'destructive',
+          title: 'שגיאה ביצירת קשר',
+          description: "An unexpected error occurred. Check the developer console for details.",
         });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({ variant: 'destructive', title: 'שגיאה', description: permissionError.message });
+        throw error;
     }
   }
 
