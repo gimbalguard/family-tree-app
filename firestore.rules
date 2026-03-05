@@ -91,34 +91,12 @@ service cloud.firestore {
     }
 
     /**
-     * hasValidCreateData_SubTreeItem
-     * Validates that sub-tree documents (Person, Relationship, etc.) have their
-     * denormalized `userId` and `treeId` fields set correctly upon creation.
-     */
-    function hasValidCreateData_SubTreeItem(userId, treeId) {
-      let data = request.resource.data;
-      // The IR reasoning states `userId` should be denormalized, even if not in the schema.
-      // This is a critical security enforcement.
-      return data.userId == userId && data.treeId == treeId;
-    }
-
-    /**
      * isImmutable_SubTreeItem
      * Ensures the denormalized `userId` and `treeId` fields are immutable.
      */
     function isImmutable_SubTreeItem() {
       let data = request.resource.data;
       return data.userId == resource.data.userId && data.treeId == resource.data.treeId;
-    }
-
-    /**
-     * hasValidCreateData_SocialLink
-     * Validates that a new SocialLink has its denormalized `userId`, `treeId`,
-     * and `personId` fields set correctly.
-     */
-    function hasValidCreateData_SocialLink(userId, treeId, personId) {
-      let data = request.resource.data;
-      return hasValidCreateData_SubTreeItem(userId, treeId) && data.personId == personId;
     }
 
     /**
@@ -177,7 +155,7 @@ service cloud.firestore {
         match /people/{personId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
 
@@ -192,7 +170,7 @@ service cloud.firestore {
           match /socialLinks/{socialLinkId} {
             allow get: if isOwner(userId);
             allow list: if isOwner(userId);
-            allow create: if isOwner(userId);
+            allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId && request.resource.data.personId == personId;
             allow update: if isExistingOwner(userId) && isImmutable_SocialLink();
             allow delete: if isExistingOwner(userId);
           }
@@ -209,7 +187,7 @@ service cloud.firestore {
         match /relationships/{relationshipId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
@@ -225,7 +203,7 @@ service cloud.firestore {
         match /canvasPositions/{positionId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
@@ -233,5 +211,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
