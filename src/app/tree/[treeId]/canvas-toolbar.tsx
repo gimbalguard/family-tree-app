@@ -14,7 +14,7 @@ type CanvasToolbarProps = {
 
 export function CanvasToolbar({ onAddPerson }: CanvasToolbarProps) {
   return (
-    <aside className="flex flex-col items-center gap-4 border-l bg-card p-4">
+    <aside className="flex flex-col items-center gap-4 border-r bg-card p-4">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" asChild>

@@ -158,17 +158,14 @@ export function PersonEditor({
       : { ...values, treeId };
     await onSave(dataToSave);
     setIsSaving(false);
-    // Only close and reset if it was a new person creation
-    if (!isEditing) {
-        onClose();
-    }
+    onClose();
   }
   
   const buttonText = isEditing ? 'שמור שינויים' : 'צור אדם';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="right" className="sm:max-w-xl w-[90vw] flex flex-col">
+      <SheetContent side="left" className="sm:max-w-md w-[90vw] flex flex-col">
         <SheetHeader className="text-right">
           <SheetTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</SheetTitle>
           <SheetDescription>
@@ -177,8 +174,8 @@ export function PersonEditor({
         </SheetHeader>
         <Separator className="my-4" />
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col justify-between">
-            <ScrollArea className="pr-1">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col overflow-hidden">
+            <ScrollArea className="flex-1 pr-1">
               <div className="space-y-6 py-4 pr-5">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="firstName" render={({ field }) => (
@@ -236,7 +233,7 @@ export function PersonEditor({
                         <FormControl>
                           <Textarea className="min-h-[120px]" {...field} />
                         </FormControl>
-                         <FormDescription>
+                         <FormDescription className='text-right'>
                           מקסימום 2000 תווים. השתמש ב-AI כדי להעשיר את התיאור.
                         </FormDescription>
                         <FormMessage />

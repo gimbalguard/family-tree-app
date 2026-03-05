@@ -248,7 +248,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   return (
     <div className="h-screen w-full overflow-hidden">
         <ReactFlowProvider>
-          <div className="flex h-full flex-row-reverse">
+          <div className="flex h-full">
             <CanvasToolbar onAddPerson={handleOpenEditorForNew} />
             <main className="flex-1 relative">
                 <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm">
