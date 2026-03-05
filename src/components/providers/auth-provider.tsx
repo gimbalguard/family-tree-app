@@ -1,37 +1,37 @@
-'use client';
-import { auth } from '@/lib/firebase';
-import type { User } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import type { Metadata } from 'next';
+import './globals.css';
+import { Toaster } from '@/components/ui/toaster';
+import { FirebaseClientProvider } from '@/firebase';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
-type AuthContextType = {
-  user: User | null;
-  loading: boolean;
+export const metadata: Metadata = {
+  title: 'FamilyTree',
+  description: 'Build and visualize your family history.',
 };
 
-const AuthContext = createContext<AuthContextType>({
-  user: null,
-  loading: true,
-});
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const value = { user, loading };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="font-body antialiased">
+        <TooltipProvider>
+          <FirebaseClientProvider>
+            {children}
+            <Toaster />
+          </FirebaseClientProvider>
+        </TooltipProvider>
+      </body>
+    </html>
+  );
 }
-
-export const useAuth = () => {
-  return useContext(AuthContext);
-};

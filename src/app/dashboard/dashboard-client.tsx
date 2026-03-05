@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@/firebase';
 import type { FamilyTree } from '@/lib/types';
 import { getTreesForUser, deleteTree } from '@/lib/actions/trees';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 
 export function DashboardClient() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
   const [trees, setTrees] = useState<FamilyTree[]>([]);
   const [isLoading, setIsLoading] = useState(true);

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Node, Edge, Connection } from 'reactflow';
 import { ReactFlowProvider } from 'reactflow';
 
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@/firebase';
 import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
 import {
   getTreeDetails,
@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function TreeClient({ treeId }: { treeId: string }) {
-  const { user } = useAuth();
+  const { user } = useUser();
   const { toast } = useToast();
 
   const [tree, setTree] = useState<FamilyTree | null>(null);

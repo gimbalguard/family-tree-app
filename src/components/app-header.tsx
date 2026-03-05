@@ -12,11 +12,11 @@ import {
 } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { signOutUser } from '@/lib/actions/auth';
-import { useAuth } from './providers/auth-provider';
-import { LogOut, User } from 'lucide-react';
+import { useUser } from '@/firebase';
+import { LogOut } from 'lucide-react';
 
 export function AppHeader() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const userInitial = user?.email?.charAt(0).toUpperCase() ?? '?';
 
   return (

@@ -1,13 +1,13 @@
 'use client';
 
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { Logo } from './icons';
 
 export function PublicPageGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, isUserLoading: loading } = useUser();
   const router = useRouter();
 
   useEffect(() => {
