@@ -14,7 +14,7 @@ type CanvasToolbarProps = {
 
 export function CanvasToolbar({ onAddPerson }: CanvasToolbarProps) {
   return (
-    <aside className="flex flex-col items-center gap-4 border-l bg-card p-2">
+    <aside className="flex flex-col items-center gap-4 border-l bg-card p-4">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" asChild>
@@ -28,21 +28,14 @@ export function CanvasToolbar({ onAddPerson }: CanvasToolbarProps) {
         </TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onAddPerson}
-            className="h-12 w-12 rounded-lg"
-          >
-            <UserPlus className="h-6 w-6" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>הוסף אדם חדש</p>
-        </TooltipContent>
-      </Tooltip>
+      <Button
+        variant="outline"
+        onClick={onAddPerson}
+        className="h-auto w-full flex-col p-3"
+      >
+        <UserPlus className="h-6 w-6 mb-1" />
+        <span className="text-xs">הוסף אדם חדש</span>
+      </Button>
     </aside>
   );
 }
