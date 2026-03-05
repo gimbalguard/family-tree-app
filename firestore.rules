@@ -209,7 +209,7 @@ service cloud.firestore {
         match /relationships/{relationshipId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
