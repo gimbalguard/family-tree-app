@@ -20,18 +20,14 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, Paperclip, Send, Loader2, ArrowLeft, Bot } from 'lucide-react';
+import { Mic, Paperclip, Send, Loader2, ArrowLeft, Bot, StopCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { generateTreeFromStory } from '@/ai/flows/ai-tree-generation-flow';
 import type { GenerateTreeOutput } from '@/ai/flows/ai-tree-generation.types';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 
 interface ChatMessage {
   id: string;
@@ -68,6 +64,13 @@ export function AiBuildClient() {
   const [generatedData, setGeneratedData] =
     useState<GenerateTreeOutput | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -117,6 +120,72 @@ export function AiBuildClient() {
       setIsCreatingManually(false);
     }
   };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setIsRecording(true);
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        audioChunksRef.current = [];
+
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          audioChunksRef.current.push(event.data);
+        };
+
+        mediaRecorderRef.current.onstop = async () => {
+          stream.getTracks().forEach(track => track.stop());
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Audio = reader.result as string;
+            if (!base64Audio) return;
+
+            setIsTranscribing(true);
+            try {
+              const { transcript } = await transcribeAudio({ audioDataUri: base64Audio });
+              setStory((prev) => (prev ? `${prev}\n${transcript}` : transcript));
+              toast({ title: 'התמלול הושלם', description: 'הטקסט נוסף לתיבת הסיפור.' });
+            } catch (error) {
+              console.error("Error transcribing audio:", error);
+              toast({ variant: 'destructive', title: 'שגיאת תמלול', description: 'לא ניתן היה לתמלל את ההקלטה.' });
+            } finally {
+              setIsTranscribing(false);
+            }
+          };
+        };
+        mediaRecorderRef.current.start();
+      } catch (err) {
+        console.error("Error accessing microphone:", err);
+        toast({ variant: 'destructive', title: 'שגיאת מיקרופון', description: 'לא ניתן לגשת למיקרופון. אנא בדוק הרשאות.' });
+        setIsRecording(false);
+      }
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.type.startsWith('text/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        setStory((prev) => (prev ? `${prev}\n${text}` : text));
+        toast({ title: 'הקובץ נטען', description: 'תוכן הקובץ נוסף לתיבת הסיפור.' });
+      };
+      reader.readAsText(file);
+    } else {
+      toast({ variant: 'destructive', title: 'סוג קובץ לא נתמך', description: 'אנא העלה קובץ טקסט (.txt, .md).'});
+    }
+    event.target.value = ''; // Reset for re-uploading the same file
+  };
+
 
   const handleSendStory = async () => {
     if (!story.trim() || !user) return;
@@ -204,23 +273,20 @@ export function AiBuildClient() {
     setIsCreating(true);
 
     try {
-      // 1. Create the new FamilyTree document
-      const treeDocRef = await addDoc(
-        collection(db, 'users', user.uid, 'familyTrees'),
-        {
-          treeName: treeName,
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        }
-      );
+      const treeDocRef = doc(collection(db, 'users', user.uid, 'familyTrees'));
+      
+      const batch = writeBatch(db);
+      
+      batch.set(treeDocRef, {
+        treeName: treeName,
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
       const treeId = treeDocRef.id;
 
-      // 2. Prepare a batch write for all people and relationships
-      const batch = writeBatch(db);
       const tempIdToFirestoreId: Record<string, string> = {};
 
-      // 3. Add people to the batch
       generatedData.people.forEach((person) => {
         const personDocRef = doc(
           collection(db, 'users', user.uid, 'familyTrees', treeId, 'people')
@@ -235,7 +301,6 @@ export function AiBuildClient() {
         });
       });
 
-      // 4. Add relationships to the batch
       generatedData.relationships.forEach((rel) => {
         const personAId = tempIdToFirestoreId[rel.personAKey];
         const personBId = tempIdToFirestoreId[rel.personBKey];
@@ -261,7 +326,6 @@ export function AiBuildClient() {
         }
       });
 
-      // 5. Commit the batch
       await batch.commit();
 
       toast({
@@ -269,7 +333,6 @@ export function AiBuildClient() {
         description: `כעת תועבר לעץ החדש שלך: "${treeName}"`,
       });
 
-      // 6. Navigate to the new tree
       router.push(`/tree/${treeId}`);
     } catch (error) {
       console.error('Error creating tree from AI data:', error);
@@ -281,6 +344,8 @@ export function AiBuildClient() {
       setIsCreating(false);
     }
   };
+
+  const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
 
   return (
     <div className="container mx-auto max-w-4xl py-12 px-4">
@@ -307,6 +372,7 @@ export function AiBuildClient() {
             value={treeName}
             onChange={(e) => setTreeName(e.target.value)}
             className="text-lg"
+            disabled={disabledWhileBusy}
           />
 
           <Alert>
@@ -328,46 +394,46 @@ export function AiBuildClient() {
           <div className="flex h-96 flex-col space-y-4 rounded-lg border bg-muted/20 p-4">
             <ScrollArea className="flex-1" ref={scrollAreaRef}>
               <div className="pr-4 space-y-6">
-                {chatHistory.length === 0 ? (
+                {chatHistory.length === 0 && !isTranscribing && (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
                     <p>הודעות הצ'אט יופיעו כאן...</p>
                   </div>
-                ) : (
-                  chatHistory.map((message) => (
+                )}
+                {chatHistory.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex items-start gap-4 ${
+                      message.role === 'user' ? 'justify-end' : ''
+                    }`}
+                  >
+                    {message.role === 'assistant' && (
+                      <Avatar className="h-8 w-8 border">
+                        <AvatarFallback>
+                          <Bot className="h-5 w-5" />
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     <div
-                      key={message.id}
-                      className={`flex items-start gap-4 ${
-                        message.role === 'user' ? 'justify-end' : ''
+                      className={`max-w-[75%] rounded-lg p-3 ${
+                        message.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background'
                       }`}
                     >
-                      {message.role === 'assistant' && (
-                        <Avatar className="h-8 w-8 border">
-                          <AvatarFallback>
-                            <Bot className="h-5 w-5" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div
-                        className={`max-w-[75%] rounded-lg p-3 ${
-                          message.role === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-background'
-                        }`}
-                      >
-                        {message.content}
-                      </div>
+                      {message.content}
                     </div>
-                  ))
-                )}
-                {isGenerating && (
+                  </div>
+                ))}
+                {(isGenerating || isTranscribing) && (
                   <div className="flex items-start gap-4">
                     <Avatar className="h-8 w-8 border">
                       <AvatarFallback>
                         <Bot className="h-5 w-5" />
                       </AvatarFallback>
                     </Avatar>
-                    <div className="max-w-[75%] rounded-lg bg-background p-3">
+                    <div className="max-w-[75%] rounded-lg bg-background p-3 flex items-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>{isTranscribing ? 'מתמלל הקלטה...' : 'חושב...'}</span>
                     </div>
                   </div>
                 )}
@@ -385,38 +451,32 @@ export function AiBuildClient() {
                     handleSendStory();
                   }
                 }}
-                disabled={isGenerating}
+                disabled={disabledWhileBusy}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled>
-                      <Paperclip className="h-5 w-5" />
-                      <span className="sr-only">צרף קובץ</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>בקרוב</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled>
-                      <Mic className="h-5 w-5" />
-                      <span className="sr-only">הקלט הודעה</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>בקרוב</p>
-                  </TooltipContent>
-                </Tooltip>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  accept="text/*"
+                  disabled={disabledWhileBusy}
+                />
+                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={disabledWhileBusy}>
+                    <Paperclip className="h-5 w-5" />
+                    <span className="sr-only">צרף קובץ</span>
+                </Button>
+                <Button variant={isRecording ? 'destructive' : 'ghost'} size="icon" onClick={handleMicClick} disabled={isTranscribing || isGenerating}>
+                    {isRecording ? <StopCircle className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                    <span className="sr-only">{isRecording ? 'עצור הקלטה' : 'הקלט הודעה'}</span>
+                </Button>
               </div>
               <Button
                 variant="default"
                 size="icon"
                 className="absolute left-3 top-1/2 -translate-y-1/2"
                 onClick={handleSendStory}
-                disabled={isGenerating || !story.trim()}
+                disabled={disabledWhileBusy || !story.trim()}
               >
                 <Send className="h-5 w-5" />
                 <span className="sr-only">שלח</span>
@@ -432,7 +492,7 @@ export function AiBuildClient() {
         <Button
           size="lg"
           onClick={handleManualCreate}
-          disabled={isCreatingManually}
+          disabled={isCreatingManually || disabledWhileBusy}
         >
           {isCreatingManually ? (
             <Loader2 className="ml-2 h-4 w-4 animate-spin" />
