@@ -49,7 +49,7 @@ type RelationshipModalProps = {
   onClose: () => void;
   connection: Connection;
   people: Person[];
-  onSave: (data: Omit<Relationship, 'id' | 'treeId'>) => void;
+  onSave: (data: Omit<Relationship, 'id' | 'treeId' | 'userId'>) => void;
 };
 
 export function RelationshipModal({
@@ -81,8 +81,8 @@ export function RelationshipModal({
     
     onSave({
       ...values,
-      personA: personAId,
-      personB: personBId,
+      personAId: personAId,
+      personBId: personBId,
       relationshipType: values.relationshipType,
     });
   }

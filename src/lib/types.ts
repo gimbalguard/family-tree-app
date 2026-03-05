@@ -18,6 +18,7 @@ export type FamilyTree = {
 
 export type Person = {
   id: string;
+  userId: string;
   treeId: string;
   firstName: string;
   lastName: string;
@@ -34,9 +35,10 @@ export type Person = {
 
 export type Relationship = {
   id: string;
+  userId: string;
   treeId: string;
-  personA: string;
-  personB: string;
+  personAId: string;
+  personBId: string;
   relationshipType: 'parent' | 'spouse' | 'adoptive_parent' | 'step_parent';
   startDate?: string;
   endDate?: string;
@@ -52,8 +54,10 @@ export type SocialLink = {
 
 export type CanvasPosition = {
   id: string;
+  userId: string;
   treeId: string;
   personId: string;
   x: number;
   y: number;
+  updatedAt: Timestamp;
 };

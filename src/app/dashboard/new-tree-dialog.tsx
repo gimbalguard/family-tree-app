@@ -25,6 +25,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import type { FamilyTree } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   treeName: z.string().min(3, 'Tree name must be at least 3 characters.'),
@@ -33,7 +35,7 @@ const formSchema = z.object({
 type NewTreeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTreeCreated: () => void;
+  onTreeCreated: (newTree: FamilyTree) => void;
 };
 
 export function NewTreeDialog({
@@ -43,6 +45,7 @@ export function NewTreeDialog({
 }: NewTreeDialogProps) {
   const { user } = useUser();
   const { toast } = useToast();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -62,12 +65,13 @@ export function NewTreeDialog({
   };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) {
+    if (!user || user.isAnonymous) {
       toast({
         variant: 'destructive',
-        title: 'Authentication Error',
-        description: 'You must be logged in to create a tree.',
+        title: 'Authentication Required',
+        description: 'Please log in to create a new tree.',
       });
+      router.push('/login');
       return;
     }
 
@@ -79,12 +83,12 @@ export function NewTreeDialog({
         title: 'Tree Created',
         description: `Your new tree "${result.data.treeName}" is ready.`,
       });
-      onTreeCreated();
+      onTreeCreated(result.data);
       handleOpenChange(false);
     } else {
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Error Creating Tree',
         description: result.error,
       });
     }

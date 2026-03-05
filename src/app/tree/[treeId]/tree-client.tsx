@@ -4,7 +4,7 @@ import type { Node, Edge, Connection } from 'reactflow';
 import { ReactFlowProvider } from 'reactflow';
 
 import { useUser } from '@/firebase';
-import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
+import type { FamilyTree, Person, Relationship } from '@/lib/types';
 import {
   getTreeDetails,
   getPeople,
@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 export function TreeClient({ treeId }: { treeId: string }) {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const [tree, setTree] = useState<FamilyTree | null>(null);
@@ -52,18 +52,18 @@ export function TreeClient({ treeId }: { treeId: string }) {
   const [isRelModalOpen, setIsRelModalOpen] = useState(false);
 
   const [isDuplicateAlertOpen, setIsDuplicateAlertOpen] = useState(false);
-  const [personToCreate, setPersonToCreate] = useState<Omit<Person, 'id' | 'createdAt' | 'updatedAt'> | null>(null);
+  const [personToCreate, setPersonToCreate] = useState<any | null>(null);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user || user.isAnonymous) return;
     setIsLoading(true);
     setError(null);
     try {
       const [treeData, peopleData, relsData, posData] = await Promise.all([
-        getTreeDetails(treeId),
-        getPeople(treeId),
-        getRelationships(treeId),
-        getCanvasPositions(treeId),
+        getTreeDetails(user.uid, treeId),
+        getPeople(user.uid, treeId),
+        getRelationships(user.uid, treeId),
+        getCanvasPositions(user.uid, treeId),
       ]);
 
       if (!treeData) {
@@ -87,8 +87,8 @@ export function TreeClient({ treeId }: { treeId: string }) {
       setEdges(
         relsData.map(rel => ({
           id: rel.id,
-          source: rel.personA,
-          target: rel.personB,
+          source: rel.personAId,
+          target: rel.personBId,
           label: rel.relationshipType.replace('_', ' ').charAt(0).toUpperCase() + rel.relationshipType.replace('_', ' ').slice(1),
           type: 'smoothstep',
         }))
@@ -101,8 +101,10 @@ export function TreeClient({ treeId }: { treeId: string }) {
   }, [treeId, user]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (!isUserLoading) {
+      fetchData();
+    }
+  }, [fetchData, isUserLoading]);
 
   const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     setSelectedPerson(node.data);
@@ -114,8 +116,9 @@ export function TreeClient({ treeId }: { treeId: string }) {
     setSelectedPerson(null);
   };
 
-  const handleCreatePerson = async (personData: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const isDuplicate = await checkForDuplicate(personData);
+  const handleCreatePerson = async (personData: any) => {
+    if (!user) return;
+    const isDuplicate = await checkForDuplicate({personData, userId: user.uid, treeId});
     if(isDuplicate) {
         setPersonToCreate(personData);
         setIsDuplicateAlertOpen(true);
@@ -124,8 +127,9 @@ export function TreeClient({ treeId }: { treeId: string }) {
     await proceedWithCreation(personData);
   };
 
-  const proceedWithCreation = async (personData: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const result = await addPerson(personData);
+  const proceedWithCreation = async (personData: any) => {
+    if (!user) return;
+    const result = await addPerson({personData, userId: user.uid, treeId});
     if (result.success && result.data) {
         toast({ title: 'Person Added', description: `${result.data.firstName} ${result.data.lastName} has been added.` });
         fetchData();
@@ -136,7 +140,8 @@ export function TreeClient({ treeId }: { treeId: string }) {
   }
 
   const handleUpdatePerson = async (personData: Person) => {
-    const result = await updatePerson(personData);
+    if (!user) return;
+    const result = await updatePerson({personData, userId: user.uid, treeId});
      if (result.success && result.data) {
         toast({ title: 'Person Updated', description: `${result.data.firstName} ${result.data.lastName} has been updated.` });
         fetchData();
@@ -156,8 +161,9 @@ export function TreeClient({ treeId }: { treeId: string }) {
     setNewConnection(null);
   }
 
-  const handleCreateRelationship = async (relData: Omit<Relationship, 'id' | 'treeId'>) => {
-    const result = await addRelationship({ ...relData, treeId });
+  const handleCreateRelationship = async (relData: Omit<Relationship, 'id' | 'treeId' | 'userId'>) => {
+    if (!user) return;
+    const result = await addRelationship({ relData, userId: user.uid, treeId });
     if (result.success && result.data) {
         toast({ title: 'Relationship Added'});
         fetchData();
@@ -168,10 +174,11 @@ export function TreeClient({ treeId }: { treeId: string }) {
   }
 
   const handleNodeDragStop = async (_: React.MouseEvent, node: Node) => {
-    await updateCanvasPosition({ treeId, personId: node.id, x: node.position.x, y: node.position.y });
+    if (!user) return;
+    await updateCanvasPosition({ posData: { personId: node.id, x: node.position.x, y: node.position.y }, userId: user.uid, treeId });
   };
   
-  if (isLoading) {
+  if (isLoading || isUserLoading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
         <Logo className="h-12 w-12 text-primary" />

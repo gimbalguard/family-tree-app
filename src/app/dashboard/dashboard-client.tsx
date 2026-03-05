@@ -4,7 +4,7 @@ import { useUser } from '@/firebase';
 import type { FamilyTree } from '@/lib/types';
 import { getTreesForUser, deleteTree } from '@/lib/actions/trees';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Users } from 'lucide-react';
+import { Loader2, PlusCircle, Users, LogIn } from 'lucide-react';
 import { NewTreeDialog } from './new-tree-dialog';
 import { TreeCard, TreeCardSkeleton } from './tree-card';
 import {
@@ -18,9 +18,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export function DashboardClient() {
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
   const { toast } = useToast();
   const [trees, setTrees] = useState<FamilyTree[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,21 +31,29 @@ export function DashboardClient() {
   const [treeToDelete, setTreeToDelete] = useState<FamilyTree | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const isAnonymous = user?.isAnonymous ?? true;
+
   const fetchTrees = useCallback(async () => {
-    if (user) {
+    if (user && !user.isAnonymous) {
       setIsLoading(true);
       const userTrees = await getTreesForUser(user.uid);
       setTrees(userTrees);
+      setIsLoading(false);
+    } else {
+      setTrees([]);
       setIsLoading(false);
     }
   }, [user]);
 
   useEffect(() => {
-    fetchTrees();
-  }, [fetchTrees]);
+    if (!isUserLoading) {
+      fetchTrees();
+    }
+  }, [isUserLoading, fetchTrees]);
 
-  const onTreeCreated = () => {
-    fetchTrees();
+  const onTreeCreated = (newTree: FamilyTree) => {
+    // After creating a tree, redirect to its page
+    router.push(`/tree/${newTree.id}`);
   };
 
   const handleDeleteClick = (tree: FamilyTree) => {
@@ -52,9 +62,9 @@ export function DashboardClient() {
   };
 
   const handleConfirmDelete = async () => {
-    if (!treeToDelete || !user) return;
+    if (!treeToDelete || !user || user.isAnonymous) return;
     setIsDeleting(true);
-    const result = await deleteTree(treeToDelete.id);
+    const result = await deleteTree({ userId: user.uid, treeId: treeToDelete.id });
 
     if (result.success) {
       toast({
@@ -73,24 +83,44 @@ export function DashboardClient() {
     setIsAlertOpen(false);
     setTreeToDelete(null);
   };
+  
+  const handleNewTreeClick = () => {
+    if (isAnonymous) {
+      router.push('/login');
+    } else {
+      setIsDialogOpen(true);
+    }
+  }
 
-  return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Your Family Trees</h1>
-        <Button onClick={() => setIsDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Tree
-        </Button>
-      </div>
-
-      {isLoading ? (
+  const renderContent = () => {
+    if (isLoading || isUserLoading) {
+      return (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...Array(3)].map((_, i) => (
             <TreeCardSkeleton key={i} />
           ))}
         </div>
-      ) : trees.length > 0 ? (
+      );
+    }
+
+    if (isAnonymous) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center">
+          <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-semibold">Welcome to FamilyTree</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sign in to create and manage your family trees.
+          </p>
+          <Button className="mt-6" onClick={() => router.push('/login')}>
+            <LogIn className="mr-2 h-4 w-4" />
+            Login or Sign Up
+          </Button>
+        </div>
+      );
+    }
+
+    if (trees.length > 0) {
+      return (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {trees.map((tree) => (
             <TreeCard
@@ -100,19 +130,40 @@ export function DashboardClient() {
             />
           ))}
         </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center">
-          <Users className="mx-auto h-12 w-12 text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-semibold">No trees found</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Get started by creating your first family tree.
-          </p>
-          <Button className="mt-6" onClick={() => setIsDialogOpen(true)}>
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center">
+        <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+        <h3 className="mt-4 text-lg font-semibold">No trees found</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Get started by creating your first family tree.
+        </p>
+        <Button className="mt-6" onClick={handleNewTreeClick}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Create New Tree
+        </Button>
+      </div>
+    );
+  };
+
+
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Your Family Trees</h1>
+        <Button onClick={handleNewTreeClick}>
+          {isAnonymous ? (
+            <LogIn className="mr-2 h-4 w-4" />
+          ) : (
             <PlusCircle className="mr-2 h-4 w-4" />
-            Create New Tree
-          </Button>
-        </div>
-      )}
+          )}
+          New Tree
+        </Button>
+      </div>
+
+      {renderContent()}
 
       <NewTreeDialog
         open={isDialogOpen}
