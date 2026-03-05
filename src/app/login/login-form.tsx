@@ -14,9 +14,10 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { signIn } from '@/lib/actions/auth';
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -26,6 +27,7 @@ const formSchema = z.object({
 export function LoginForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const auth = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -37,16 +39,19 @@ export function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const result = await signIn(values);
-    if (result.error) {
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      // On success, the onAuthStateChanged listener in FirebaseProvider will
+      // update the user state, and the AuthGuard/PublicPageGuard will redirect.
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Authentication Error',
-        description: result.error,
+        description: error.message,
       });
+    } finally {
+        setIsLoading(false);
     }
-    // Success will trigger a redirect via AuthProvider, no need for toast
-    setIsLoading(false);
   }
 
   return (

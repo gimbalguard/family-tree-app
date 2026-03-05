@@ -11,12 +11,13 @@ import {
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { signOutUser } from '@/lib/actions/auth';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
 import { LogOut } from 'lucide-react';
 
 export function AppHeader() {
   const { user } = useUser();
+  const auth = useAuth();
   const userInitial = user?.email?.charAt(0).toUpperCase() ?? '?';
 
   return (
@@ -55,7 +56,7 @@ export function AppHeader() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={async () => {
-                  await signOutUser();
+                  await signOut(auth);
                 }}
               >
                 <LogOut className="mr-2 h-4 w-4" />

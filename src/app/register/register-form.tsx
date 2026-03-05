@@ -14,9 +14,11 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { signUp } from '@/lib/actions/auth';
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useAuth, useFirestore } from '@/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const formSchema = z.object({
   username: z.string().min(3, { message: 'Username must be at least 3 characters.' }),
@@ -27,6 +29,8 @@ const formSchema = z.object({
 export function RegisterForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const auth = useAuth();
+  const db = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -39,16 +43,33 @@ export function RegisterForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    const result = await signUp(values);
-    if (result.error) {
+    try {
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          values.email,
+          values.password
+        );
+        const user = userCredential.user;
+
+        await updateProfile(user, { displayName: values.username });
+
+        const userProfile = {
+          uid: user.uid,
+          username: values.username,
+          createdAt: serverTimestamp(),
+        };
+        await setDoc(doc(db, 'users', user.uid), userProfile);
+
+        // On success, redirect is handled by the auth state listener
+      } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Registration Error',
-        description: result.error,
+        description: error.message,
       });
+    } finally {
+        setIsLoading(false);
     }
-    // Success will trigger a redirect via AuthProvider, no need for toast
-    setIsLoading(false);
   }
 
   return (
