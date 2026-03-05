@@ -31,7 +31,6 @@ const transcribeAudioFlow = ai.defineFlow(
         { media: { url: input.audioDataUri } },
         { text: 'Transcribe the following audio. The user is telling a family story. The output should be in Hebrew.' },
       ],
-      model: 'googleai/gemini-1.5-flash-latest',
     });
 
     return { transcript: text };
