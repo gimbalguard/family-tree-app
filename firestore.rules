@@ -1,0 +1,236 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model. All data is considered private and is
+ * exclusively accessible to the user who created it. Access control is based on the user's authenticated UID.
+ *
+ * Data Structure: The data is organized hierarchically. All user-specific content, including family trees,
+ * people, and relationships, is nested under a top-level `/users/{userId}` path. This structure inherently
+ * links data to its owner, simplifying security logic.
+ *
+ * Key Security Decisions:
+ * - User Isolation: Users can only read and write data within their own path (`/users/{their_own_userId}`). Cross-user access is strictly forbidden.
+ * - No User Enumeration: Listing documents in the top-level `/users` collection is disallowed to protect user privacy.
+ * - Default Deny: Any operation not explicitly granted by these rules is denied.
+ *
+ * Denormalization for Authorization: To ensure performant and secure access checks without costly `get()` calls,
+ * key identifiers are denormalized down the data tree. For example, every document within a family tree (like a 'Person'
+ * or 'Relationship') contains a `userId` and `treeId` field. The rules enforce that these denormalized fields are
+ * correctly set on creation and are immutable, guaranteeing data integrity and making authorization checks atomic.
+ *
+ * Structural Segregation: All data is private, so there is no need to segregate public and private content into
+ * separate collections. The entire database follows a consistent, private-by-default model.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    //-------------------------------------------------------------------------
+    // Helper Functions
+    //-------------------------------------------------------------------------
+
+    /**
+     * isSignedIn
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * isOwner
+     * Checks if the authenticated user's UID matches the provided userId from the path.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * isExistingOwner
+     * Combines owner check with an existence check for update/delete operations.
+     * Prevents modifying or deleting a document that does not exist.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * hasValidCreateData_UserProfile
+     * On UserProfile creation, ensures the document's internal `id` field
+     * matches the user's auth UID and the document ID.
+     */
+    function hasValidCreateData_UserProfile(userId) {
+      let data = request.resource.data;
+      return data.id == userId;
+    }
+
+    /**
+     * isImmutable_UserProfile
+     * Ensures the core `id` field of a UserProfile cannot be changed after creation.
+     */
+    function isImmutable_UserProfile() {
+      let data = request.resource.data;
+      return data.id == resource.data.id;
+    }
+
+    /**
+     * hasValidCreateData_FamilyTree
+     * Validates that a new FamilyTree document has its `userId` field set
+     * to the UID of the creating user.
+     */
+    function hasValidCreateData_FamilyTree(userId) {
+      let data = request.resource.data;
+      return data.userId == userId;
+    }
+
+    /**
+     * isImmutable_FamilyTree
+     * Ensures the `userId` of a FamilyTree is immutable.
+     */
+    function isImmutable_FamilyTree() {
+      let data = request.resource.data;
+      return data.userId == resource.data.userId;
+    }
+
+    /**
+     * hasValidCreateData_SubTreeItem
+     * Validates that sub-tree documents (Person, Relationship, etc.) have their
+     * denormalized `userId` and `treeId` fields set correctly upon creation.
+     */
+    function hasValidCreateData_SubTreeItem(userId, treeId) {
+      let data = request.resource.data;
+      // The IR reasoning states `userId` should be denormalized, even if not in the schema.
+      // This is a critical security enforcement.
+      return data.userId == userId && data.treeId == treeId;
+    }
+
+    /**
+     * isImmutable_SubTreeItem
+     * Ensures the denormalized `userId` and `treeId` fields are immutable.
+     */
+    function isImmutable_SubTreeItem() {
+      let data = request.resource.data;
+      return data.userId == resource.data.userId && data.treeId == resource.data.treeId;
+    }
+
+    /**
+     * hasValidCreateData_SocialLink
+     * Validates that a new SocialLink has its denormalized `userId`, `treeId`,
+     * and `personId` fields set correctly.
+     */
+    function hasValidCreateData_SocialLink(userId, treeId, personId) {
+      let data = request.resource.data;
+      return hasValidCreateData_SubTreeItem(userId, treeId) && data.personId == personId;
+    }
+
+    /**
+     * isImmutable_SocialLink
+     * Ensures the denormalized relational IDs on a SocialLink are immutable.
+     */
+    function isImmutable_SocialLink() {
+      let data = request.resource.data;
+      return isImmutable_SubTreeItem() && data.personId == resource.data.personId;
+    }
+
+    //-------------------------------------------------------------------------
+    // Collection Rules
+    //-------------------------------------------------------------------------
+
+    /**
+     * @description Controls access to a user's own profile document.
+     * @path /users/{userId}
+     * @allow (get) An authenticated user reads their own profile: `db.collection('users').doc('user_abc').get()` where auth.uid is 'user_abc'.
+     * @allow (create) A new user creates their profile document for the first time: `db.collection('users').doc('user_abc').set({ id: 'user_abc', ... })` where auth.uid is 'user_abc'.
+     * @deny (list) A user tries to list all documents in the `/users` collection to prevent user enumeration.
+     * @deny (get) An authenticated user tries to read another user's profile: `db.collection('users').doc('user_xyz').get()` where auth.uid is 'user_abc'.
+     * @principle Restricts access to a user's own data tree and allows self-creation of a root profile document.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Explicitly deny listing the /users collection or any potential subcollections.
+      allow create: if isOwner(userId) && hasValidCreateData_UserProfile(userId);
+      allow update: if isExistingOwner(userId) && isImmutable_UserProfile();
+      allow delete: if isExistingOwner(userId);
+
+      /**
+       * @description Controls access to a user's collection of family trees.
+       * @path /users/{userId}/familyTrees/{treeId}
+       * @allow (list) An authenticated user lists their own family trees: `db.collection('users/user_abc/familyTrees').get()` where auth.uid is 'user_abc'.
+       * @allow (create) An authenticated user creates a new family tree for themselves: `db.collection('users/user_abc/familyTrees').add({ userId: 'user_abc', ... })` where auth.uid is 'user_abc'.
+       * @deny (create) An authenticated user tries to create a family tree for another user: `db.collection('users/user_xyz/familyTrees').add({ ... })` where auth.uid is 'user_abc'.
+       * @deny (get) A user tries to read a family tree they do not own.
+       * @principle Enforces document ownership for all operations based on the top-level `{userId}` path segment.
+       */
+      match /familyTrees/{treeId} {
+        allow get: if isOwner(userId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && hasValidCreateData_FamilyTree(userId);
+        allow update: if isExistingOwner(userId) && isImmutable_FamilyTree();
+        allow delete: if isExistingOwner(userId);
+
+        /**
+         * @description Controls access to individual person records within a family tree.
+         * @path /users/{userId}/familyTrees/{treeId}/people/{personId}
+         * @allow (list) The tree owner lists all people in their tree: `db.collection('users/user_abc/familyTrees/tree_123/people').get()` where auth.uid is 'user_abc'.
+         * @allow (create) The tree owner adds a new person to their tree, ensuring denormalized IDs are correct: `db.collection('users/user_abc/familyTrees/tree_123/people').add({ userId: 'user_abc', treeId: 'tree_123', ... })`.
+         * @deny (update) A user tries to update a person in a tree they do not own.
+         * @deny (create) A user creates a person document but provides an incorrect `treeId` in the data, breaking relational integrity.
+         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields match the document's path on creation and are immutable.
+         */
+        match /people/{personId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
+          allow delete: if isExistingOwner(userId);
+
+          /**
+           * @description Controls access to social links associated with a person.
+           * @path /users/{userId}/familyTrees/{treeId}/people/{personId}/socialLinks/{socialLinkId}
+           * @allow (list) The tree owner lists social links for a person in their tree.
+           * @allow (create) The tree owner adds a social link, ensuring all denormalized IDs (`userId`, `treeId`, `personId`) are correct.
+           * @deny (get) A user tries to read a social link belonging to a person in another user's tree.
+           * @principle Enforces deep ownership and relational integrity for deeply nested subcollections.
+           */
+          match /socialLinks/{socialLinkId} {
+            allow get: if isOwner(userId);
+            allow list: if isOwner(userId);
+            allow create: if isOwner(userId) && hasValidCreateData_SocialLink(userId, treeId, personId);
+            allow update: if isExistingOwner(userId) && isImmutable_SocialLink();
+            allow delete: if isExistingOwner(userId);
+          }
+        }
+
+        /**
+         * @description Controls access to relationship records within a family tree.
+         * @path /users/{userId}/familyTrees/{treeId}/relationships/{relationshipId}
+         * @allow (list) The tree owner lists all relationships in their tree.
+         * @allow (create) The tree owner creates a new relationship, ensuring denormalized `userId` and `treeId` are correct.
+         * @deny (delete) A user tries to delete a relationship from a tree they do not own.
+         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields match the document's path on creation and are immutable.
+         */
+        match /relationships/{relationshipId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
+          allow delete: if isExistingOwner(userId);
+        }
+
+        /**
+         * @description Controls access to the canvas position data for people in a tree.
+         * @path /users/{userId}/familyTrees/{treeId}/canvasPositions/{positionId}
+         * @allow (list) The tree owner lists all canvas positions for their tree.
+         * @allow (create) The tree owner creates a new canvas position, ensuring denormalized `userId` and `treeId` are correct.
+         * @deny (update) A user tries to move a person on a canvas in a tree they do not own.
+         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields match the document's path on creation and are immutable.
+         */
+        match /canvasPositions/{positionId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
+          allow delete: if isExistingOwner(userId);
+        }
+      }
+    }
+  }
+}

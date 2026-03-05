@@ -1,0 +1,400 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile within the FamilyTree application, primarily for authentication and ownership tracking of family trees. This entity does not store sensitive authentication credentials like passwords, relying on an external authentication system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity. Matches Firebase Auth UID."
+        },
+        "username": {
+          "type": "string",
+          "description": "A unique display name for the user."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user profile was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "createdAt"
+      ]
+    },
+    "FamilyTree": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FamilyTree",
+      "type": "object",
+      "description": "Represents a single family tree project owned by a user, containing multiple people and relationships.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FamilyTree entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the UserProfile who owns this family tree. (Relationship: UserProfile 1:N FamilyTree)"
+        },
+        "treeName": {
+          "type": "string",
+          "description": "The user-defined name for the family tree."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the family tree was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the family tree was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "treeName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Person": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Person",
+      "type": "object",
+      "description": "Represents an individual person within a family tree, serving as a node in the interactive canvas.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Person entity."
+        },
+        "treeId": {
+          "type": "string",
+          "description": "Reference to the FamilyTree this person belongs to. (Relationship: FamilyTree 1:N Person)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the person."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the person."
+        },
+        "gender": {
+          "type": "string",
+          "description": "The gender of the person (male, female, or other)."
+        },
+        "birthDate": {
+          "type": "string",
+          "description": "The person's birth date in YYYY-MM-DD format."
+        },
+        "deathDate": {
+          "type": "string",
+          "description": "The person's death date in YYYY-MM-DD format. Must be after birthDate if both are provided."
+        },
+        "birthPlace": {
+          "type": "string",
+          "description": "The place where the person was born."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the person (alive, deceased, or unknown)."
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "A URL to the person's profile photo. Must be a valid HTTPS URL.",
+          "format": "uri"
+        },
+        "description": {
+          "type": "string",
+          "description": "A biographical description of the person, limited to 2000 characters."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when this person record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when this person record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "treeId",
+        "firstName",
+        "lastName",
+        "gender",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Relationship": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Relationship",
+      "type": "object",
+      "description": "Defines a typed connection between two people within a family tree.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Relationship entity."
+        },
+        "treeId": {
+          "type": "string",
+          "description": "Reference to the FamilyTree this relationship belongs to. (Relationship: FamilyTree 1:N Relationship)"
+        },
+        "personAId": {
+          "type": "string",
+          "description": "Reference to the first person in the relationship (e.g., the parent in a 'parent' relationship). (Relationship: Person 1:N Relationship)"
+        },
+        "personBId": {
+          "type": "string",
+          "description": "Reference to the second person in the relationship (e.g., the child in a 'parent' relationship). (Relationship: Person 1:N Relationship)"
+        },
+        "relationshipType": {
+          "type": "string",
+          "description": "The type of relationship (parent, spouse, adoptive_parent, step_parent)."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The start date of the relationship (e.g., marriage date) in YYYY-MM-DD format."
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The end date of the relationship (e.g., divorce date) in YYYY-MM-DD format."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional free-text notes about the relationship."
+        }
+      },
+      "required": [
+        "id",
+        "treeId",
+        "personAId",
+        "personBId",
+        "relationshipType"
+      ]
+    },
+    "SocialLink": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SocialLink",
+      "type": "object",
+      "description": "Stores external social media or website links associated with a specific person.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SocialLink entity."
+        },
+        "personId": {
+          "type": "string",
+          "description": "Reference to the Person this social link belongs to. (Relationship: Person 1:N SocialLink)"
+        },
+        "platform": {
+          "type": "string",
+          "description": "The platform of the social link (e.g., facebook, instagram, twitter, linkedin, website, other)."
+        },
+        "url": {
+          "type": "string",
+          "description": "The URL of the social media profile or website. Must be a valid HTTPS URL.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "personId",
+        "platform",
+        "url"
+      ]
+    },
+    "CanvasPosition": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CanvasPosition",
+      "type": "object",
+      "description": "Records the visual position of a person's card on the interactive family tree canvas.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CanvasPosition entity."
+        },
+        "treeId": {
+          "type": "string",
+          "description": "Reference to the FamilyTree this canvas position belongs to. (Relationship: FamilyTree 1:N CanvasPosition)"
+        },
+        "personId": {
+          "type": "string",
+          "description": "Reference to the Person whose position is being stored. (Relationship: Person 1:N CanvasPosition)"
+        },
+        "x": {
+          "type": "number",
+          "description": "The X-coordinate (horizontal position in pixels) of the person's card on the canvas."
+        },
+        "y": {
+          "type": "number",
+          "description": "The Y-coordinate (vertical position in pixels) of the person's card on the canvas."
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when this canvas position was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "treeId",
+        "personId",
+        "x",
+        "y",
+        "updatedAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile data. Document ID matches Firebase Auth UID ({userId}). This is a top-level collection for user-specific data."
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}",
+        "definition": {
+          "entityName": "FamilyTree",
+          "schema": {
+            "$ref": "#/backend/entities/FamilyTree"
+          },
+          "description": "Stores individual family tree projects owned by a user. Nested under the owning user's document. The 'userId' field in the document MUST match the '{userId}' path parameter and 'request.auth.uid'.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this family tree, matching Firebase Auth UID."
+            },
+            {
+              "name": "treeId",
+              "description": "The unique identifier for the family tree document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}/people/{personId}",
+        "definition": {
+          "entityName": "Person",
+          "schema": {
+            "$ref": "#/backend/entities/Person"
+          },
+          "description": "Stores individual person records within a specific family tree. Nested under the respective FamilyTree. Includes denormalized 'userId' and 'treeId' fields for authorization independence. These fields MUST match the corresponding path parameters.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent family tree, matching Firebase Auth UID."
+            },
+            {
+              "name": "treeId",
+              "description": "The unique identifier for the parent family tree."
+            },
+            {
+              "name": "personId",
+              "description": "The unique identifier for the person document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}/relationships/{relationshipId}",
+        "definition": {
+          "entityName": "Relationship",
+          "schema": {
+            "$ref": "#/backend/entities/Relationship"
+          },
+          "description": "Defines connections between people within a family tree. Nested under the respective FamilyTree. Includes denormalized 'userId' and 'treeId' fields for authorization independence. These fields MUST match the corresponding path parameters.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent family tree, matching Firebase Auth UID."
+            },
+            {
+              "name": "treeId",
+              "description": "The unique identifier for the parent family tree."
+            },
+            {
+              "name": "relationshipId",
+              "description": "The unique identifier for the relationship document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}/canvasPositions/{positionId}",
+        "definition": {
+          "entityName": "CanvasPosition",
+          "schema": {
+            "$ref": "#/backend/entities/CanvasPosition"
+          },
+          "description": "Records the visual position of a person's card on the interactive family tree canvas. Nested under the respective FamilyTree. Includes denormalized 'userId' and 'treeId' fields for authorization independence. These fields MUST match the corresponding path parameters.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent family tree, matching Firebase Auth UID."
+            },
+            {
+              "name": "treeId",
+              "description": "The unique identifier for the parent family tree."
+            },
+            {
+              "name": "positionId",
+              "description": "The unique identifier for the canvas position document. Typically corresponds to a personId."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}/people/{personId}/socialLinks/{socialLinkId}",
+        "definition": {
+          "entityName": "SocialLink",
+          "schema": {
+            "$ref": "#/backend/entities/SocialLink"
+          },
+          "description": "Stores external social media or website links associated with a specific person. Nested under the respective Person. Includes denormalized 'userId', 'treeId', and 'personId' fields for authorization independence. These fields MUST match the corresponding path parameters.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns the parent family tree, matching Firebase Auth UID."
+            },
+            {
+              "name": "treeId",
+              "description": "The unique identifier for the parent family tree."
+            },
+            {
+              "name": "personId",
+              "description": "The unique identifier for the parent person."
+            },
+            {
+              "name": "socialLinkId",
+              "description": "The unique identifier for the social link document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The proposed Firestore structure prioritizes security, scalability, and debuggability by strictly adhering to the core design principles, especially Authorization Independence. The primary change involves restructuring the data to a hierarchical path model under the authenticated user's ID, which significantly simplifies security rules and eliminates cross-document `get()` calls.\n\n**Key Justifications & Design Principles Applied:**\n\n1.  **Authorization Independence (CRITICAL):** The most significant improvement is the elimination of `get()` calls in security rules. In the original design, `people`, `relationships`, `canvasPositions`, and `socialLinks` all relied on fetching the parent `familyTree` document to determine the `userId` for authorization. This is a critical violation of Authorization Independence, making rules fragile and hard to debug, especially during atomic operations like batched writes or transactions.\n    \n    **Solution:**\n    *   **Hierarchical Paths:** All user-specific data is now nested directly under `/users/{userId}`. For instance, `familyTrees` are now at `/users/{userId}/familyTrees/{treeId}`, `people` at `/users/{userId}/familyTrees/{treeId}/people/{personId}`, and so on. This immediately makes `request.auth.uid` directly comparable to the `{userId}` wildcard in the path for most data, providing the highest level of implicit authorization.\n    *   **Denormalization:** For all subcollections of `familyTrees` (i.e., `people`, `relationships`, `canvasPositions`, and `socialLinks`), the `userId` (owner of the tree) and `treeId` are explicitly denormalized and stored as fields within each document. This means that a document like `Person` will now contain `userId` and `treeId` fields in addition to its own properties. Security rules can then simply check `request.auth.uid == userId` (from the path) AND `resource.data.userId == userId` (from the document) AND `resource.data.treeId == treeId` (from the document matching the path's `treeId`). This ensures that all necessary authorization context is present *within the document itself*, making authorization atomic and independent.\n\n2.  **Clarity of Intent (Debuggability):** The hierarchical path structure `/users/{userId}/familyTrees/{treeId}/...` makes the ownership explicit and immediately understandable. A glance at a document's path reveals its owner and the tree it belongs to. Security rules become much simpler, focusing on validating path parameters against `request.auth.uid` and ensuring denormalized fields match the path, making them easier to write, test, and debug.\n\n3.  **DBAC (No Custom Claims):** Roles are not required for this application, as all data is private and solely owned by the creating user. Authorization relies solely on `request.auth.uid` matching the `userId` in the path and the denormalized `userId` field, fully adhering to DBAC principles.\n\n4.  **QAPs (Rules are not Filters):** This structure inherently supports Query-As-Permissions (QAPs). By denormalizing `userId` and `treeId` into every sub-document, `list` queries can include `where('userId', '==', request.auth.uid)` and `where('treeId', '==', '{treeId}')` clauses. Because the rules enforce that these fields *must* match the path and `request.auth.uid`, any query that includes these filters will only return data the user is authorized to see, without the rules themselves needing to filter results.\n    *   For example, to list all people in a specific tree: `db.collection('users/{userId}/familyTrees/{treeId}/people').where('userId', '==', userIdFromAuth).where('treeId', '==', treeIdParam)`. The rules will guarantee that `userIdFromAuth` matches the `userId` in the path and document, and `treeIdParam` matches the `treeId` in the path and document.\n\n5.  **Invariants:** The new structure, combined with validation in security rules, strongly supports invariants like ownership and data integrity. For instance, when creating a new `Person` document under `/users/{userId}/familyTrees/{treeId}/people/{personId}`, the rules will enforce that `request.auth.uid` matches `{userId}` in the path, and that the `Person` document itself contains `userId: '{userId}'` and `treeId: '{treeId}'`.\n\n**Regarding the 'auth/invalid-api-key' error:** This error is not related to the data structure or security rules. It indicates a problem with your Firebase project configuration, specifically the API key provided in `src/lib/firebase.ts`. Please ensure that your `firebaseConfig` object contains the correct and complete credentials for your `family-tree-e7e90` project, as copied directly from your Firebase project settings (Project settings -> General -> Your apps -> Firebase SDK snippet -> Config). This typically happens if the `apiKey` field is missing, incorrect, or if the project ID is wrong."
+  }
+}
