@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 import type { Person, SocialLink } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, Sparkles, Settings2 } from 'lucide-react';
