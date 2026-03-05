@@ -284,13 +284,18 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     if (!user || !db) return;
     const data = { ...relData, userId: user.uid, treeId };
 
-    console.log('Creating relationship with data:', data, 'user.uid:', user.uid);
+    // Clean the data object to remove undefined properties before sending to Firestore.
+    const cleanedData = Object.fromEntries(
+      Object.entries(data).filter(([_, v]) => v !== undefined)
+    );
+
+    console.log('Creating relationship with data:', cleanedData, 'user.uid:', user.uid);
 
     try {
       const relCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-      const docRef = await addDoc(relCollection, data);
+      const docRef = await addDoc(relCollection, cleanedData);
       
-      const newRelationship = { id: docRef.id, ...data } as Relationship;
+      const newRelationship = { id: docRef.id, ...cleanedData } as Relationship;
 
       toast({ title: 'קשר נוסף' });
       const newEdge: Edge = {
