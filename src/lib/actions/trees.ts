@@ -104,12 +104,12 @@ export async function getPeople(db: Firestore, userId: string, treeId: string): 
 }
 
 export async function addPerson(db: Firestore, { personData, userId, treeId }: { personData: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'treeId' | 'userId'>, userId: string, treeId: string }) {
+  const data = { ...personData, userId, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
   try {
-    const data = { ...personData, userId, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
     const docRef = await addDoc(collection(db, 'users', userId, 'familyTrees', treeId, 'people'), data);
     return { success: true, data: { id: docRef.id, ...personData, userId, treeId } as Person };
   } catch (error: any) {
-    const permissionError = new FirestorePermissionError({ path: `users/${userId}/familyTrees/${treeId}/people`, operation: 'create', requestResourceData: personData });
+    const permissionError = new FirestorePermissionError({ path: `users/${userId}/familyTrees/${treeId}/people`, operation: 'create', requestResourceData: data });
     errorEmitter.emit('permission-error', permissionError);
     return { success: false, error: permissionError.message };
   }
