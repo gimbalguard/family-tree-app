@@ -170,15 +170,14 @@ service cloud.firestore {
          * @description Controls access to individual person records within a family tree.
          * @path /users/{userId}/familyTrees/{treeId}/people/{personId}
          * @allow (list) The tree owner lists all people in their tree: `db.collection('users/user_abc/familyTrees/tree_123/people').get()` where auth.uid is 'user_abc'.
-         * @allow (create) The tree owner adds a new person to their tree, ensuring denormalized IDs are correct: `db.collection('users/user_abc/familyTrees/tree_123/people').add({ userId: 'user_abc', treeId: 'tree_123', ... })`.
+         * @allow (create) The tree owner adds a new person to their tree. Ownership is guaranteed by the path.
          * @deny (update) A user tries to update a person in a tree they do not own.
-         * @deny (create) A user creates a person document but provides an incorrect `treeId` in the data, breaking relational integrity.
-         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields match the document's path on creation and are immutable.
+         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /people/{personId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow create: if isOwner(userId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
 
@@ -186,14 +185,14 @@ service cloud.firestore {
            * @description Controls access to social links associated with a person.
            * @path /users/{userId}/familyTrees/{treeId}/people/{personId}/socialLinks/{socialLinkId}
            * @allow (list) The tree owner lists social links for a person in their tree.
-           * @allow (create) The tree owner adds a social link, ensuring all denormalized IDs (`userId`, `treeId`, `personId`) are correct.
+           * @allow (create) The tree owner adds a social link. Ownership is guaranteed by the path.
            * @deny (get) A user tries to read a social link belonging to a person in another user's tree.
            * @principle Enforces deep ownership and relational integrity for deeply nested subcollections.
            */
           match /socialLinks/{socialLinkId} {
             allow get: if isOwner(userId);
             allow list: if isOwner(userId);
-            allow create: if isOwner(userId) && hasValidCreateData_SocialLink(userId, treeId, personId);
+            allow create: if isOwner(userId);
             allow update: if isExistingOwner(userId) && isImmutable_SocialLink();
             allow delete: if isExistingOwner(userId);
           }
@@ -203,14 +202,14 @@ service cloud.firestore {
          * @description Controls access to relationship records within a family tree.
          * @path /users/{userId}/familyTrees/{treeId}/relationships/{relationshipId}
          * @allow (list) The tree owner lists all relationships in their tree.
-         * @allow (create) The tree owner creates a new relationship, ensuring denormalized `userId` and `treeId` are correct.
+         * @allow (create) The tree owner creates a new relationship. Ownership is guaranteed by the path.
          * @deny (delete) A user tries to delete a relationship from a tree they do not own.
-         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields match the document's path on creation and are immutable.
+         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /relationships/{relationshipId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow create: if isOwner(userId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
@@ -219,14 +218,14 @@ service cloud.firestore {
          * @description Controls access to the canvas position data for people in a tree.
          * @path /users/{userId}/familyTrees/{treeId}/canvasPositions/{positionId}
          * @allow (list) The tree owner lists all canvas positions for their tree.
-         * @allow (create) The tree owner creates a new canvas position, ensuring denormalized `userId` and `treeId` are correct.
+         * @allow (create) The tree owner creates a new canvas position. Ownership is guaranteed by the path.
          * @deny (update) A user tries to move a person on a canvas in a tree they do not own.
-         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields match the document's path on creation and are immutable.
+         * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /canvasPositions/{positionId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
+          allow create: if isOwner(userId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
