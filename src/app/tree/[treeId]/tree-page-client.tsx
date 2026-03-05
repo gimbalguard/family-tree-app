@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick } from 'reactflow';
+import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick } from 'reactflow';
 import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -53,6 +53,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [relationships, setRelationships] = useState<Relationship[]>([]);
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -64,6 +65,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   
   const [newConnection, setNewConnection] = useState<Connection | null>(null);
+  const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
   const [isRelModalOpen, setIsRelModalOpen] = useState(false);
 
   const [isDuplicateAlertOpen, setIsDuplicateAlertOpen] = useState(false);
@@ -93,7 +95,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         getDoc(treeDetailsRef),
         getDocs(peopleRef),
         getDocs(relsRef),
-        getDocs(posRef)
+        getDocs(posSnap)
       ]);
 
       if (!treeSnap.exists()) {
@@ -107,6 +109,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
       setTree(treeData);
       setPeople(peopleData);
+      setRelationships(relsData);
 
       const positionsMap = new Map(posData.map(p => [p.personId, { x: p.x, y: p.y }]));
 
@@ -124,6 +127,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
           target: rel.personBId,
           label: rel.relationshipType.replace('_', ' ').charAt(0).toUpperCase() + rel.relationshipType.replace('_', ' ').slice(1),
           type: 'smoothstep',
+          data: rel,
       }));
       setEdges(initialEdges);
 
@@ -140,6 +144,13 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     }
   }, [fetchData, isUserLoading, user]);
 
+  const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback((_, edge) => {
+    const rel = relationships.find(r => r.id === edge.id);
+    if (rel) {
+      setEditingRelationship(rel);
+      setIsRelModalOpen(true);
+    }
+  }, [relationships]);
 
   const handleNodeClick: OnNodeClick = useCallback((_, node) => {
     setSelectedPerson(node.data);
@@ -278,45 +289,74 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const handleRelModalClose = () => {
     setIsRelModalOpen(false);
     setNewConnection(null);
+    setEditingRelationship(null);
   }
 
-  const handleCreateRelationship = async (relData: Omit<Relationship, 'id' | 'treeId' | 'userId'>) => {
+  const handleSaveRelationship = async (payload: { relData: any, genderUpdate?: { personId: string, gender: 'male' | 'female' | 'other' }}) => {
     if (!user || !db) return;
-    const data = { ...relData, userId: user.uid, treeId };
 
+    const { relData, genderUpdate } = payload;
+    
     // Clean the data object to remove undefined properties before sending to Firestore.
     const cleanedData = Object.fromEntries(
-      Object.entries(data).filter(([_, v]) => v !== undefined)
+      Object.entries(relData).filter(([, v]) => v !== undefined)
     );
 
-    console.log('Creating relationship with data:', cleanedData, 'user.uid:', user.uid);
-
     try {
-      const relCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-      const docRef = await addDoc(relCollection, cleanedData);
-      
-      const newRelationship = { id: docRef.id, ...cleanedData } as Relationship;
+        const batch = writeBatch(db);
+        
+        if (editingRelationship) {
+            const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', editingRelationship.id);
+            const dataToUpdate = { ...cleanedData, userId: user.uid, treeId, updatedAt: serverTimestamp() };
+            batch.update(relRef, dataToUpdate);
+        } else {
+            const relRef = doc(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'));
+            const dataToCreate = { ...cleanedData, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            batch.set(relRef, dataToCreate);
+        }
 
-      toast({ title: 'קשר נוסף' });
-      const newEdge: Edge = {
-          id: newRelationship.id,
-          source: newRelationship.personAId,
-          target: newRelationship.personBId,
-          label: newRelationship.relationshipType.replace('_', ' ').charAt(0).toUpperCase() + newRelationship.relationshipType.replace('_', ' ').slice(1),
-          type: 'smoothstep',
-      };
-      setEdges((eds) => eds.concat(newEdge));
-      handleRelModalClose();
+        if (genderUpdate) {
+            const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', genderUpdate.personId);
+            batch.update(personRef, { gender: genderUpdate.gender });
+        }
+
+        await batch.commit();
+
+        toast({ title: editingRelationship ? 'קשר עודכן' : 'קשר נוסף' });
+        
+        fetchData();
+        handleRelModalClose();
+
     } catch (error: any) {
         console.error('Real error:', error);
         toast({
           variant: 'destructive',
-          title: 'שגיאה ביצירת קשר',
-          description: "An unexpected error occurred. Check the developer console for details.",
+          title: 'שגיאה בשמירת קשר',
+          description: error.message || "An unexpected error occurred.",
         });
-        throw error;
     }
-  }
+  };
+
+  const handleDeleteRelationship = async (relationshipId: string) => {
+    if (!user || !db) return;
+    
+    try {
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
+        await deleteDoc(relRef);
+        
+        toast({ title: 'קשר נמחק' });
+        fetchData();
+        handleRelModalClose();
+        
+    } catch (error: any) {
+        console.error('Error deleting relationship:', error);
+        toast({
+            variant: 'destructive',
+            title: 'שגיאה במחיקת קשר',
+            description: error.message || "Could not delete relationship.",
+        });
+    }
+  };
 
   const handleNodeDragStop: OnNodeDragStop = useCallback(async (_, node) => {
     if (!user || !db) return;
@@ -398,6 +438,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                     onNodeClick={handleNodeClick}
                     onNodeDragStop={handleNodeDragStop}
                     onConnect={handleConnect}
+                    onEdgeDoubleClick={handleEdgeDoubleClick}
                 />
             </main>
           </div>
@@ -410,13 +451,15 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
             onSave={handleSavePerson}
             onDelete={handleDeleteRequest}
           />
-          {newConnection && (
+          {(newConnection || editingRelationship) && (
             <RelationshipModal
                 isOpen={isRelModalOpen}
                 onClose={handleRelModalClose}
                 connection={newConnection}
+                relationship={editingRelationship}
                 people={people}
-                onSave={handleCreateRelationship}
+                onSave={handleSaveRelationship}
+                onDelete={handleDeleteRelationship}
             />
           )}
            <AlertDialog open={isDuplicateAlertOpen} onOpenChange={setIsDuplicateAlertOpen}>
