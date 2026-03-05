@@ -22,11 +22,17 @@ export type Person = {
   treeId: string;
   firstName: string;
   lastName: string;
+  middleName?: string;
+  previousFirstName?: string;
+  maidenName?: string;
+  nickname?: string;
   gender: 'male' | 'female' | 'other';
   birthDate?: string;
   deathDate?: string;
   birthPlace?: string;
   status: 'alive' | 'deceased' | 'unknown';
+  religion?: 'jewish' | 'christian' | 'muslim' | 'buddhist' | 'other';
+  countryOfResidence?: string;
   photoURL?: string;
   description?: string;
   createdAt: Timestamp;

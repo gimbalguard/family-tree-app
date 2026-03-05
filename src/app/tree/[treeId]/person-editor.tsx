@@ -5,13 +5,13 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from '@/components/ui/sheet';
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -34,9 +34,10 @@ import {
 import { Separator } from '@/components/ui/separator';
 import type { Person, SocialLink } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, Sparkles } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Sparkles, Settings2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateDescription } from '@/ai/flows/ai-description-generation-flow';
+import { Switch } from '@/components/ui/switch';
 
 const socialLinkSchema = z.object({
   platform: z.enum([
@@ -61,6 +62,13 @@ const personSchema = z.object({
   photoURL: z.string().url('חייב להיות URL חוקי.').optional().or(z.literal('')),
   description: z.string().max(2000, 'התיאור לא יכול לעלות על 2000 תווים.').optional(),
   socialLinks: z.array(socialLinkSchema).optional(),
+  // Additional fields
+  middleName: z.string().optional(),
+  previousFirstName: z.string().optional(),
+  maidenName: z.string().optional(),
+  nickname: z.string().optional(),
+  religion: z.enum(['jewish', 'christian', 'muslim', 'buddhist', 'other']).optional(),
+  countryOfResidence: z.string().optional(),
 });
 
 type PersonEditorProps = {
@@ -81,6 +89,7 @@ export function PersonEditor({
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [showAdditionalFields, setShowAdditionalFields] = useState(false);
   const isEditing = !!person;
 
   const form = useForm<z.infer<typeof personSchema>>({
@@ -96,6 +105,11 @@ export function PersonEditor({
       photoURL: '',
       description: '',
       socialLinks: [],
+      middleName: '',
+      previousFirstName: '',
+      maidenName: '',
+      nickname: '',
+      countryOfResidence: '',
     },
   });
 
@@ -123,8 +137,14 @@ export function PersonEditor({
           photoURL: '',
           description: '',
           socialLinks: [],
+          middleName: '',
+          previousFirstName: '',
+          maidenName: '',
+          nickname: '',
+          countryOfResidence: '',
         });
       }
+      setShowAdditionalFields(false); // Reset on open
     }
   }, [person, isOpen, form]);
 
@@ -164,18 +184,18 @@ export function PersonEditor({
   const buttonText = isEditing ? 'שמור שינויים' : 'צור אדם';
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="left" className="sm:max-w-md w-[90vw] flex flex-col">
-        <SheetHeader className="text-right">
-          <SheetTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</SheetTitle>
-          <SheetDescription>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-xl w-[90vw] flex flex-col max-h-[90vh]">
+        <DialogHeader className="text-right">
+          <DialogTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</DialogTitle>
+          <DialogDescription>
             {isEditing ? `עריכת הפרופיל של ${person?.firstName} ${person?.lastName}.` : 'הוסף אדם חדש לעץ המשפחה שלך.'}
-          </SheetDescription>
-        </SheetHeader>
-        <Separator className="my-4" />
+          </DialogDescription>
+        </DialogHeader>
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col overflow-hidden">
-            <ScrollArea className="flex-1 pr-1">
+            <ScrollArea className="flex-1 pr-1 -mr-4">
               <div className="space-y-6 py-4 pr-5">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="firstName" render={({ field }) => (
@@ -183,14 +203,6 @@ export function PersonEditor({
                   )}/>
                   <FormField control={form.control} name="lastName" render={({ field }) => (
                     <FormItem className="text-right"><FormLabel>שם משפחה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                  )}/>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="gender" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>מין</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl"><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                  )}/>
-                  <FormField control={form.control} name="status" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>סטטוס</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl"><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="alive">חי</SelectItem><SelectItem value="deceased">נפטר</SelectItem><SelectItem value="unknown">לא ידוע</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )}/>
                 </div>
                  <div className="grid grid-cols-2 gap-4">
@@ -201,12 +213,66 @@ export function PersonEditor({
                     <FormItem className="text-right"><FormLabel>תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                   )}/>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="gender" render={({ field }) => (
+                    <FormItem className="text-right"><FormLabel>מין</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl"><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )}/>
+                  <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem className="text-right"><FormLabel>סטטוס</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl"><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="alive">חי</SelectItem><SelectItem value="deceased">נפטר</SelectItem><SelectItem value="unknown">לא ידוע</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  )}/>
+                </div>
+               
                 <FormField control={form.control} name="birthPlace" render={({ field }) => (
                   <FormItem className="text-right"><FormLabel>מקום לידה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
                  <FormField control={form.control} name="photoURL" render={({ field }) => (
                   <FormItem className="text-right"><FormLabel>כתובת URL של תמונה</FormLabel><FormControl><Input placeholder="https://" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
+                
+                {showAdditionalFields && (
+                    <>
+                    <Separator/>
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="middleName" render={({ field }) => (
+                                <FormItem className="text-right"><FormLabel>שם אמצעי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="nickname" render={({ field }) => (
+                                <FormItem className="text-right"><FormLabel>כינוי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                             <FormField control={form.control} name="previousFirstName" render={({ field }) => (
+                                <FormItem className="text-right"><FormLabel>שם פרטי קודם</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="maidenName" render={({ field }) => (
+                                <FormItem className="text-right"><FormLabel>שם משפחה קודם (נעורים)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                        </div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="religion" render={({ field }) => (
+                                <FormItem className="text-right"><FormLabel>דת</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl">
+                                    <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="jewish">יהדות</SelectItem>
+                                        <SelectItem value="christian">נצרות</SelectItem>
+                                        <SelectItem value="muslim">אסלאם</SelectItem>
+                                        <SelectItem value="buddhist">בודהיזם</SelectItem>
+                                        <SelectItem value="other">אחר</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage /></FormItem>
+                            )}/>
+                             <FormField control={form.control} name="countryOfResidence" render={({ field }) => (
+                                <FormItem className="text-right"><FormLabel>ארץ מגורים</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                        </div>
+                    </div>
+                    <Separator/>
+                    </>
+                )}
+
 
                   <FormField
                     control={form.control}
@@ -274,19 +340,28 @@ export function PersonEditor({
                 </div>
               </div>
             </ScrollArea>
-
-            <SheetFooter className="pt-6">
-              <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                {buttonText}
-              </Button>
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-                ביטול
-              </Button>
-            </SheetFooter>
+            <DialogFooter className="pt-6 border-t items-center">
+              <div className="flex-1 flex items-center gap-2 justify-end">
+                <Label htmlFor="additional-fields-switch">פרטים נוספים</Label>
+                <Switch
+                  id="additional-fields-switch"
+                  checked={showAdditionalFields}
+                  onCheckedChange={setShowAdditionalFields}
+                />
+              </div>
+              <div className="flex-shrink-0">
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+                  ביטול
+                </Button>
+                <Button type="submit" disabled={isSaving} className="mr-2">
+                  {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                  {buttonText}
+                </Button>
+              </div>
+            </DialogFooter>
           </form>
         </Form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

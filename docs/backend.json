@@ -85,6 +85,22 @@
           "type": "string",
           "description": "The last name of the person."
         },
+        "middleName": {
+          "type": "string",
+          "description": "The middle name of the person."
+        },
+        "previousFirstName": {
+          "type": "string",
+          "description": "A previous first name of the person."
+        },
+        "maidenName": {
+          "type": "string",
+          "description": "The person's last name before marriage (maiden name)."
+        },
+        "nickname": {
+          "type": "string",
+          "description": "A nickname for the person."
+        },
         "gender": {
           "type": "string",
           "description": "The gender of the person (male, female, or other)."
@@ -104,6 +120,21 @@
         "status": {
           "type": "string",
           "description": "The current status of the person (alive, deceased, or unknown)."
+        },
+        "religion": {
+          "type": "string",
+          "description": "The person's religion.",
+          "enum": [
+            "jewish",
+            "christian",
+            "muslim",
+            "buddhist",
+            "other"
+          ]
+        },
+        "countryOfResidence": {
+          "type": "string",
+          "description": "The person's country of residence."
         },
         "photoURL": {
           "type": "string",
