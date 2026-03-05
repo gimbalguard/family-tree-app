@@ -1,6 +1,6 @@
 'use client';
-import { useCallback, useEffect, useState, useMemo } from 'react';
-import type { Node, Edge, Connection, OnConnect, OnNodeDragStop } from 'reactflow';
+import { useCallback, useEffect, useState } from 'react';
+import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick } from 'reactflow';
 import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,7 @@ import {
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
 import { RelationshipModal } from './relationship-modal';
+import { CanvasToolbar } from './canvas-toolbar';
 import { Loader2 } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
@@ -119,7 +120,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }, [fetchData, isUserLoading, user]);
 
 
-  const handleNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+  const handleNodeClick: OnNodeClick = useCallback((_, node) => {
     setSelectedPerson(node.data);
     setIsEditorOpen(true);
   }, []);
@@ -128,6 +129,11 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     setIsEditorOpen(false);
     setSelectedPerson(null);
   };
+
+  const handleOpenEditorForNew = () => {
+    setSelectedPerson(null);
+    setIsEditorOpen(true);
+  }
   
   const proceedWithCreation = async (personData: any) => {
     if (!user || user.isAnonymous) return;
@@ -135,11 +141,19 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     const result = await addPerson(db, {personData, userId: user.uid, treeId});
     if (result.success && result.data) {
         toast({ title: 'אדם נוסף', description: `${result.data.firstName} ${result.data.lastName} נוסף.` });
-        fetchData();
+        fetchData(); // Full refetch to get new person on canvas
     } else {
         toast({ variant: 'destructive', title: 'שגיאה', description: result.error });
     }
     setPersonToCreate(null);
+  }
+
+  const handleSavePerson = async (personData: any) => {
+    if (selectedPerson) { // It's an update
+      await handleUpdatePerson(personData as Person);
+    } else { // It's a creation
+      await handleCreatePerson(personData);
+    }
   }
 
   const handleCreatePerson = async (personData: any) => {
@@ -150,6 +164,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         setIsDuplicateAlertOpen(true);
     } else {
         await proceedWithCreation(personData);
+        handleEditorClose();
     }
   };
 
@@ -231,26 +246,32 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }
 
   return (
-    <div className="flex h-screen w-full flex-col bg-background">
+    <div className="h-screen w-full overflow-hidden">
         <ReactFlowProvider>
-          <FamilyTreeCanvas
-            treeId={treeId}
-            treeName={tree?.treeName ?? 'עץ משפחה'}
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onNodeClick={handleNodeClick}
-            onNodeDragStop={handleNodeDragStop}
-            onConnect={handleConnect}
-            onCreatePerson={handleCreatePerson}
-          />
+          <div className="flex h-full flex-row-reverse">
+            <CanvasToolbar onAddPerson={handleOpenEditorForNew} />
+            <main className="flex-1 relative">
+                <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm">
+                    <h1 className="text-lg font-semibold">{tree?.treeName ?? 'עץ משפחה'}</h1>
+                </div>
+                <FamilyTreeCanvas
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onNodeClick={handleNodeClick}
+                    onNodeDragStop={handleNodeDragStop}
+                    onConnect={handleConnect}
+                />
+            </main>
+          </div>
+
           <PersonEditor
             isOpen={isEditorOpen}
             onClose={handleEditorClose}
             person={selectedPerson}
             treeId={treeId}
-            onSave={selectedPerson ? handleUpdatePerson : handleCreatePerson}
+            onSave={handleSavePerson}
           />
           {newConnection && (
             <RelationshipModal

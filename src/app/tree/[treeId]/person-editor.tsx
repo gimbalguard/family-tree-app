@@ -111,9 +111,20 @@ export function PersonEditor({
         socialLinks: [], // Social links need to be fetched separately
       });
     } else {
-      form.reset();
+      form.reset({
+        firstName: '',
+        lastName: '',
+        gender: 'other',
+        status: 'unknown',
+        birthDate: '',
+        deathDate: '',
+        birthPlace: '',
+        photoURL: '',
+        description: '',
+        socialLinks: [],
+      });
     }
-  }, [person, form]);
+  }, [person, form, isOpen]);
 
   const handleGenerateDescription = async () => {
     setIsAiLoading(true);
@@ -150,10 +161,12 @@ export function PersonEditor({
         onClose();
     }
   }
+  
+  const buttonText = isEditing ? 'שמור שינויים' : 'צור אדם';
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="left" className="sm:max-w-lg w-[90vw] flex flex-col">
+      <SheetContent side="right" className="sm:max-w-lg w-[90vw] flex flex-col">
         <SheetHeader>
           <SheetTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</SheetTitle>
           <SheetDescription>
@@ -163,37 +176,37 @@ export function PersonEditor({
         <Separator />
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col">
-          <ScrollArea className="flex-1 pl-6 -ml-6">
+          <ScrollArea className="flex-1 pr-6 -mr-6">
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="firstName" render={({ field }) => (
-                  <FormItem><FormLabel>שם פרטי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-right w-full block">שם פרטי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
                 <FormField control={form.control} name="lastName" render={({ field }) => (
-                  <FormItem><FormLabel>שם משפחה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-right w-full block">שם משפחה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="gender" render={({ field }) => (
-                  <FormItem><FormLabel>מין</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-right w-full block">מין</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                 )}/>
                 <FormField control={form.control} name="status" render={({ field }) => (
-                  <FormItem><FormLabel>סטטוס</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="alive">חי</SelectItem><SelectItem value="deceased">נפטר</SelectItem><SelectItem value="unknown">לא ידוע</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-right w-full block">סטטוס</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="alive">חי</SelectItem><SelectItem value="deceased">נפטר</SelectItem><SelectItem value="unknown">לא ידוע</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                 )}/>
               </div>
                <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="birthDate" render={({ field }) => (
-                  <FormItem><FormLabel>תאריך לידה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-right w-full block">תאריך לידה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
                 <FormField control={form.control} name="deathDate" render={({ field }) => (
-                  <FormItem><FormLabel>תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-right w-full block">תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
               </div>
               <FormField control={form.control} name="birthPlace" render={({ field }) => (
-                <FormItem><FormLabel>מקום לידה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="text-right w-full block">מקום לידה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )}/>
                <FormField control={form.control} name="photoURL" render={({ field }) => (
-                <FormItem><FormLabel>כתובת URL של תמונה</FormLabel><FormControl><Input placeholder="https://" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="text-right w-full block">כתובת URL של תמונה</FormLabel><FormControl><Input placeholder="https://" {...field} /></FormControl><FormMessage /></FormItem>
               )}/>
 
                 <FormField
@@ -202,7 +215,7 @@ export function PersonEditor({
                   render={({ field }) => (
                     <FormItem>
                       <div className="flex items-center justify-between">
-                        <FormLabel>תיאור ביוגרפי</FormLabel>
+                        <FormLabel className="text-right">תיאור ביוגרפי</FormLabel>
                         <Button
                           type="button"
                           variant="ghost"
@@ -221,7 +234,7 @@ export function PersonEditor({
                       <FormControl>
                         <Textarea className="min-h-[120px]" {...field} />
                       </FormControl>
-                       <FormDescription>
+                       <FormDescription className="text-right">
                         מקסימום 2000 תווים. השתמש ב-AI כדי להעשיר את התיאור.
                       </FormDescription>
                       <FormMessage />
@@ -230,7 +243,7 @@ export function PersonEditor({
                 />
 
               <div>
-                <FormLabel>קישורים חברתיים</FormLabel>
+                <FormLabel className="text-right w-full block">קישורים חברתיים</FormLabel>
                  <div className="space-y-4 mt-2">
                     {fields.map((field, index) => (
                       <div key={field.id} className="flex gap-2">
@@ -263,13 +276,13 @@ export function PersonEditor({
             </div>
             </ScrollArea>
 
-            <SheetFooter className="pt-6 pl-6">
+            <SheetFooter className="pt-6 pr-6">
               <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
                 ביטול
               </Button>
               <Button type="submit" disabled={isSaving}>
                 {isSaving && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                שמור שינויים
+                {buttonText}
               </Button>
             </SheetFooter>
           </form>
