@@ -13,6 +13,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -49,6 +59,10 @@ const relationshipOptions = [
     { value: 'adoptive_mother', label: 'אמא מאמצת', type: 'adoptive_parent', gender: 'female', direction: 'parent' },
     { value: 'step_father', label: 'אבא חורג', type: 'step_parent', gender: 'male', direction: 'parent' },
     { value: 'step_mother', label: 'אמא חורגת', type: 'step_parent', gender: 'female', direction: 'parent' },
+    { value: 'son', label: 'בן', type: 'parent', gender: 'male', direction: 'child' },
+    { value: 'daughter', label: 'בת', type: 'parent', gender: 'female', direction: 'child' },
+    { value: 'step_son', label: 'בן חורג', type: 'step_parent', gender: 'male', direction: 'child' },
+    { value: 'step_daughter', label: 'בת חורגת', type: 'step_parent', gender: 'female', direction: 'child' },
     { value: 'spouse', label: 'בן/בת זוג', type: 'spouse' },
     { value: 'ex_spouse', label: 'בן/בת זוג לשעבר', type: 'ex_spouse' },
     { value: 'sibling', label: 'אח/אחות', type: 'sibling' },
@@ -79,30 +93,46 @@ export function RelationshipModal({
 }: RelationshipModalProps) {
   
   const isEditing = !!relationship;
+  const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const form = useForm<z.infer<typeof relationshipSchema>>({
     resolver: zodResolver(relationshipSchema),
     defaultValues: { relationshipType: 'father', startDate: '', endDate: '', notes: '' },
   });
 
-  // Determine personA and personB from either connection or existing relationship
-  const { personA, personB } = useMemo(() => {
-    // For a new connection, source is where the drag started. Let's assume this is the active person (e.g. the parent).
-    const sourceId = relationship?.personAId || connection?.source;
-    const targetId = relationship?.personBId || connection?.target;
-    return {
-      personA: people.find((p) => p.id === sourceId),
-      personB: people.find((p) => p.id === targetId),
-    };
-  }, [connection, relationship, people]);
+  const { sourcePerson, targetPerson } = useMemo(() => {
+    const sourceId = isEditing ? relationship?.personAId : connection?.source;
+    const targetId = isEditing ? relationship?.personBId : connection?.target;
+    
+    // For parent-child relationships, Firestore stores parent as personA.
+    // We need to figure out who is source/target from that for editing.
+    let sourceNode, targetNode;
+    if (isEditing && relationship) {
+        // This is a simplification. The user might have dragged from child to parent.
+        // For editing, we assume personA (parent) was the source.
+        sourceNode = people.find(p => p.id === sourceId);
+        targetNode = people.find(p => p.id === targetId);
+    } else {
+        sourceNode = people.find(p => p.id === sourceId);
+        targetNode = people.find(p => p.id === targetId);
+    }
+    return { sourcePerson: sourceNode, targetPerson: targetNode };
+
+  }, [connection, relationship, people, isEditing]);
+
 
   useEffect(() => {
-    if (isOpen && relationship) {
-        // Find the specific relationship value (e.g. 'father'/'mother') from the generic type and gender
-        const personAGender = personA?.gender;
-        let selectedType = relationshipOptions.find(o => o.type === relationship.relationshipType && o.gender === personAGender);
+    if (isOpen && isEditing && relationship && sourcePerson) {
+        const isParentSource = relationship.personAId === sourcePerson.id;
+        const parent = isParentSource ? sourcePerson : targetPerson;
+        
+        let selectedType = relationshipOptions.find(o => 
+            o.type === relationship.relationshipType && 
+            o.gender === parent?.gender &&
+            o.direction === 'parent'
+        );
+
         if (!selectedType) {
-            // Fallback for non-gendered or default
             selectedType = relationshipOptions.find(o => o.type === relationship.relationshipType);
         }
 
@@ -112,8 +142,7 @@ export function RelationshipModal({
             endDate: relationship.endDate || '',
             notes: relationship.notes || '',
         });
-    } else if (isOpen && !relationship) {
-        // Reset for new connection
+    } else if (isOpen && !isEditing) {
         form.reset({
             relationshipType: 'father',
             startDate: '',
@@ -121,30 +150,31 @@ export function RelationshipModal({
             notes: '',
         });
     }
-  }, [relationship, personA, form, isOpen]); // Rerun when modal opens/relationship changes
+  }, [relationship, sourcePerson, targetPerson, form, isOpen, isEditing]);
 
   function onSubmit(values: z.infer<typeof relationshipSchema>) {
     const selectedOption = relationshipOptions.find(o => o.value === values.relationshipType);
-    if (!selectedOption || !personA || !personB) return;
+    if (!selectedOption || !sourcePerson || !targetPerson) return;
     
-    let personAId = personA.id;
-    let personBId = personB.id;
+    let parentId, childId, genderUpdatePersonId, genderForUpdate;
 
-    // For non-parental relationships that are symmetrical, sort by ID for consistency
-    const symmetricalTypes = ['spouse', 'sibling', 'twin', 'ex_spouse'];
-    if(symmetricalTypes.includes(selectedOption.type) && personAId > personBId) {
-        [personAId, personBId] = [personBId, personAId];
-    }
-    
-    // For parent-child, personA is always the parent (the source of the drag)
     if (selectedOption.direction === 'parent') {
-        personAId = personA.id;
-        personBId = personB.id;
+        parentId = sourcePerson.id;
+        childId = targetPerson.id;
+        genderUpdatePersonId = sourcePerson.id;
+        genderForUpdate = selectedOption.gender;
+    } else if (selectedOption.direction === 'child') {
+        parentId = targetPerson.id;
+        childId = sourcePerson.id;
+        genderUpdatePersonId = sourcePerson.id;
+        genderForUpdate = selectedOption.gender;
+    } else { // Symmetrical, non-parental
+        [parentId, childId] = [sourcePerson.id, targetPerson.id].sort();
     }
-
+    
     const relData = {
-      personAId,
-      personBId,
+      personAId: parentId,
+      personBId: childId,
       relationshipType: selectedOption.type,
       startDate: values.startDate,
       endDate: values.endDate,
@@ -152,10 +182,10 @@ export function RelationshipModal({
     };
     
     let genderUpdate;
-    if (selectedOption.gender) {
-        // Only suggest update if gender is different
-        if (personA.gender !== selectedOption.gender) {
-            genderUpdate = { personId: personAId, gender: selectedOption.gender as 'male' | 'female' };
+    const genderUpdatePerson = people.find(p => p.id === genderUpdatePersonId);
+    if (genderUpdatePerson && genderForUpdate) {
+        if (genderUpdatePerson.gender !== genderForUpdate) {
+            genderUpdate = { personId: genderUpdatePerson.id, gender: genderForUpdate as 'male' | 'female' };
         }
     }
     
@@ -165,34 +195,40 @@ export function RelationshipModal({
   const handleDelete = () => {
     if (relationship) {
       onDelete(relationship.id);
+      onClose();
     }
   }
 
   const relationshipType = form.watch('relationshipType');
   const currentSelectedOption = relationshipOptions.find(opt => opt.value === relationshipType);
 
-  if (!personA || !personB) {
+  const isChildDirection = currentSelectedOption?.direction === 'child';
+  const displaySubject = isChildDirection ? targetPerson : sourcePerson;
+  const displayObject = isChildDirection ? sourcePerson : targetPerson;
+  
+  if (!sourcePerson || !targetPerson) {
     return null;
   }
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent dir="rtl" className="rounded-xl">
         <DialogHeader className="text-right">
           <DialogTitle>{isEditing ? 'עריכת קשר' : 'הגדרת קשר'}</DialogTitle>
           <DialogDescription>
             {isEditing ? `עריכת הקשר בין` : `צור קשר בין`}{' '}
-            <strong>{`${personA.firstName} ${personA.lastName}`}</strong> ו-{' '}
-            <strong>{`${personB.firstName} ${personB.lastName}`}</strong>.
+            <strong>{`${sourcePerson.firstName} ${sourcePerson.lastName}`}</strong> ו-{' '}
+            <strong>{`${targetPerson.firstName} ${targetPerson.lastName}`}</strong>.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
             <div className="flex items-center justify-center gap-2 text-lg text-center bg-muted p-3 rounded-md">
-                <strong>{personA.firstName}</strong>
+                <strong>{displaySubject?.firstName}</strong>
                 <span className="text-muted-foreground">{currentSelectedOption?.label}</span>
                 <span className="text-muted-foreground">של</span>
-                <strong>{personB.firstName}</strong>
+                <strong>{displayObject?.firstName}</strong>
             </div>
 
             <FormField
@@ -230,9 +266,9 @@ export function RelationshipModal({
                 <Button type="submit">שמור קשר</Button>
               </div>
               {isEditing && (
-                 <Button type="button" variant="destructive" onClick={handleDelete}>
-                    <Trash2 className="ml-2"/>
-                    מחק קשר
+                 <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteConfirmOpen(true)}>
+                    <Trash2 className="h-5 w-5 text-destructive"/>
+                    <span className="sr-only">מחק קשר</span>
                 </Button>
               )}
             </DialogFooter>
@@ -240,5 +276,22 @@ export function RelationshipModal({
         </Form>
       </DialogContent>
     </Dialog>
+    <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent dir="rtl">
+            <AlertDialogHeader className="text-right">
+                <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    פעולה זו תמחק לצמיתות את הקשר. לא ניתן לבטל פעולה זו.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>ביטול</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    מחק
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
