@@ -177,7 +177,7 @@ service cloud.firestore {
         match /people/{personId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
 
@@ -209,7 +209,7 @@ service cloud.firestore {
         match /relationships/{relationshipId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
@@ -225,7 +225,7 @@ service cloud.firestore {
         match /canvasPositions/{positionId} {
           allow get: if isOwner(userId);
           allow list: if isOwner(userId);
-          allow create: if isOwner(userId);
+          allow create: if isOwner(userId) && hasValidCreateData_SubTreeItem(userId, treeId);
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
