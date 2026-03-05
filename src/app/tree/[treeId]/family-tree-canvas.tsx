@@ -21,13 +21,12 @@ import type { Person } from '@/lib/types';
 import { Toolbar } from './toolbar';
 
 type FamilyTreeCanvasProps = {
+  treeId: string;
   treeName: string;
   nodes: Node[];
   edges: Edge[];
-  setNodes: (fn: (nodes: Node[]) => Node[]) => void;
-  setEdges: (fn: (edges: Edge[]) => Edge[]) => void;
-  onNodesChange?: OnNodesChange;
-  onEdgesChange?: OnEdgesChange;
+  onNodesChange: OnNodesChange;
+  onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   onNodeClick: OnNodeClick;
   onNodeDragStop: OnNodeDragStop;
@@ -35,6 +34,7 @@ type FamilyTreeCanvasProps = {
 };
 
 export function FamilyTreeCanvas({
+  treeId,
   treeName,
   nodes,
   edges,
@@ -46,7 +46,6 @@ export function FamilyTreeCanvas({
   onCreatePerson,
 }: FamilyTreeCanvasProps) {
   const nodeTypes: NodeTypes = useMemo(() => ({ personNode: PersonNode }), []);
-  const treeId = nodes[0]?.data.treeId;
 
   return (
     <div className="h-full w-full">
