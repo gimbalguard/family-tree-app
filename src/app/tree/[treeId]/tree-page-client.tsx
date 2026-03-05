@@ -91,17 +91,15 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
       const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
 
-      const [treeSnap, peopleSnap, relsSnap, posSnap] = await Promise.all([
-        getDoc(treeDetailsRef),
-        getDocs(peopleRef),
-        getDocs(relsRef),
-        getDocs(posSnap)
-      ]);
-
+      const treeSnap = await getDoc(treeDetailsRef);
       if (!treeSnap.exists()) {
         throw new Error("עץ המשפחה לא נמצא או שאין לך גישה.");
       }
       
+      const peopleSnap = await getDocs(peopleRef);
+      const relsSnap = await getDocs(relsRef);
+      const posSnap = await getDocs(posRef);
+
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
       const peopleData = peopleSnap.docs.map(d => ({ id: d.id, ...d.data() } as Person));
       const relsData = relsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Relationship));
@@ -132,6 +130,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       setEdges(initialEdges);
 
     } catch (err: any) {
+      console.error("Error fetching tree data:", err);
       setError(err.message);
     } finally {
       setIsLoading(false);
@@ -297,7 +296,6 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
     const { relData, genderUpdate } = payload;
     
-    // Clean the data object to remove undefined properties before sending to Firestore.
     const cleanedData = Object.fromEntries(
       Object.entries(relData).filter(([, v]) => v !== undefined)
     );
@@ -310,9 +308,10 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
             const dataToUpdate = { ...cleanedData, userId: user.uid, treeId, updatedAt: serverTimestamp() };
             batch.update(relRef, dataToUpdate);
         } else {
-            const relRef = doc(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'));
+            const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+            const newDocRef = doc(relsRef);
             const dataToCreate = { ...cleanedData, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
-            batch.set(relRef, dataToCreate);
+            batch.set(newDocRef, dataToCreate);
         }
 
         if (genderUpdate) {
@@ -334,6 +333,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
           title: 'שגיאה בשמירת קשר',
           description: error.message || "An unexpected error occurred.",
         });
+        throw error;
     }
   };
 
@@ -386,7 +386,6 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     } catch (error: any) {
         const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeId}/canvasPositions`, operation: 'write', requestResourceData: posData });
         errorEmitter.emit('permission-error', permissionError);
-        // This is a background save, so we don't show a toast on error
     }
   }, [user, treeId, db]);
   
