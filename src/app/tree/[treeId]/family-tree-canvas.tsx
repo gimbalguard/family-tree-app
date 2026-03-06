@@ -14,6 +14,9 @@ import ReactFlow, {
   type OnNodeClick,
   type OnEdgeDoubleClick,
   BackgroundVariant,
+  type OnPaneClick,
+  type OnEdgeClick,
+  type OnNodeDoubleClick,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -25,9 +28,12 @@ type FamilyTreeCanvasProps = {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  onNodeClick: OnNodeClick;
-  onNodeDragStop: OnNodeDragStop;
+  onNodeClick?: OnNodeClick;
+  onNodeDoubleClick?: OnNodeDoubleClick;
+  onEdgeClick?: OnEdgeClick;
   onEdgeDoubleClick?: OnEdgeDoubleClick;
+  onPaneClick?: OnPaneClick;
+  onNodeDragStop: OnNodeDragStop;
 };
 
 export function FamilyTreeCanvas({
@@ -37,8 +43,11 @@ export function FamilyTreeCanvas({
   onEdgesChange,
   onConnect,
   onNodeClick,
-  onNodeDragStop,
+  onNodeDoubleClick,
+  onEdgeClick,
   onEdgeDoubleClick,
+  onPaneClick,
+  onNodeDragStop,
 }: FamilyTreeCanvasProps) {
   const nodeTypes: NodeTypes = useMemo(() => ({ personNode: PersonNode }), []);
 
@@ -51,8 +60,11 @@ export function FamilyTreeCanvas({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeClick={onNodeClick}
-        onNodeDragStop={onNodeDragStop}
+        onNodeDoubleClick={onNodeDoubleClick}
+        onEdgeClick={onEdgeClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
+        onPaneClick={onPaneClick}
+        onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"

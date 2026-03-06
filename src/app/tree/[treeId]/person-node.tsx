@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { User, Heart, Skull } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 function getPlaceholderImage(gender: Person['gender']) {
     switch(gender) {
@@ -22,7 +23,7 @@ function getPlaceholderImage(gender: Person['gender']) {
 }
 
 
-export const PersonNode = memo(({ data }: NodeProps<Person>) => {
+export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const { firstName, lastName, birthDate, deathDate, gender, photoURL, status } = data;
   const lifeYears = `${birthDate ? new Date(birthDate).getFullYear() : '?'} – ${deathDate ? new Date(deathDate).getFullYear() : (status === 'deceased' ? '?' : '')}`;
 
@@ -43,9 +44,14 @@ export const PersonNode = memo(({ data }: NodeProps<Person>) => {
   }
 
   return (
-    <Card className="w-64 shadow-lg border-2 border-transparent hover:border-primary transition-colors duration-200">
-      <Handle type="source" position={Position.Top} className="!w-4 !h-4" />
-      <Handle type="target" position={Position.Bottom} className="!w-4 !h-4" />
+    <Card className={cn("w-64 shadow-lg border-2 transition-colors duration-200", selected ? 'border-primary shadow-primary/20' : 'border-transparent')}>
+      <Handle type="source" position={Position.Top} id="top" className="!w-3 !h-3" />
+      <Handle type="target" position={Position.Bottom} id="bottom" className="!w-3 !h-3" />
+      <Handle type="source" position={Position.Left} id="left" className="!w-3 !h-3" />
+      <Handle type="target" position={Position.Left} id="left" className="!w-3 !h-3" />
+      <Handle type="source" position={Position.Right} id="right" className="!w-3 !h-3" />
+      <Handle type="target" position={Position.Right} id="right" className="!w-3 !h-3" />
+      
       <CardHeader className="p-4">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border">

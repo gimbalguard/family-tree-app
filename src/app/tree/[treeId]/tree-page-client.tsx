@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick } from 'reactflow';
-import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
+import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick } from 'reactflow';
+import { ReactFlowProvider, useNodesState, useEdgesState, addEdge } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
@@ -44,6 +44,11 @@ import { FirestorePermissionError } from '@/firebase/errors';
 type TreePageClientProps = {
   treeId: string;
 };
+
+const getEdgeStyle = (selected = false) => ({
+  strokeWidth: selected ? 3 : 1.5,
+  stroke: selected ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+});
 
 export function TreePageClient({ treeId }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
@@ -119,14 +124,39 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       }));
       setNodes(initialNodes);
 
-      const initialEdges = relsData.map(rel => ({
-          id: rel.id,
-          source: rel.personAId,
-          target: rel.personBId,
-          label: rel.relationshipType.replace('_', ' ').charAt(0).toUpperCase() + rel.relationshipType.replace('_', ' ').slice(1),
-          type: 'smoothstep',
-          data: rel,
-      }));
+      const initialEdges = relsData.map(rel => {
+          const baseEdge = {
+            id: rel.id,
+            label: rel.relationshipType.replace('_', ' ').charAt(0).toUpperCase() + rel.relationshipType.replace('_', ' ').slice(1),
+            type: 'bezier',
+            data: rel,
+            style: getEdgeStyle(false),
+            animated: false,
+          };
+
+          if (['parent', 'adoptive_parent', 'step_parent'].includes(rel.relationshipType)) {
+            return {
+                ...baseEdge,
+                source: rel.personBId, // Child
+                target: rel.personAId, // Parent
+                sourceHandle: 'top',
+                targetHandle: 'bottom',
+            };
+          } else if (['spouse', 'ex_spouse', 'sibling', 'twin'].includes(rel.relationshipType)) {
+            const nodeA = initialNodes.find(n => n.id === rel.personAId);
+            const nodeB = initialNodes.find(n => n.id === rel.personBId);
+            
+            if (nodeA && nodeB) {
+                if (nodeA.position.x < nodeB.position.x) {
+                    return { ...baseEdge, source: rel.personAId, target: rel.personBId, sourceHandle: 'right', targetHandle: 'left' };
+                } else {
+                    return { ...baseEdge, source: rel.personAId, target: rel.personBId, sourceHandle: 'left', targetHandle: 'right' };
+                }
+            }
+          }
+          // Default for other types or if nodes not found
+          return { ...baseEdge, source: rel.personAId, target: rel.personBId };
+      });
       setEdges(initialEdges);
 
     } catch (err: any) {
@@ -151,10 +181,36 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     }
   }, [relationships]);
 
-  const handleNodeClick: OnNodeClick = useCallback((_, node) => {
+  const handleNodeDoubleClick: OnNodeDoubleClick = useCallback((_, node) => {
     setSelectedPerson(node.data);
     setIsEditorOpen(true);
   }, []);
+
+  const handleNodeClick: OnNodeClick = useCallback((_, clickedNode) => {
+    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === clickedNode.id })));
+    setEdges(eds => {
+        const connectedEdges = eds.filter(e => e.source === clickedNode.id || e.target === clickedNode.id);
+        const connectedEdgeIds = new Set(connectedEdges.map(e => e.id));
+        return eds.map(e => {
+            const isSelected = connectedEdgeIds.has(e.id);
+            return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
+        });
+    });
+  }, [setNodes, setEdges]);
+
+  const handleEdgeClick: OnEdgeClick = useCallback((_, clickedEdge) => {
+    setEdges(eds => eds.map(e => {
+        const isSelected = e.id === clickedEdge.id;
+        return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
+    }));
+    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === clickedEdge.source || n.id === clickedEdge.target })));
+  }, [setNodes, setEdges]);
+  
+  const handlePaneClick: OnPaneClick = useCallback(() => {
+    setNodes(nds => nds.map(n => ({ ...n, selected: false })));
+    setEdges(eds => eds.map(e => ({ ...e, selected: false, animated: false, style: getEdgeStyle(false) })));
+  }, [setNodes, setEdges]);
+
 
   const handleEditorClose = () => {
     setIsEditorOpen(false);
@@ -310,7 +366,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         } else {
             const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
             const newDocRef = doc(relsRef);
-            const dataToCreate = { ...cleanedData, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+            relData.id = newDocRef.id;
+            const dataToCreate = { ...cleanedData, id: newDocRef.id, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
             batch.set(newDocRef, dataToCreate);
         }
 
@@ -323,7 +380,46 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
         toast({ title: editingRelationship ? 'קשר עודכן' : 'קשר נוסף' });
         
-        fetchData();
+        // Optimistic update
+        if (editingRelationship) {
+            setRelationships(rels => rels.map(r => r.id === editingRelationship.id ? { ...r, ...relData } : r));
+        } else if (newConnection) {
+            const newRel: Relationship = { ...relData, id: relData.id || Date.now().toString(), createdAt: serverTimestamp(), updatedAt: serverTimestamp() } as Relationship;
+            setRelationships(rels => [...rels, newRel]);
+            
+            let sourceHandle = newConnection.sourceHandle;
+            let targetHandle = newConnection.targetHandle;
+            
+            const relType = relData.relationshipType;
+            let source = newConnection.source;
+            let target = newConnection.target;
+
+            if (['parent', 'adoptive_parent', 'step_parent'].includes(relType)) {
+                 source = relData.personBId;
+                 target = relData.personAId;
+                 sourceHandle = 'top';
+                 targetHandle = 'bottom';
+            } else if (['spouse', 'ex_spouse', 'sibling', 'twin'].includes(relType)) {
+                const nodeA = nodes.find(n => n.id === source);
+                const nodeB = nodes.find(n => n.id === target);
+                 if (nodeA && nodeB) {
+                    if (nodeA.position.x < nodeB.position.x) {
+                        sourceHandle = 'right';
+                        targetHandle = 'left';
+                    } else {
+                        sourceHandle = 'left';
+                        targetHandle = 'right';
+                    }
+                }
+            }
+            const newEdge = { id: newRel.id, source, target, sourceHandle, targetHandle, type: 'bezier', style: getEdgeStyle(false), data: newRel };
+            setEdges((eds) => addEdge(newEdge, eds));
+        }
+        if (genderUpdate) {
+          setPeople(p => p.map(person => person.id === genderUpdate.personId ? {...person, gender: genderUpdate.gender as any} : person ));
+          setNodes(n => n.map(node => node.id === genderUpdate.personId ? {...node, data: {...node.data, gender: genderUpdate.gender as any}} : node));
+        }
+
         handleRelModalClose();
 
     } catch (error: any) {
@@ -435,6 +531,9 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onNodeClick={handleNodeClick}
+                    onNodeDoubleClick={handleNodeDoubleClick}
+                    onEdgeClick={handleEdgeClick}
+                    onPaneClick={handlePaneClick}
                     onNodeDragStop={handleNodeDragStop}
                     onConnect={handleConnect}
                     onEdgeDoubleClick={handleEdgeDoubleClick}
