@@ -35,13 +35,14 @@ import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import type { Person, SocialLink } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, Sparkles, Settings2, Camera, UploadCloud, X } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Sparkles, Camera, UploadCloud } from 'lucide-react';
 import { generateDescription } from '@/ai/flows/ai-description-generation-flow';
 import { Switch } from '@/components/ui/switch';
-import { useUser } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
-import { Progress } from '@/components/ui/progress';
+import { v4 as uuidv4 } from 'uuid';
+import { firebaseConfig } from '@/firebase/config';
 
 const socialLinkSchema = z.object({
   platform: z.enum([
@@ -93,6 +94,7 @@ export function PersonEditor({
 }: PersonEditorProps) {
   const { toast } = useToast();
   const { user } = useUser();
+  const auth = useAuth();
   
   const [isSaving, setIsSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -179,27 +181,40 @@ export function PersonEditor({
   }, [person, isOpen, form, cameraStream]);
 
   const handleImageUpload = async (file: File | Blob) => {
-    if (!user || !treeId) return;
+    if (!user || !treeId || !auth.currentUser) {
+      toast({ variant: 'destructive', title: 'שגיאת אימות', description: 'נדרש אימות כדי להעלות תמונה.' });
+      return;
+    }
     setIsUploading(true);
 
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('userId', user.uid);
-    formData.append('treeId', treeId);
-
     try {
-      const response = await fetch('/api/upload-image', {
+      const token = await auth.currentUser.getIdToken();
+      const filename = `${uuidv4()}-${(file instanceof File) ? file.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'capture.jpg'}`;
+      const path = `users/${user.uid}/trees/${treeId}/photos/${filename}`;
+      const bucket = firebaseConfig.storageBucket;
+
+      const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodeURIComponent(path)}`;
+
+      const response = await fetch(uploadUrl, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': file.type,
+        },
+        body: file,
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Upload failed');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Upload failed:', errorData);
+        throw new Error(errorData.error?.message || 'Failed to upload image via REST API.');
       }
 
-      form.setValue('photoURL', result.url, { shouldValidate: true });
+      const result = await response.json();
+      const downloadToken = result.downloadTokens;
+      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${downloadToken}`;
+      
+      form.setValue('photoURL', publicUrl, { shouldValidate: true });
       toast({ title: 'התמונה הועלתה בהצלחה' });
 
     } catch (error: any) {
