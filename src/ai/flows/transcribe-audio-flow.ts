@@ -27,7 +27,6 @@ const transcribeAudioFlow = ai.defineFlow(
   },
   async (input) => {
     const { text } = await ai.generate({
-      model: 'googleai/gemini-2.5-flash',
       prompt: [
         { media: { url: input.audioDataUri } },
         { text: 'Transcribe the following audio. The user is telling a family story. The output should be in Hebrew.' },
