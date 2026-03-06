@@ -135,6 +135,7 @@ export function PersonEditor({
     if (deathDateValue && currentStatus !== 'deceased') {
       form.setValue('status', 'deceased');
     } else if (!deathDateValue && currentStatus === 'deceased') {
+      // Revert to alive only if it was deceased due to death date
       form.setValue('status', 'alive');
     }
   }, [deathDateValue, form]);
@@ -142,6 +143,7 @@ export function PersonEditor({
   useEffect(() => {
     if (isOpen) {
       if (person) {
+        // Sanitize person data to prevent 'uncontrolled input' error
         form.reset({
           firstName: person.firstName || '',
           lastName: person.lastName || '',
@@ -158,9 +160,10 @@ export function PersonEditor({
           nickname: person.nickname || '',
           religion: person.religion || '',
           countryOfResidence: person.countryOfResidence || '',
-          socialLinks: [], // Social links fetched separately if needed
+          socialLinks: person.socialLinks || [],
         });
       } else {
+        // Reset for new person, ensuring no undefined values and status is 'alive'
         form.reset({
           firstName: '', lastName: '', gender: 'other', status: 'alive',
           birthDate: '', deathDate: '', birthPlace: '', photoURL: '',
@@ -224,8 +227,7 @@ export function PersonEditor({
   };
   
   const openCamera = async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
+    try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setCameraStream(stream);
         setIsCameraOpen(true);
@@ -233,9 +235,8 @@ export function PersonEditor({
             videoRef.current.srcObject = stream;
         }
       } catch (err) {
-        toast({ variant: 'destructive', title: 'שגיאת מצלמה', description: 'לא ניתן לגשת למצלמה.' });
+        toast({ variant: 'destructive', title: 'שגיאת מצלמה', description: 'לא ניתן לגשת למצלמה. אנא בדוק הרשאות.' });
       }
-    }
   };
 
   const capturePhoto = () => {
@@ -281,7 +282,7 @@ export function PersonEditor({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh]">
+      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh]" dir="rtl">
         <DialogHeader className="text-right">
           <DialogTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</DialogTitle>
           <DialogDescription>
@@ -331,7 +332,7 @@ export function PersonEditor({
                  
                 {isCameraOpen && (
                     <div className='p-4 border rounded-lg space-y-2'>
-                        <video ref={videoRef} autoPlay className='w-full rounded-md' />
+                        <video ref={videoRef} autoPlay playsInline className='w-full rounded-md' />
                         <div className='flex justify-center gap-2'>
                             <Button type="button" onClick={capturePhoto}>צלם תמונה</Button>
                             <Button type="button" variant="outline" onClick={closeCamera}>סגור מצלמה</Button>
@@ -343,29 +344,29 @@ export function PersonEditor({
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="firstName" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>שם פרטי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>שם פרטי</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                   )}/>
                   <FormField control={form.control} name="lastName" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>שם משפחה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>שם משפחה</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                   )}/>
                 </div>
                 
                 {showAdditionalFields && (
                     <div className="space-y-6 p-4 border rounded-md">
-                        <div className="grid grid-cols-2 gap-4">
+                         <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="middleName" render={({ field }) => (
-                                <FormItem className="text-right"><FormLabel>שם אמצעי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className="text-right"><FormLabel>שם אמצעי</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name="nickname" render={({ field }) => (
-                                <FormItem className="text-right"><FormLabel>כינוי</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className="text-right"><FormLabel>כינוי</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                              <FormField control={form.control} name="previousFirstName" render={({ field }) => (
-                                <FormItem className="text-right"><FormLabel>שם פרטי קודם</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className="text-right"><FormLabel>שם פרטי קודם</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name="maidenName" render={({ field }) => (
-                                <FormItem className="text-right"><FormLabel>שם משפחה קודם (נעורים)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className="text-right"><FormLabel>שם משפחה קודם (נעורים)</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
                     </div>
@@ -373,35 +374,35 @@ export function PersonEditor({
 
                  <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="birthDate" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>תאריך לידה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>תאריך לידה</FormLabel><FormControl><Input type="date" {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                   )}/>
                   <FormField control={form.control} name="deathDate" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                   )}/>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="gender" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>מין</FormLabel><Select onValueChange={field.onChange} value={field.value} dir="rtl"><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>מין</FormLabel><Select onValueChange={field.onChange} value={field.value} dir="rtl"><FormControl><SelectTrigger className="bg-white text-zinc-950"><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )}/>
                    <FormField control={form.control} name="birthPlace" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>מקום לידה</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>מקום לידה</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                   )}/>
                 </div>
                
                 <FormField control={form.control} name="status" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>סטטוס</FormLabel><Select onValueChange={field.onChange} value={field.value} dir="rtl"><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="alive">חי</SelectItem><SelectItem value="deceased">נפטר</SelectItem><SelectItem value="unknown">לא ידוע</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                    <FormItem className="text-right"><FormLabel>סטטוס</FormLabel><Select onValueChange={field.onChange} value={field.value} dir="rtl"><FormControl><SelectTrigger className="bg-white text-zinc-950"><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="alive">חי</SelectItem><SelectItem value="deceased">נפטר</SelectItem><SelectItem value="unknown">לא ידוע</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                   )}/>
                 
                  <FormField control={form.control} name="photoURL" render={({ field }) => (
-                  <FormItem className="text-right"><FormLabel>כתובת URL של תמונה (חלופה)</FormLabel><FormControl><Input placeholder="https://" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="text-right"><FormLabel>כתובת URL של תמונה (חלופה)</FormLabel><FormControl><Input placeholder="https://" {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                 )}/>
                 
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="religion" render={({ field }) => (
                         <FormItem className="text-right"><FormLabel>דת</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                            <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
+                        <Select onValueChange={field.onChange} value={field.value || ''} dir="rtl">
+                            <FormControl><SelectTrigger className="bg-white text-zinc-950"><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
                             <SelectContent>
                                 <SelectItem value="jewish">יהדות</SelectItem>
                                 <SelectItem value="christian">נצרות</SelectItem>
@@ -413,7 +414,7 @@ export function PersonEditor({
                         <FormMessage /></FormItem>
                     )}/>
                      <FormField control={form.control} name="countryOfResidence" render={({ field }) => (
-                        <FormItem className="text-right"><FormLabel>ארץ מגורים</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="text-right"><FormLabel>ארץ מגורים</FormLabel><FormControl><Input {...field} className="bg-white text-zinc-950" /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
                 <Separator/>
@@ -441,7 +442,7 @@ export function PersonEditor({
                           </Button>
                         </div>
                         <FormControl>
-                          <Textarea className="min-h-[120px]" {...field} />
+                          <Textarea className="min-h-[120px] bg-white text-zinc-950" {...field} />
                         </FormControl>
                          <FormDescription className='text-right'>
                           מקסימום 2000 תווים. השתמש ב-AI כדי להעשיר את התיאור.
@@ -458,7 +459,7 @@ export function PersonEditor({
                         <div key={field.id} className="flex gap-2">
                           <FormField control={form.control} name={`socialLinks.${index}.platform`} render={({ field }) => (
                                <Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl">
-                                  <FormControl><SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger></FormControl>
+                                  <FormControl><SelectTrigger className="w-[120px] bg-white text-zinc-950"><SelectValue /></SelectTrigger></FormControl>
                                   <SelectContent>
                                       <SelectItem value="website">אתר</SelectItem>
                                       <SelectItem value="facebook">פייסבוק</SelectItem>
@@ -470,7 +471,7 @@ export function PersonEditor({
                               </Select>
                           )}/>
                           <FormField control={form.control} name={`socialLinks.${index}.url`} render={({ field }) => (
-                               <Input placeholder="https://" {...field} className="flex-1" />
+                               <Input placeholder="https://" {...field} className="flex-1 bg-white text-zinc-950" />
                           )}/>
                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
