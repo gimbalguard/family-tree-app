@@ -210,22 +210,19 @@ export function RelationshipModal({
   }
 
   const handleDelete = async () => {
-    const idToDelete = relationshipId || relationship?.id;
+    console.log('handleDelete called, relationship:', relationship, 'relationshipId prop:', relationshipId);
+    const idToDelete = relationshipId ?? relationship?.id;
     if (!idToDelete) {
-        console.error("Delete failed: No ID found for the relationship.");
-        return;
+      console.error('No ID available to delete');
+      return;
     }
-    
     console.log('DELETE CALLED WITH ID:', idToDelete);
     setIsDeleting(true);
     try {
-        await onDelete(idToDelete);
-        setDeleteConfirmOpen(false); // Close confirmation on success
-    } catch (e) {
-        // Error is handled by the parent component (e.g., showing a toast)
-        console.error("Delete operation failed in modal:", e);
+      await onDelete(idToDelete);
+      setDeleteConfirmOpen(false);
     } finally {
-        setIsDeleting(false); // Always stop loading spinner
+      setIsDeleting(false);
     }
   };
 

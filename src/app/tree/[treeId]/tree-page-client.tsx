@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection } from 'reactflow';
-import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
+import { ReactFlowProvider, useNodesState, useEdgesState, ConnectionMode } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
@@ -266,6 +266,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }, [setNodes, setEdges]);
   
   const handlePaneClick: OnPaneClick = useCallback(() => {
+    setSelectedPerson(null);
+    setEditingRelationship(null);
     setNodes(nds => nds.map(n => ({ ...n, selected: false })));
     setEdges(eds => eds.map(e => ({ ...e, selected: false, animated: false, style: getEdgeStyle(false) })));
   }, [setNodes, setEdges]);
@@ -454,11 +456,17 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     }
   };
   
+  // This function now performs a stable optimistic update.
   const handleDeleteRelationship = async (relationshipId: string) => {
+    console.log('handleDeleteRelationship called with:', relationshipId);
+    console.log('Current edges:', edges.map(e => e.id));
     if (!user || !db) return;
   
     const edgeToDelete = edges.find(e => e.id === relationshipId);
-    if (!edgeToDelete) return;
+    if (!edgeToDelete) {
+        console.error("Could not find edge to delete in state:", relationshipId);
+        return;
+    };
   
     // 1. Optimistic UI update: remove the edge immediately from the state.
     setEdges(currentEdges => currentEdges.filter(e => e.id !== relationshipId));
