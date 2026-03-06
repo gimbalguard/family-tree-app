@@ -24,6 +24,7 @@ import 'reactflow/dist/style.css';
 
 import { PersonNode } from './person-node';
 
+// Moved to module level to prevent re-creation on every render.
 const nodeTypes: NodeTypes = { personNode: PersonNode };
 
 type FamilyTreeCanvasProps = {
