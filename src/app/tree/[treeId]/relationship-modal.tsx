@@ -210,11 +210,20 @@ export function RelationshipModal({
   const handleDelete = async () => {
     if (relationship) {
       setIsDeleting(true);
-      await onDelete(relationship.id);
-      setIsDeleting(false);
-      setDeleteConfirmOpen(false); // Close confirmation dialog
+      try {
+        await onDelete(relationship.id);
+        // On success, parent component will close the main modal.
+        // We just need to close this confirmation dialog.
+        setDeleteConfirmOpen(false);
+      } catch (e) {
+        // Error is already handled and toasted by the parent.
+        // Spinner will stop in the finally block.
+      } finally {
+        // Ensure spinner stops even if the delete fails.
+        setIsDeleting(false);
+      }
     }
-  }
+  };
 
   const relationshipType = form.watch('relationshipType');
   const currentSelectedOption = useMemo(() => {

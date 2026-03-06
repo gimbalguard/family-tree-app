@@ -17,6 +17,7 @@ import ReactFlow, {
   type OnPaneClick,
   type OnEdgeClick,
   type OnNodeDoubleClick,
+  type IsValidConnection,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -36,6 +37,7 @@ type FamilyTreeCanvasProps = {
   onEdgeDoubleClick?: OnEdgeDoubleClick;
   onPaneClick?: OnPaneClick;
   onNodeDragStop: OnNodeDragStop;
+  isValidConnection: IsValidConnection;
 };
 
 export function FamilyTreeCanvas({
@@ -50,6 +52,7 @@ export function FamilyTreeCanvas({
   onEdgeDoubleClick,
   onPaneClick,
   onNodeDragStop,
+  isValidConnection,
 }: FamilyTreeCanvasProps) {
   return (
     <div className="h-full w-full">
@@ -66,6 +69,7 @@ export function FamilyTreeCanvas({
         onPaneClick={onPaneClick}
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
+        isValidConnection={isValidConnection}
         fitView
         className="bg-background"
         nodesDraggable={true} // Ensure nodes are always draggable

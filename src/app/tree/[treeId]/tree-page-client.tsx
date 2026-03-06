@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick } from 'reactflow';
+import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection } from 'reactflow';
 import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -454,34 +454,30 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     }
   };
   
-  // This function now performs a stable optimistic update.
   const handleDeleteRelationship = async (relationshipId: string) => {
-    if (!user || !db) return;
-  
-    const edgeToDelete = edges.find(e => e.id === relationshipId);
-    if (!edgeToDelete) return;
-  
-    // 1. Optimistic UI update: remove the edge immediately from the state.
-    setEdges(currentEdges => currentEdges.filter(e => e.id !== relationshipId));
-    handleRelModalClose();
-  
+    if (!user || !db) {
+      throw new Error('User or DB not available');
+    }
+
     try {
-      // 2. Perform the delete operation in the background.
       const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
       await deleteDoc(relRef);
-      toast({ title: 'קשר נמחק' });
-      // 3. On success, we also remove the relationship from the local `relationships` state.
-      setRelationships(rels => rels.filter(r => r.id !== relationshipId));
 
+      // On success, update the local state to remove the edge and relationship.
+      setEdges((eds) => eds.filter((e) => e.id !== relationshipId));
+      setRelationships((rels) => rels.filter((r) => r.id !== relationshipId));
+      handleRelModalClose(); // Close the main relationship modal.
+
+      toast({ title: 'קשר נמחק' });
     } catch (error: any) {
       console.error('Error deleting relationship:', error);
       toast({
         variant: 'destructive',
         title: 'שגיאה במחיקת קשר',
-        description: "לא ניתן היה למחוק את הקשר. החיבור שוחזר.",
+        description: 'לא ניתן היה למחוק את הקשר מהשרת.',
       });
-      // 4. On failure, restore the edge to the UI.
-      setEdges(currentEdges => [...currentEdges, edgeToDelete]);
+      // Re-throw the error so the calling modal can handle its state.
+      throw error;
     }
   };
 
@@ -515,6 +511,32 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         errorEmitter.emit('permission-error', permissionError);
     }
   }, [user, treeId, db]);
+
+  const isValidConnection = useCallback<IsValidConnection>((connection) => {
+    // Basic validation: prevent self-connections
+    if (connection.source === connection.target) {
+        return false;
+    }
+    const sideHandles = ['upper-left-source', 'upper-left-target', 'upper-right-source', 'upper-right-target', 'lower-left-source', 'lower-left-target', 'lower-right-source', 'lower-right-target'];
+    
+    // Allow connections between any two side handles
+    if (sideHandles.includes(connection.sourceHandle!) && sideHandles.includes(connection.targetHandle!)) {
+        return true;
+    }
+    
+    // Allow default parent (bottom) to child (top) connections
+    if (connection.sourceHandle === 'bottom' && connection.targetHandle === 'top') {
+        return true;
+    }
+    
+    // You might want to allow the reverse as well for user convenience
+    if (connection.sourceHandle === 'top' && connection.targetHandle === 'bottom') {
+        return true;
+    }
+    
+    // Disallow all other connections (e.g., side to top/bottom)
+    return false;
+  }, []);
   
   if (isUserLoading || (isLoading && !error)) {
     return (
@@ -568,6 +590,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                     onNodeDragStop={handleNodeDragStop}
                     onConnect={handleConnect}
                     onEdgeDoubleClick={handleEdgeDoubleClick}
+                    isValidConnection={isValidConnection}
                 />
             </main>
           </div>
