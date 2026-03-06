@@ -1,5 +1,5 @@
 'use client';
-import React, { useMemo } from 'react';
+import React from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -21,6 +21,8 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 import { PersonNode } from './person-node';
+
+const nodeTypes: NodeTypes = { personNode: PersonNode };
 
 type FamilyTreeCanvasProps = {
   nodes: Node[];
@@ -49,8 +51,6 @@ export function FamilyTreeCanvas({
   onPaneClick,
   onNodeDragStop,
 }: FamilyTreeCanvasProps) {
-  const nodeTypes: NodeTypes = useMemo(() => ({ personNode: PersonNode }), []);
-
   return (
     <div className="h-full w-full">
       <ReactFlow
