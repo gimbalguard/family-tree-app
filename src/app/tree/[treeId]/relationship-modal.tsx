@@ -45,30 +45,38 @@ import type { Person, Relationship } from '@/lib/types';
 import { Trash2 } from 'lucide-react';
 
 const relationshipSchema = z.object({
-  relationshipType: z.string(), // value will be 'father', 'mother', etc.
+  relationshipType: z.string().min(1, 'יש לבחור סוג קשר.'),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   notes: z.string().optional(),
 });
 
-// Mapping for relationship options
 export const relationshipOptions = [
-    { value: 'father', label: 'אבא', type: 'parent', gender: 'male', direction: 'parent' },
-    { value: 'mother', label: 'אמא', type: 'parent', gender: 'female', direction: 'parent' },
-    { value: 'adoptive_father', label: 'אבא מאמץ', type: 'adoptive_parent', gender: 'male', direction: 'parent' },
-    { value: 'adoptive_mother', label: 'אמא מאמצת', type: 'adoptive_parent', gender: 'female', direction: 'parent' },
-    { value: 'step_father', label: 'אבא חורג', type: 'step_parent', gender: 'male', direction: 'parent' },
-    { value: 'step_mother', label: 'אמא חורגת', type: 'step_parent', gender: 'female', direction: 'parent' },
-    { value: 'son_daughter', label: 'בן/בת', type: 'parent', direction: 'child' },
-    { value: 'step_son_daughter', label: 'בן/בת חורג', type: 'step_parent', direction: 'child' },
-    { value: 'sibling', label: 'אח/אחות', type: 'sibling' },
-    { value: 'twin', label: 'תאום/תאומה', type: 'twin' },
-    { value: 'married', label: 'נשואים', type: 'spouse' },
-    { value: 'divorced', label: 'גרושים', type: 'ex_spouse' },
-    { value: 'separated', label: 'פרודים', type: 'separated' },
-    { value: 'partner', label: 'בן/בת זוג', type: 'partner' },
-    { value: 'ex_partner', label: 'בן/בת זוג לשעבר', type: 'ex_partner' },
-    { value: 'guardian', label: 'אפוטרופוס', type: 'guardian' },
+    // Parental (top/bottom handles)
+    { value: 'father', label: 'אבא', type: 'parent', gender: 'male', direction: 'parent', category: 'parental', dates: 'none' },
+    { value: 'mother', label: 'אמא', type: 'parent', gender: 'female', direction: 'parent', category: 'parental', dates: 'none' },
+    { value: 'adoptive_father', label: 'אבא מאמץ', type: 'adoptive_parent', gender: 'male', direction: 'parent', category: 'parental', dates: 'both' },
+    { value: 'adoptive_mother', label: 'אמא מאמצת', type: 'adoptive_parent', gender: 'female', direction: 'parent', category: 'parental', dates: 'both' },
+    { value: 'step_father', label: 'אבא חורג', type: 'step_parent', gender: 'male', direction: 'parent', category: 'parental', dates: 'start' },
+    { value: 'step_mother', label: 'אמא חורגת', type: 'step_parent', gender: 'female', direction: 'parent', category: 'parental', dates: 'start' },
+    { value: 'guardian', label: 'אפוטרופוס', type: 'guardian', direction: 'parent', category: 'parental', dates: 'start' },
+
+    // Children (top/bottom handles)
+    { value: 'son_daughter', label: 'בן/בת', type: 'parent', direction: 'child', category: 'parental', dates: 'none' },
+    { value: 'adopted_son_daughter', label: 'בן/בת מאומץ', type: 'adoptive_parent', direction: 'child', category: 'parental', dates: 'both' },
+    { value: 'step_son_daughter', label: 'בן/בת חורג', type: 'step_parent', direction: 'child', category: 'parental', dates: 'start' },
+
+    // Spousal (upper side handles)
+    { value: 'married', label: 'נשואים', type: 'spouse', category: 'spousal', dates: 'both' },
+    { value: 'divorced', label: 'גרושים', type: 'ex_spouse', category: 'spousal', dates: 'both' },
+    { value: 'separated', label: 'פרודים', type: 'separated', category: 'spousal', dates: 'both' },
+    { value: 'partner', label: 'בן/בת זוג', type: 'partner', category: 'spousal', dates: 'both' },
+    { value: 'ex_partner', label: 'בן/בת זוג לשעבר', type: 'ex_partner', category: 'spousal', dates: 'both' },
+
+    // Sibling (lower side handles)
+    { value: 'sibling', label: 'אח/אחות', type: 'sibling', category: 'sibling', dates: 'none' },
+    { value: 'twin', label: 'תאום/תאומה', type: 'twin', category: 'sibling', dates: 'none' },
+    { value: 'step_sibling', label: 'אח/אחות חורג', type: 'step_sibling', category: 'sibling', dates: 'none' },
 ];
 
 
@@ -81,6 +89,23 @@ type RelationshipModalProps = {
   onSave: (data: { relData: any, genderUpdate?: { personId: string, gender: 'male' | 'female' | 'other' }}) => void;
   onDelete: (relationshipId: string) => void;
 };
+
+function getRelationshipValue(relationship: Relationship, sourcePerson: Person) {
+  const { relationshipType } = relationship;
+  if (['parent', 'adoptive_parent', 'step_parent', 'guardian'].includes(relationshipType)) {
+    // It's a parent-child relationship, personA is parent. Find the option based on parent's gender.
+    const option = relationshipOptions.find(o => 
+        o.type === relationshipType && 
+        o.gender === sourcePerson?.gender &&
+        o.direction === 'parent'
+    );
+    // Fallback for guardian which has no gender
+    return option?.value || relationshipOptions.find(o => o.type === relationshipType)?.value || '';
+  } else {
+    // For symmetrical, find the type that matches. e.g. 'spouse' -> 'married'
+    return relationshipOptions.find(o => o.type === relationshipType)?.value || '';
+  }
+}
 
 export function RelationshipModal({
   isOpen,
@@ -97,23 +122,15 @@ export function RelationshipModal({
 
   const form = useForm<z.infer<typeof relationshipSchema>>({
     resolver: zodResolver(relationshipSchema),
-    defaultValues: { relationshipType: 'father', startDate: '', endDate: '', notes: '' },
+    defaultValues: { relationshipType: '', startDate: '', endDate: '', notes: '' },
   });
 
   const { sourcePerson, targetPerson } = useMemo(() => {
     let sourceId, targetId;
 
     if (isEditing && relationship) {
-        if (['parent', 'adoptive_parent', 'step_parent'].includes(relationship.relationshipType)) {
-            // PersonA is always the parent
-            sourceId = relationship.personAId;
-            targetId = relationship.personBId;
-        } else {
-             // For symmetrical relationships, just use the stored IDs
-            sourceId = relationship.personAId;
-            targetId = relationship.personBId;
-        }
-
+        sourceId = relationship.personAId;
+        targetId = relationship.personBId;
     } else if (connection) {
         sourceId = connection.source;
         targetId = connection.target;
@@ -125,38 +142,47 @@ export function RelationshipModal({
     };
   }, [connection, relationship, people, isEditing]);
 
+  const filteredOptions = useMemo(() => {
+    if (isEditing || !connection?.sourceHandle) {
+      return relationshipOptions;
+    }
+
+    const handle = connection.sourceHandle;
+    if (handle.includes('upper')) {
+        return relationshipOptions.filter(o => o.category === 'spousal');
+    }
+    if (handle.includes('lower')) {
+        return relationshipOptions.filter(o => o.category === 'sibling');
+    }
+    if (handle === 'top' || handle === 'bottom') {
+        return relationshipOptions.filter(o => o.category === 'parental');
+    }
+
+    return relationshipOptions;
+  }, [connection, isEditing]);
+
 
   useEffect(() => {
-    if (isOpen && isEditing && relationship && sourcePerson && targetPerson) {
-        let selectedType;
-        
-        if (['parent', 'adoptive_parent', 'step_parent'].includes(relationship.relationshipType)) {
-            // It's a parent-child relationship, personA is parent. Find the option based on parent's gender.
-            selectedType = relationshipOptions.find(o => 
-                o.type === relationship.relationshipType && 
-                o.gender === sourcePerson?.gender &&
-                o.direction === 'parent'
-            );
-        } else {
-            // For symmetrical, find the type that matches. e.g. 'spouse' -> 'married'
-            selectedType = relationshipOptions.find(o => o.type === relationship.relationshipType);
-        }
-        
+    if (isOpen) {
+      if (isEditing && relationship && sourcePerson) {
+        const selectedType = getRelationshipValue(relationship, sourcePerson);
         form.reset({
-            relationshipType: selectedType?.value || '',
-            startDate: relationship.startDate || '',
-            endDate: relationship.endDate || '',
-            notes: relationship.notes || '',
+          relationshipType: selectedType,
+          startDate: relationship.startDate || '',
+          endDate: relationship.endDate || '',
+          notes: relationship.notes || '',
         });
-    } else if (isOpen && !isEditing) {
+      } else if (!isEditing) {
         form.reset({
-            relationshipType: 'father',
-            startDate: '',
-            endDate: '',
-            notes: '',
+          relationshipType: filteredOptions[0]?.value || '',
+          startDate: '',
+          endDate: '',
+          notes: '',
         });
+      }
     }
-  }, [relationship, sourcePerson, targetPerson, form, isOpen, isEditing]);
+  }, [relationship, sourcePerson, form, isOpen, isEditing, filteredOptions]);
+
 
   function onSubmit(values: z.infer<typeof relationshipSchema>) {
     const selectedOption = relationshipOptions.find(o => o.value === values.relationshipType);
@@ -173,7 +199,8 @@ export function RelationshipModal({
         personAId = targetPerson.id; // Person A is parent
         personBId = sourcePerson.id; // Person B is child
         genderUpdatePerson = targetPerson;
-        genderForUpdate = selectedOption.gender; // Note: child-types don't have gender, this will be undefined
+        // child-directed options don't have gender, so we can't infer it this way.
+        genderForUpdate = undefined;
     } else { // Symmetrical, non-parental
         [personAId, personBId] = [sourcePerson.id, targetPerson.id].sort();
     }
@@ -183,9 +210,9 @@ export function RelationshipModal({
       personAId: personAId,
       personBId: personBId,
       relationshipType: selectedOption.type,
-      startDate: values.startDate,
-      endDate: values.endDate,
-      notes: values.notes,
+      startDate: values.startDate || null,
+      endDate: values.endDate || null,
+      notes: values.notes || null,
     };
     
     let genderUpdate;
@@ -206,7 +233,11 @@ export function RelationshipModal({
   }
 
   const relationshipType = form.watch('relationshipType');
-  const currentSelectedOption = relationshipOptions.find(opt => opt.value === relationshipType);
+  const currentSelectedOption = useMemo(() => {
+    return relationshipOptions.find(opt => opt.value === relationshipType);
+  }, [relationshipType]);
+
+  const dateVisibility = currentSelectedOption?.dates || 'none';
 
   const isChildDirection = currentSelectedOption?.direction === 'child';
   const displaySubject = isChildDirection ? targetPerson : sourcePerson;
@@ -244,9 +275,9 @@ export function RelationshipModal({
                 <FormItem className="text-right">
                   <FormLabel>סוג קשר</FormLabel>
                    <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue placeholder="בחר סוג קשר..." /></SelectTrigger></FormControl>
                     <SelectContent>
-                        {relationshipOptions.map(opt => (
+                        {filteredOptions.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
                     </SelectContent>
@@ -255,16 +286,34 @@ export function RelationshipModal({
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-               <FormField control={form.control} name="startDate" render={({ field }) => (
-                <FormItem className="text-right"><FormLabel>תאריך התחלה (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-              )}/>
-               <FormField control={form.control} name="endDate" render={({ field }) => (
-                <FormItem className="text-right"><FormLabel>תאריך סיום (אופציונלי)</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-              )}/>
-            </div>
+            {dateVisibility !== 'none' && (
+                <div className={`grid ${dateVisibility === 'both' ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field }) => (
+                        <FormItem className="text-right">
+                            <FormLabel>תאריך התחלה</FormLabel>
+                            <FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl>
+                        </FormItem>
+                    )}
+                />
+                {dateVisibility === 'both' && (
+                    <FormField
+                        control={form.control}
+                        name="endDate"
+                        render={({ field }) => (
+                            <FormItem className="text-right">
+                                <FormLabel>תאריך סיום</FormLabel>
+                                <FormControl><Input type="date" {...field} value={field.value || ''}/></FormControl>
+                            </FormItem>
+                        )}
+                    />
+                )}
+                </div>
+            )}
              <FormField control={form.control} name="notes" render={({ field }) => (
-                <FormItem className="text-right"><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+                <FormItem className="text-right"><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl></FormItem>
               )}/>
             <DialogFooter className="pt-4 mt-4 border-t flex flex-row-reverse justify-between items-center">
               <div className="flex items-center gap-2">

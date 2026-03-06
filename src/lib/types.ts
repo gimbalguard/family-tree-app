@@ -54,13 +54,13 @@ export type Relationship = {
     | 'twin'
     | 'ex_spouse'
     | 'guardian'
-    | 'godparent'
     | 'separated'
     | 'partner'
-    | 'ex_partner';
-  startDate?: string;
-  endDate?: string;
-  notes?: string;
+    | 'ex_partner'
+    | 'step_sibling';
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
 };
 
 export type SocialLink = {
