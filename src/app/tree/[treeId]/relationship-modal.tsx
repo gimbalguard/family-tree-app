@@ -85,6 +85,7 @@ type RelationshipModalProps = {
   onClose: () => void;
   connection: Connection | null;
   relationship: Relationship | null;
+  relationshipId?: string; // Explicitly pass the ID for editing/deleting
   people: Person[];
   onSave: (data: { relData: any, genderUpdate?: { personId: string, gender: 'male' | 'female' | 'other' }}) => void;
   onDelete: (relationshipId: string) => Promise<void>;
@@ -112,6 +113,7 @@ export function RelationshipModal({
   onClose,
   connection,
   relationship,
+  relationshipId,
   people,
   onSave,
   onDelete,
@@ -208,21 +210,22 @@ export function RelationshipModal({
   }
 
   const handleDelete = async () => {
-    if (relationship) {
-      console.log('DELETE CALLED WITH ID:', relationship.id);
-      setIsDeleting(true);
-      try {
-        await onDelete(relationship.id);
-        // On success, parent component will close the main modal.
-        // We just need to close this confirmation dialog.
-        setDeleteConfirmOpen(false);
-      } catch (e) {
-        // Error is already handled and toasted by the parent.
-        // Spinner will stop in the finally block.
-      } finally {
-        // Ensure spinner stops even if the delete fails.
-        setIsDeleting(false);
-      }
+    const idToDelete = relationshipId || relationship?.id;
+    if (!idToDelete) {
+        console.error("Delete failed: No ID found for the relationship.");
+        return;
+    }
+    
+    console.log('DELETE CALLED WITH ID:', idToDelete);
+    setIsDeleting(true);
+    try {
+        await onDelete(idToDelete);
+        setDeleteConfirmOpen(false); // Close confirmation on success
+    } catch (e) {
+        // Error is handled by the parent component (e.g., showing a toast)
+        console.error("Delete operation failed in modal:", e);
+    } finally {
+        setIsDeleting(false); // Always stop loading spinner
     }
   };
 

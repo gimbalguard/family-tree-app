@@ -18,6 +18,7 @@ import ReactFlow, {
   type OnEdgeClick,
   type OnNodeDoubleClick,
   type IsValidConnection,
+  ConnectionMode,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -70,6 +71,7 @@ export function FamilyTreeCanvas({
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         isValidConnection={isValidConnection}
+        connectionMode={ConnectionMode.Loose}
         fitView
         className="bg-background"
         nodesDraggable={true} // Ensure nodes are always draggable

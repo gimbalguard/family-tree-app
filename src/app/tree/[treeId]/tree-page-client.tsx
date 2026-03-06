@@ -82,7 +82,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
             source: sourceId,
             target: targetId,
             sourceHandle: 'upper-right-source',
-            targetHandle: 'upper-left-target',
+            targetHandle: 'upper-left-source',
         };
     }
 
@@ -91,7 +91,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
             source: sourceId,
             target: targetId,
             sourceHandle: 'lower-right-source',
-            targetHandle: 'lower-left-target',
+            targetHandle: 'lower-left-source',
         };
     }
     
@@ -100,7 +100,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
         source: sourceId,
         target: targetId,
         sourceHandle: 'upper-right-source',
-        targetHandle: 'upper-left-target',
+        targetHandle: 'upper-left-source',
     };
 };
 
@@ -455,31 +455,32 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
   
   const handleDeleteRelationship = async (relationshipId: string) => {
-    console.log('handleDeleteRelationship called with:', relationshipId);
-    console.log('Current edges:', edges.map(e => e.id));
-    if (!user || !db) {
-      throw new Error('User or DB not available');
-    }
-
+    if (!user || !db) return;
+  
+    const edgeToDelete = edges.find(e => e.id === relationshipId);
+    if (!edgeToDelete) return;
+  
+    // 1. Optimistic UI update: remove the edge immediately from the state.
+    setEdges(currentEdges => currentEdges.filter(e => e.id !== relationshipId));
+    handleRelModalClose();
+  
     try {
+      // 2. Perform the delete operation in the background.
       const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
       await deleteDoc(relRef);
-
-      // On success, update the local state to remove the edge and relationship.
-      setEdges((eds) => eds.filter((e) => e.id !== relationshipId));
-      setRelationships((rels) => rels.filter((r) => r.id !== relationshipId));
-      handleRelModalClose(); // Close the main relationship modal.
-
       toast({ title: 'קשר נמחק' });
+      // 3. On success, we also remove the relationship from the local `relationships` state.
+      setRelationships(rels => rels.filter(r => r.id !== relationshipId));
+
     } catch (error: any) {
       console.error('Error deleting relationship:', error);
       toast({
         variant: 'destructive',
         title: 'שגיאה במחיקת קשר',
-        description: 'לא ניתן היה למחוק את הקשר מהשרת.',
+        description: "לא ניתן היה למחוק את הקשר. החיבור שוחזר.",
       });
-      // Re-throw the error so the calling modal can handle its state.
-      throw error;
+      // 4. On failure, restore the edge to the UI.
+      setEdges(currentEdges => [...currentEdges, edgeToDelete]);
     }
   };
 
@@ -520,7 +521,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     if (connection.source === connection.target) {
         return false;
     }
-    const sideHandles = ['upper-left-source', 'upper-left-target', 'upper-right-source', 'upper-right-target', 'lower-left-source', 'lower-left-target', 'lower-right-source', 'lower-right-target'];
+    const sideHandles = ['upper-left-source', 'upper-right-source', 'lower-left-source', 'lower-right-source'];
     
     // Allow connections between any two side handles
     if (sideHandles.includes(connection.sourceHandle!) && sideHandles.includes(connection.targetHandle!)) {
@@ -612,6 +613,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                 onClose={handleRelModalClose}
                 connection={newConnection}
                 relationship={editingRelationship}
+                relationshipId={editingRelationship?.id}
                 people={people}
                 onSave={handleSaveRelationship}
                 onDelete={handleDeleteRelationship}

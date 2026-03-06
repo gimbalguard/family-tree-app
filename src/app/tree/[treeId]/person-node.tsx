@@ -60,15 +60,11 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
       {/* Spouse/Partner handles (upper) */}
       <Handle type="source" position={Position.Left} id="upper-left-source" style={{ ...handleStyle, top: '33%' }} />
-      <Handle type="target" position={Position.Left} id="upper-left-target" style={{ ...handleStyle, top: '33%' }} />
       <Handle type="source" position={Position.Right} id="upper-right-source" style={{ ...handleStyle, top: '33%' }} />
-      <Handle type="target" position={Position.Right} id="upper-right-target" style={{ ...handleStyle, top: '33%' }} />
 
       {/* Sibling handles (lower) */}
       <Handle type="source" position={Position.Left} id="lower-left-source" style={{ ...handleStyle, top: '66%' }} />
-      <Handle type="target" position={Position.Left} id="lower-left-target" style={{ ...handleStyle, top: '66%' }} />
       <Handle type="source" position={Position.Right} id="lower-right-source" style={{ ...handleStyle, top: '66%' }} />
-      <Handle type="target" position={Position.Right} id="lower-right-target" style={{ ...handleStyle, top: '66%' }} />
       
       <CardHeader className="p-4">
         <div className="flex items-center gap-4">
