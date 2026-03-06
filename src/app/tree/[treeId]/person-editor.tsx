@@ -38,11 +38,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, Sparkles, Camera, UploadCloud } from 'lucide-react';
 import { generateDescription } from '@/ai/flows/ai-description-generation-flow';
 import { Switch } from '@/components/ui/switch';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useStorage } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
-import { firebaseConfig } from '@/firebase/config';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+
 
 const socialLinkSchema = z.object({
   platform: z.enum([
@@ -94,7 +95,7 @@ export function PersonEditor({
 }: PersonEditorProps) {
   const { toast } = useToast();
   const { user } = useUser();
-  const auth = useAuth();
+  const storage = useStorage();
   
   const [isSaving, setIsSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -133,6 +134,8 @@ export function PersonEditor({
     if (deathDateValue && currentStatus !== 'deceased') {
       form.setValue('status', 'deceased');
     } else if (!deathDateValue && currentStatus === 'deceased') {
+      // Revert to 'alive' only if it was 'deceased'.
+      // This avoids overriding a manually set 'unknown' status.
       form.setValue('status', 'alive');
     }
   }, [deathDateValue, form]);
@@ -181,44 +184,26 @@ export function PersonEditor({
   }, [person, isOpen, form, cameraStream]);
 
   const handleImageUpload = async (file: File | Blob) => {
-    if (!user || !treeId || !auth.currentUser) {
-      toast({ variant: 'destructive', title: 'שגיאת אימות', description: 'נדרש אימות כדי להעלות תמונה.' });
+    if (!user || !treeId || !storage) {
+      toast({ variant: 'destructive', title: 'שגיאת אימות או אתחול', description: 'נדרש אימות ושירות אחסון כדי להעלות תמונה.' });
       return;
     }
     setIsUploading(true);
 
     try {
-      const token = await auth.currentUser.getIdToken();
       const filename = `${uuidv4()}-${(file instanceof File) ? file.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'capture.jpg'}`;
       const path = `users/${user.uid}/trees/${treeId}/photos/${filename}`;
-      const bucket = firebaseConfig.storageBucket;
-
-      const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?uploadType=media&name=${encodeURIComponent(path)}`;
-
-      const response = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': file.type,
-        },
-        body: file,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Upload failed:', errorData);
-        throw new Error(errorData.error?.message || 'Failed to upload image via REST API.');
-      }
-
-      const result = await response.json();
-      const downloadToken = result.downloadTokens;
-      const publicUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media&token=${downloadToken}`;
+      const imageRef = storageRef(storage, path);
       
-      form.setValue('photoURL', publicUrl, { shouldValidate: true });
+      const snapshot = await uploadBytes(imageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      form.setValue('photoURL', downloadURL, { shouldValidate: true });
       toast({ title: 'התמונה הועלתה בהצלחה' });
 
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'שגיאת העלאה', description: error.message });
+      console.error("Upload error:", error);
+      toast({ variant: 'destructive', title: 'שגיאת העלאה', description: error.message || 'An unknown error occurred' });
     } finally {
       setIsUploading(false);
     }
