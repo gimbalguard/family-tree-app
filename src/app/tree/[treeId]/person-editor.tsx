@@ -134,8 +134,6 @@ export function PersonEditor({
     if (deathDateValue && currentStatus !== 'deceased') {
       form.setValue('status', 'deceased');
     } else if (!deathDateValue && currentStatus === 'deceased') {
-      // Revert to 'alive' only if it was 'deceased'.
-      // This avoids overriding a manually set 'unknown' status.
       form.setValue('status', 'alive');
     }
   }, [deathDateValue, form]);
