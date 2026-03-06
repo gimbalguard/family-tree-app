@@ -641,7 +641,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                               {personToDelete?.firstName} {personToDelete?.lastName}
                           </strong>
                           , וכל הקשרים שלו. לא ניתן לבטל פעולה זו.
-                      </DeselectDescription>
+                      </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                       <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
