@@ -210,13 +210,11 @@ export function RelationshipModal({
   }
 
   const handleDelete = async () => {
-    console.log('handleDelete called, relationship:', relationship, 'relationshipId prop:', relationshipId);
     const idToDelete = relationshipId ?? relationship?.id;
     if (!idToDelete) {
       console.error('No ID available to delete');
       return;
     }
-    console.log('DELETE CALLED WITH ID:', idToDelete);
     setIsDeleting(true);
     try {
       await onDelete(idToDelete);
@@ -335,7 +333,7 @@ export function RelationshipModal({
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
-                <Button variant="destructive" onClick={() => { console.log('CONFIRM DELETE CLICKED'); handleDelete(); }} disabled={isDeleting}>
+                <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
                     {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                     מחק
                 </Button>

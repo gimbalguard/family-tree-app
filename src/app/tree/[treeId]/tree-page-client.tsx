@@ -458,30 +458,28 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   
   const handleDeleteRelationship = async (relationshipId: string) => {
     if (!user || !db) return;
-    
-    let edgeToDelete: any;
+  
+    let edgeToDelete: Edge | undefined;
+  
+    // Use functional update to get current edges and find the edge atomically
     setEdges(currentEdges => {
       edgeToDelete = currentEdges.find(e => e.id === relationshipId);
       return currentEdges.filter(e => e.id !== relationshipId);
     });
-    
+  
     try {
       const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
       await deleteDoc(relRef);
       setRelationships(rels => rels.filter(r => r.id !== relationshipId));
       toast({ title: 'קשר נמחק' });
     } catch (error: any) {
-        console.error('Error deleting relationship:', error);
-        toast({
-          variant: 'destructive',
-          title: 'שגיאה במחיקת קשר',
-          description: "לא ניתן היה למחוק את הקשר. החיבור שוחזר.",
-        });
-        if (edgeToDelete) {
-            setEdges(currentEdges => [...currentEdges, edgeToDelete]);
-        }
+      console.error('Error deleting relationship:', error);
+      toast({ variant: 'destructive', title: 'שגיאה במחיקת קשר' });
+      if (edgeToDelete) {
+        setEdges(currentEdges => [...currentEdges, edgeToDelete!]);
+      }
     } finally {
-      handleRelModalClose(); // Close AFTER everything is done
+      handleRelModalClose();
     }
   };
 
