@@ -54,69 +54,78 @@ export function AppHeader() {
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Globe className="h-5 w-5" />
-                <span className="sr-only">שנה שפה</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>עברית</DropdownMenuItem>
-              <DropdownMenuItem disabled>English</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {(!isClient || isUserLoading) ? (
-            <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
-          ) : isAnonymous ? (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={() => router.push('/login')}>
-                <LogIn className="ml-2 h-4 w-4" />
-                כניסה
-              </Button>
-              <Button onClick={() => router.push('/register')}>
-                <UserPlus className="ml-2 h-4 w-4" />
-                הרשמה
-              </Button>
-            </div>
+          {!isClient ? (
+            <>
+              <div className="h-10 w-10 rounded-md bg-muted animate-pulse" />
+              <div className="h-8 w-32 rounded-md bg-muted animate-pulse" />
+            </>
           ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="relative h-8 w-8 rounded-full"
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={user?.photoURL ?? ''}
-                      alt={user?.displayName ?? ''}
-                    />
-                    <AvatarFallback>{userInitial}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal text-right">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {user?.displayName ?? 'משתמש'}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user?.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleLogout}
-                  className="justify-end"
-                >
-                  <LogOut className="ml-2 h-4 w-4" />
-                  <span>התנתקות</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Globe className="h-5 w-5" />
+                    <span className="sr-only">שנה שפה</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>עברית</DropdownMenuItem>
+                  <DropdownMenuItem disabled>English</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {isUserLoading ? (
+                <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
+              ) : isAnonymous ? (
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" onClick={() => router.push('/login')}>
+                    <LogIn className="ml-2 h-4 w-4" />
+                    כניסה
+                  </Button>
+                  <Button onClick={() => router.push('/register')}>
+                    <UserPlus className="ml-2 h-4 w-4" />
+                    הרשמה
+                  </Button>
+                </div>
+              ) : (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-8 w-8 rounded-full"
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={user?.photoURL ?? ''}
+                          alt={user?.displayName ?? ''}
+                        />
+                        <AvatarFallback>{userInitial}</AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="end" forceMount>
+                    <DropdownMenuLabel className="font-normal text-right">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user?.displayName ?? 'משתמש'}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="justify-end"
+                    >
+                      <LogOut className="ml-2 h-4 w-4" />
+                      <span>התנתקות</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </>
           )}
         </div>
       </div>
