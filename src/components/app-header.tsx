@@ -15,11 +15,18 @@ import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { LogIn, LogOut, UserPlus, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 export function AppHeader() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const userInitial = user?.email?.charAt(0).toUpperCase() ?? '?';
   const isAnonymous = user?.isAnonymous ?? true;
 
@@ -60,7 +67,7 @@ export function AppHeader() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {isUserLoading ? (
+          {(!isClient || isUserLoading) ? (
             <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
           ) : isAnonymous ? (
             <div className="flex items-center gap-2">
