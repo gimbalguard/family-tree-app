@@ -455,6 +455,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
   
   const handleDeleteRelationship = async (relationshipId: string) => {
+    console.log('handleDeleteRelationship called with:', relationshipId);
+    console.log('Current edges:', edges.map(e => e.id));
     if (!user || !db) {
       throw new Error('User or DB not available');
     }
@@ -513,6 +515,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }, [user, treeId, db]);
 
   const isValidConnection = useCallback<IsValidConnection>((connection) => {
+    console.log('CONNECTION ATTEMPT:', JSON.stringify(connection));
     // Basic validation: prevent self-connections
     if (connection.source === connection.target) {
         return false;
