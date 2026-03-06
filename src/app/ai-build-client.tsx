@@ -61,8 +61,6 @@ export function AiBuildClient() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [generatedData, setGeneratedData] =
-    useState<GenerateTreeOutput | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const [isRecording, setIsRecording] = useState(false);
@@ -187,6 +185,97 @@ export function AiBuildClient() {
   };
 
 
+  const handleCreateTreeFromAI = async (data: GenerateTreeOutput | null) => {
+    if (!data || !user || !db) {
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה',
+        description: 'נתונים חסרים ליצירת העץ.',
+      });
+      return;
+    }
+    setIsCreating(true);
+
+    try {
+      const treeDocRef = doc(collection(db, 'users', user.uid, 'familyTrees'));
+      
+      const batch = writeBatch(db);
+      
+      batch.set(treeDocRef, {
+        treeName: treeName,
+        userId: user.uid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      const treeId = treeDocRef.id;
+
+      const tempIdToFirestoreId: Record<string, string> = {};
+
+      data.people.forEach((person) => {
+        const personDocRef = doc(
+          collection(db, 'users', user.uid, 'familyTrees', treeId, 'people')
+        );
+        tempIdToFirestoreId[person.key] = personDocRef.id;
+        
+        const { key, ...personData } = person;
+
+        batch.set(personDocRef, {
+          ...personData,
+          userId: user.uid,
+          treeId: treeId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      });
+
+      data.relationships.forEach((rel) => {
+        const personAId = tempIdToFirestoreId[rel.personAKey];
+        const personBId = tempIdToFirestoreId[rel.personBKey];
+
+        if (personAId && personBId) {
+          const relDocRef = doc(
+            collection(
+              db,
+              'users',
+              user.uid,
+              'familyTrees',
+              treeId,
+              'relationships'
+            )
+          );
+          
+          const { personAKey, personBKey, ...relData } = rel;
+
+          batch.set(relDocRef, {
+            ...relData,
+            personAId,
+            personBId,
+            userId: user.uid,
+            treeId: treeId,
+          });
+        }
+      });
+
+      await batch.commit();
+
+      toast({
+        title: 'עץ נוצר בהצלחה!',
+        description: `כעת תועבר לעץ החדש שלך: "${treeName}"`,
+      });
+
+      router.push(`/tree/${treeId}`);
+    } catch (error) {
+      console.error('Error creating tree from AI data:', error);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה',
+        description: 'לא ניתן היה ליצור את עץ המשפחה. נסה שוב.',
+      });
+    } finally {
+        setIsCreating(false);
+    }
+  };
+
   const handleSendStory = async () => {
     if (!story.trim() || !user) return;
     if (!treeName.trim()) {
@@ -215,31 +304,65 @@ export function AiBuildClient() {
     setChatHistory((prev) => [...prev, userMessage]);
     setStory('');
     setIsGenerating(true);
-    setGeneratedData(null);
 
     try {
       const result = await generateTreeFromStory({ story, treeName });
-      setGeneratedData(result);
+
+      const relationshipLabels: Record<string, string> = {
+        parent: 'הורה של',
+        spouse: 'בן/בת זוג של',
+        adoptive_parent: 'הורה מאמצ/ת של',
+        step_parent: 'הורה חורג/ת של',
+        sibling: 'אח/אחות של',
+        twin: 'תאום/ה של',
+        ex_spouse: 'בן/בת זוג לשעבר של',
+        guardian: 'אפוטרופוס של',
+        godparent: 'סנדק/ית של',
+      };
 
       const assistantMessageContent = (
-        <div className="space-y-4">
-          <p>{result.summary}</p>
-          {result.clarificationQuestion ? (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertTitle>שאלה להבהרה</AlertTitle>
-              <AlertDescription>
-                {result.clarificationQuestion}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <Button onClick={handleCreateTreeFromAI} disabled={isCreating}>
-              {isCreating ? (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-              ) : null}
-              צור את העץ
-            </Button>
-          )}
+        <div className="space-y-4 text-right">
+            <p className="font-semibold">{result.summary}</p>
+
+            {result.people.length > 0 && (
+                <div className="text-sm">
+                <h4 className="font-medium underline">אנשים שזוהו:</h4>
+                <ul className="list-disc list-inside text-muted-foreground">
+                    {result.people.map(p => <li key={p.key}>{p.firstName} {p.lastName}</li>)}
+                </ul>
+                </div>
+            )}
+
+            {result.relationships.length > 0 && (
+                <div className="text-sm">
+                <h4 className="font-medium underline">קשרים שזוהו:</h4>
+                <ul className="list-disc list-inside text-muted-foreground">
+                    {result.relationships.map((r, i) => {
+                    const personA = result.people.find(p => p.key === r.personAKey);
+                    const personB = result.people.find(p => p.key === r.personBKey);
+                    const relLabel = relationshipLabels[r.relationshipType] || r.relationshipType;
+                    if (!personA || !personB) return null;
+                    
+                    return <li key={i}>{`${personA.firstName} ${personA.lastName}`} הוא/היא {relLabel} {`${personB.firstName} ${personB.lastName}`}</li>
+                    })}
+                </ul>
+                </div>
+            )}
+
+            {result.clarificationQuestion ? (
+                <Alert dir="rtl">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>שאלה להבהרה</AlertTitle>
+                    <AlertDescription>{result.clarificationQuestion}</AlertDescription>
+                </Alert>
+            ) : (
+                <div className="pt-2">
+                    <Button onClick={() => handleCreateTreeFromAI(result)} disabled={isCreating}>
+                        {isCreating ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
+                        צור את העץ
+                    </Button>
+                </div>
+            )}
         </div>
       );
 
@@ -268,90 +391,6 @@ export function AiBuildClient() {
     }
   };
 
-  const handleCreateTreeFromAI = async () => {
-    if (!generatedData || !user || !db) return;
-    setIsCreating(true);
-
-    try {
-      const treeDocRef = doc(collection(db, 'users', user.uid, 'familyTrees'));
-      
-      const batch = writeBatch(db);
-      
-      batch.set(treeDocRef, {
-        treeName: treeName,
-        userId: user.uid,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      const treeId = treeDocRef.id;
-
-      const tempIdToFirestoreId: Record<string, string> = {};
-
-      generatedData.people.forEach((person) => {
-        const personDocRef = doc(
-          collection(db, 'users', user.uid, 'familyTrees', treeId, 'people')
-        );
-        tempIdToFirestoreId[person.key] = personDocRef.id;
-        
-        // Destructure to remove the temporary 'key' property before saving
-        const { key, ...personData } = person;
-
-        batch.set(personDocRef, {
-          ...personData,
-          userId: user.uid,
-          treeId: treeId,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      });
-
-      generatedData.relationships.forEach((rel) => {
-        const personAId = tempIdToFirestoreId[rel.personAKey];
-        const personBId = tempIdToFirestoreId[rel.personBKey];
-
-        if (personAId && personBId) {
-          const relDocRef = doc(
-            collection(
-              db,
-              'users',
-              user.uid,
-              'familyTrees',
-              treeId,
-              'relationships'
-            )
-          );
-          
-          // Destructure to remove temporary 'key' properties
-          const { personAKey, personBKey, ...relData } = rel;
-
-          batch.set(relDocRef, {
-            ...relData,
-            personAId,
-            personBId,
-            userId: user.uid,
-            treeId: treeId,
-          });
-        }
-      });
-
-      await batch.commit();
-
-      toast({
-        title: 'עץ נוצר בהצלחה!',
-        description: `כעת תועבר לעץ החדש שלך: "${treeName}"`,
-      });
-
-      router.push(`/tree/${treeId}`);
-    } catch (error) {
-      console.error('Error creating tree from AI data:', error);
-      toast({
-        variant: 'destructive',
-        title: 'שגיאה',
-        description: 'לא ניתן היה ליצור את עץ המשפחה. נסה שוב.',
-      });
-      setIsCreating(false);
-    }
-  };
 
   const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
 
