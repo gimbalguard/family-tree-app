@@ -457,11 +457,12 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
   
   const handleDeleteRelationship = async (relationshipId: string) => {
-    if (!user || !db) return;
-  
-    let edgeToDelete: Edge | undefined;
-  
-    // Use functional update to get current edges and find the edge atomically
+    console.log('=== DELETE START ===');
+    console.log('relationshipId received:', relationshipId);
+    console.log('user uid:', user?.uid);
+    console.log('treeId:', treeId);
+    console.log('Full Firestore path:', `users/${user?.uid}/familyTrees/${treeId}/relationships/${relationshipId}`);
+    let edgeToDelete: any;
     setEdges(currentEdges => {
       edgeToDelete = currentEdges.find(e => e.id === relationshipId);
       return currentEdges.filter(e => e.id !== relationshipId);
@@ -640,7 +641,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                               {personToDelete?.firstName} {personToDelete?.lastName}
                           </strong>
                           , וכל הקשרים שלו. לא ניתן לבטל פעולה זו.
-                      </AlertDialogDescription>
+                      </DeselectDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                       <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
