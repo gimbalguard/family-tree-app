@@ -58,9 +58,9 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
         return { source: rel.personAId, target: rel.personBId, sourceHandle: null, targetHandle: null };
     }
 
-    const parentTypes = ['parent', 'adoptive_parent', 'step_parent'];
+    const parentTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
     const spouseTypes = ['spouse', 'ex_spouse', 'separated', 'partner', 'ex_partner'];
-    const siblingTypes = ['sibling', 'twin'];
+    const siblingTypes = ['sibling', 'twin', 'step_sibling'];
     
     // For parent types, personA is parent, personB is child.
     if (parentTypes.includes(rel.relationshipType)) {
