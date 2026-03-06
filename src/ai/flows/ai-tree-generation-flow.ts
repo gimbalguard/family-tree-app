@@ -23,6 +23,7 @@ export async function generateTreeFromStory(
 // The prompt definition
 const prompt = ai.definePrompt({
   name: 'generateTreePrompt',
+  model: 'googleai/gemini-2.0-flash',
   input: { schema: GenerateTreeInputSchema },
   output: { schema: GenerateTreeOutputSchema },
   prompt: `You are an expert genealogist AI assistant. Your task is to analyze a family story provided by the user and extract all individuals and their relationships to build a family tree structure. **All your responses, including summaries and clarification questions, MUST be in Hebrew.**
