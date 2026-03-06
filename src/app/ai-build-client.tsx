@@ -292,8 +292,12 @@ export function AiBuildClient() {
           collection(db, 'users', user.uid, 'familyTrees', treeId, 'people')
         );
         tempIdToFirestoreId[person.key] = personDocRef.id;
+        
+        // Destructure to remove the temporary 'key' property before saving
+        const { key, ...personData } = person;
+
         batch.set(personDocRef, {
-          ...person,
+          ...personData,
           userId: user.uid,
           treeId: treeId,
           createdAt: serverTimestamp(),
@@ -316,8 +320,12 @@ export function AiBuildClient() {
               'relationships'
             )
           );
+          
+          // Destructure to remove temporary 'key' properties
+          const { personAKey, personBKey, ...relData } = rel;
+
           batch.set(relDocRef, {
-            ...rel,
+            ...relData,
             personAId,
             personBId,
             userId: user.uid,
