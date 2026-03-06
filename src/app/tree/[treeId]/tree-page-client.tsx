@@ -1,13 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick } from 'reactflow';
-import { ReactFlowProvider, useNodesState, useEdgesState, addEdge } from 'reactflow';
+import { ReactFlowProvider, useNodesState, useEdgesState } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
-import { RelationshipModal } from './relationship-modal';
+import { RelationshipModal, relationshipOptions } from './relationship-modal';
 import { CanvasToolbar } from './canvas-toolbar';
 import { Loader2 } from 'lucide-react';
 import { Logo } from '@/components/icons';
@@ -174,8 +174,28 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       }));
       setNodes(initialNodes);
 
+      const relLabelMap = new Map(relationshipOptions.map(opt => [opt.type, opt.label]));
+      // Fallback for types that might map to the same base type but have different labels in the modal
+      relLabelMap.set('spouse', 'נשואים');
+      relLabelMap.set('ex_spouse', 'גרושים');
+      relLabelMap.set('separated', 'פרודים');
+      relLabelMap.set('partner', 'בן/בת זוג');
+      relLabelMap.set('ex_partner', 'בן/בת זוג לשעבר');
+      
       const initialEdges = relsData.map(rel => {
           const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, initialNodes);
+          const getLabel = () => {
+              if (rel.relationshipType === 'parent' || rel.relationshipType === 'step_parent' || rel.relationshipType === 'adoptive_parent') {
+                const parent = peopleData.find(p => p.id === rel.personAId);
+                if (parent) {
+                    const parentOption = relationshipOptions.find(opt => opt.type === rel.relationshipType && opt.gender === parent.gender);
+                    return parentOption?.label || 'הורה';
+                }
+                return 'הורה';
+              }
+              return relLabelMap.get(rel.relationshipType) || rel.relationshipType;
+          };
+
           return {
             id: rel.id,
             source,
@@ -183,6 +203,9 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
             sourceHandle,
             targetHandle,
             type: 'bezier',
+            label: getLabel(),
+            labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
+            labelStyle: { fill: 'hsl(var(--foreground))' },
             data: rel,
             style: getEdgeStyle(false),
           };
@@ -222,7 +245,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         const connectedEdgeIds = new Set(eds.filter(e => e.source === clickedNode.id || e.target === clickedNode.id).map(e => e.id));
         return eds.map(e => {
             const isSelected = connectedEdgeIds.has(e.id);
-            return { ...e, selected: isSelected, style: getEdgeStyle(isSelected) };
+            return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
         });
     });
   }, [setNodes, setEdges]);
@@ -230,14 +253,14 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const handleEdgeClick: OnEdgeClick = useCallback((_, clickedEdge) => {
     setEdges(eds => eds.map(e => {
         const isSelected = e.id === clickedEdge.id;
-        return { ...e, selected: isSelected, style: getEdgeStyle(isSelected) };
+        return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
     }));
     setNodes(nds => nds.map(n => ({ ...n, selected: n.id === clickedEdge.source || n.id === clickedEdge.target })));
   }, [setNodes, setEdges]);
   
   const handlePaneClick: OnPaneClick = useCallback(() => {
     setNodes(nds => nds.map(n => ({ ...n, selected: false })));
-    setEdges(eds => eds.map(e => ({ ...e, selected: false, style: getEdgeStyle(false) })));
+    setEdges(eds => eds.map(e => ({ ...e, selected: false, animated: false, style: getEdgeStyle(false) })));
   }, [setNodes, setEdges]);
 
 

@@ -52,7 +52,7 @@ const relationshipSchema = z.object({
 });
 
 // Mapping for relationship options
-const relationshipOptions = [
+export const relationshipOptions = [
     { value: 'father', label: 'אבא', type: 'parent', gender: 'male', direction: 'parent' },
     { value: 'mother', label: 'אמא', type: 'parent', gender: 'female', direction: 'parent' },
     { value: 'adoptive_father', label: 'אבא מאמץ', type: 'adoptive_parent', gender: 'male', direction: 'parent' },

@@ -68,7 +68,7 @@ const personSchema = z.object({
   previousFirstName: z.string().optional(),
   maidenName: z.string().optional(),
   nickname: z.string().optional(),
-  religion: z.enum(['jewish', 'christian', 'muslim', 'buddhist', 'other']).optional(),
+  religion: z.enum(['jewish', 'christian', 'muslim', 'buddhist', 'other', '']).optional(),
   countryOfResidence: z.string().optional(),
 });
 
@@ -112,6 +112,7 @@ export function PersonEditor({
       previousFirstName: '',
       maidenName: '',
       nickname: '',
+      religion: '',
       countryOfResidence: '',
     },
   });
@@ -126,6 +127,17 @@ export function PersonEditor({
       if (person) {
         form.reset({
           ...person,
+          birthDate: person.birthDate || '',
+          deathDate: person.deathDate || '',
+          birthPlace: person.birthPlace || '',
+          photoURL: person.photoURL || '',
+          description: person.description || '',
+          middleName: person.middleName || '',
+          previousFirstName: person.previousFirstName || '',
+          maidenName: person.maidenName || '',
+          nickname: person.nickname || '',
+          religion: person.religion || '',
+          countryOfResidence: person.countryOfResidence || '',
           socialLinks: [], // Social links need to be fetched separately
         });
       } else {
@@ -144,6 +156,7 @@ export function PersonEditor({
           previousFirstName: '',
           maidenName: '',
           nickname: '',
+          religion: '',
           countryOfResidence: '',
         });
       }
@@ -265,7 +278,7 @@ export function PersonEditor({
                          <div className="grid grid-cols-2 gap-4">
                             <FormField control={form.control} name="religion" render={({ field }) => (
                                 <FormItem className="text-right"><FormLabel>דת</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value} dir="rtl">
+                                <Select onValueChange={field.onChange} value={field.value} dir="rtl">
                                     <FormControl><SelectTrigger className="bg-white"><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
                                     <SelectContent>
                                         <SelectItem value="jewish">יהדות</SelectItem>
@@ -383,5 +396,3 @@ export function PersonEditor({
     </Dialog>
   );
 }
-
-    
