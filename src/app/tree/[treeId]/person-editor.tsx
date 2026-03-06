@@ -38,8 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle, Trash2, Sparkles, Settings2, Camera, UploadCloud, X } from 'lucide-react';
 import { generateDescription } from '@/ai/flows/ai-description-generation-flow';
 import { Switch } from '@/components/ui/switch';
-import { useUser, useStorage } from '@/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { useUser } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
@@ -94,14 +93,12 @@ export function PersonEditor({
 }: PersonEditorProps) {
   const { toast } = useToast();
   const { user } = useUser();
-  const storage = useStorage();
   
   const [isSaving, setIsSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showAdditionalFields, setShowAdditionalFields] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -181,33 +178,35 @@ export function PersonEditor({
     }
   }, [person, isOpen, form, cameraStream]);
 
-  const handleImageUpload = (file: File | Blob) => {
-    if (!storage || !user || !treeId) return;
+  const handleImageUpload = async (file: File | Blob) => {
+    if (!user || !treeId) return;
     setIsUploading(true);
-    setUploadProgress(0);
 
-    const personId = person?.id || 'new';
-    const filePath = `users/${user.uid}/trees/${treeId}/photos/${personId}_${Date.now()}`;
-    const storageRef = ref(storage, filePath);
-    const uploadTask = uploadBytesResumable(storageRef, file);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', user.uid);
+    formData.append('treeId', treeId);
 
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        setUploadProgress(progress);
-      },
-      (error) => {
-        setIsUploading(false);
-        toast({ variant: 'destructive', title: 'שגיאת העלאה', description: error.message });
-      },
-      () => {
-        getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-          form.setValue('photoURL', downloadURL, { shouldValidate: true });
-          setIsUploading(false);
-          toast({ title: 'התמונה הועלתה בהצלחה' });
-        });
+    try {
+      const response = await fetch('/api/upload-image', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Upload failed');
       }
-    );
+
+      form.setValue('photoURL', result.url, { shouldValidate: true });
+      toast({ title: 'התמונה הועלתה בהצלחה' });
+
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'שגיאת העלאה', description: error.message });
+    } finally {
+      setIsUploading(false);
+    }
   };
   
   const handleDragEvents = (e: React.DragEvent) => {
@@ -289,8 +288,7 @@ export function PersonEditor({
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-             <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-6">
+             <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
                 <div 
                   className={cn(
@@ -319,9 +317,8 @@ export function PersonEditor({
                   </div>
 
                   {isUploading && (
-                    <div className="absolute inset-0 bg-background/80 rounded-full flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="w-8 h-8 animate-spin" />
-                        <Progress value={uploadProgress} className="w-3/4 h-2" />
+                    <div className="absolute inset-0 bg-background/80 rounded-full flex items-center justify-center">
+                      <Loader2 className="w-10 h-10 animate-spin text-primary" />
                     </div>
                   )}
                   <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" />
@@ -485,7 +482,6 @@ export function PersonEditor({
                     </div>
                 </div>
               </div>
-            </div>
             <DialogFooter className="pt-6 border-t items-center flex-row-reverse justify-between">
                 <div className="flex items-center gap-2">
                     <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
