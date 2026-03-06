@@ -69,31 +69,33 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
 
     // For symmetrical relationships, decide left/right based on position
     const isNodeALeft = nodeA.position.x < nodeB.position.x;
+    const sourceId = isNodeALeft ? rel.personAId : rel.personBId;
+    const targetId = isNodeALeft ? rel.personBId : rel.personAId;
     
     if (spouseTypes.includes(rel.relationshipType)) {
         return {
-            source: isNodeALeft ? rel.personAId : rel.personBId,
-            target: isNodeALeft ? rel.personBId : rel.personAId,
-            sourceHandle: 'right-upper',
-            targetHandle: 'left-upper',
+            source: sourceId,
+            target: targetId,
+            sourceHandle: 'upper-right-source',
+            targetHandle: 'upper-left-target',
         };
     }
 
     if (siblingTypes.includes(rel.relationshipType)) {
          return {
-            source: isNodeALeft ? rel.personAId : rel.personBId,
-            target: isNodeALeft ? rel.personBId : rel.personAId,
-            sourceHandle: 'right-lower',
-            targetHandle: 'left-lower',
+            source: sourceId,
+            target: targetId,
+            sourceHandle: 'lower-right-source',
+            targetHandle: 'lower-left-target',
         };
     }
     
-    // Default for other types like guardian
+    // Default fallback (should be rare)
     return {
-        source: isNodeALeft ? rel.personAId : rel.personBId,
-        target: isNodeALeft ? rel.personBId : rel.personAId,
-        sourceHandle: 'right-upper',
-        targetHandle: 'left-upper',
+        source: sourceId,
+        target: targetId,
+        sourceHandle: 'upper-right-source',
+        targetHandle: 'upper-left-target',
     };
 };
 
@@ -447,23 +449,30 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
 
   const handleDeleteRelationship = async (relationshipId: string) => {
-    if (!user || !db) return;
+    if (!user || !db) return Promise.reject();
+  
+    const edgeToDelete = edges.find(e => e.id === relationshipId);
     
+    // Optimistic UI update
+    setEdges(currentEdges => currentEdges.filter(e => e.id !== relationshipId));
+    handleRelModalClose();
+  
     try {
-        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
-        await deleteDoc(relRef);
-        
-        toast({ title: 'קשר נמחק' });
-        fetchData();
-        handleRelModalClose();
-        
+      const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
+      await deleteDoc(relRef);
+      toast({ title: 'קשר נמחק' });
+      // On success, the UI is already updated.
     } catch (error: any) {
-        console.error('Error deleting relationship:', error);
-        toast({
-            variant: 'destructive',
-            title: 'שגיאה במחיקת קשר',
-            description: error.message || "Could not delete relationship.",
-        });
+      console.error('Error deleting relationship:', error);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה במחיקת קשר',
+        description: "Could not delete relationship. The connection has been restored.",
+      });
+      // Restore on failure
+      if (edgeToDelete) {
+        setEdges(currentEdges => [...currentEdges, edgeToDelete]);
+      }
     }
   };
 

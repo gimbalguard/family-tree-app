@@ -50,23 +50,23 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
   return (
     <Card className={cn("w-64 shadow-lg border-2 transition-colors duration-200", selected ? 'border-primary shadow-primary/20' : 'border-transparent')}>
-      {/* Parent handle */}
+      {/* Parent handle (target only) */}
       <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
       
-      {/* Child handle */}
+      {/* Child handle (source only) */}
       <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
 
-      {/* Spouse/Partner handles */}
-      <Handle type="source" position={Position.Left} id="left-upper" style={{ ...handleStyle, top: '33%' }} />
-      <Handle type="target" position={Position.Left} id="left-upper" style={{ ...handleStyle, top: '33%' }} />
-      <Handle type="source" position={Position.Right} id="right-upper" style={{ ...handleStyle, top: '33%' }} />
-      <Handle type="target" position={Position.Right} id="right-upper" style={{ ...handleStyle, top: '33%' }} />
+      {/* Spouse/Partner handles (upper) */}
+      <Handle type="source" position={Position.Left} id="upper-left-source" style={{ ...handleStyle, top: '33%' }} />
+      <Handle type="target" position={Position.Left} id="upper-left-target" style={{ ...handleStyle, top: '33%' }} />
+      <Handle type="source" position={Position.Right} id="upper-right-source" style={{ ...handleStyle, top: '33%' }} />
+      <Handle type="target" position={Position.Right} id="upper-right-target" style={{ ...handleStyle, top: '33%' }} />
 
-      {/* Sibling handles */}
-      <Handle type="source" position={Position.Left} id="left-lower" style={{ ...handleStyle, top: '66%' }} />
-      <Handle type="target" position={Position.Left} id="left-lower" style={{ ...handleStyle, top: '66%' }} />
-      <Handle type="source" position={Position.Right} id="right-lower" style={{ ...handleStyle, top: '66%' }} />
-      <Handle type="target" position={Position.Right} id="right-lower" style={{ ...handleStyle, top: '66%' }} />
+      {/* Sibling handles (lower) */}
+      <Handle type="source" position={Position.Left} id="lower-left-source" style={{ ...handleStyle, top: '66%' }} />
+      <Handle type="target" position={Position.Left} id="lower-left-target" style={{ ...handleStyle, top: '66%' }} />
+      <Handle type="source" position={Position.Right} id="lower-right-source" style={{ ...handleStyle, top: '66%' }} />
+      <Handle type="target" position={Position.Right} id="lower-right-target" style={{ ...handleStyle, top: '66%' }} />
       
       <CardHeader className="p-4">
         <div className="flex items-center gap-4">

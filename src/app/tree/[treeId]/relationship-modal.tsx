@@ -42,7 +42,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { Person, Relationship } from '@/lib/types';
-import { Trash2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 
 const relationshipSchema = z.object({
   relationshipType: z.string().min(1, 'יש לבחור סוג קשר.'),
@@ -87,7 +87,7 @@ type RelationshipModalProps = {
   relationship: Relationship | null;
   people: Person[];
   onSave: (data: { relData: any, genderUpdate?: { personId: string, gender: 'male' | 'female' | 'other' }}) => void;
-  onDelete: (relationshipId: string) => void;
+  onDelete: (relationshipId: string) => Promise<void>;
 };
 
 function getRelationshipValue(relationship: Relationship, sourcePerson: Person) {
@@ -119,6 +119,7 @@ export function RelationshipModal({
   
   const isEditing = !!relationship;
   const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<z.infer<typeof relationshipSchema>>({
     resolver: zodResolver(relationshipSchema),
@@ -143,21 +144,29 @@ export function RelationshipModal({
   }, [connection, relationship, people, isEditing]);
 
   const filteredOptions = useMemo(() => {
-    if (isEditing || !connection?.sourceHandle) {
+    if (isEditing || !connection?.sourceHandle || !connection.targetHandle) {
       return relationshipOptions;
     }
-
-    const handle = connection.sourceHandle;
-    if (handle.includes('upper')) {
-        return relationshipOptions.filter(o => o.category === 'spousal');
+  
+    const sourceHandle = connection.sourceHandle;
+    const targetHandle = connection.targetHandle;
+  
+    const isSpousal = sourceHandle.includes('upper') && targetHandle.includes('upper');
+    const isSibling = sourceHandle.includes('lower') && targetHandle.includes('lower');
+    const isParental = (sourceHandle.includes('bottom') && targetHandle.includes('top')) || 
+                       (sourceHandle.includes('top') && targetHandle.includes('bottom'));
+  
+    if (isSpousal) {
+      return relationshipOptions.filter(o => o.category === 'spousal');
     }
-    if (handle.includes('lower')) {
-        return relationshipOptions.filter(o => o.category === 'sibling');
+    if (isSibling) {
+      return relationshipOptions.filter(o => o.category === 'sibling');
     }
-    if (handle === 'top' || handle === 'bottom') {
-        return relationshipOptions.filter(o => o.category === 'parental');
+    if (isParental) {
+      return relationshipOptions.filter(o => o.category === 'parental');
     }
-
+    
+    // Fallback for mixed or invalid connections - show all
     return relationshipOptions;
   }, [connection, isEditing]);
 
@@ -172,9 +181,9 @@ export function RelationshipModal({
           endDate: relationship.endDate || '',
           notes: relationship.notes || '',
         });
-      } else if (!isEditing) {
+      } else {
         form.reset({
-          relationshipType: filteredOptions[0]?.value || '',
+          relationshipType: filteredOptions.length > 0 ? filteredOptions[0].value : '',
           startDate: '',
           endDate: '',
           notes: '',
@@ -225,10 +234,12 @@ export function RelationshipModal({
     onSave({ relData, genderUpdate });
   }
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (relationship) {
-      onDelete(relationship.id);
-      onClose();
+      setIsDeleting(true);
+      await onDelete(relationship.id);
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false); // Close confirmation dialog
     }
   }
 
@@ -340,10 +351,11 @@ export function RelationshipModal({
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>ביטול</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
+                <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     מחק
-                </AlertDialogAction>
+                </Button>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
