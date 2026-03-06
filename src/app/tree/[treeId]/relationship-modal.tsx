@@ -59,16 +59,16 @@ const relationshipOptions = [
     { value: 'adoptive_mother', label: 'אמא מאמצת', type: 'adoptive_parent', gender: 'female', direction: 'parent' },
     { value: 'step_father', label: 'אבא חורג', type: 'step_parent', gender: 'male', direction: 'parent' },
     { value: 'step_mother', label: 'אמא חורגת', type: 'step_parent', gender: 'female', direction: 'parent' },
-    { value: 'son', label: 'בן', type: 'parent', gender: 'male', direction: 'child' },
-    { value: 'daughter', label: 'בת', type: 'parent', gender: 'female', direction: 'child' },
-    { value: 'step_son', label: 'בן חורג', type: 'step_parent', gender: 'male', direction: 'child' },
-    { value: 'step_daughter', label: 'בת חורגת', type: 'step_parent', gender: 'female', direction: 'child' },
-    { value: 'spouse', label: 'בן/בת זוג', type: 'spouse' },
-    { value: 'ex_spouse', label: 'בן/בת זוג לשעבר', type: 'ex_spouse' },
+    { value: 'son_daughter', label: 'בן/בת', type: 'parent', direction: 'child' },
+    { value: 'step_son_daughter', label: 'בן/בת חורג', type: 'step_parent', direction: 'child' },
     { value: 'sibling', label: 'אח/אחות', type: 'sibling' },
     { value: 'twin', label: 'תאום/תאומה', type: 'twin' },
+    { value: 'married', label: 'נשואים', type: 'spouse' },
+    { value: 'divorced', label: 'גרושים', type: 'ex_spouse' },
+    { value: 'separated', label: 'פרודים', type: 'separated' },
+    { value: 'partner', label: 'בן/בת זוג', type: 'partner' },
+    { value: 'ex_partner', label: 'בן/בת זוג לשעבר', type: 'ex_partner' },
     { value: 'guardian', label: 'אפוטרופוס', type: 'guardian' },
-    { value: 'godparent', label: 'סנדק/סנדקית', type: 'godparent' },
 ];
 
 
@@ -104,13 +104,12 @@ export function RelationshipModal({
     let sourceId, targetId;
 
     if (isEditing && relationship) {
-        const sourceNodeIsPersonA = people.some(p => p.id === relationship.personAId);
-        
-        if (relationship.relationshipType === 'parent' || relationship.relationshipType === 'adoptive_parent' || relationship.relationshipType === 'step_parent') {
-            sourceId = relationship.personAId; // Parent
-            targetId = relationship.personBId; // Child
+        if (['parent', 'adoptive_parent', 'step_parent'].includes(relationship.relationshipType)) {
+            // PersonA is always the parent
+            sourceId = relationship.personAId;
+            targetId = relationship.personBId;
         } else {
-             // For spouse and other symmetrical relationships, order doesn't strictly matter
+             // For symmetrical relationships, just use the stored IDs
             sourceId = relationship.personAId;
             targetId = relationship.personBId;
         }
@@ -129,17 +128,17 @@ export function RelationshipModal({
 
   useEffect(() => {
     if (isOpen && isEditing && relationship && sourcePerson && targetPerson) {
-        const parent = sourcePerson; // Assuming sourcePerson is the parent/primary
         let selectedType;
         
-        if (relationship.relationshipType === 'parent' || relationship.relationshipType === 'step_parent' || relationship.relationshipType === 'adoptive_parent') {
-            // It's a parent-child relationship, personA is parent.
+        if (['parent', 'adoptive_parent', 'step_parent'].includes(relationship.relationshipType)) {
+            // It's a parent-child relationship, personA is parent. Find the option based on parent's gender.
             selectedType = relationshipOptions.find(o => 
                 o.type === relationship.relationshipType && 
-                o.gender === parent?.gender &&
+                o.gender === sourcePerson?.gender &&
                 o.direction === 'parent'
             );
         } else {
+            // For symmetrical, find the type that matches. e.g. 'spouse' -> 'married'
             selectedType = relationshipOptions.find(o => o.type === relationship.relationshipType);
         }
         
@@ -163,18 +162,18 @@ export function RelationshipModal({
     const selectedOption = relationshipOptions.find(o => o.value === values.relationshipType);
     if (!selectedOption || !sourcePerson || !targetPerson) return;
     
-    let personAId, personBId, genderUpdatePersonId, genderForUpdate;
+    let personAId, personBId, genderUpdatePerson, genderForUpdate;
 
     if (selectedOption.direction === 'parent') {
-        personAId = sourcePerson.id;
-        personBId = targetPerson.id;
-        genderUpdatePersonId = sourcePerson.id;
+        personAId = sourcePerson.id; // Person A is parent
+        personBId = targetPerson.id; // Person B is child
+        genderUpdatePerson = sourcePerson;
         genderForUpdate = selectedOption.gender;
     } else if (selectedOption.direction === 'child') {
-        personAId = targetPerson.id; // Parent is B
-        personBId = sourcePerson.id; // Child is A
-        genderUpdatePersonId = sourcePerson.id;
-        genderForUpdate = selectedOption.gender;
+        personAId = targetPerson.id; // Person A is parent
+        personBId = sourcePerson.id; // Person B is child
+        genderUpdatePerson = targetPerson;
+        genderForUpdate = selectedOption.gender; // Note: child-types don't have gender, this will be undefined
     } else { // Symmetrical, non-parental
         [personAId, personBId] = [sourcePerson.id, targetPerson.id].sort();
     }
@@ -190,8 +189,7 @@ export function RelationshipModal({
     };
     
     let genderUpdate;
-    if (genderUpdatePersonId && genderForUpdate) {
-        const genderUpdatePerson = people.find(p => p.id === genderUpdatePersonId);
+    if (genderUpdatePerson && genderForUpdate) {
         if (genderUpdatePerson && genderUpdatePerson.gender !== genderForUpdate) {
             genderUpdate = { personId: genderUpdatePerson.id, gender: genderForUpdate as 'male' | 'female' };
         }
@@ -235,7 +233,7 @@ export function RelationshipModal({
             <div className="flex items-center justify-center gap-2 text-lg text-center bg-muted p-3 rounded-md">
                 <strong>{displaySubject?.firstName}</strong>
                 <span className="text-muted-foreground">{currentSelectedOption?.label}</span>
-                <span className="text-muted-foreground">של</span>
+                <span className="text-muted-foreground">{isChildDirection ? 'של' : ''}</span>
                 <strong>{displayObject?.firstName}</strong>
             </div>
 

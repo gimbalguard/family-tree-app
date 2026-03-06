@@ -42,6 +42,9 @@ const RelationshipSchema = z.object({
       'ex_spouse',
       'guardian',
       'godparent',
+      'separated',
+      'partner',
+      'ex_partner',
     ])
     .describe(
       "The type of relationship. For parent-child, personA should be the parent and personB the child."

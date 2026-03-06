@@ -54,7 +54,10 @@ export type Relationship = {
     | 'twin'
     | 'ex_spouse'
     | 'guardian'
-    | 'godparent';
+    | 'godparent'
+    | 'separated'
+    | 'partner'
+    | 'ex_partner';
   startDate?: string;
   endDate?: string;
   notes?: string;

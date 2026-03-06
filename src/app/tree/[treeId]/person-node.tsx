@@ -4,14 +4,13 @@ import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
 import {
   Card,
-  CardContent,
   CardHeader,
 } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { User, Heart, Skull } from 'lucide-react';
+import { Heart, Skull } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function getPlaceholderImage(gender: Person['gender']) {
@@ -43,14 +42,31 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     }
   }
 
+  const handleStyle = {
+    width: 10,
+    height: 10,
+    background: 'hsl(var(--primary))',
+  };
+
   return (
     <Card className={cn("w-64 shadow-lg border-2 transition-colors duration-200", selected ? 'border-primary shadow-primary/20' : 'border-transparent')}>
-      <Handle type="source" position={Position.Top} id="top" className="!w-3 !h-3" />
-      <Handle type="target" position={Position.Bottom} id="bottom" className="!w-3 !h-3" />
-      <Handle type="source" position={Position.Left} id="left" className="!w-3 !h-3" />
-      <Handle type="target" position={Position.Left} id="left" className="!w-3 !h-3" />
-      <Handle type="source" position={Position.Right} id="right" className="!w-3 !h-3" />
-      <Handle type="target" position={Position.Right} id="right" className="!w-3 !h-3" />
+      {/* Parent handle */}
+      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
+      
+      {/* Child handle */}
+      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+
+      {/* Spouse/Partner handles */}
+      <Handle type="source" position={Position.Left} id="left-upper" style={{ ...handleStyle, top: '33%' }} />
+      <Handle type="target" position={Position.Left} id="left-upper" style={{ ...handleStyle, top: '33%' }} />
+      <Handle type="source" position={Position.Right} id="right-upper" style={{ ...handleStyle, top: '33%' }} />
+      <Handle type="target" position={Position.Right} id="right-upper" style={{ ...handleStyle, top: '33%' }} />
+
+      {/* Sibling handles */}
+      <Handle type="source" position={Position.Left} id="left-lower" style={{ ...handleStyle, top: '66%' }} />
+      <Handle type="target" position={Position.Left} id="left-lower" style={{ ...handleStyle, top: '66%' }} />
+      <Handle type="source" position={Position.Right} id="right-lower" style={{ ...handleStyle, top: '66%' }} />
+      <Handle type="target" position={Position.Right} id="right-lower" style={{ ...handleStyle, top: '66%' }} />
       
       <CardHeader className="p-4">
         <div className="flex items-center gap-4">

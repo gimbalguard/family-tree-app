@@ -68,6 +68,10 @@ export function FamilyTreeCanvas({
         nodeTypes={nodeTypes}
         fitView
         className="bg-background"
+        nodesDraggable={true} // Ensure nodes are always draggable
+        panOnDrag={true}
+        zoomOnScroll={true}
+        selectNodesOnDrag={false}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
