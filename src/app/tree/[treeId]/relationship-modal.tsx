@@ -210,13 +210,11 @@ export function RelationshipModal({
   }
 
   const handleDelete = async () => {
-    console.log('handleDelete called, relationship:', relationship, 'relationshipId prop:', relationshipId);
     const idToDelete = relationshipId ?? relationship?.id;
     if (!idToDelete) {
       console.error('No ID available to delete');
       return;
     }
-    console.log('DELETE CALLED WITH ID:', idToDelete);
     setIsDeleting(true);
     try {
       await onDelete(idToDelete);

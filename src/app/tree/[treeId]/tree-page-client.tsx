@@ -456,39 +456,27 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     }
   };
   
-  // This function now performs a stable optimistic update.
   const handleDeleteRelationship = async (relationshipId: string) => {
-    console.log('handleDeleteRelationship called with:', relationshipId);
-    console.log('Current edges:', edges.map(e => e.id));
     if (!user || !db) return;
-  
     const edgeToDelete = edges.find(e => e.id === relationshipId);
     if (!edgeToDelete) {
-        console.error("Could not find edge to delete in state:", relationshipId);
-        return;
+      console.error("Could not find edge to delete in state:", relationshipId);
+      return;
     };
-  
-    // 1. Optimistic UI update: remove the edge immediately from the state.
+    
     setEdges(currentEdges => currentEdges.filter(e => e.id !== relationshipId));
-    handleRelModalClose();
-  
+    
     try {
-      // 2. Perform the delete operation in the background.
       const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
       await deleteDoc(relRef);
-      toast({ title: 'קשר נמחק' });
-      // 3. On success, we also remove the relationship from the local `relationships` state.
       setRelationships(rels => rels.filter(r => r.id !== relationshipId));
-
+      toast({ title: 'קשר נמחק' });
     } catch (error: any) {
       console.error('Error deleting relationship:', error);
-      toast({
-        variant: 'destructive',
-        title: 'שגיאה במחיקת קשר',
-        description: "לא ניתן היה למחוק את הקשר. החיבור שוחזר.",
-      });
-      // 4. On failure, restore the edge to the UI.
+      toast({ variant: 'destructive', title: 'שגיאה במחיקת קשר' });
       setEdges(currentEdges => [...currentEdges, edgeToDelete]);
+    } finally {
+      handleRelModalClose(); // Close AFTER everything is done
     }
   };
 
@@ -524,12 +512,11 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   }, [user, treeId, db]);
 
   const isValidConnection = useCallback<IsValidConnection>((connection) => {
-    console.log('CONNECTION ATTEMPT:', JSON.stringify(connection));
     // Basic validation: prevent self-connections
     if (connection.source === connection.target) {
         return false;
     }
-    const sideHandles = ['upper-left-source', 'upper-right-source', 'lower-left-source', 'lower-right-source'];
+    const sideHandles = ['upper-left-source', 'upper-left-target', 'upper-right-source', 'upper-right-target', 'lower-left-source', 'lower-left-target', 'lower-right-source', 'lower-right-target'];
     
     // Allow connections between any two side handles
     if (sideHandles.includes(connection.sourceHandle!) && sideHandles.includes(connection.targetHandle!)) {
@@ -607,6 +594,17 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
             </main>
           </div>
 
+          <RelationshipModal
+              isOpen={isRelModalOpen}
+              onClose={handleRelModalClose}
+              connection={newConnection}
+              relationship={editingRelationship}
+              relationshipId={editingRelationship?.id}
+              people={people}
+              onSave={handleSaveRelationship}
+              onDelete={handleDeleteRelationship}
+          />
+
           <PersonEditor
             isOpen={isEditorOpen}
             onClose={handleEditorClose}
@@ -615,18 +613,6 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
             onSave={handleSavePerson}
             onDelete={handleDeleteRequest}
           />
-          {(newConnection || editingRelationship) && (
-            <RelationshipModal
-                isOpen={isRelModalOpen}
-                onClose={handleRelModalClose}
-                connection={newConnection}
-                relationship={editingRelationship}
-                relationshipId={editingRelationship?.id}
-                people={people}
-                onSave={handleSaveRelationship}
-                onDelete={handleDeleteRelationship}
-            />
-          )}
            <AlertDialog open={isDuplicateAlertOpen} onOpenChange={setIsDuplicateAlertOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
