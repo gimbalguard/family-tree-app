@@ -50,6 +50,8 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
   return (
     <Card className={cn("w-64 shadow-lg border-2 transition-colors duration-200", selected ? 'border-primary shadow-primary/20' : 'border-transparent')}>
+      {/* Each handle has a unique ID. Side handles are split into `source` and `target` to be unambiguous. */}
+      
       {/* Parent handle (target only) */}
       <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
       

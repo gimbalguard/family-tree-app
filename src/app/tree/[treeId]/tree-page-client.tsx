@@ -50,25 +50,30 @@ const getEdgeStyle = (selected = false) => ({
   stroke: selected ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
 });
 
+// This function now intelligently determines the correct source and target handles
+// based on the LOGICAL relationship type, not the handles used to draw the initial line.
 const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     const nodeA = nodes.find(n => n.id === rel.personAId);
     const nodeB = nodes.find(n => n.id === rel.personBId);
 
     if (!nodeA || !nodeB) {
-        return { source: rel.personAId, target: rel.personBId, sourceHandle: null, targetHandle: null };
+        // Return a default if nodes are not found, to prevent crashes
+        return { source: rel.personAId, target: rel.personBId, sourceHandle: 'bottom', targetHandle: 'top' };
     }
 
     const parentTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
     const spouseTypes = ['spouse', 'ex_spouse', 'separated', 'partner', 'ex_partner'];
     const siblingTypes = ['sibling', 'twin', 'step_sibling'];
     
-    // For parent types, personA is parent, personB is child.
+    // For parent types, personA is ALWAYS the parent, personB is the child.
     if (parentTypes.includes(rel.relationshipType)) {
         return { source: rel.personAId, target: rel.personBId, sourceHandle: 'bottom', targetHandle: 'top' };
     }
 
-    // For symmetrical relationships, decide left/right based on position
+    // For symmetrical relationships, decide left/right based on X position to keep lines consistent.
     const isNodeALeft = nodeA.position.x < nodeB.position.x;
+    
+    // The source is always the left node, target is the right node
     const sourceId = isNodeALeft ? rel.personAId : rel.personBId;
     const targetId = isNodeALeft ? rel.personBId : rel.personAId;
     
@@ -90,7 +95,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
         };
     }
     
-    // Default fallback (should be rare)
+    // Fallback for any other relationship type
     return {
         source: sourceId,
         target: targetId,
@@ -434,7 +439,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
         toast({ title: editingRelationship ? 'קשר עודכן' : 'קשר נוסף' });
         
-        fetchData(); // Refetch all data to ensure consistency
+        // This is the correct way: refetch all data to ensure UI consistency after a complex change.
+        fetchData(); 
         handleRelModalClose();
 
     } catch (error: any) {
@@ -447,32 +453,35 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         throw error;
     }
   };
-
+  
+  // This function now performs a stable optimistic update.
   const handleDeleteRelationship = async (relationshipId: string) => {
-    if (!user || !db) return Promise.reject();
+    if (!user || !db) return;
   
     const edgeToDelete = edges.find(e => e.id === relationshipId);
-    
-    // Optimistic UI update
+    if (!edgeToDelete) return;
+  
+    // 1. Optimistic UI update: remove the edge immediately from the state.
     setEdges(currentEdges => currentEdges.filter(e => e.id !== relationshipId));
     handleRelModalClose();
   
     try {
+      // 2. Perform the delete operation in the background.
       const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
       await deleteDoc(relRef);
       toast({ title: 'קשר נמחק' });
-      // On success, the UI is already updated.
+      // 3. On success, we also remove the relationship from the local `relationships` state.
+      setRelationships(rels => rels.filter(r => r.id !== relationshipId));
+
     } catch (error: any) {
       console.error('Error deleting relationship:', error);
       toast({
         variant: 'destructive',
         title: 'שגיאה במחיקת קשר',
-        description: "Could not delete relationship. The connection has been restored.",
+        description: "לא ניתן היה למחוק את הקשר. החיבור שוחזר.",
       });
-      // Restore on failure
-      if (edgeToDelete) {
-        setEdges(currentEdges => [...currentEdges, edgeToDelete]);
-      }
+      // 4. On failure, restore the edge to the UI.
+      setEdges(currentEdges => [...currentEdges, edgeToDelete]);
     }
   };
 

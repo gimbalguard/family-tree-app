@@ -143,33 +143,6 @@ export function RelationshipModal({
     };
   }, [connection, relationship, people, isEditing]);
 
-  const filteredOptions = useMemo(() => {
-    if (isEditing || !connection?.sourceHandle || !connection.targetHandle) {
-      return relationshipOptions;
-    }
-  
-    const sourceHandle = connection.sourceHandle;
-    const targetHandle = connection.targetHandle;
-  
-    const isSpousal = sourceHandle.includes('upper') && targetHandle.includes('upper');
-    const isSibling = sourceHandle.includes('lower') && targetHandle.includes('lower');
-    const isParental = (sourceHandle.includes('bottom') && targetHandle.includes('top')) || 
-                       (sourceHandle.includes('top') && targetHandle.includes('bottom'));
-  
-    if (isSpousal) {
-      return relationshipOptions.filter(o => o.category === 'spousal');
-    }
-    if (isSibling) {
-      return relationshipOptions.filter(o => o.category === 'sibling');
-    }
-    if (isParental) {
-      return relationshipOptions.filter(o => o.category === 'parental');
-    }
-    
-    // Fallback for mixed or invalid connections - show all
-    return relationshipOptions;
-  }, [connection, isEditing]);
-
 
   useEffect(() => {
     if (isOpen) {
@@ -183,14 +156,14 @@ export function RelationshipModal({
         });
       } else {
         form.reset({
-          relationshipType: filteredOptions.length > 0 ? filteredOptions[0].value : '',
+          relationshipType: '',
           startDate: '',
           endDate: '',
           notes: '',
         });
       }
     }
-  }, [relationship, sourcePerson, form, isOpen, isEditing, filteredOptions]);
+  }, [relationship, sourcePerson, form, isOpen, isEditing]);
 
 
   function onSubmit(values: z.infer<typeof relationshipSchema>) {
@@ -288,7 +261,7 @@ export function RelationshipModal({
                    <Select onValueChange={field.onChange} value={field.value} dir="rtl">
                     <FormControl><SelectTrigger><SelectValue placeholder="בחר סוג קשר..." /></SelectTrigger></FormControl>
                     <SelectContent>
-                        {filteredOptions.map(opt => (
+                        {relationshipOptions.map(opt => (
                             <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                         ))}
                     </SelectContent>
@@ -353,7 +326,7 @@ export function RelationshipModal({
             <AlertDialogFooter>
                 <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
                 <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-                    {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
                     מחק
                 </Button>
             </AlertDialogFooter>
