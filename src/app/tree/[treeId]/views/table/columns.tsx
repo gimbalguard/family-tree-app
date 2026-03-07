@@ -4,7 +4,7 @@ import { ColumnDef, CellContext } from '@tanstack/react-table';
 import type { Person } from '@/lib/types';
 import { DataTableColumnHeader } from './data-table-column-header';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { getPlaceholderImage } from '@/app/tree/[treeId]/person-node';
+import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { differenceInYears, format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Loader2, Trash2 } from 'lucide-react';

@@ -9,19 +9,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Heart, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
-
-function getPlaceholderImage(gender: Person['gender']) {
-    switch(gender) {
-        case 'male': return PlaceHolderImages.find(img => img.id === 'male-avatar')?.imageUrl;
-        case 'female': return PlaceHolderImages.find(img => img.id === 'female-avatar')?.imageUrl;
-        default: return PlaceHolderImages.find(img => img.id === 'other-avatar')?.imageUrl;
-    }
-}
-
 
 export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner?: boolean }>) => {
   const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked } = data;
