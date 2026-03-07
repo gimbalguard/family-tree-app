@@ -36,11 +36,10 @@ export function DataTableFacetedFilter<TData, TValue>({
   title,
   options,
 }: DataTableFacetedFilterProps<TData, TValue>) {
-  const facets = column?.getFacetedUniqueValues()
   const selectedValues = new Set((column?.getFilterValue() as string[]) ?? [])
 
   return (
-    <Popover>
+    <Popover modal={true}>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-8 border-dashed">
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -91,10 +90,8 @@ export function DataTableFacetedFilter<TData, TValue>({
                 return (
                   <CommandItem
                     key={option.value}
-                    onPointerDown={(e) => {
-                      e.preventDefault()
-                    }}
-                    onSelect={() => {
+                    onMouseDown={(e) => {
+                      e.preventDefault();
                       if (isSelected) {
                         selectedValues.delete(option.value)
                       } else {
@@ -120,9 +117,9 @@ export function DataTableFacetedFilter<TData, TValue>({
                       <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
                     )}
                     <span>{option.label}</span>
-                    {facets?.get(option.value) && (
+                    {column?.getFacetedUniqueValues()?.get(option.value) && (
                       <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
-                        {facets.get(option.value)}
+                        {column.getFacetedUniqueValues().get(option.value)}
                       </span>
                     )}
                   </CommandItem>
@@ -134,10 +131,10 @@ export function DataTableFacetedFilter<TData, TValue>({
                 <CommandSeparator />
                 <CommandGroup>
                   <CommandItem
-                    onPointerDown={(e) => {
+                    onMouseDown={(e) => {
                       e.preventDefault()
+                      column?.setFilterValue(undefined)
                     }}
-                    onSelect={() => column?.setFilterValue(undefined)}
                     className="justify-center text-center"
                   >
                     נקה פילטרים
