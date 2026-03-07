@@ -961,49 +961,38 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         personToDelete.id
       );
       batch.delete(personRef);
-
+  
+      // Delete relationships
       const relsRef = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'relationships'
+        db, 'users', user.uid, 'familyTrees', treeId, 'relationships'
       );
-      const relsQuery1 = query(
-        relsRef,
-        where('personAId', '==', personToDelete.id)
-      );
-      const relsQuery2 = query(
-        relsRef,
-        where('personBId', '==', personToDelete.id)
-      );
-
+      const relsQuery1 = query(relsRef, where('personAId', '==', personToDelete.id));
+      const relsQuery2 = query(relsRef, where('personBId', '==', personToDelete.id));
+  
       const [rels1Snapshot, rels2Snapshot] = await Promise.all([
         getDocs(relsQuery1),
-        getDocs(rels2Snapshot),
+        getDocs(relsQuery2),
       ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
+  
+      // Delete social links
+      const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personToDelete.id, 'socialLinks');
+      const socialLinksSnapshot = await getDocs(socialLinksRef);
+      socialLinksSnapshot.forEach((doc) => batch.delete(doc.ref));
 
+      // Delete canvas position
       const posRef = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'canvasPositions'
+        db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions'
       );
       const posQuery = query(
-        posRef,
-        where('personId', '==', personToDelete.id),
-        limit(1)
+        posRef, where('personId', '==', personToDelete.id), limit(1)
       );
       const posSnapshot = await getDocs(posQuery);
       if (!posSnapshot.empty) {
         batch.delete(posSnapshot.docs[0].ref);
       }
-
+  
       await batch.commit();
       toast({
         title: 'אדם נמחק',
@@ -1470,6 +1459,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
             ? relationships.find((r) => r.id === pendingDeleteId)
             : null)
         }
+        connection={newConnection}
         relationshipId={editingRelationship?.id || pendingDeleteId || undefined}
         people={people}
         onSave={handleSaveRelationship}
