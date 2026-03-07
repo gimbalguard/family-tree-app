@@ -111,21 +111,32 @@ const EditableSelectCell = <T,>({
   const isOwner = meta?.isOwner ?? false;
   
   const onSelect = async (newValue: string) => {
-    if (newValue !== initialValue) {
-        await meta?.updatePersonData(original.id, id, newValue);
+    // If the "clear" value is selected, save an empty string.
+    const valueToSave = newValue === '--clear--' ? '' : newValue;
+    if (valueToSave !== initialValue) {
+        await meta?.updatePersonData(original.id, id, valueToSave);
     }
   };
 
   if (!isOwner) {
-     return <div className="px-2 py-1 whitespace-nowrap">{options.find(o => o.value === initialValue)?.label || initialValue || '–'}</div>;
+     const displayLabel = options.find(o => o.value === initialValue)?.label;
+     // If value is empty string, show '–'
+     if (!initialValue) return <div className="px-2 py-1 whitespace-nowrap">{'–'}</div>;
+     return <div className="px-2 py-1 whitespace-nowrap">{displayLabel || initialValue}</div>;
   }
   
+  // If the initial value is an empty string, we tell the Select component to use our special clear value.
+  // Otherwise, use the initialValue as is. If initialValue is undefined, Select will show placeholder.
+  const selectValue = initialValue === '' ? '--clear--' : initialValue;
+
   return (
-    <Select value={initialValue || ''} onValueChange={onSelect} dir='rtl'>
+    <Select value={selectValue} onValueChange={onSelect} dir='rtl'>
         <SelectTrigger className="h-8 border-none bg-transparent focus:ring-0 focus:ring-offset-0 whitespace-nowrap">
             <SelectValue placeholder="בחר..." />
         </SelectTrigger>
         <SelectContent>
+            {/* Add the special item for clearing the value */}
+            <SelectItem value="--clear--">ללא</SelectItem>
             {options.map(option => (
                 <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
             ))}
@@ -266,7 +277,7 @@ export const columns: ColumnDef<Person>[] = [
     {
         accessorKey: 'religion',
         header: ({ column }) => <DataTableColumnHeader column={column} title="דת" />,
-        cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}, {value: '', label: 'בחר...'}]} />,
+        cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}]} />,
         filterFn: 'equals',
     },
     {
