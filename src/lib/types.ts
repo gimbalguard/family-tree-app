@@ -31,7 +31,7 @@ export type Person = {
   deathDate?: string;
   birthPlace?: string;
   status: 'alive' | 'deceased' | 'unknown';
-  religion?: 'jewish' | 'christian' | 'muslim' | 'buddhist' | 'other';
+  religion?: 'jewish' | 'christian' | 'muslim' | 'buddhist' | 'other' | '';
   countryOfResidence?: string;
   photoURL?: string;
   description?: string;

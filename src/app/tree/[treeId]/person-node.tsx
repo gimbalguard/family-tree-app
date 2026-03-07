@@ -10,8 +10,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Heart, Skull } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { format, differenceInYears } from 'date-fns';
 
 function getPlaceholderImage(gender: Person['gender']) {
     switch(gender) {
@@ -23,8 +24,35 @@ function getPlaceholderImage(gender: Person['gender']) {
 
 
 export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status } = data;
-  const lifeYears = `${birthDate ? new Date(birthDate).getFullYear() : '?'} – ${deathDate ? new Date(deathDate).getFullYear() : (status === 'deceased' ? '?' : '')}`;
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion } = data;
+
+  const getLifeYearsDisplay = () => {
+    try {
+      const hasBirthDate = birthDate && !isNaN(new Date(birthDate).getTime());
+      const hasDeathDate = deathDate && !isNaN(new Date(deathDate).getTime());
+
+      if (hasBirthDate && !hasDeathDate && status === 'alive') {
+        const age = differenceInYears(new Date(), new Date(birthDate!));
+        return `${format(new Date(birthDate!), 'dd/MM/yyyy')} (גיל ${age})`;
+      }
+      if (hasBirthDate && hasDeathDate) {
+        return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
+      }
+      if (hasBirthDate) {
+         return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ?`;
+      }
+       if (hasDeathDate) {
+        return `? – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
+      }
+    } catch(e) {
+      console.error("Date formatting error:", e);
+      if (birthDate && deathDate) return `${birthDate} – ${deathDate}`;
+      if (birthDate) return birthDate;
+    }
+    return '';
+  };
+
+  const lifeYears = getLifeYearsDisplay();
 
   const getGenderBadge = () => {
     switch (gender) {
@@ -37,10 +65,21 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const getStatusIcon = () => {
     switch (status) {
         case 'alive': return <Heart className="h-4 w-4 text-green-500 fill-green-500" />;
-        case 'deceased': return <Skull className="h-4 w-4 text-muted-foreground" />;
         default: return null;
     }
   }
+  
+  const getReligionIcon = () => {
+    const iconStyle: React.CSSProperties = { fontSize: '1rem', lineHeight: '1', color: 'hsl(var(--muted-foreground))' };
+    switch (religion) {
+        case 'jewish': return <span style={iconStyle} title="יהדות">✡</span>;
+        case 'christian': return <span style={iconStyle} title="נצרות">✝</span>;
+        case 'muslim': return <span style={iconStyle} title="אסלאם">☪</span>;
+        case 'buddhist': return <span style={iconStyle} title="בודהיזם">☸</span>;
+        default: return null;
+    }
+  }
+
 
   const handleStyle = {
     width: 10,
@@ -76,10 +115,11 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
           </Avatar>
           <div className="flex-1 space-y-1">
             <h3 className="font-bold text-lg leading-tight">{`${firstName} ${lastName}`}</h3>
-            <p className="text-sm text-muted-foreground">{lifeYears}</p>
+            {lifeYears && <p className="text-sm text-muted-foreground">{lifeYears}</p>}
             <div className='flex items-center gap-2 pt-1'>
                 {getGenderBadge()}
                 {getStatusIcon()}
+                {getReligionIcon()}
             </div>
           </div>
         </div>
