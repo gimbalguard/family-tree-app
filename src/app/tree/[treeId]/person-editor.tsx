@@ -278,7 +278,7 @@ export function PersonEditor({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh]" dir="rtl">
+      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh] z-[1002]" dir="rtl">
         <DialogHeader className="text-right">
           <DialogTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</DialogTitle>
           <DialogDescription>

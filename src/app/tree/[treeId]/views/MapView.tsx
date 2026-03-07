@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { Person } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { format } from 'date-fns';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,16 +14,15 @@ type LocatedPerson = {
   locationString: string;
 };
 
-const CustomMapPin = ({ person }: { person: Person }) => (
-  <div className="relative">
-    <Avatar className="h-10 w-10 border-2 border-primary bg-card p-0.5 shadow-lg">
-      <AvatarImage src={person.photoURL || ''} />
-      <AvatarFallback>
-        <img src={getPlaceholderImage(person.gender)} alt={`${person.firstName} ${person.lastName}`} />
-      </AvatarFallback>
-    </Avatar>
-  </div>
-);
+const CustomMapPin = ({ person }: { person: Person }) => {
+  const imageUrl = person.photoURL || getPlaceholderImage(person.gender);
+  return (
+    <div 
+      className="h-10 w-10 rounded-full border-2 border-primary bg-card shadow-lg bg-cover bg-center"
+      style={{ backgroundImage: `url(${imageUrl || ''})` }}
+    />
+  );
+};
 
 type MapViewProps = {
   people: Person[];
