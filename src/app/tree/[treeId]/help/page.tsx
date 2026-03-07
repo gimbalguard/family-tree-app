@@ -107,7 +107,7 @@ type Category = { category: string; articles: Article[] };
 
 function WikiSidebar({ content, activeId, onSelect }: { content: Category[], activeId: string, onSelect: (id: string) => void }) {
   return (
-    <aside className="w-full md:w-64 border-b md:border-b-0 md:border-l p-4 h-auto md:h-screen md:sticky top-0 bg-muted/20">
+    <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r p-4 h-auto md:h-screen md:sticky top-0 bg-muted/20">
       <h2 className="font-bold mb-4 text-lg text-primary text-right">מרכז העזרה</h2>
       <ScrollArea className="h-full max-h-48 md:max-h-full md:h-[calc(100vh-220px)]">
         <nav className="space-y-4 pr-2">
@@ -208,7 +208,7 @@ export default function HelpPage() {
     <div dir="rtl" className="min-h-screen flex flex-col bg-background">
       <AppHeader />
       <main className="flex-1">
-        <div className="flex flex-col md:flex-row-reverse">
+        <div className="flex flex-col md:flex-row">
             <WikiSidebar content={wikiContent} activeId={activeArticleId} onSelect={handleSelectArticle} />
             
             <div className="flex-1 p-6 md:p-10">
@@ -216,7 +216,7 @@ export default function HelpPage() {
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input 
                     placeholder="חפש במרכז העזרה..."
-                    className="pl-12 text-base h-12 rounded-lg border-2 border-transparent focus:border-primary transition-colors bg-muted/40"
+                    className="pl-12 text-base h-12 rounded-lg border-2 border-transparent focus:border-primary transition-colors bg-muted/40 text-right"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
