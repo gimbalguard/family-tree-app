@@ -120,8 +120,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const { toast } = useToast();
   
   const store = useStoreApi();
-  const canUndo = useStore((s) => !!s.past.length);
-  const canRedo = useStore((s) => !!s.future.length);
+  const canUndo = useStore((s) => !!s.past?.length);
+  const canRedo = useStore((s) => !!s.future?.length);
 
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -614,7 +614,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     } catch (error: any) {
         setTree(prev => prev ? { ...prev, ownerPersonId: oldOwnerId } : null);
         setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, isOwner: n.id === oldOwnerId } })));
-        toast({ variant: 'destructive', title: 'שגיאה', description: 'לא ניתן היה להגדיр את המשתמש.' });
+        toast({ variant: 'destructive', title: 'שגיאה', description: 'לא ניתן היה להגדיר את המשתמש.' });
         const permissionError = new FirestorePermissionError({ path: treeRef.path, operation: 'update', requestResourceData: { ownerPersonId: personId } });
         errorEmitter.emit('permission-error', permissionError);
     }
