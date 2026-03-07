@@ -86,6 +86,7 @@ import { TableView } from './views/table/TableView';
 import { MapView } from './views/MapView';
 import { CalendarView } from './views/CalendarView';
 import { ManualEventEditor } from './views/ManualEventEditor';
+import { StatisticsView } from './views/StatisticsView';
 
 type TreePageClientProps = {
   treeId: string;
@@ -100,11 +101,12 @@ export type ViewMode =
   | 'statistics';
 
 const viewPlaceholders: Record<
-  Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map' | 'calendar'>,
+  Exclude<
+    ViewMode,
+    'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics'
+  >,
   { label: string; emoji: string }
-> = {
-  statistics: { label: 'סטטיסטיקות', emoji: '📊' },
-};
+> = {};
 
 const getEdgeStyle = (selected = false) => ({
   strokeWidth: selected ? 2.5 : 1.5,
@@ -1228,7 +1230,16 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         onEditPerson={handleEditPerson}
       />;
     }
-    const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map' | 'calendar'>];
+    if (viewMode === 'statistics') {
+      return <StatisticsView people={people} relationships={relationships} />;
+    }
+    const placeholder =
+      viewPlaceholders[
+        viewMode as Exclude<
+          ViewMode,
+          'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics'
+        >
+      ];
     if (placeholder) {
       return (
         <div className="flex h-full w-full items-center justify-center bg-muted/20">
