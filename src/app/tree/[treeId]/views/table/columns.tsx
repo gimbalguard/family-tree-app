@@ -204,7 +204,9 @@ export const columns: ColumnDef<Person>[] = [
         },
         enableSorting: false,
         enableHiding: false,
-        size: 70,
+        size: 60,
+        minSize: 60,
+        maxSize: 60,
     },
     {
         accessorKey: 'firstName',
@@ -215,12 +217,14 @@ export const columns: ColumnDef<Person>[] = [
             return <Button variant="link" className="p-0 h-auto whitespace-nowrap" onClick={() => meta.onEditPerson(id)}>{props.getValue() as string}</Button>
         },
         size: 150,
+        minSize: 120,
     },
     {
         accessorKey: 'lastName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="שם משפחה" />,
         cell: props => <EditableCell {...props} />,
         size: 150,
+        minSize: 120,
     },
     {
         accessorKey: 'gender',
@@ -228,6 +232,7 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableSelectCell {...props} options={[{value: 'male', label: 'זכר'}, {value: 'female', label: 'נקבה'}, {value: 'other', label: 'אחר'}]} />,
         filterFn: 'arrIncludes',
         size: 120,
+        minSize: 100,
     },
     {
         accessorKey: 'birthDate',
@@ -235,6 +240,7 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableDateCell {...props} />,
         sortingFn: 'datetime',
         size: 150,
+        minSize: 130,
     },
      {
         id: 'age',
@@ -252,12 +258,14 @@ export const columns: ColumnDef<Person>[] = [
             return age !== null ? <div className='whitespace-nowrap px-2 py-1'>{age}</div> : '–';
         },
         size: 80,
+        minSize: 80,
     },
     {
         accessorKey: 'birthPlace',
         header: ({ column }) => <DataTableColumnHeader column={column} title="מקום לידה" />,
         cell: props => <EditableCell {...props} />,
         size: 180,
+        minSize: 150,
     },
     {
         accessorKey: 'deathDate',
@@ -265,6 +273,7 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableDateCell {...props} />,
         sortingFn: 'datetime',
         size: 150,
+        minSize: 130,
     },
     {
         accessorKey: 'status',
@@ -272,12 +281,14 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableSelectCell {...props} options={[{value: 'alive', label: 'חי'}, {value: 'deceased', label: 'נפטר'}, {value: 'unknown', label: 'לא ידוע'}]} />,
         filterFn: 'arrIncludes',
         size: 120,
+        minSize: 120,
     },
     {
         accessorKey: 'countryOfResidence',
         header: ({ column }) => <DataTableColumnHeader column={column} title="ארץ מגורים" />,
         cell: props => <EditableCell {...props} />,
         size: 180,
+        minSize: 150,
     },
     {
         accessorKey: 'religion',
@@ -285,11 +296,13 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}]} />,
         filterFn: 'arrIncludes',
         size: 120,
+        minSize: 120,
     },
     {
         accessorKey: 'description',
         header: ({ column }) => <DataTableColumnHeader column={column} title="הערות" />,
         cell: props => <EditableCell {...props} />,
         size: 300,
+        minSize: 250,
     },
 ];
