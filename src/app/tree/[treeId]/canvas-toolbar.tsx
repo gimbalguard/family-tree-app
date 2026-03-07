@@ -9,15 +9,25 @@ import {
   UserPlus,
   ArrowLeft,
   MessageSquare,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import Link from 'next/link';
 
 type CanvasToolbarProps = {
   onAddPerson: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
 };
 
 export function CanvasToolbar({
   onAddPerson,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }: CanvasToolbarProps) {
   return (
     <aside className="flex flex-col items-center gap-4 border-r bg-card p-4">
@@ -58,6 +68,26 @@ export function CanvasToolbar({
 
       <div className="flex-grow" />
 
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={onUndo} disabled={!canUndo}>
+            <Undo2 className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>בטל</p>
+        </TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={onRedo} disabled={!canRedo}>
+            <Redo2 className="h-5 w-5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          <p>בצע שוב</p>
+        </TooltipContent>
+      </Tooltip>
     </aside>
   );
 }

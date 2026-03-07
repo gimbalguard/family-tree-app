@@ -5,7 +5,8 @@ import {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
-  ConnectionMode,
+  useStore,
+  useStoreApi,
 } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -112,11 +113,15 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     };
 };
 
-export function TreePageClient({ treeId }: TreePageClientProps) {
+function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  
+  const store = useStoreApi();
+  const canUndo = useStore((s) => !!s.past.length);
+  const canRedo = useStore((s) => !!s.future.length);
 
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -134,8 +139,6 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [newConnection, setNewConnection] = useState<Connection | null>(null);
   const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
   const [isRelModalOpen, setIsRelModalOpen] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-
 
   const [isDuplicateAlertOpen, setIsDuplicateAlertOpen] = useState(false);
   const [personToCreate, setPersonToCreate] = useState<any | null>(null);
@@ -147,6 +150,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [isOwnerPopoverOpen, setIsOwnerPopoverOpen] = useState(false);
+
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (tree) {
@@ -465,22 +470,21 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         handleRelModalClose();
 
     } catch (error: any) {
-        console.error('Real error:', error);
         toast({
           variant: 'destructive',
           title: 'שגיאה בשמירת קשר',
           description: error.message || "An unexpected error occurred.",
         });
-        throw error;
+        const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid}/familyTrees/${treeId}/relationships`,
+            operation: editingRelationship ? 'update' : 'create',
+            requestResourceData: cleanedData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
     }
   };
   
   const handleDeleteRelationship = async (relationshipId: string) => {
-    console.log('=== DELETE START ===');
-    console.log('relationshipId received:', relationshipId);
-    console.log('user uid:', user?.uid);
-    console.log('treeId:', treeId);
-    console.log('Full Firestore path:', `users/${user?.uid}/familyTrees/${treeId}/relationships/${relationshipId}`);
     if (!user || !db) return;
   
     let edgeToDelete: any;
@@ -504,6 +508,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       if (edgeToDelete) {
         setEdges(currentEdges => [...currentEdges, edgeToDelete!]);
       }
+      const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeId}/relationships/${relationshipId}`, operation: 'delete' });
+      errorEmitter.emit('permission-error', permissionError);
     } finally {
       handleRelModalClose();
     }
@@ -647,9 +653,14 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
 
   return (
     <div className="h-screen w-full overflow-hidden">
-        <ReactFlowProvider>
-          <div className="flex h-full">
-            <CanvasToolbar onAddPerson={handleOpenEditorForNew} />
+        <div className="flex h-full">
+            <CanvasToolbar
+                onAddPerson={handleOpenEditorForNew}
+                onUndo={store.getState().undo}
+                onRedo={store.getState().redo}
+                canUndo={canUndo}
+                canRedo={canRedo}
+            />
             <main className="flex-1 relative">
                 <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
                     {!isEditingName ? (
@@ -718,71 +729,78 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
                     isValidConnection={isValidConnection}
                 />
             </main>
-          </div>
+        </div>
 
-          <RelationshipModal
+        <RelationshipModal
             isOpen={isRelModalOpen || !!pendingDeleteId}
             onClose={() => {
-              handleRelModalClose();
-              if (pendingDeleteId) setPendingDeleteId(null);
+                handleRelModalClose();
+                if (pendingDeleteId) setPendingDeleteId(null);
             }}
             connection={newConnection}
             relationship={
-              editingRelationship ||
-              (pendingDeleteId ? relationships.find(r => r.id === pendingDeleteId) : null)
+                editingRelationship ||
+                (pendingDeleteId ? relationships.find(r => r.id === pendingDeleteId) : null)
             }
             relationshipId={
-              editingRelationship?.id || pendingDeleteId || undefined
+                editingRelationship?.id || pendingDeleteId || undefined
             }
             people={people}
             onSave={handleSaveRelationship}
             onDelete={handleDeleteRelationship}
-          />
+        />
 
-          <PersonEditor
+        <PersonEditor
             isOpen={isEditorOpen}
             onClose={handleEditorClose}
             person={selectedPerson}
             treeId={treeId}
             onSave={handleSavePerson}
             onDelete={handleDeleteRequest}
-          />
-           <AlertDialog open={isDuplicateAlertOpen} onOpenChange={setIsDuplicateAlertOpen}>
+        />
+        <AlertDialog open={isDuplicateAlertOpen} onOpenChange={setIsDuplicateAlertOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
+            <AlertDialogDescription>
+                אדם עם שם ותאריך לידה דומים כבר קיים בעץ זה. האם אתה עדיין רוצה ליצור את האדם החדש הזה?
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPersonToCreate(null)}>ביטול</AlertDialogCancel>
+            <AlertDialogAction onClick={() => personToCreate && proceedWithCreation(personToCreate)}>צור בכל זאת</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+        </AlertDialog>
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
             <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
-                <AlertDialogDescription>
-                  אדם עם שם ותאריך לידה דומים כבר קיים בעץ זה. האם אתה עדיין רוצה ליצור את האדם החדש הזה?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setPersonToCreate(null)}>ביטול</AlertDialogCancel>
-                <AlertDialogAction onClick={() => personToCreate && proceedWithCreation(personToCreate)}>צור בכל זאת</AlertDialogAction>
-              </AlertDialogFooter>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        פעולה זו תמחק לצמיתות את{' '}
+                        <strong className="text-foreground">
+                            {personToDelete?.firstName} {personToDelete?.lastName}
+                        </strong>
+                        , וכל הקשרים שלו. לא ניתן לבטל פעולה זו.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
+                    <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+                        {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                        מחק
+                    </Button>
+                </AlertDialogFooter>
             </AlertDialogContent>
-          </AlertDialog>
-          <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-              <AlertDialogContent>
-                  <AlertDialogHeader>
-                      <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                          פעולה זו תמחק לצמיתות את{' '}
-                          <strong className="text-foreground">
-                              {personToDelete?.firstName} {personToDelete?.lastName}
-                          </strong>
-                          , וכל הקשרים שלו. לא ניתן לבטל פעולה זו.
-                      </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
-                      <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
-                          {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                          מחק
-                      </Button>
-                  </AlertDialogFooter>
-              </AlertDialogContent>
-          </AlertDialog>
-        </ReactFlowProvider>
+        </AlertDialog>
     </div>
   );
+}
+
+export function TreePageClient({ treeId }: TreePageClientProps) {
+    return (
+        <ReactFlowProvider>
+            <TreeCanvasContainer treeId={treeId} />
+        </ReactFlowProvider>
+    );
 }
