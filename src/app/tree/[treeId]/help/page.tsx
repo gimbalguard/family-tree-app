@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { AppHeader } from '@/components/app-header';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Search } from 'lucide-react';
@@ -106,9 +107,9 @@ type Category = { category: string; articles: Article[] };
 
 function WikiSidebar({ content, activeId, onSelect }: { content: Category[], activeId: string, onSelect: (id: string) => void }) {
   return (
-    <aside className="w-full md:w-64 border-b md:border-b-0 md:border-l p-4 h-auto md:h-screen md:sticky top-0 bg-gray-50/50">
+    <aside className="w-full md:w-64 border-b md:border-b-0 md:border-l p-4 h-auto md:h-screen md:sticky top-0 bg-muted/20">
       <h2 className="font-bold mb-4 text-lg text-primary text-right">מרכז העזרה</h2>
-      <ScrollArea className="h-full max-h-48 md:max-h-full md:h-[calc(100vh-80px)]">
+      <ScrollArea className="h-full max-h-48 md:max-h-full md:h-[calc(100vh-220px)]">
         <nav className="space-y-4 pr-2">
           {content.map((cat) => (
             <div key={cat.category}>
@@ -119,8 +120,8 @@ function WikiSidebar({ content, activeId, onSelect }: { content: Category[], act
                     <Button
                       variant="ghost"
                       className={cn(
-                        "w-full justify-start h-auto py-1 px-2 text-sm text-muted-foreground hover:text-foreground text-right",
-                        activeId === article.id && "text-primary bg-primary/10"
+                        "w-full justify-start h-auto py-1 px-2 text-sm text-muted-foreground hover:text-primary/80 hover:bg-primary/5 text-right",
+                        activeId === article.id && "text-primary bg-primary/10 font-bold"
                       )}
                       onClick={() => onSelect(article.id)}
                     >
@@ -139,9 +140,9 @@ function WikiSidebar({ content, activeId, onSelect }: { content: Category[], act
 
 function WikiContent({ article }: { article: Article }) {
     return (
-        <article className="prose prose-sm lg:prose-base max-w-none">
-            <h1 className="text-3xl font-bold mb-4 border-b pb-2">{article.title}</h1>
-            <div dangerouslySetInnerHTML={{ __html: article.content }} className="space-y-4" />
+        <article className="prose prose-sm lg:prose-base max-w-none text-right">
+            <h1 className="text-3xl font-bold mb-4 border-b pb-2 text-primary">{article.title}</h1>
+            <div dangerouslySetInnerHTML={{ __html: article.content }} className="space-y-4 text-foreground/90" />
         </article>
     )
 }
@@ -151,7 +152,7 @@ function SearchResults({ results, onSelect }: { results: Article[], onSelect: (i
         return <div className="text-center text-muted-foreground mt-16">לא נמצאו תוצאות לחיפוש שלך.</div>
     }
     return (
-        <div>
+        <div className="text-right">
             <h1 className="text-2xl font-bold mb-6">תוצאות חיפוש</h1>
             <div className="space-y-6">
                 {results.map(article => (
@@ -194,11 +195,9 @@ export default function HelpPage() {
   const handleSelectArticle = (id: string) => {
     setActiveArticleId(id);
     setSearchTerm('');
-    // Scroll to top of content area on article change
     document.getElementById('main-content')?.scrollTo(0, 0);
   };
   
-  // Set initial article when search term is cleared
   useEffect(() => {
       if (!searchTerm) {
           setActiveArticleId(prevId => allArticles.find(a => a.id === prevId) ? prevId : allArticles[0].id);
@@ -206,31 +205,34 @@ export default function HelpPage() {
   }, [searchTerm, allArticles]);
 
   return (
-    <div dir="rtl" className="bg-white text-gray-900 min-h-screen">
-      <div className="flex flex-col md:flex-row">
-        <WikiSidebar content={wikiContent} activeId={activeArticleId} onSelect={handleSelectArticle} />
-        
-        <main className="flex-1 p-6 md:p-10">
-          <div className="relative mb-8 max-w-2xl">
-            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-            <Input 
-              placeholder="חפש במרכז העזרה..."
-              className="pr-12 text-base h-12 rounded-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <ScrollArea id="main-content" className="h-[calc(100vh-150px)]">
-             <div className="pl-4">
-                 {searchTerm ? (
-                     <SearchResults results={searchResults} onSelect={handleSelectArticle} />
-                 ) : (
-                    <WikiContent article={activeArticle} />
-                 )}
+    <div dir="rtl" className="min-h-screen flex flex-col bg-background">
+      <AppHeader />
+      <main className="flex-1">
+        <div className="flex flex-col md:flex-row-reverse">
+            <WikiSidebar content={wikiContent} activeId={activeArticleId} onSelect={handleSelectArticle} />
+            
+            <div className="flex-1 p-6 md:p-10">
+                <div className="relative mb-8 max-w-2xl">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                <Input 
+                    placeholder="חפש במרכז העזרה..."
+                    className="pl-12 text-base h-12 rounded-lg border-2 border-transparent focus:border-primary transition-colors bg-muted/40"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                </div>
+                <ScrollArea id="main-content" className="h-[calc(100vh-220px)]">
+                <div className="pl-4">
+                    {searchTerm ? (
+                        <SearchResults results={searchResults} onSelect={handleSelectArticle} />
+                    ) : (
+                        <WikiContent article={activeArticle} />
+                    )}
+                </div>
+                </ScrollArea>
             </div>
-          </ScrollArea>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
