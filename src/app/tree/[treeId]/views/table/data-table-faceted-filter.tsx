@@ -134,6 +134,9 @@ export function DataTableFacetedFilter<TData, TValue>({
                 <CommandSeparator />
                 <CommandGroup>
                   <CommandItem
+                    onPointerDown={(e) => {
+                        e.preventDefault()
+                    }}
                     onSelect={() => column?.setFilterValue(undefined)}
                     className="justify-center text-center"
                   >
