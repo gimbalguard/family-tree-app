@@ -62,7 +62,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
   });
 
   useEffect(() => {
-    if (user) {
+    if (user && isOpen) {
       form.reset({
         displayName: user.displayName || '',
       });
@@ -73,14 +73,16 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
     if (!user) return;
     setIsLoading(true);
     try {
-      await updateProfile(user, { displayName: values.displayName });
+      if (user.displayName !== values.displayName) {
+        await updateProfile(user, { displayName: values.displayName });
+      }
       toast({ title: 'הפרופיל עודכן בהצלחה' });
       onClose();
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'שגיאה',
-        description: 'לא ניתן היה לעדכן את הפרופIL.',
+        description: 'לא ניתן היה לעדכן את הפרופיל.',
       });
     } finally {
       setIsLoading(false);
@@ -142,93 +144,92 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
           <DialogDescription>נהל את פרטי החשבון והאבטחה שלך.</DialogDescription>
         </DialogHeader>
 
-        <Separator />
-
-        <div className="space-y-6 py-2">
-          {/* User Details Section */}
-          <div className="space-y-4">
-            <h3 className="font-semibold">פרטי משתמש</h3>
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <Avatar className="h-20 w-20">
-                  <AvatarImage src={user?.photoURL ?? undefined} />
-                  <AvatarFallback>{user?.displayName?.charAt(0) ?? '?'}</AvatarFallback>
-                </Avatar>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="absolute -bottom-2 -left-2 h-8 w-8 rounded-full"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-                </Button>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])}
-                />
-              </div>
-              <div className="text-sm text-muted-foreground flex-1">
-                <p>
-                  <strong>אימייל:</strong> {user?.email}
-                </p>
-                <p className="mt-1">
-                  לחץ על העיפרון כדי להעלות תמונה חדשה.
-                </p>
-              </div>
-            </div>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleUpdateProfile)}>
-                <FormField
-                  control={form.control}
-                  name="displayName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>שם תצוגה</FormLabel>
-                      <FormControl>
-                        <Input {...field} disabled={isLoading} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <Button type="submit" size="sm" className="mt-4" disabled={isLoading}>
-                  {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                  שמור שם תצוגה
-                </Button>
-              </form>
-            </Form>
-          </div>
-
-          <Separator />
-
-          {/* Security Section */}
-          {!user?.isAnonymous && (
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleUpdateProfile)} className="space-y-6">
             <div className="space-y-4">
-              <h3 className="font-semibold">אבטחה</h3>
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <p className="text-sm">שנה את הסיסמה שלך</p>
-                <Button variant="outline" size="sm" onClick={handlePasswordReset}>
-                  שלח אימייל לאיפוס
-                </Button>
+              <h3 className="font-semibold text-right">פרטי משתמש</h3>
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={user?.photoURL ?? undefined} />
+                    <AvatarFallback>{user?.displayName?.charAt(0) ?? '?'}</AvatarFallback>
+                  </Avatar>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="absolute -bottom-2 -left-2 h-8 w-8 rounded-full"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])}
+                  />
+                </div>
+                <div className="text-sm text-muted-foreground flex-1 text-right">
+                  <p>
+                    <strong>אימייל:</strong> {user?.email}
+                  </p>
+                  <p className="mt-1">
+                    לחץ על העיפרון כדי להעלות תמונה חדשה.
+                  </p>
+                </div>
+              </div>
+              <FormField
+                control={form.control}
+                name="displayName"
+                render={({ field }) => (
+                  <FormItem className="text-right">
+                    <FormLabel>שם תצוגה</FormLabel>
+                    <FormControl>
+                      <Input {...field} disabled={isLoading} className="bg-card" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Separator />
+
+            {!user?.isAnonymous && (
+              <div className="space-y-4 text-right">
+                <h3 className="font-semibold">אבטחה</h3>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <p className="text-sm">שנה את הסיסמה שלך</p>
+                  <Button type="button" variant="outline" size="sm" onClick={handlePasswordReset}>
+                    שלח אימייל לאיפוס
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Separator />
+
+            <div className="space-y-4 text-right">
+              <h3 className="font-semibold">פעולות בחשבון</h3>
+              <div className="flex items-center justify-start">
+                  <Button type="button" variant="destructive" onClick={handleSignOut}>התנתקות</Button>
               </div>
             </div>
-          )}
-
-
-          <Separator />
-          
-          {/* Account Actions Section */}
-          <div className="space-y-4">
-             <h3 className="font-semibold">פעולות בחשבון</h3>
-             <div className="flex items-center justify-start gap-4">
-                 <Button variant="destructive" onClick={handleSignOut}>התנתקות</Button>
-             </div>
-          </div>
-        </div>
+            
+            <DialogFooter className="pt-6 border-t">
+               <Button type="button" variant="outline" onClick={onClose}>
+                ביטול
+              </Button>
+              <Button type="submit" disabled={isLoading || isUploading}>
+                {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                שמור שינויים
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
