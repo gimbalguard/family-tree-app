@@ -26,11 +26,9 @@ export function TableView({ data, isOwner, updatePersonData, onAddPerson, onEdit
   }), [isOwner, updatePersonData, onEditPerson]);
 
   return (
-    <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 gap-4 overflow-hidden">
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className='w-full overflow-x-auto'>
-            <DataTable columns={columns} data={tableData} meta={meta} />
-        </div>
+    <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 gap-4">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <DataTable columns={columns} data={tableData} meta={meta} />
       </div>
       <div className="flex-shrink-0 flex justify-start pt-4 border-t">
         <Button onClick={onAddPerson} disabled={!isOwner}>
