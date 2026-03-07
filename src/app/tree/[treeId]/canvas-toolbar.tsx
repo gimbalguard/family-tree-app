@@ -103,7 +103,7 @@ export function CanvasToolbar({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             side="left"
-            className="w-[var(--radix-dropdown-menu-trigger-width)]"
+            className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
           >
             {viewOptions.map((option) => (
               <DropdownMenuItem
