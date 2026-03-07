@@ -59,8 +59,18 @@ export function MapView({ people, onEditPerson }: MapViewProps) {
             return geocodingCache.current.get(location) || null;
           }
           try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`);
-            if (!response.ok) throw new Error('Network response was not ok');
+            // Nominatim's Usage Policy requires a valid User-Agent.
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`, {
+              headers: {
+                'User-Agent': 'FamilyTreeApp/1.0 (for support, contact your administrator)'
+              }
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`Network response was not ok. Status: ${response.status}. Body: ${errorText}`);
+            }
+
             const data = await response.json();
             if (data && data.length > 0) {
               const coords: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
@@ -78,6 +88,7 @@ export function MapView({ people, onEditPerson }: MapViewProps) {
 
         const located: LocatedPerson[] = [];
         let excluded = 0;
+        
         for (const person of people) {
           let locationString = '';
           if (person.cityOfResidence && person.countryOfResidence) {
