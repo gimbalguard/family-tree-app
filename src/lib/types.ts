@@ -15,6 +15,9 @@ export type FamilyTree = {
   personCount?: number;
   relationshipCount?: number;
   ownerPersonId?: string;
+  language?: 'he' | 'en';
+  privacy?: 'private' | 'link' | 'public';
+  shareToken?: string;
 };
 
 export type Person = {
@@ -42,6 +45,7 @@ export type Person = {
   // UI-specific properties, not from DB schema directly but merged at runtime
   isLocked?: boolean;
   groupId?: string | null;
+  isOwner?: boolean;
 };
 
 export type Relationship = {

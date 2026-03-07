@@ -66,6 +66,8 @@ type CanvasToolbarProps = {
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
   treeId: string;
+  onOpenSettings: () => void;
+  onOpenAccount: () => void;
 };
 
 export function CanvasToolbar({
@@ -77,6 +79,8 @@ export function CanvasToolbar({
   viewMode,
   setViewMode,
   treeId,
+  onOpenSettings,
+  onOpenAccount,
 }: CanvasToolbarProps) {
   const currentView =
     viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
@@ -150,11 +154,19 @@ export function CanvasToolbar({
       <div className="flex-grow" />
 
       <div className="flex w-full flex-col gap-1">
-        <Button variant="ghost" className="w-full justify-start gap-2 px-2" disabled>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 px-2"
+          onClick={onOpenSettings}
+        >
           <Settings className="h-5 w-5" />
           <span>הגדרות</span>
         </Button>
-        <Button variant="ghost" className="w-full justify-start gap-2 px-2" disabled>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 px-2"
+          onClick={onOpenAccount}
+        >
           <User className="h-5 w-5" />
           <span>חשבון</span>
         </Button>

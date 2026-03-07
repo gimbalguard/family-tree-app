@@ -53,6 +53,20 @@
           "type": "string",
           "description": "Timestamp when the family tree was last updated.",
           "format": "date-time"
+        },
+        "language": {
+            "type": "string",
+            "description": "The selected language for the tree.",
+            "enum": ["he", "en"]
+        },
+        "privacy": {
+            "type": "string",
+            "description": "The privacy setting for the tree.",
+            "enum": ["private", "link", "public"]
+        },
+        "shareToken": {
+            "type": "string",
+            "description": "A unique token for sharing the tree via a link."
         }
       },
       "required": [

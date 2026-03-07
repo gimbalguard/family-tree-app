@@ -87,6 +87,8 @@ import { MapView } from './views/MapView';
 import { CalendarView } from './views/CalendarView';
 import { ManualEventEditor } from './views/ManualEventEditor';
 import { StatisticsView } from './views/StatisticsView';
+import { SettingsModal } from './settings-modal';
+import { AccountModal } from './account-modal';
 
 type TreePageClientProps = {
   treeId: string;
@@ -99,14 +101,6 @@ export type ViewMode =
   | 'map'
   | 'calendar'
   | 'statistics';
-
-const viewPlaceholders: Record<
-  Exclude<
-    ViewMode,
-    'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics'
-  >,
-  { label: string; emoji: string }
-> = {};
 
 const getEdgeStyle = (selected = false) => ({
   strokeWidth: selected ? 2.5 : 1.5,
@@ -230,6 +224,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
+
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1045,76 +1042,49 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     return false;
   }, []);
 
-  const handleRenameTree = async () => {
-    if (!user || !db || !tree || nameValue === tree.treeName || !nameValue.trim()) {
-      setIsEditingName(false);
-      return;
-    }
-
-    const newName = nameValue.trim();
-    const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
-
-    setTree((prev) => (prev ? { ...prev, treeName: newName } : null));
-    setIsEditingName(false);
-
-    try {
-      await updateDoc(treeRef, { treeName: newName });
-      toast({ title: 'השם עודכן' });
-    } catch (error: any) {
-      setTree((prev) => (prev ? { ...prev, treeName: tree.treeName } : null));
-      toast({
-        variant: 'destructive',
-        title: 'שגיאה',
-        description: 'לא ניתן היה לעדכן את שם העץ.',
-      });
-      const permissionError = new FirestorePermissionError({
-        path: treeRef.path,
-        operation: 'update',
-        requestResourceData: { treeName: newName },
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    }
-  };
-
-  const handleSetOwner = async (personId: string) => {
-    if (!user || !db || !tree || personId === tree.ownerPersonId) {
-      setIsOwnerPopoverOpen(false);
-      return;
+  const handleUpdateTreeDetails = useCallback(async (details: Partial<FamilyTree>) => {
+    if (!user || !db || !tree) {
+        toast({ variant: "destructive", title: "שגיאה", description: "לא ניתן לשמור את השינויים." });
+        return;
     }
 
     const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
-    const oldOwnerId = tree.ownerPersonId;
+    
+    // Optimistic UI update
+    const oldTree = tree;
+    setTree(prev => prev ? { ...prev, ...details } : null);
 
-    setTree((prev) => (prev ? { ...prev, ownerPersonId: personId } : null));
-    setNodes((nds) =>
-      nds.map((n) => ({ ...n, data: { ...n.data, isOwner: n.id === personId } }))
-    );
-    setIsOwnerPopoverOpen(false);
+    if ('treeName' in details) {
+        setNameValue(details.treeName!);
+    }
+     if ('ownerPersonId' in details) {
+        setNodes((nds) =>
+          nds.map((n) => ({ ...n, data: { ...n.data, isOwner: n.id === details.ownerPersonId } }))
+        );
+    }
 
     try {
-      await updateDoc(treeRef, { ownerPersonId: personId });
-      toast({ title: 'המשתמש הוגדר' });
+        await updateDoc(treeRef, { ...details, updatedAt: serverTimestamp() });
+        toast({ title: "ההגדרות עודכנו" });
     } catch (error: any) {
-      setTree((prev) => (prev ? { ...prev, ownerPersonId: oldOwnerId } : null));
-      setNodes((nds) =>
-        nds.map((n) => ({
-          ...n,
-          data: { ...n, data: { ...n.data, isOwner: n.id === oldOwnerId } },
-        }))
-      );
-      toast({
-        variant: 'destructive',
-        title: 'שגיאה',
-        description: 'לא ניתן היה להגדיר את המשתמש.',
-      });
-      const permissionError = new FirestorePermissionError({
-        path: treeRef.path,
-        operation: 'update',
-        requestResourceData: { ownerPersonId: personId },
-      });
-      errorEmitter.emit('permission-error', permissionError);
+        // Revert UI on error
+        setTree(oldTree);
+        if ('treeName' in details) setNameValue(oldTree.treeName);
+        if ('ownerPersonId' in details) {
+           setNodes((nds) =>
+            nds.map((n) => ({ ...n, data: { ...n.data, isOwner: n.id === oldTree.ownerPersonId } }))
+           );
+        }
+
+        toast({ variant: "destructive", title: "שגיאת עדכון", description: "לא ניתן היה לשמור את הגדרות העץ." });
+        const permissionError = new FirestorePermissionError({
+            path: treeRef.path,
+            operation: 'update',
+            requestResourceData: details
+        });
+        errorEmitter.emit('permission-error', permissionError);
     }
-  };
+  }, [user, db, tree, treeId, toast, setNodes]);
 
   const handleEditPerson = useCallback((personId: string) => {
     const personToEdit = people.find(p => p.id === personId);
@@ -1184,74 +1154,53 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const renderCurrentView = () => {
-    if (viewMode === 'tree') {
-      return (
-        <FamilyTreeCanvas
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          onPaneClick={handlePaneClick}
-          onNodeDragStart={onNodeDragStart}
-          onNodeDrag={onNodeDrag}
-          onNodeDragStop={onNodeDragStop}
-          onConnect={handleConnect}
-          onEdgeDoubleClick={handleEdgeDoubleClick}
-          onNodeContextMenu={onNodeContextMenu}
-          isValidConnection={isValidConnection}
-          onSelectionChange={onSelectionChange}
-        />
-      );
-    }
-    if (viewMode === 'timeline') {
-      return <TimelineView people={people} relationships={relationships} />;
-    }
-    if (viewMode === 'table') {
+    switch (viewMode) {
+      case 'tree':
+        return (
+          <FamilyTreeCanvas
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            onPaneClick={handlePaneClick}
+            onNodeDragStart={onNodeDragStart}
+            onNodeDrag={onNodeDrag}
+            onNodeDragStop={onNodeDragStop}
+            onConnect={handleConnect}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
+            onNodeContextMenu={onNodeContextMenu}
+            isValidConnection={isValidConnection}
+            onSelectionChange={onSelectionChange}
+          />
+        );
+      case 'timeline':
+        return <TimelineView people={people} relationships={relationships} />;
+      case 'table':
         const isOwner = user?.uid === tree?.userId;
         return <TableView 
             data={people} 
-            isOwner={isOwner} 
+            isOwner={isOwner}
             treeId={treeId}
             updatePersonData={updatePersonData}
             onAddPerson={handleOpenEditorForNew}
             onEditPerson={handleEditPerson}
         />;
+      case 'map':
+        return <MapView people={people} onEditPerson={handleEditPerson} />;
+      case 'calendar':
+        return <CalendarView 
+          people={people} 
+          relationships={relationships} 
+          manualEvents={manualEvents}
+          onOpenEventEditor={handleOpenManualEventEditor}
+          onEditPerson={handleEditPerson}
+        />;
+      case 'statistics':
+        return <StatisticsView people={people} relationships={relationships} onEditPerson={handleEditPerson} />;
+      default:
+        return null;
     }
-    if (viewMode === 'map') {
-      return <MapView people={people} onEditPerson={handleEditPerson} />;
-    }
-    if (viewMode === 'calendar') {
-      return <CalendarView 
-        people={people} 
-        relationships={relationships} 
-        manualEvents={manualEvents}
-        onOpenEventEditor={handleOpenManualEventEditor}
-        onEditPerson={handleEditPerson}
-      />;
-    }
-    if (viewMode === 'statistics') {
-      return <StatisticsView people={people} relationships={relationships} />;
-    }
-    const placeholder =
-      viewPlaceholders[
-        viewMode as Exclude<
-          ViewMode,
-          'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics'
-        >
-      ];
-    if (placeholder) {
-      return (
-        <div className="flex h-full w-full items-center justify-center bg-muted/20">
-          <div className="text-center text-muted-foreground">
-            <span className="text-6xl">{placeholder.emoji}</span>
-            <h2 className="mt-4 text-2xl font-bold">{placeholder.label}</h2>
-            <p>(תצוגה זו תפותח בקרוב)</p>
-          </div>
-        </div>
-      );
-    }
-    return null;
   };
 
 
@@ -1261,26 +1210,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         <Logo className="h-12 w-12 text-primary" />
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-muted-foreground">טוען את עץ המשפחה שלך...</p>
-      </div>
-    );
-  }
-
-  if (isUserLoading || (isLoading && !error)) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
-        <Logo className="h-12 w-12 text-primary" />
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">טוען את עץ המשפחה שלך...</p>
-      </div>
-    );
-  }
-
-  if (!isUserLoading && (!user || user.isAnonymous)) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
-        <Logo className="h-12 w-12 text-primary" />
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Verifying access...</p>
       </div>
     );
   }
@@ -1308,35 +1237,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           canRedo={canRedo}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenAccount={() => setIsAccountModalOpen(true)}
         />
         <main className="flex-1 relative overflow-hidden">
           {viewMode === 'tree' && (
             <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
-              {!isEditingName ? (
-                <h1
-                  className="text-lg font-semibold cursor-pointer"
-                  onDoubleClick={() => {
-                    if (tree) {
-                      setNameValue(tree.treeName);
-                      setIsEditingName(true);
-                    }
-                  }}
-                >
-                  {tree?.treeName ?? 'עץ משפחה'}
-                </h1>
-              ) : (
-                <Input
-                  value={nameValue}
-                  onChange={(e) => setNameValue(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRenameTree();
-                    if (e.key === 'Escape') setIsEditingName(false);
-                  }}
-                  onBlur={handleRenameTree}
-                  autoFocus
-                  className="text-lg h-8"
-                />
-              )}
+              <h1 className="text-lg font-semibold">{tree?.treeName}</h1>
               <Popover
                 open={isOwnerPopoverOpen}
                 onOpenChange={setIsOwnerPopoverOpen}
@@ -1358,7 +1265,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                           key={person.id}
                           variant="ghost"
                           className="w-full justify-start"
-                          onClick={() => handleSetOwner(person.id)}
+                          onClick={() => handleUpdateTreeDetails({ ownerPersonId: person.id })}
                         >
                           {person.firstName} {person.lastName}
                         </Button>
@@ -1419,6 +1326,20 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         onSave={handleSaveManualEvent}
         onDelete={handleDeleteManualEvent}
       />
+
+      <AccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+      />
+
+      {tree && <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        tree={tree}
+        people={people}
+        onUpdate={handleUpdateTreeDetails}
+      />}
+
       <AlertDialog
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
