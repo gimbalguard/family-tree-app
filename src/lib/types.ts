@@ -70,6 +70,7 @@ export type Relationship = {
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;
+  manuallyEdited?: boolean;
 };
 
 export type SocialLink = {

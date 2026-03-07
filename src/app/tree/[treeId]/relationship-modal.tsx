@@ -190,6 +190,7 @@ export function RelationshipModal({
       startDate: values.startDate || null,
       endDate: values.endDate || null,
       notes: values.notes || null,
+      manuallyEdited: true, // Mark as manually edited
     };
     
     let genderUpdate;

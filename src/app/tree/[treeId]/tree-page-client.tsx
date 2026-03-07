@@ -244,42 +244,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     initialNodePositions: Map<string, XYPosition>;
   } | null>(null);
 
-  useEffect(() => {
-    setEdges((eds) => eds.map((e) => ({ ...e, type: edgeType })));
-  }, [edgeType, setEdges]);
-
-  const onSelectionChange = useCallback(
-    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
-      setEdges((eds) =>
-        eds.map((edge) => {
-          const isAnimated =
-            selectedNodes.length === 1 &&
-            (edge.source === selectedNodes[0].id ||
-              edge.target === selectedNodes[0].id);
-          const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
-          return {
-            ...edge,
-            animated: isAnimated,
-            style: getEdgeStyle(isAnimated || isEdgeSelected),
-          };
-        })
-      );
-    },
-    [setEdges]
-  );
-
-  useEffect(() => {
-    if (tree) {
-      setNameValue(tree.treeName);
-    }
-  }, [tree?.treeName]);
-
-  useEffect(() => {
-    if (!isUserLoading && (!user || user.isAnonymous)) {
-      router.replace('/login');
-    }
-  }, [user, isUserLoading, router]);
-
   const fetchData = useCallback(async () => {
     if (!user || user.isAnonymous || !db) return;
     setIsLoading(true);
@@ -394,6 +358,144 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       setIsLoading(false);
     }
   }, [treeId, user, db, setNodes, setEdges, edgeType]);
+
+  const runSiblingDetection = useCallback(async (personIdsForCheck: string[]) => {
+    if (!user || !db || personIdsForCheck.length === 0) return;
+
+    // Fetch fresh data to ensure we're working with the latest state
+    const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
+    const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+    const [peopleSnap, relsSnap] = await Promise.all([ getDocs(peopleRef), getDocs(relsRef) ]);
+    const currentPeople = peopleSnap.docs.map(d => ({...d.data(), id: d.id}) as Person);
+    const currentRelationships = relsSnap.docs.map(d => ({...d.data(), id: d.id}) as Relationship);
+
+    const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
+    const siblingTypes = ['sibling', 'twin'];
+    
+    // Find all parents of the people who might have new sibling relationships
+    const parentsToCheck = new Set<string>();
+    currentRelationships.forEach(rel => {
+        if (parentTypes.includes(rel.relationshipType) && personIdsForCheck.includes(rel.personBId)) {
+            parentsToCheck.add(rel.personAId);
+        }
+    });
+
+    if (parentsToCheck.size === 0) {
+      // This handles the case where a birthdate was updated for a person.
+      // We need to find their siblings through existing relationships to identify the parents.
+      const personId = personIdsForCheck[0];
+      const siblingRels = currentRelationships.filter(r => (r.personAId === personId || r.personBId === personId) && siblingTypes.includes(r.relationshipType));
+      const siblingIds = siblingRels.map(r => r.personAId === personId ? r.personBId : r.personAId);
+      const allInvolvedIds = [...siblingIds, personId];
+      
+      currentRelationships.forEach(rel => {
+        if (parentTypes.includes(rel.relationshipType) && allInvolvedIds.includes(rel.personBId)) {
+          parentsToCheck.add(rel.personAId);
+        }
+      });
+    }
+
+    if (parentsToCheck.size === 0) return; // No parents, no siblings to detect
+
+    const batch = writeBatch(db);
+    let changesMade = false;
+
+    // For each parent, check all pairs of their children for sibling relationships
+    for (const parentId of parentsToCheck) {
+        const children = currentPeople.filter(p =>
+            currentRelationships.some(r =>
+                parentTypes.includes(r.relationshipType) && r.personAId === parentId && r.personBId === p.id
+            )
+        );
+
+        if (children.length < 2) continue;
+
+        for (let i = 0; i < children.length; i++) {
+            for (let j = i + 1; j < children.length; j++) {
+                const childA = children[i];
+                const childB = children[j];
+
+                // Check for existing sibling/twin relationship
+                const existingRel = currentRelationships.find(r =>
+                    siblingTypes.includes(r.relationshipType) &&
+                    ((r.personAId === childA.id && r.personBId === childB.id) || (r.personAId === childB.id && r.personBId === childA.id))
+                );
+
+                const isTwin = childA.birthDate && childA.birthDate === childB.birthDate;
+                const correctRelType = isTwin ? 'twin' : 'sibling';
+
+                if (existingRel) {
+                    if (existingRel.manuallyEdited) continue; // Skip manually edited relationships
+                    if (existingRel.relationshipType !== correctRelType) {
+                        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', existingRel.id);
+                        batch.update(relRef, { relationshipType: correctRelType });
+                        changesMade = true;
+                    }
+                } else {
+                    const newRelRef = doc(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'));
+                    const [personAId, personBId] = [childA.id, childB.id].sort(); // Sort IDs for consistency
+                    batch.set(newRelRef, {
+                        personAId,
+                        personBId,
+                        relationshipType: correctRelType,
+                        treeId: treeId,
+                        userId: user.uid,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp(),
+                        manuallyEdited: false,
+                    });
+                    changesMade = true;
+                }
+            }
+        }
+    }
+
+    if (changesMade) {
+        try {
+            await batch.commit();
+            toast({ title: "קשרי אחים עודכנו אוטומטית" });
+        } catch (error) {
+            console.error("Error committing sibling detection batch:", error);
+            toast({ variant: 'destructive', title: "שגיאה בעדכון קשרי אחים" });
+        }
+    }
+  }, [user, db, treeId, toast]);
+
+  useEffect(() => {
+    setEdges((eds) => eds.map((e) => ({ ...e, type: edgeType })));
+  }, [edgeType, setEdges]);
+
+  const onSelectionChange = useCallback(
+    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+      setEdges((eds) =>
+        eds.map((edge) => {
+          const isAnimated =
+            selectedNodes.length === 1 &&
+            (edge.source === selectedNodes[0].id ||
+              edge.target === selectedNodes[0].id);
+          const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
+          return {
+            ...edge,
+            animated: isAnimated,
+            style: getEdgeStyle(isAnimated || isEdgeSelected),
+          };
+        })
+      );
+    },
+    [setEdges]
+  );
+
+  useEffect(() => {
+    if (tree) {
+      setNameValue(tree.treeName);
+    }
+  }, [tree?.treeName]);
+
+  useEffect(() => {
+    if (!isUserLoading && (!user || user.isAnonymous)) {
+      router.replace('/login');
+    }
+  }, [user, isUserLoading, router]);
 
   useEffect(() => {
     if (!isUserLoading && user && !user.isAnonymous) {
@@ -758,6 +860,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const handleUpdatePerson = async (personData: Person) => {
     if (!user || !db) return;
+    const oldPerson = people.find(p => p.id === personData.id);
+    const birthDateChanged = oldPerson?.birthDate !== personData.birthDate;
+
     try {
       const docRef = doc(
         db,
@@ -770,6 +875,11 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       );
       const dataToUpdate = { ...personData, updatedAt: serverTimestamp() };
       await updateDoc(docRef, dataToUpdate);
+
+      if (birthDateChanged) {
+        await runSiblingDetection([personData.id]);
+      }
+
       toast({
         title: 'אדם עודכן',
         description: `${personData.firstName} ${personData.lastName} עודכן.`,
@@ -796,12 +906,20 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         toast({ variant: 'destructive', title: 'שגיאת אימות' });
         return false;
     }
+    const birthDateChanged = field === 'birthDate';
+
     try {
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personId);
         await updateDoc(personRef, { [field]: value, updatedAt: serverTimestamp() });
+        
+        if (birthDateChanged) {
+          await runSiblingDetection([personId]);
+        }
+        
         // Update local state for immediate feedback
         setPeople(prev => prev.map(p => p.id === personId ? { ...p, [field]: value } : p));
         toast({ title: 'השדה עודכן', duration: 2000 });
+        fetchData(); // Refetch all data to reflect changes
         return true;
     } catch (error: any) {
         const permissionError = new FirestorePermissionError({
@@ -817,7 +935,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
         return false;
     }
-  }, [user, db, treeId, toast]);
+  }, [user, db, treeId, toast, runSiblingDetection, fetchData]);
 
   const handleDeleteRequest = (personId: string) => {
     const person = people.find((p) => p.id === personId);
@@ -928,6 +1046,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     if (!user || !db) return;
     const { relData, genderUpdate } = payload;
     const isEditing = !!editingRelationship;
+    const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
+    const isParental = parentTypes.includes(relData.relationshipType);
+
     try {
       const batch = writeBatch(db);
       if (isEditing) {
@@ -953,6 +1074,11 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         batch.update(personRef, { gender: genderUpdate.gender });
       }
       await batch.commit();
+
+      if (isParental) {
+        await runSiblingDetection([relData.personBId]);
+      }
+      
       toast({ title: isEditing ? 'קשר עודכן' : 'קשר נוסף' });
       fetchData();
       handleRelModalClose();
@@ -975,10 +1101,21 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     if (!user || !db) return;
 
     let edgeToDelete: any;
+    let relToDelete: Relationship | undefined;
+
     setEdges((currentEdges) => {
       edgeToDelete = currentEdges.find((e) => e.id === relationshipId);
       return currentEdges.filter((e) => e.id !== relationshipId);
     });
+
+    setRelationships(currentRels => {
+      relToDelete = currentRels.find(r => r.id === relationshipId);
+      return currentRels.filter(r => r.id !== relationshipId);
+    });
+
+    const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
+    const wasParental = relToDelete && parentTypes.includes(relToDelete.relationshipType);
+    const childId = relToDelete?.personBId;
 
     try {
       const relRef = doc(
@@ -991,8 +1128,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         relationshipId
       );
       await deleteDoc(relRef);
-      setRelationships((rels) => rels.filter((r) => r.id !== relationshipId));
+
+      if (wasParental && childId) {
+        await runSiblingDetection([childId]);
+      }
+      
       toast({ title: 'קשר נמחק' });
+      fetchData(); // Refetch to ensure consistency
     } catch (error: any) {
       console.error('Error deleting relationship:', error);
       toast({
@@ -1002,6 +1144,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       });
       if (edgeToDelete) {
         setEdges((currentEdges) => [...currentEdges, edgeToDelete!]);
+      }
+      if (relToDelete) {
+        setRelationships(currentRels => [...currentRels, relToDelete!]);
       }
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/relationships/${relationshipId}`,

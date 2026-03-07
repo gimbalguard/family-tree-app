@@ -209,7 +209,21 @@
         },
         "relationshipType": {
           "type": "string",
-          "description": "The type of relationship (parent, spouse, adoptive_parent, step_parent)."
+          "description": "The type of relationship (parent, spouse, adoptive_parent, step_parent).",
+          "enum": [
+            "parent",
+            "spouse",
+            "adoptive_parent",
+            "step_parent",
+            "sibling",
+            "twin",
+            "ex_spouse",
+            "guardian",
+            "separated",
+            "partner",
+            "ex_partner",
+            "step_sibling"
+          ]
         },
         "startDate": {
           "type": "string",
@@ -222,6 +236,10 @@
         "notes": {
           "type": "string",
           "description": "Optional free-text notes about the relationship."
+        },
+        "manuallyEdited": {
+          "type": "boolean",
+          "description": "True if the relationship has been manually edited by the user, to prevent automatic overwrites."
         }
       },
       "required": [
