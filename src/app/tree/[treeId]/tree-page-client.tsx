@@ -1130,13 +1130,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   };
 
-  const handleEditPerson = (personId: string) => {
+  const handleEditPerson = useCallback((personId: string) => {
     const personToEdit = people.find(p => p.id === personId);
     if (personToEdit) {
       setSelectedPerson(personToEdit);
       setIsEditorOpen(true);
     }
-  };
+  }, [people]);
 
   const renderCurrentView = () => {
     if (viewMode === 'tree') {
