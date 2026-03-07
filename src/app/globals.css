@@ -95,3 +95,23 @@
 .react-flow .react-flow__attribution {
     @apply bg-transparent;
 }
+
+/* Leaflet Custom Pin Style */
+.map-pin {
+  background-color: transparent;
+  border: none;
+}
+
+/* Leaflet Popup customization */
+.leaflet-popup-content-wrapper {
+  @apply rounded-lg shadow-lg border-border !bg-popover;
+}
+.leaflet-popup-content {
+  @apply !m-0;
+}
+.leaflet-popup-tip {
+    @apply !bg-popover;
+}
+.leaflet-container a.leaflet-popup-close-button {
+  @apply text-foreground/70 hover:text-foreground;
+}

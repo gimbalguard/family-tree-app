@@ -81,6 +81,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
 import { TimelineView } from './views/TimelineView';
 import { TableView } from './views/table/TableView';
+import { MapView } from './views/MapView';
 
 type TreePageClientProps = {
   treeId: string;
@@ -95,10 +96,9 @@ export type ViewMode =
   | 'statistics';
 
 const viewPlaceholders: Record<
-  Exclude<ViewMode, 'tree' | 'timeline' | 'table'>,
+  Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map'>,
   { label: string; emoji: string }
 > = {
-  map: { label: 'מפה', emoji: '🗺️' },
   calendar: { label: 'לוח שנה', emoji: '📆' },
   statistics: { label: 'סטטיסטיקות', emoji: '📊' },
 };
@@ -1130,6 +1130,14 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   };
 
+  const handleEditPerson = (personId: string) => {
+    const personToEdit = people.find(p => p.id === personId);
+    if (personToEdit) {
+      setSelectedPerson(personToEdit);
+      setIsEditorOpen(true);
+    }
+  };
+
   const renderCurrentView = () => {
     if (viewMode === 'tree') {
       return (
@@ -1162,16 +1170,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
             treeId={treeId}
             updatePersonData={updatePersonData}
             onAddPerson={handleOpenEditorForNew}
-            onEditPerson={(personId) => {
-                const person = people.find(p => p.id === personId);
-                if(person) {
-                    setSelectedPerson(person);
-                    setIsEditorOpen(true);
-                }
-            }}
+            onEditPerson={handleEditPerson}
         />;
     }
-    const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table'>];
+    if (viewMode === 'map') {
+      return <MapView people={people} onEditPerson={handleEditPerson} />;
+    }
+    const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map'>];
     if (placeholder) {
       return (
         <div className="flex h-full w-full items-center justify-center bg-muted/20">
