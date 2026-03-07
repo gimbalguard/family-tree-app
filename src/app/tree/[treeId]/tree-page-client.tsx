@@ -463,6 +463,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         };
+        delete dataToCreate.id; 
         batch.set(newDocRef, dataToCreate);
       }
   
