@@ -111,7 +111,6 @@ const EditableSelectCell = <T,>({
   const isOwner = meta?.isOwner ?? false;
   
   const onSelect = async (newValue: string) => {
-    // If the "clear" value is selected, save an empty string.
     const valueToSave = newValue === '--clear--' ? '' : newValue;
     if (valueToSave !== initialValue) {
         await meta?.updatePersonData(original.id, id, valueToSave);
@@ -120,13 +119,10 @@ const EditableSelectCell = <T,>({
 
   if (!isOwner) {
      const displayLabel = options.find(o => o.value === initialValue)?.label;
-     // If value is empty string, show '–'
      if (!initialValue) return <div className="px-2 py-1 whitespace-nowrap">{'–'}</div>;
      return <div className="px-2 py-1 whitespace-nowrap">{displayLabel || initialValue}</div>;
   }
   
-  // If the initial value is an empty string, we tell the Select component to use our special clear value.
-  // Otherwise, use the initialValue as is. If initialValue is undefined, Select will show placeholder.
   const selectValue = initialValue === '' ? '--clear--' : initialValue;
 
   return (
@@ -135,7 +131,6 @@ const EditableSelectCell = <T,>({
             <SelectValue placeholder="בחר..." />
         </SelectTrigger>
         <SelectContent>
-            {/* Add the special item for clearing the value */}
             <SelectItem value="--clear--">ללא</SelectItem>
             {options.map(option => (
                 <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
@@ -209,6 +204,7 @@ export const columns: ColumnDef<Person>[] = [
         },
         enableSorting: false,
         enableHiding: false,
+        size: 70,
     },
     {
         accessorKey: 'firstName',
@@ -217,24 +213,28 @@ export const columns: ColumnDef<Person>[] = [
             const { table, row: { original: { id } } } = props;
             const meta = table.options.meta as any;
             return <Button variant="link" className="p-0 h-auto whitespace-nowrap" onClick={() => meta.onEditPerson(id)}>{props.getValue() as string}</Button>
-        }
+        },
+        size: 150,
     },
     {
         accessorKey: 'lastName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="שם משפחה" />,
         cell: props => <EditableCell {...props} />,
+        size: 150,
     },
     {
         accessorKey: 'gender',
         header: ({ column }) => <DataTableColumnHeader column={column} title="מין" />,
         cell: props => <EditableSelectCell {...props} options={[{value: 'male', label: 'זכר'}, {value: 'female', label: 'נקבה'}, {value: 'other', label: 'אחר'}]} />,
-        filterFn: 'equals',
+        filterFn: 'arrIncludes',
+        size: 120,
     },
     {
         accessorKey: 'birthDate',
         header: ({ column }) => <DataTableColumnHeader column={column} title="תאריך לידה" />,
         cell: props => <EditableDateCell {...props} />,
-        sortingFn: 'datetime'
+        sortingFn: 'datetime',
+        size: 150,
     },
      {
         id: 'age',
@@ -249,40 +249,47 @@ export const columns: ColumnDef<Person>[] = [
         },
         cell: ({ getValue }) => {
             const age = getValue() as number | null;
-            return age !== null ? <div className='whitespace-nowrap'>{age}</div> : '–';
-        }
+            return age !== null ? <div className='whitespace-nowrap px-2 py-1'>{age}</div> : '–';
+        },
+        size: 80,
     },
     {
         accessorKey: 'birthPlace',
         header: ({ column }) => <DataTableColumnHeader column={column} title="מקום לידה" />,
         cell: props => <EditableCell {...props} />,
+        size: 180,
     },
     {
         accessorKey: 'deathDate',
         header: ({ column }) => <DataTableColumnHeader column={column} title="תאריך פטירה" />,
         cell: props => <EditableDateCell {...props} />,
-        sortingFn: 'datetime'
+        sortingFn: 'datetime',
+        size: 150,
     },
     {
         accessorKey: 'status',
         header: ({ column }) => <DataTableColumnHeader column={column} title="סטטוס" />,
         cell: props => <EditableSelectCell {...props} options={[{value: 'alive', label: 'חי'}, {value: 'deceased', label: 'נפטר'}, {value: 'unknown', label: 'לא ידוע'}]} />,
-        filterFn: 'equals',
+        filterFn: 'arrIncludes',
+        size: 120,
     },
     {
         accessorKey: 'countryOfResidence',
         header: ({ column }) => <DataTableColumnHeader column={column} title="ארץ מגורים" />,
         cell: props => <EditableCell {...props} />,
+        size: 180,
     },
     {
         accessorKey: 'religion',
         header: ({ column }) => <DataTableColumnHeader column={column} title="דת" />,
         cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}]} />,
-        filterFn: 'equals',
+        filterFn: 'arrIncludes',
+        size: 120,
     },
     {
         accessorKey: 'description',
         header: ({ column }) => <DataTableColumnHeader column={column} title="הערות" />,
         cell: props => <EditableCell {...props} />,
+        size: 300,
     },
 ];

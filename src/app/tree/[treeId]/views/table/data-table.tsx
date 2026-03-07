@@ -11,7 +11,6 @@ import {
   SortingState,
   ColumnFiltersState,
   VisibilityState,
-  getPaginationRowModel,
 } from '@tanstack/react-table';
 import {
   Table,
@@ -77,19 +76,20 @@ export function DataTable<TData, TValue>({
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    columnResizeMode: 'onChange',
   });
 
   return (
     <div className="space-y-4 h-full flex flex-col">
       <DataTableToolbar table={table} />
-      <div className="rounded-md border flex-1 relative overflow-auto">
-        <Table>
+      <div style={{ flex: 1, minHeight: 0, width: '100%', overflowX: 'scroll', overflowY: 'auto' }}>
+        <Table style={{ width: 'max-content', minWidth: 'max-content', tableLayout: 'fixed' }}>
           <TableHeader className="sticky top-0 bg-muted/50 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} className="whitespace-nowrap">
+                    <TableHead key={header.id} style={{ width: header.getSize() }}>
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -108,10 +108,10 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className="even:bg-muted/30"
+                  className="even:bg-muted/30 h-12"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-1 h-12">
+                    <TableCell key={cell.id} className="p-1">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

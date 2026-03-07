@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DataTableViewOptions } from './data-table-view-options';
 import { DataTableFacetedFilter } from './data-table-faceted-filter';
-import type { Person } from '@/lib/types';
 import { X } from 'lucide-react';
 
 interface DataTableToolbarProps<TData> {
