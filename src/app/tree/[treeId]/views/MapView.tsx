@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -59,12 +60,8 @@ export function MapView({ people, onEditPerson }: MapViewProps) {
             return geocodingCache.current.get(location) || null;
           }
           try {
-            // Nominatim's Usage Policy requires a valid User-Agent.
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`, {
-              headers: {
-                'User-Agent': 'FamilyTreeApp/1.0'
-              }
-            });
+            // Use the new server-side API route for geocoding
+            const response = await fetch(`/api/geocode?q=${encodeURIComponent(location)}`);
             
             if (!response.ok) {
               const errorText = await response.text();
