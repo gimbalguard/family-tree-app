@@ -1,7 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection } from 'reactflow';
-import { ReactFlowProvider, useNodesState, useEdgesState, ConnectionMode } from 'reactflow';
+import {
+  ReactFlowProvider,
+  useNodesState,
+  useEdgesState,
+  useUndoRedo,
+  ConnectionMode,
+} from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import type { FamilyTree, Person, Relationship, CanvasPosition } from '@/lib/types';
@@ -107,6 +113,18 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     };
 };
 
+function CanvasToolbarWithHistory({ onAddPerson }: { onAddPerson: () => void }) {
+  const { undo, redo, canUndo, canRedo } = useUndoRedo();
+  return (
+    <CanvasToolbar
+      onAddPerson={onAddPerson}
+      onUndo={undo}
+      onRedo={redo}
+      canUndo={canUndo}
+      canRedo={canRedo}
+    />
+  );
+}
 
 export function TreePageClient({ treeId }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
@@ -130,6 +148,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [newConnection, setNewConnection] = useState<Connection | null>(null);
   const [editingRelationship, setEditingRelationship] = useState<Relationship | null>(null);
   const [isRelModalOpen, setIsRelModalOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
 
   const [isDuplicateAlertOpen, setIsDuplicateAlertOpen] = useState(false);
   const [personToCreate, setPersonToCreate] = useState<any | null>(null);
@@ -137,7 +157,6 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [personToDelete, setPersonToDelete] = useState<Person | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
@@ -459,7 +478,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         fetchData(); 
         handleRelModalClose();
 
-    } catch (error: any) {
+    } catch (error: any) => {
         console.error('Real error:', error);
         toast({
           variant: 'destructive',
@@ -639,7 +658,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     <div className="h-screen w-full overflow-hidden">
         <ReactFlowProvider>
           <div className="flex h-full">
-            <CanvasToolbar onAddPerson={handleOpenEditorForNew} />
+            <CanvasToolbarWithHistory onAddPerson={handleOpenEditorForNew} />
             <main className="flex-1 relative">
                 <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
                     {!isEditingName ? (
@@ -711,14 +730,22 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
           </div>
 
           <RelationshipModal
-              isOpen={isRelModalOpen}
-              onClose={handleRelModalClose}
-              connection={newConnection}
-              relationship={editingRelationship}
-              relationshipId={editingRelationship?.id}
-              people={people}
-              onSave={handleSaveRelationship}
-              onDelete={handleDeleteRelationship}
+            isOpen={isRelModalOpen || !!pendingDeleteId}
+            onClose={() => {
+              handleRelModalClose();
+              if (pendingDeleteId) setPendingDeleteId(null);
+            }}
+            connection={newConnection}
+            relationship={
+              editingRelationship ||
+              (pendingDeleteId ? relationships.find(r => r.id === pendingDeleteId) : null)
+            }
+            relationshipId={
+              editingRelationship?.id || pendingDeleteId || undefined
+            }
+            people={people}
+            onSave={handleSaveRelationship}
+            onDelete={handleDeleteRelationship}
           />
 
           <PersonEditor

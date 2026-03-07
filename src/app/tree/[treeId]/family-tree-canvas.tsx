@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -23,6 +23,13 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 
 import { PersonNode } from './person-node';
+import { Button } from '@/components/ui/button';
+import { Map } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 // Moved to module level to prevent re-creation on every render.
 const nodeTypes: NodeTypes = { personNode: PersonNode };
@@ -56,8 +63,9 @@ export function FamilyTreeCanvas({
   onNodeDragStop,
   isValidConnection,
 }: FamilyTreeCanvasProps) {
+  const [isMinimapVisible, setIsMinimapVisible] = useState(false);
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -82,8 +90,26 @@ export function FamilyTreeCanvas({
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
-        <MiniMap nodeStrokeWidth={3} zoomable pannable />
+        {isMinimapVisible && <MiniMap nodeStrokeWidth={3} zoomable pannable />}
       </ReactFlow>
+      <div className="absolute bottom-4 right-4 z-10">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => setIsMinimapVisible((v) => !v)}
+              className="shadow-lg"
+            >
+              <Map className="h-5 w-5" />
+              <span className="sr-only">Toggle Minimap</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>הצג/הסתר מפה מוקטנת</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
     </div>
   );
 }
