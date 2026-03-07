@@ -59,12 +59,11 @@ const viewOptions: {
 ];
 
 const edgeStyleOptions: {
-  value: 'smoothstep' | 'step' | 'default' | 'straight';
+  value: 'step' | 'default' | 'straight';
   label: string;
 }[] = [
-  { value: 'smoothstep', label: 'גלי' },
   { value: 'step', label: 'חד' },
-  { value: 'default', label: 'עקום' },
+  { value: 'default', label: 'גלי' },
   { value: 'straight', label: 'ישר' },
 ];
 
@@ -168,7 +167,7 @@ export function CanvasToolbar({
         </TooltipContent>
       </Tooltip>
 
-      {viewMode === 'tree' && (
+      {(viewMode === 'tree' || viewMode === 'timeline') && (
         <div className="w-full">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -227,7 +227,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
-  const [edgeType, setEdgeType] = useState<EdgeType>('smoothstep');
+  const [edgeType, setEdgeType] = useState<EdgeType>('default');
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
