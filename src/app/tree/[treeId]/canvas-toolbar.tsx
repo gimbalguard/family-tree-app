@@ -68,6 +68,7 @@ type CanvasToolbarProps = {
   treeId: string;
   onOpenSettings: () => void;
   onOpenAccount: () => void;
+  onToggleChat: () => void;
 };
 
 export function CanvasToolbar({
@@ -81,12 +82,13 @@ export function CanvasToolbar({
   treeId,
   onOpenSettings,
   onOpenAccount,
+  onToggleChat,
 }: CanvasToolbarProps) {
   const currentView =
     viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
 
   return (
-    <aside className="flex flex-col items-center gap-4 border-r bg-card p-4">
+    <aside className="flex flex-col items-center gap-4 border-l bg-card p-4">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" asChild>
@@ -95,7 +97,7 @@ export function CanvasToolbar({
             </Link>
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">
+        <TooltipContent side="right">
           <p>חזרה ללוח הבקרה</p>
         </TooltipContent>
       </Tooltip>
@@ -112,7 +114,7 @@ export function CanvasToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            side="left"
+            side="right"
             className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
           >
             {viewOptions.map((option) => (
@@ -140,14 +142,12 @@ export function CanvasToolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" disabled>
-            {' '}
-            {/* Disabled for now */}
+          <Button variant="ghost" size="icon" onClick={onToggleChat}>
             <MessageSquare className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">
-          <p>עריכה עם AI (בקרוב)</p>
+        <TooltipContent side="right">
+          <p>עריכה עם AI</p>
         </TooltipContent>
       </Tooltip>
 
@@ -194,7 +194,7 @@ export function CanvasToolbar({
               <Undo2 className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">
+          <TooltipContent side="right">
             <p>בטל</p>
           </TooltipContent>
         </Tooltip>
@@ -209,7 +209,7 @@ export function CanvasToolbar({
               <Redo2 className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">
+          <TooltipContent side="right">
             <p>בצע שוב</p>
           </TooltipContent>
         </Tooltip>

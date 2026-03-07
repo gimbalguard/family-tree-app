@@ -89,6 +89,7 @@ import { ManualEventEditor } from './views/ManualEventEditor';
 import { StatisticsView } from './views/StatisticsView';
 import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
+import { AiChatPanel } from './ai-chat-panel';
 
 type TreePageClientProps = {
   treeId: string;
@@ -227,6 +228,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1226,8 +1228,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   }
 
   return (
-    <div className="h-screen w-full">
-      <div className="flex h-full">
+    <div className="h-screen w-full" dir="rtl">
+      <div className="flex h-full flex-row-reverse">
         <CanvasToolbar
           treeId={treeId}
           onAddPerson={handleOpenEditorForNew}
@@ -1239,6 +1241,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           setViewMode={setViewMode}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onOpenAccount={() => setIsAccountModalOpen(true)}
+          onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
         />
         <main className="flex-1 relative overflow-hidden">
           {viewMode === 'tree' && (
@@ -1287,6 +1290,14 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
               onUngroup={handleUngroup}
               onLock={handleLock}
               onUnlock={handleUnlock}
+            />
+          )}
+           {isChatPanelOpen && user && db && tree && (
+            <AiChatPanel 
+              onClose={() => setIsChatPanelOpen(false)}
+              onDataAdded={fetchData}
+              treeId={tree.id}
+              treeName={tree.treeName}
             />
           )}
         </main>
