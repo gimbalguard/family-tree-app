@@ -856,7 +856,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
       const [rels1Snapshot, rels2Snapshot] = await Promise.all([
         getDocs(relsQuery1),
-        getDocs(relsQuery2),
+        getDocs(rels2Snapshot),
       ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
@@ -1230,22 +1230,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   return (
     <div className="h-screen w-full" dir="rtl">
       <div className="flex h-full">
-        <CanvasToolbar
-          treeId={treeId}
-          onAddPerson={handleOpenEditorForNew}
-          onUndo={undo}
-          onRedo={redo}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
-          onOpenAccount={() => setIsAccountModalOpen(true)}
-          onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
-        />
         <main className="flex-1 relative overflow-hidden">
           {viewMode === 'tree' && (
-            <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
+            <div className="absolute top-4 right-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
               <h1 className="text-lg font-semibold">{tree?.treeName}</h1>
               <Popover
                 open={isOwnerPopoverOpen}
@@ -1298,9 +1285,23 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
               onDataAdded={fetchData}
               treeId={tree.id}
               treeName={tree.treeName}
+              people={people}
             />
           )}
         </main>
+        <CanvasToolbar
+          treeId={treeId}
+          onAddPerson={handleOpenEditorForNew}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onOpenSettings={() => setIsSettingsModalOpen(true)}
+          onOpenAccount={() => setIsAccountModalOpen(true)}
+          onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
+        />
       </div>
 
       <RelationshipModal

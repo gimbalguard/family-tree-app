@@ -28,12 +28,7 @@ import type { GenerateTreeOutput } from '@/ai/flows/ai-tree-generation.types';
 import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: React.ReactNode;
-}
+import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
 
 function SeparatorWithText({ text }: { text: string }) {
   return (
@@ -55,20 +50,26 @@ export function AiBuildClient() {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
+
+  const {
+    chatHistory,
+    setChatHistory,
+    isGenerating,
+    setIsGenerating,
+    isTranscribing,
+    setIsTranscribing,
+  } = useAiChat();
+
   const [isCreatingManually, setIsCreatingManually] = useState(false);
   const [treeName, setTreeName] = useState('עץ משפחה חדש');
   const [story, setStory] = useState('');
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -211,7 +212,7 @@ export function AiBuildClient() {
 
       const tempIdToFirestoreId: Record<string, string> = {};
 
-      data.people.forEach((person) => {
+      data.people?.forEach((person) => {
         const personDocRef = doc(
           collection(db, 'users', user.uid, 'familyTrees', treeId, 'people')
         );
@@ -228,7 +229,7 @@ export function AiBuildClient() {
         });
       });
 
-      data.relationships.forEach((rel) => {
+      data.relationships?.forEach((rel) => {
         const personAId = tempIdToFirestoreId[rel.personAKey];
         const personBId = tempIdToFirestoreId[rel.personBKey];
 
@@ -276,8 +277,8 @@ export function AiBuildClient() {
     }
   };
 
-  const handleSendStory = async () => {
-    if (!story.trim() || !user) return;
+  const handleSend = async (messageContent: string) => {
+    if (!messageContent.trim() || !user) return;
     if (!treeName.trim()) {
       toast({
         variant: 'destructive',
@@ -299,70 +300,50 @@ export function AiBuildClient() {
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: story,
+      content: messageContent,
     };
-    setChatHistory((prev) => [...prev, userMessage]);
+    
+    const newHistory = [...chatHistory, userMessage];
+    setChatHistory(newHistory);
     setStory('');
     setIsGenerating(true);
 
     try {
-      const result = await generateTreeFromStory({ story, treeName });
-
-      const relationshipLabels: Record<string, string> = {
-        parent: 'הורה של',
-        spouse: 'בן/בת זוג של',
-        adoptive_parent: 'הורה מאמצ/ת של',
-        step_parent: 'הורה חורג/ת של',
-        sibling: 'אח/אחות של',
-        twin: 'תאום/ה של',
-        ex_spouse: 'בן/בת זוג לשעבר של',
-        guardian: 'אפוטרופוס של',
-        godparent: 'סנדק/ית של',
+      const flowInput = {
+        newUserMessage: messageContent,
+        treeName: treeName,
+        chatHistory: newHistory.map(m => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
+        })),
+        existingPeople: [], // No existing people on the build page
       };
+
+      const result = await generateTreeFromStory(flowInput);
 
       const assistantMessageContent = (
         <div className="space-y-4 text-right">
-            <p className="font-semibold">{result.summary}</p>
-
-            {result.people.length > 0 && (
-                <div className="text-sm">
-                <h4 className="font-medium underline">אנשים שזוהו:</h4>
-                <ul className="list-disc list-inside text-muted-foreground">
-                    {result.people.map(p => <li key={p.key}>{p.firstName} {p.lastName}</li>)}
-                </ul>
-                </div>
-            )}
-
-            {result.relationships.length > 0 && (
-                <div className="text-sm">
-                <h4 className="font-medium underline">קשרים שזוהו:</h4>
-                <ul className="list-disc list-inside text-muted-foreground">
-                    {result.relationships.map((r, i) => {
-                    const personA = result.people.find(p => p.key === r.personAKey);
-                    const personB = result.people.find(p => p.key === r.personBKey);
-                    const relLabel = relationshipLabels[r.relationshipType] || r.relationshipType;
-                    if (!personA || !personB) return null;
-                    
-                    return <li key={i}>{`${personA.firstName} ${personA.lastName}`} הוא/היא {relLabel} {`${personB.firstName} ${personB.lastName}`}</li>
-                    })}
-                </ul>
-                </div>
-            )}
-
-            {result.clarificationQuestion ? (
-                <Alert dir="rtl">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>שאלה להבהרה</AlertTitle>
-                    <AlertDescription>{result.clarificationQuestion}</AlertDescription>
+          <p className="font-semibold">{result.summary}</p>
+          
+          {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
+            <div className="space-y-2">
+              {result.clarificationQuestions.map((q, index) => (
+                <Alert dir="rtl" key={index}>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>{q.question}</AlertTitle>
+                  {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
+                    <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
+                      {q.suggestedAnswers.map((ans, i) => (
+                        <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
+                          {ans}
+                        </Button>
+                      ))}
+                    </AlertDescription>
+                  )}
                 </Alert>
-            ) : (
-                <div className="pt-2">
-                    <Button onClick={() => handleCreateTreeFromAI(result)} disabled={isCreating}>
-                        {isCreating ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
-                        צור את העץ
-                    </Button>
-                </div>
-            )}
+              ))}
+            </div>
+          )}
         </div>
       );
 
@@ -370,8 +351,9 @@ export function AiBuildClient() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: assistantMessageContent,
+        data: result.isComplete ? result : null,
       };
-      setChatHistory((prev) => [...prev, assistantMessage]);
+      setChatHistory(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error generating tree from story:', error);
       const errorMessage: ChatMessage = {
@@ -468,6 +450,14 @@ export function AiBuildClient() {
                       }`}
                     >
                       {message.content}
+                      {message.data?.isComplete && (
+                        <div className="pt-2 text-right">
+                          <Button onClick={() => handleCreateTreeFromAI(message.data)} disabled={isCreating}>
+                            {isCreating ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
+                            צור את העץ
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -495,7 +485,7 @@ export function AiBuildClient() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSendStory();
+                    handleSend(story);
                   }
                 }}
                 disabled={disabledWhileBusy}
@@ -522,7 +512,7 @@ export function AiBuildClient() {
                 variant="default"
                 size="icon"
                 className="absolute left-3 top-1/2 -translate-y-1/2"
-                onClick={handleSendStory}
+                onClick={() => handleSend(story)}
                 disabled={disabledWhileBusy || !story.trim()}
               >
                 <Send className="h-5 w-5" />

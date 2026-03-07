@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { FirebaseClientProvider } from '@/firebase';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import 'react-day-picker/dist/style.css';
+import { AiChatProvider } from '@/context/ai-chat-context';
 
 
 export const metadata: Metadata = {
@@ -30,12 +31,14 @@ export default function RootLayout({
           crossOrigin=""/>
       </head>
       <body className="font-body antialiased">
-        <TooltipProvider>
-          <FirebaseClientProvider>
-            {children}
-            <Toaster />
-          </FirebaseClientProvider>
-        </TooltipProvider>
+        <AiChatProvider>
+          <TooltipProvider>
+            <FirebaseClientProvider>
+              {children}
+              <Toaster />
+            </FirebaseClientProvider>
+          </TooltipProvider>
+        </AiChatProvider>
       </body>
     </html>
   );
