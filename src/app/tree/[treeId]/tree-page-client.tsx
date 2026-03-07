@@ -1,18 +1,23 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
   Node,
   Edge,
   Connection,
   OnConnect,
+  OnNodeDrag,
+  OnNodeDragStart,
   OnNodeDragStop,
+  OnNodesChange,
   OnEdgeDoubleClick,
   OnPaneClick,
   OnEdgeClick,
   OnNodeDoubleClick,
+  OnNodeContextMenu,
   IsValidConnection,
   NodeChange,
   OnSelectionChangeParams,
+  XYPosition,
 } from 'reactflow';
 import {
   ReactFlowProvider,
@@ -34,6 +39,7 @@ import type {
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
 import { RelationshipModal, relationshipOptions } from './relationship-modal';
+import { NodeContextMenu } from './node-context-menu';
 import { CanvasToolbar } from './canvas-toolbar';
 import { Loader2, User } from 'lucide-react';
 import { Logo } from '@/components/icons';
@@ -72,6 +78,7 @@ import {
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { v4 as uuidv4 } from 'uuid';
 
 type TreePageClientProps = {
   treeId: string;
@@ -176,6 +183,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const db = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { getNodes } = useReactFlow();
 
   const undo = useStore((s) => s.undo);
   const redo = useStore((s) => s.redo);
@@ -214,19 +222,26 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
 
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    nodes: Node<Person>[];
+  } | null>(null);
+  const dragRef = useRef<{
+    startPos: XYPosition;
+    nodeId: string;
+    initialNodePositions: Map<string, XYPosition>;
+  } | null>(null);
+
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
       setEdges((eds) =>
         eds.map((edge) => {
-          // Animate edges if exactly one node is selected
           const isAnimated =
             selectedNodes.length === 1 &&
             (edge.source === selectedNodes[0].id ||
               edge.target === selectedNodes[0].id);
-
-          // An edge is visually "selected" if it was clicked directly
           const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
-
           return {
             ...edge,
             animated: isAnimated,
@@ -307,19 +322,27 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       setPeople(peopleData);
       setRelationships(relsData);
 
-      const positionsMap = new Map(
-        posData.map((p) => [p.personId, { x: p.x, y: p.y }])
+      const positionsMap = new Map<string, Partial<CanvasPosition>>(
+        posData.map((p) => [p.personId, p])
       );
 
-      const initialNodes = peopleData.map((person) => ({
-        id: person.id,
-        type: 'personNode',
-        position: positionsMap.get(person.id) || {
-          x: Math.random() * 400,
-          y: Math.random() * 400,
-        },
-        data: { ...person, isOwner: person.id === treeData.ownerPersonId },
-      }));
+      const initialNodes = peopleData.map((person) => {
+        const pos = positionsMap.get(person.id);
+        const personWithUiState: Person = {
+          ...person,
+          isLocked: pos?.isLocked ?? false,
+          groupId: pos?.groupId ?? null,
+          isOwner: person.id === treeData.ownerPersonId,
+        };
+
+        return {
+          id: person.id,
+          type: 'personNode',
+          position: pos ? { x: pos.x, y: pos.y } : { x: Math.random() * 400, y: Math.random() * 400 },
+          data: personWithUiState,
+          draggable: !personWithUiState.isLocked,
+        };
+      });
       setNodes(initialNodes);
 
       const relLabelMap = new Map(
@@ -386,6 +409,262 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   }, [fetchData, isUserLoading, user]);
 
+  const onNodeContextMenu: OnNodeContextMenu = useCallback(
+    (event, node) => {
+      event.preventDefault();
+      setContextMenu(null);
+
+      const allNodes = getNodes();
+      const selectedNodes = allNodes.filter((n) => n.selected);
+
+      // If right-clicked node is not in current selection, make it the only selection
+      if (!selectedNodes.find((n) => n.id === node.id)) {
+        setNodes((nds) =>
+          nds.map((n) => ({ ...n, selected: n.id === node.id }))
+        );
+        setContextMenu({
+          x: event.clientX,
+          y: event.clientY,
+          nodes: [node as Node<Person>],
+        });
+      } else if (selectedNodes.length > 0) {
+        setContextMenu({
+          x: event.clientX,
+          y: event.clientY,
+          nodes: selectedNodes as Node<Person>[],
+        });
+      }
+    },
+    [getNodes, setNodes]
+  );
+  
+  const handlePaneClick: OnPaneClick = useCallback(() => {
+    setContextMenu(null);
+    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    setEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        selected: false,
+        animated: false,
+        style: getEdgeStyle(false),
+      }))
+    );
+  }, [setNodes, setEdges]);
+
+  const onNodeDragStart: OnNodeDragStart = useCallback((_, node) => {
+    dragRef.current = {
+      nodeId: node.id,
+      startPos: { ...node.position },
+      initialNodePositions: new Map(getNodes().map((n) => [n.id, n.position])),
+    };
+  }, [getNodes]);
+
+  const onNodeDrag: OnNodeDrag = useCallback(
+    (_, node) => {
+      if (!dragRef.current) return;
+
+      const { startPos, nodeId, initialNodePositions } = dragRef.current;
+
+      const diff = {
+        x: node.position.x - startPos.x,
+        y: node.position.y - startPos.y,
+      };
+
+      const draggedNode = getNodes().find((n) => n.id === nodeId);
+      if (!draggedNode || draggedNode.data.isLocked) {
+        return;
+      }
+      
+      const groupId = draggedNode.data.groupId;
+
+      setNodes((nds) =>
+        nds.map((n) => {
+          const initialPos = initialNodePositions.get(n.id);
+          if (!initialPos) return n;
+
+          if (n.id === nodeId && !n.data.isLocked) {
+            return n;
+          }
+
+          if (groupId && n.data.groupId === groupId && !n.data.isLocked) {
+            return {
+              ...n,
+              position: {
+                x: initialPos.x + diff.x,
+                y: initialPos.y + diff.y,
+              },
+            };
+          }
+          return n;
+        })
+      );
+    },
+    [getNodes, setNodes]
+  );
+
+  const onNodeDragStop: OnNodeDragStop = useCallback(
+    async (_, node) => {
+      if (!user || !db || !dragRef.current) return;
+
+      const draggedNode = getNodes().find((n) => n.id === node.id);
+      if (!draggedNode || draggedNode.data.isLocked) return;
+      
+      const affectedNodes = draggedNode.data.groupId
+        ? getNodes().filter(
+            (n) => n.data.groupId === draggedNode.data.groupId
+          )
+        : [draggedNode];
+
+      const batch = writeBatch(db);
+      const canvasPositionsRef = collection(
+        db,
+        'users',
+        user.uid,
+        'familyTrees',
+        treeId,
+        'canvasPositions'
+      );
+      
+      for (const n of affectedNodes) {
+        const q = query(canvasPositionsRef, where('personId', '==', n.id), limit(1));
+        const snapshot = await getDocs(q);
+
+        const dataToSave = {
+          personId: n.id,
+          x: n.position.x,
+          y: n.position.y,
+          userId: user.uid,
+          treeId: treeId,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (snapshot.empty) {
+          const newDocRef = doc(canvasPositionsRef);
+          batch.set(newDocRef, dataToSave);
+        } else {
+          batch.update(snapshot.docs[0].ref, {
+            x: dataToSave.x,
+            y: dataToSave.y,
+            updatedAt: dataToSave.updatedAt,
+          });
+        }
+      }
+      
+      try {
+        await batch.commit();
+      } catch (error: any) {
+        console.error("Error saving node positions:", error);
+      }
+
+      dragRef.current = null;
+    },
+    [user, db, treeId, getNodes]
+  );
+
+  const handleGroup = async () => {
+    const selectedNodes = getNodes().filter((n) => n.selected);
+    if (selectedNodes.length < 2 || !user || !db) return;
+
+    const newGroupId = uuidv4();
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.selected ? { ...n, data: { ...n.data, groupId: newGroupId } } : n
+      )
+    );
+
+    const batch = writeBatch(db);
+    const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+
+    for (const node of selectedNodes) {
+        const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+            const newDocRef = doc(canvasPositionsRef);
+            batch.set(newDocRef, { personId: node.id, x: node.position.x, y: node.position.y, groupId: newGroupId, userId: user.uid, treeId, updatedAt: serverTimestamp() });
+        } else {
+            batch.update(snapshot.docs[0].ref, { groupId: newGroupId });
+        }
+    }
+    await batch.commit();
+    toast({ title: "הצמתים קובצו" });
+  };
+
+  const handleUngroup = async () => {
+    const selectedNodes = getNodes().filter((n) => n.selected);
+    const groupId = selectedNodes[0]?.data.groupId;
+    if (!groupId || !user || !db) return;
+
+    const nodesInGroup = getNodes().filter(n => n.data.groupId === groupId);
+    
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.data.groupId === groupId ? { ...n, data: { ...n.data, groupId: null } } : n
+      )
+    );
+
+    const batch = writeBatch(db);
+    const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+    for (const node of nodesInGroup) {
+        const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            batch.update(snapshot.docs[0].ref, { groupId: null });
+        }
+    }
+    await batch.commit();
+    toast({ title: "הקבוצה פורקה" });
+  };
+
+  const handleLock = async () => {
+    const selectedNodes = getNodes().filter((n) => n.selected);
+    if (selectedNodes.length === 0 || !user || !db) return;
+
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.selected ? { ...n, data: { ...n.data, isLocked: true }, draggable: false } : n
+      )
+    );
+
+    const batch = writeBatch(db);
+    const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+    for (const node of selectedNodes) {
+        const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+             const newDocRef = doc(canvasPositionsRef);
+            batch.set(newDocRef, { personId: node.id, x: node.position.x, y: node.position.y, isLocked: true, userId: user.uid, treeId, updatedAt: serverTimestamp() });
+        } else {
+            batch.update(snapshot.docs[0].ref, { isLocked: true });
+        }
+    }
+    await batch.commit();
+    toast({ title: "המיקום ננעל" });
+  };
+
+  const handleUnlock = async () => {
+    const selectedNodes = getNodes().filter((n) => n.selected);
+    if (selectedNodes.length === 0 || !user || !db) return;
+
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.selected ? { ...n, data: { ...n.data, isLocked: false }, draggable: true } : n
+      )
+    );
+    
+    const batch = writeBatch(db);
+    const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+    for (const node of selectedNodes) {
+        const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            batch.update(snapshot.docs[0].ref, { isLocked: false });
+        }
+    }
+    await batch.commit();
+    toast({ title: "הנעילה שוחררה" });
+  };
+
+
   const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback(
     (_, edge) => {
       const rel = relationships.find((r) => r.id === edge.id);
@@ -401,21 +680,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     setSelectedPerson(node.data);
     setIsEditorOpen(true);
   }, []);
-
-  const handlePaneClick: OnPaneClick = useCallback(() => {
-    setSelectedPerson(null);
-    setEditingRelationship(null);
-    setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
-    setEdges((eds) =>
-      eds.map((e) => ({
-        ...e,
-        selected: false,
-        animated: false,
-        style: getEdgeStyle(false),
-      }))
-    );
-  }, [setNodes, setEdges]);
-
+  
   const handleEditorClose = () => {
     setIsEditorOpen(false);
     setSelectedPerson(null);
@@ -756,57 +1021,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       handleRelModalClose();
     }
   };
-
-  const handleNodeDragStop: OnNodeDragStop = useCallback(
-    async (_, node) => {
-      if (!user || !db) return;
-
-      const posData = { personId: node.id, x: node.position.x, y: node.position.y };
-      try {
-        const canvasPositionsRef = collection(
-          db,
-          'users',
-          user.uid,
-          'familyTrees',
-          treeId,
-          'canvasPositions'
-        );
-        const q = query(
-          canvasPositionsRef,
-          where('personId', '==', posData.personId),
-          limit(1)
-        );
-        const snapshot = await getDocs(q);
-
-        const dataToSave = {
-          ...posData,
-          userId: user.uid,
-          treeId,
-          updatedAt: serverTimestamp(),
-        };
-
-        if (snapshot.empty) {
-          await addDoc(canvasPositionsRef, dataToSave);
-        } else {
-          const docRef = snapshot.docs[0].ref;
-          await updateDoc(docRef, {
-            x: posData.x,
-            y: posData.y,
-            updatedAt: serverTimestamp(),
-          });
-        }
-      } catch (error: any) {
-        const permissionError = new FirestorePermissionError({
-          path: `users/${user.uid}/familyTrees/${treeId}/canvasPositions`,
-          operation: 'write',
-          requestResourceData: posData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-      }
-    },
-    [user, treeId, db]
-  );
-
+  
   const isValidConnection = useCallback<IsValidConnection>((connection) => {
     // Basic validation: prevent self-connections
     if (connection.source === connection.target) {
@@ -1032,9 +1247,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
               onEdgesChange={onEdgesChange}
               onNodeDoubleClick={handleNodeDoubleClick}
               onPaneClick={handlePaneClick}
-              onNodeDragStop={handleNodeDragStop}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDrag={onNodeDrag}
+              onNodeDragStop={onNodeDragStop}
               onConnect={handleConnect}
               onEdgeDoubleClick={handleEdgeDoubleClick}
+              onNodeContextMenu={onNodeContextMenu}
               isValidConnection={isValidConnection}
               onSelectionChange={onSelectionChange}
             />
@@ -1050,6 +1268,18 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                 <p>(תצוגה זו תפותח בקרוב)</p>
               </div>
             </div>
+          )}
+           {contextMenu && (
+            <NodeContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              nodes={contextMenu.nodes}
+              onClose={() => setContextMenu(null)}
+              onGroup={handleGroup}
+              onUngroup={handleUngroup}
+              onLock={handleLock}
+              onUnlock={handleUnlock}
+            />
           )}
         </main>
       </div>

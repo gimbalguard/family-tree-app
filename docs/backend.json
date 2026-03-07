@@ -249,7 +249,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "CanvasPosition",
       "type": "object",
-      "description": "Records the visual position of a person's card on the interactive family tree canvas.",
+      "description": "Records the visual position of a person's card on the interactive family tree canvas, along with UI state like grouping and locking.",
       "properties": {
         "id": {
           "type": "string",
@@ -275,6 +275,17 @@
           "type": "string",
           "description": "Timestamp when this canvas position was last updated.",
           "format": "date-time"
+        },
+        "isLocked": {
+          "type": "boolean",
+          "description": "If true, the node cannot be dragged or moved on the canvas."
+        },
+        "groupId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "An identifier for a logical group of nodes that should move together."
         }
       },
       "required": [

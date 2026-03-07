@@ -38,6 +38,9 @@ export type Person = {
   description?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  // UI-specific properties, not from DB schema directly but merged at runtime
+  isLocked?: boolean;
+  groupId?: string | null;
 };
 
 export type Relationship = {
@@ -79,4 +82,6 @@ export type CanvasPosition = {
   x: number;
   y: number;
   updatedAt: Timestamp;
+  isLocked?: boolean;
+  groupId?: string | null;
 };

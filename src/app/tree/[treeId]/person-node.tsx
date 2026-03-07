@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Heart } from 'lucide-react';
+import { Heart, Lock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
 
@@ -24,7 +24,7 @@ function getPlaceholderImage(gender: Person['gender']) {
 
 
 export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner?: boolean }>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner } = data;
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -89,10 +89,16 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner
 
   return (
     <Card className={cn(
-        "w-64 shadow-lg border-2 transition-colors duration-200", 
+        "w-64 shadow-lg border-2 transition-colors duration-200 relative", 
         selected ? 'border-primary shadow-primary/20' : 'border-transparent',
-        isOwner ? 'ring-2 ring-primary/50 shadow-xl shadow-primary/20' : ''
+        isOwner ? 'ring-2 ring-primary/50 shadow-xl shadow-primary/20' : '',
+        isLocked && 'border-destructive'
     )}>
+      {isLocked && (
+        <div className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 z-10">
+          <Lock className="h-3 w-3" />
+        </div>
+      )}
       {/* Each handle has a unique ID. Side handles are split into `source` and `target` to be unambiguous. */}
       
       {/* Parent handle (target only) */}

@@ -11,12 +11,15 @@ import ReactFlow, {
   type OnEdgesChange,
   type OnConnect,
   type NodeTypes,
+  type OnNodeDrag,
+  type OnNodeDragStart,
   type OnNodeDragStop,
   type OnEdgeDoubleClick,
   BackgroundVariant,
   type OnPaneClick,
   type OnEdgeClick,
   type OnNodeDoubleClick,
+  type OnNodeContextMenu,
   type IsValidConnection,
   ConnectionMode,
   type OnSelectionChange,
@@ -44,7 +47,10 @@ type FamilyTreeCanvasProps = {
   onNodeDoubleClick?: OnNodeDoubleClick;
   onEdgeDoubleClick?: OnEdgeDoubleClick;
   onPaneClick?: OnPaneClick;
+  onNodeDragStart: OnNodeDragStart;
+  onNodeDrag: OnNodeDrag;
   onNodeDragStop: OnNodeDragStop;
+  onNodeContextMenu: OnNodeContextMenu;
   isValidConnection: IsValidConnection;
   onSelectionChange: OnSelectionChange;
 };
@@ -58,7 +64,10 @@ export function FamilyTreeCanvas({
   onNodeDoubleClick,
   onEdgeDoubleClick,
   onPaneClick,
+  onNodeDragStart,
+  onNodeDrag,
   onNodeDragStop,
+  onNodeContextMenu,
   isValidConnection,
   onSelectionChange,
 }: FamilyTreeCanvasProps) {
@@ -75,17 +84,19 @@ export function FamilyTreeCanvas({
         onNodeDoubleClick={onNodeDoubleClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
         onPaneClick={onPaneClick}
+        onNodeDragStart={onNodeDragStart}
+        onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
+        onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
         fitView
         className="bg-background"
-        nodesDraggable={true} // Ensure nodes are always draggable
         panOnDrag={true}
         zoomOnScroll={true}
-        selectNodesOnDrag={false}
         selectionKeyCode="Control"
+        multiSelectionKeyCode="Control"
         onSelectionChange={onSelectionChange}
         minZoom={0.25}
       >
