@@ -1,13 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { Person, Relationship, ManualEvent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,350 +10,635 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import {
   format,
-  getYear,
-  getMonth,
-  getDate,
-  differenceInYears,
-  isValid,
+  addDays,
+  addMonths,
+  addWeeks,
+  subDays,
+  subMonths,
+  subWeeks,
   startOfMonth,
   endOfMonth,
   startOfWeek,
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  isToday,
-  addMonths,
-  subMonths,
-  addDays,
   isSameDay,
-  set,
+  isToday,
+  differenceInYears,
+  isValid,
+  getMonth,
+  getDate,
+  getYear,
+  parseISO,
 } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Filter, PlusCircle, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, PlusCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 
-// --- DATA PROCESSING & TYPES ---
-type CalendarEventType = 'birth' | 'death' | 'marriage' | 'divorce' | 'custom';
-type ViewMode = 'month' | 'week' | 'four-day' | 'day';
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const eventTypeConfig: Record<CalendarEventType, { label: string; color: string; textColor: string; }> = {
-  birth: { label: 'יום הולדת', color: '#16a34a', textColor: 'text-white' },
-  death: { label: 'יום פטירה', color: '#1a1a1a', textColor: 'text-white' },
-  marriage: { label: 'נישואין', color: '#ca8a04', textColor: 'text-white' },
-  divorce: { label: 'גירושין', color: '#dc2626', textColor: 'text-white' },
-  custom: { label: 'אירוע', color: '#7c3aed', textColor: 'text-white' },
+type ViewMode = 'month' | 'week' | '4day' | 'day';
+
+type CalendarEventType = 'birth' | 'death' | 'marriage' | 'divorce' | 'custom';
+
+const EVENT_CONFIG: Record<CalendarEventType, { label: string; bg: string; hex: string }> = {
+  birth:    { label: 'יום הולדת', bg: 'bg-green-600',  hex: '#16a34a' },
+  death:    { label: 'יום פטירה', bg: 'bg-gray-800',   hex: '#1a1a1a' },
+  marriage: { label: 'נישואין',   bg: 'bg-yellow-500', hex: '#ca8a04' },
+  divorce:  { label: 'גירושין',   bg: 'bg-red-600',    hex: '#dc2626' },
+  custom:   { label: 'אירוע',     bg: 'bg-purple-600', hex: '#7c3aed' },
 };
 
-type CalendarEvent = {
+type CalEvent = {
   id: string;
   type: CalendarEventType;
   title: string;
-  date: Date;
+  originalDate: Date;       // the actual historical date
   people: Person[];
   notes?: string | null;
   isAnniversary: boolean;
-  color: string;
-  textColor: string;
+  colorHex: string;
+  colorBg: string;
   allDay: boolean;
   time?: string;
-  endDate?: Date;
-  sortDate?: Date; // For sorting all-day events
+  sortYear: number;         // birth year of first person (for sorting)
 };
 
-const processEvents = (
-  people: Person[], 
-  relationships: Relationship[], 
-  manualEvents: ManualEvent[], 
-  year: number
-): CalendarEvent[] => {
-  const events: CalendarEvent[] = [];
-  
-  // --- Family Events ---
+// ─── Event Processing ─────────────────────────────────────────────────────────
+
+function processEvents(
+  people: Person[],
+  relationships: Relationship[],
+  manualEvents: ManualEvent[],
+): CalEvent[] {
+  const events: CalEvent[] = [];
+
   people.forEach((person) => {
-    const birthDate = person.birthDate ? new Date(person.birthDate) : null;
-    if (birthDate && isValid(birthDate)) {
-      events.push({
-        id: `birth-${person.id}`, type: 'birth', title: `יומולדת ל${person.firstName}`,
-        date: birthDate, people: [person], isAnniversary: true, color: eventTypeConfig.birth.color, textColor: eventTypeConfig.birth.textColor, allDay: true,
-        sortDate: birthDate
-      });
+    if (person.birthDate) {
+      const d = new Date(person.birthDate);
+      if (isValid(d)) {
+        events.push({
+          id: `birth-${person.id}`,
+          type: 'birth',
+          title: `יום הולדת — ${person.firstName} ${person.lastName}`,
+          originalDate: d,
+          people: [person],
+          isAnniversary: true,
+          colorHex: EVENT_CONFIG.birth.hex,
+          colorBg: EVENT_CONFIG.birth.bg,
+          allDay: true,
+          sortYear: getYear(d),
+        });
+      }
     }
     if (person.deathDate) {
-      const date = new Date(person.deathDate);
-      if (isValid(date)) {
+      const d = new Date(person.deathDate);
+      if (isValid(d)) {
         events.push({
-          id: `death-${person.id}`, type: 'death', title: `יום פטירה של ${person.firstName}`,
-          date, people: [person], isAnniversary: true, color: eventTypeConfig.death.color, textColor: eventTypeConfig.death.textColor, allDay: true,
-          sortDate: date,
+          id: `death-${person.id}`,
+          type: 'death',
+          title: `יום פטירה — ${person.firstName} ${person.lastName}`,
+          originalDate: d,
+          people: [person],
+          isAnniversary: true,
+          colorHex: EVENT_CONFIG.death.hex,
+          colorBg: EVENT_CONFIG.death.bg,
+          allDay: true,
+          sortYear: person.birthDate ? getYear(new Date(person.birthDate)) : 9999,
         });
       }
     }
   });
 
   relationships.forEach((rel) => {
-    const personA = people.find((p) => p.id === rel.personAId);
-    const personB = people.find((p) => p.id === rel.personBId);
-    if (!personA || !personB) return;
+    const pA = people.find((p) => p.id === rel.personAId);
+    const pB = people.find((p) => p.id === rel.personBId);
+    if (!pA || !pB) return;
+
+    const isSpouse = rel.relationshipType === 'spouse' || rel.relationshipType === 'partner';
+    const isDivorce =
+      rel.relationshipType === 'ex_spouse' ||
+      rel.relationshipType === 'separated' ||
+      rel.relationshipType === 'ex_partner';
 
     if (rel.startDate) {
-      const date = new Date(rel.startDate);
-      if (isValid(date)) {
-        const isMarriage = rel.relationshipType === 'spouse' || rel.relationshipType === 'partner';
+      const d = new Date(rel.startDate);
+      if (isValid(d)) {
         events.push({
-          id: `rel-start-${rel.id}`, type: isMarriage ? 'marriage' : 'custom',
-          title: isMarriage ? `נישואין: ${personA.firstName} ו${personB.firstName}` : `תחילת קשר`,
-          date, people: [personA, personB], notes: rel.notes, isAnniversary: true, 
-          color: isMarriage ? eventTypeConfig.marriage.color : '#7c3aed',
-          textColor: eventTypeConfig.marriage.textColor,
+          id: `rel-start-${rel.id}`,
+          type: isSpouse ? 'marriage' : 'custom',
+          title: isSpouse
+            ? `נישואין — ${pA.firstName} ו${pB.firstName}`
+            : `תחילת קשר — ${pA.firstName} ו${pB.firstName}`,
+          originalDate: d,
+          people: [pA, pB],
+          notes: rel.notes,
+          isAnniversary: isSpouse,
+          colorHex: EVENT_CONFIG[isSpouse ? 'marriage' : 'custom'].hex,
+          colorBg: EVENT_CONFIG[isSpouse ? 'marriage' : 'custom'].bg,
           allDay: true,
-          sortDate: new Date(Math.min(new Date(personA.birthDate || 0).getTime(), new Date(personB.birthDate || 0).getTime())),
+          sortYear: pA.birthDate ? getYear(new Date(pA.birthDate)) : 9999,
         });
       }
     }
+
     if (rel.endDate) {
-      const date = new Date(rel.endDate);
-      if (isValid(date)) {
-        const isDivorce = rel.relationshipType === 'ex_spouse' || rel.relationshipType === 'separated' || rel.relationshipType === 'ex_partner';
+      const d = new Date(rel.endDate);
+      if (isValid(d)) {
         events.push({
-          id: `rel-end-${rel.id}`, type: isDivorce ? 'divorce' : 'custom',
-          title: isDivorce ? `גירושין: ${personA.firstName} ו${personB.firstName}` : `סיום קשר`,
-          date, people: [personA, personB], notes: rel.notes, isAnniversary: true,
-          color: isDivorce ? eventTypeConfig.divorce.color : '#7c3aed',
-          textColor: eventTypeConfig.divorce.textColor,
+          id: `rel-end-${rel.id}`,
+          type: isDivorce ? 'divorce' : 'custom',
+          title: isDivorce
+            ? `גירושין — ${pA.firstName} ו${pB.firstName}`
+            : `סיום קשר — ${pA.firstName} ו${pB.firstName}`,
+          originalDate: d,
+          people: [pA, pB],
+          notes: rel.notes,
+          isAnniversary: isDivorce,
+          colorHex: EVENT_CONFIG[isDivorce ? 'divorce' : 'custom'].hex,
+          colorBg: EVENT_CONFIG[isDivorce ? 'divorce' : 'custom'].bg,
           allDay: true,
-          sortDate: new Date(Math.min(new Date(personA.birthDate || 0).getTime(), new Date(personB.birthDate || 0).getTime())),
+          sortYear: pA.birthDate ? getYear(new Date(pA.birthDate)) : 9999,
         });
       }
     }
   });
 
-  // --- Manual Events ---
-  manualEvents.forEach(event => {
-    const date = new Date(event.date);
-    if (isValid(date)) {
-      const adjustedDate = new Date(date.valueOf() + date.getTimezoneOffset() * 60 * 1000);
-      let startDateTime = adjustedDate;
-      if (!event.allDay && event.time) {
-        const [hours, minutes] = event.time.split(':').map(Number);
-        startDateTime = set(adjustedDate, { hours, minutes });
-      }
+  manualEvents.forEach((me) => {
+    const d = parseISO(me.date);
+    if (isValid(d)) {
       events.push({
-        id: event.id, type: 'custom', title: event.title, date: startDateTime,
-        people: [], notes: event.description, isAnniversary: false, color: event.color, textColor: 'text-white',
-        allDay: event.allDay, time: event.time, sortDate: startDateTime,
+        id: me.id,
+        type: 'custom',
+        title: me.title,
+        originalDate: d,
+        people: [],
+        notes: me.description,
+        isAnniversary: false,
+        colorHex: me.color,
+        colorBg: 'bg-purple-600',
+        allDay: me.allDay,
+        time: me.time,
+        sortYear: 9999,
       });
     }
   });
 
   return events;
-};
+}
 
+// ─── Helper: get events for a specific calendar day ───────────────────────────
 
-// --- HELPER COMPONENTS ---
+function getEventsForDay(allEvents: CalEvent[], day: Date): CalEvent[] {
+  const results: CalEvent[] = [];
+  const dayMonth = getMonth(day);
+  const dayDate = getDate(day);
+  const dayYear = getYear(day);
 
-const EventPopoverContent = ({ event, onOpenEventEditor }: { event: CalendarEvent, onOpenEventEditor: (event: Partial<ManualEvent> | null) => void }) => (
-    <div className="p-4 space-y-3 max-w-sm" dir="rtl">
-        <div className="flex items-start gap-3">
-            <div className="w-3 h-3 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: event.color }} />
-            <div className="flex-1">
-                <h3 className="font-bold text-lg">{event.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                    {format(event.date, 'eeee, d MMMM yyyy', { locale: he })}
-                    {event.isAnniversary && ` · לפני ${differenceInYears(new Date(), event.date)} שנים`}
-                </p>
-            </div>
+  allEvents.forEach((ev) => {
+    if (ev.isAnniversary) {
+      if (getMonth(ev.originalDate) === dayMonth && getDate(ev.originalDate) === dayDate) {
+        results.push(ev);
+      }
+    } else {
+      if (isSameDay(ev.originalDate, day)) {
+        results.push(ev);
+      }
+    }
+  });
+
+  // Sort: by sortYear ascending (oldest first)
+  return results.sort((a, b) => a.sortYear - b.sortYear);
+}
+
+// ─── Event Detail Popover ─────────────────────────────────────────────────────
+
+function EventDetailPopover({
+  event,
+  viewingYear,
+  onClose,
+  onEditManual,
+}: {
+  event: CalEvent;
+  viewingYear: number;
+  onClose: () => void;
+  onEditManual?: (id: string) => void;
+}) {
+  const yearsAgo = event.isAnniversary
+    ? differenceInYears(new Date(viewingYear, getMonth(event.originalDate), getDate(event.originalDate)), event.originalDate)
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/30" onClick={onClose}>
+      <div
+        className="bg-card rounded-xl shadow-2xl w-80 p-4 space-y-3"
+        dir="rtl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: event.colorHex }} />
+            <h3 className="font-bold text-base leading-tight">{event.title}</h3>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground mt-0.5">
+            <X className="h-4 w-4" />
+          </button>
         </div>
+
+        <p className="text-sm text-muted-foreground">
+          {format(event.originalDate, 'd MMMM yyyy', { locale: he })}
+          {yearsAgo !== null && yearsAgo > 0 && ` · לפני ${yearsAgo} שנים`}
+        </p>
+
         {event.people.length > 0 && (
-            <div className="flex items-center gap-2 pt-2 border-t">
-                {event.people.map(p => (
-                    <Avatar key={p.id} className="h-8 w-8 border">
-                        <AvatarImage src={p.photoURL || undefined} />
-                        <AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="avatar" /></AvatarFallback>
-                    </Avatar>
-                ))}
-                <span className="text-sm font-medium">{event.people.map(p => p.firstName).join(', ')}</span>
-            </div>
-        )}
-        {event.notes && (
-            <div className="text-sm pt-2 border-t">
-                <p className="italic text-muted-foreground">{event.notes}</p>
-            </div>
-        )}
-        {event.type === 'custom' && (
-            <div className="pt-2 border-t">
-                <Button variant="outline" size="sm" onClick={() => onOpenEventEditor(event)}>
-                    ערוך אירוע
-                </Button>
-            </div>
-        )}
-    </div>
-);
-
-
-// --- VIEW COMPONENTS ---
-
-const MonthView = ({ currentDate, events, onOpenEventEditor }: any) => {
-    const monthStart = startOfMonth(currentDate);
-    const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
-    const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
-    const days = eachDayOfInterval({ start: startDate, end: endDate });
-
-    const getEventsForDay = (day: Date) => {
-        return events
-            .filter((e: CalendarEvent) => {
-                if (e.isAnniversary) {
-                    return getMonth(e.date) === getMonth(day) && getDate(e.date) === getDate(day);
-                }
-                return isSameDay(e.date, day);
-            })
-            .sort((a: CalendarEvent, b: CalendarEvent) => (a.sortDate?.getTime() || 0) - (b.sortDate?.getTime() || 0));
-    };
-
-    return (
-        <div className="flex-1 grid grid-cols-7 grid-rows-[auto,1fr] border-r border-t">
-            {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-muted-foreground p-2 border-b border-l">
-                    {day}
-                </div>
+          <div className="flex items-center gap-2">
+            {event.people.map((p) => (
+              <Avatar key={p.id} className="h-8 w-8 border">
+                <AvatarImage src={p.photoURL || undefined} />
+                <AvatarFallback>
+                  <img src={getPlaceholderImage(p.gender)} alt="avatar" />
+                </AvatarFallback>
+              </Avatar>
             ))}
-            <div className="col-span-7 grid grid-cols-7 grid-rows-6 h-full">
-                {days.map(day => {
-                    const eventsOnDay = getEventsForDay(day);
-                    const isCurrentMonth = isSameMonth(day, monthStart);
-                    return (
-                        <div
-                            key={day.toString()}
-                            className="relative border-b border-l p-1 overflow-hidden group flex flex-col"
-                            onClick={() => onOpenEventEditor({ date: format(day, 'yyyy-MM-dd'), allDay: true })}
-                        >
-                            <span className={cn(
-                                "flex items-center justify-center h-7 w-7 rounded-full text-sm font-medium self-end mb-1",
-                                !isCurrentMonth && "text-muted-foreground/50",
-                                isToday(day) && "bg-primary text-primary-foreground"
-                            )}>
-                                {format(day, 'd')}
-                            </span>
-                            <div className="flex-1 space-y-0.5 overflow-y-auto">
-                                {eventsOnDay.slice(0, 4).map((event: CalendarEvent) => (
-                                     <Popover key={event.id}>
-                                        <PopoverTrigger asChild>
-                                            <div onClick={(e) => { e.stopPropagation(); }} className={cn("text-xs rounded px-1.5 py-0.5 truncate cursor-pointer", event.textColor)} style={{ backgroundColor: event.color }}>
-                                                {event.title}
-                                            </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} onOpenEventEditor={onOpenEventEditor} /></PopoverContent>
-                                    </Popover>
-                                ))}
-                                {eventsOnDay.length > 4 && (
-                                     <div className="text-xs text-muted-foreground cursor-pointer">+ {eventsOnDay.length - 4} נוספים</div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+            <span className="text-sm">{event.people.map((p) => `${p.firstName} ${p.lastName}`).join(', ')}</span>
+          </div>
+        )}
+
+        {event.notes && (
+          <p className="text-sm italic text-muted-foreground border-t pt-2">{event.notes}</p>
+        )}
+
+        {event.type === 'custom' && onEditManual && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="w-full"
+            onClick={() => { onEditManual(event.id); onClose(); }}
+          >
+            עריכת אירוע
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Event Pill ───────────────────────────────────────────────────────────────
+
+function EventPill({
+  event,
+  onClick,
+  compact = false,
+}: {
+  event: CalEvent;
+  onClick: (e: React.MouseEvent) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'rounded text-white text-xs font-medium cursor-pointer truncate px-1.5 py-0.5 leading-tight',
+        compact ? 'py-0' : 'py-0.5',
+      )}
+      style={{ backgroundColor: event.colorHex }}
+      onClick={onClick}
+      title={event.title}
+    >
+      {event.title}
+    </div>
+  );
+}
+
+// ─── Month View ───────────────────────────────────────────────────────────────
+
+function MonthView({
+  currentDate,
+  filteredEvents,
+  onDayClick,
+  onEventClick,
+}: {
+  currentDate: Date;
+  filteredEvents: CalEvent[];
+  onDayClick: (day: Date) => void;
+  onEventClick: (event: CalEvent, day: Date) => void;
+}) {
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const days = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const dayNames = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Day name headers */}
+      <div className="grid grid-cols-7 border-b">
+        {dayNames.map((name) => (
+          <div key={name} className="text-center text-xs font-medium text-muted-foreground py-2">
+            {name}
+          </div>
+        ))}
+      </div>
+
+      {/* Day cells */}
+      <div className="grid grid-cols-7 flex-1" style={{ gridTemplateRows: `repeat(${days.length / 7}, minmax(0, 1fr))` }}>
+        {days.map((day) => {
+          const eventsOnDay = getEventsForDay(filteredEvents, day);
+          const inMonth = isSameMonth(day, currentDate);
+          const todayDay = isToday(day);
+
+          return (
+            <div
+              key={day.toISOString()}
+              className={cn(
+                'border-b border-l min-h-[5rem] p-1 cursor-pointer hover:bg-muted/30 transition-colors',
+                !inMonth && 'bg-muted/10',
+              )}
+              onClick={() => onDayClick(day)}
+            >
+              <div className="flex justify-end mb-1">
+                <span
+                  className={cn(
+                    'text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full',
+                    todayDay && 'bg-blue-600 text-white',
+                    !todayDay && !inMonth && 'text-muted-foreground/50',
+                    !todayDay && inMonth && 'text-foreground',
+                  )}
+                >
+                  {format(day, 'd')}
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                {eventsOnDay.slice(0, 3).map((ev) => (
+                  <EventPill
+                    key={ev.id}
+                    event={ev}
+                    compact
+                    onClick={(e) => { e.stopPropagation(); onEventClick(ev, day); }}
+                  />
+                ))}
+                {eventsOnDay.length > 3 && (
+                  <div className="text-xs text-muted-foreground px-1">
+                    +{eventsOnDay.length - 3} נוספים
+                  </div>
+                )}
+              </div>
             </div>
-        </div>
-    );
-};
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
-const TimeGridView = ({ currentDate, events, viewMode, onOpenEventEditor }: any) => {
-    const numDays = viewMode === 'day' ? 1 : viewMode === 'four-day' ? 4 : 7;
-    const startDate = viewMode === 'week' ? startOfWeek(currentDate, { weekStartsOn: 0 }) : currentDate;
-    const days = eachDayOfInterval({ start: startDate, end: addDays(startDate, numDays - 1) });
-    const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
+// ─── Multi-Day View (week / 4-day / day) ─────────────────────────────────────
 
-    const getEventsForDay = (day: Date) => {
-        const allDay = events.filter((e: CalendarEvent) => e.allDay && (e.isAnniversary ? getMonth(e.date) === getMonth(day) && getDate(e.date) === getDate(day) : isSameDay(e.date, day)))
-            .sort((a: CalendarEvent, b: CalendarEvent) => (a.sortDate?.getTime() || 0) - (b.sortDate?.getTime() || 0));
-        const timed = events.filter((e: CalendarEvent) => !e.allDay && isSameDay(e.date, day));
-        return { allDay, timed };
-    };
+const HOUR_HEIGHT = 48; // px per hour
+const EVENT_BLOCK_HEIGHT = HOUR_HEIGHT * 0.75; // 45 min equivalent
 
-    return (
-        <div className="flex flex-1 h-full border-t">
-            <ScrollArea className="h-full bg-card">
-                <div className="sticky top-0 z-20 bg-card pr-2">
-                    <div className="h-12 border-b invisible"></div>
-                    <div className="h-10 border-b flex items-center justify-center text-xs text-muted-foreground">כל היום</div>
-                </div>
-                <div className="pr-2">
-                    {hours.map(hour => (
-                        <div key={hour} className="h-[60px] text-xs text-muted-foreground text-center relative -top-2">
-                            {hour !== '00:00' && <span>{hour}</span>}
-                        </div>
-                    ))}
-                </div>
-            </ScrollArea>
-            <div className="flex-1 flex overflow-x-auto">
-                <div className="flex flex-1 min-w-max">
-                     {days.map(day => {
-                        const { allDay, timed } = getEventsForDay(day);
-                        return (
-                            <div key={day.toString()} className="flex-1 flex flex-col border-l min-w-[200px]">
-                                <div className="text-center py-2 border-b sticky top-0 z-10 bg-card">
-                                    <span className="text-sm text-muted-foreground">{format(day, 'eee', {locale: he})}</span>
-                                    <p className={cn("text-2xl font-semibold", isToday(day) && "text-primary")}>{format(day, 'd')}</p>
-                                </div>
-                                <div className="border-b relative p-1 space-y-0.5 min-h-[41px]">
-                                    {allDay.map((event: CalendarEvent) => (
-                                         <Popover key={event.id}>
-                                            <PopoverTrigger asChild>
-                                                 <div onClick={(e) => { e.stopPropagation(); }} className={cn("text-xs rounded px-1.5 py-0.5 truncate cursor-pointer", event.textColor)} style={{ backgroundColor: event.color }}>
-                                                    {event.title}
-                                                </div>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} onOpenEventEditor={onOpenEventEditor} /></PopoverContent>
-                                        </Popover>
-                                    ))}
-                                </div>
-                                <div className="flex-1 relative">
-                                    {hours.map((_, index) => (
-                                        <div key={index} className="h-[60px] border-b" onClick={() => onOpenEventEditor({ date: format(day, 'yyyy-MM-dd'), allDay: false, time: `${String(index).padStart(2, '0')}:00` })} />
-                                    ))}
-                                    {timed.map((event:CalendarEvent) => {
-                                        const startHour = event.date.getHours() + event.date.getMinutes() / 60;
-                                        const duration = 1; // Assume 1 hour for now
-                                        return (
-                                            <Popover key={event.id}>
-                                                <PopoverTrigger asChild>
-                                                    <div 
-                                                        className={cn("absolute w-[95%] text-xs rounded px-2 py-1 cursor-pointer z-10 flex flex-col", event.textColor)} 
-                                                        style={{ backgroundColor: event.color, top: `${startHour * 60}px`, height: `${duration * 60 - 2}px`, right: '2.5%' }}
-                                                        onClick={(e) => {e.stopPropagation()}}
-                                                    >
-                                                        <p className='font-semibold'>{event.title}</p>
-                                                        <p className="opacity-80">{event.time}</p>
-                                                    </div>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} onOpenEventEditor={onOpenEventEditor}/></PopoverContent>
-                                            </Popover>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )
-                     })}
-                </div>
+function MultiDayView({
+  days,
+  filteredEvents,
+  onDayClick,
+  onEventClick,
+}: {
+  days: Date[];
+  filteredEvents: CalEvent[];
+  onDayClick: (day: Date) => void;
+  onEventClick: (event: CalEvent, day: Date) => void;
+}) {
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Column headers */}
+      <div className="flex border-b flex-shrink-0">
+        {/* Gutter */}
+        <div className="w-14 flex-shrink-0" />
+        {days.map((day) => (
+          <div
+            key={day.toISOString()}
+            className={cn(
+              'flex-1 text-center py-2 border-l cursor-pointer hover:bg-muted/20',
+              isToday(day) && 'bg-blue-50 dark:bg-blue-950/20',
+            )}
+            onClick={() => onDayClick(day)}
+          >
+            <div className="text-xs text-muted-foreground">
+              {['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'][day.getDay()]}
             </div>
-        </div>
-    );
-};
+            <div
+              className={cn(
+                'text-lg font-semibold w-9 h-9 mx-auto flex items-center justify-center rounded-full',
+                isToday(day) && 'bg-blue-600 text-white',
+              )}
+            >
+              {format(day, 'd')}
+            </div>
+          </div>
+        ))}
+      </div>
 
-// --- MAIN COMPONENT ---
+      {/* All-day events banner */}
+      <div className="flex border-b flex-shrink-0 min-h-[2rem]">
+        <div className="w-14 flex-shrink-0 text-right pr-2 pt-1">
+          <span className="text-xs text-muted-foreground">כל היום</span>
+        </div>
+        {days.map((day) => {
+          const evs = getEventsForDay(filteredEvents, day);
+          return (
+            <div key={day.toISOString()} className="flex-1 border-l p-0.5 space-y-0.5">
+              {evs.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="rounded text-white text-xs font-medium cursor-pointer truncate px-1.5 leading-5"
+                  style={{
+                    backgroundColor: ev.colorHex,
+                    height: `${EVENT_BLOCK_HEIGHT}px`,
+                    marginBottom: '2px',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onClick={(e) => { e.stopPropagation(); onEventClick(ev, day); }}
+                  title={ev.title}
+                >
+                  {ev.title}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hourly grid (scrollable) */}
+      <ScrollArea className="flex-1">
+        <div className="flex" style={{ height: `${HOUR_HEIGHT * 24}px` }}>
+          {/* Time gutter */}
+          <div className="w-14 flex-shrink-0 relative">
+            {hours.map((h) => (
+              <div
+                key={h}
+                className="absolute text-right pr-2 text-xs text-muted-foreground"
+                style={{ top: h * HOUR_HEIGHT - 8, width: '100%' }}
+              >
+                {h > 0 ? `${String(h).padStart(2, '0')}:00` : ''}
+              </div>
+            ))}
+          </div>
+
+          {/* Day columns */}
+          {days.map((day) => (
+            <div
+              key={day.toISOString()}
+              className="flex-1 border-l relative cursor-pointer"
+              style={{ height: `${HOUR_HEIGHT * 24}px` }}
+              onClick={() => onDayClick(day)}
+            >
+              {/* Hour lines */}
+              {hours.map((h) => (
+                <div
+                  key={h}
+                  className="absolute w-full border-t border-border/40"
+                  style={{ top: h * HOUR_HEIGHT }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+
+function Toolbar({
+  viewMode,
+  setViewMode,
+  currentDate,
+  onPrev,
+  onNext,
+  onToday,
+  visibleTypes,
+  setVisibleTypes,
+  onAddEvent,
+}: {
+  viewMode: ViewMode;
+  setViewMode: (v: ViewMode) => void;
+  currentDate: Date;
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  visibleTypes: Record<CalendarEventType, boolean>;
+  setVisibleTypes: React.Dispatch<React.SetStateAction<Record<CalendarEventType, boolean>>>;
+  onAddEvent: () => void;
+}) {
+  const VIEW_LABELS: Record<ViewMode, string> = {
+    month: 'חודש',
+    week: 'שבוע',
+    '4day': '4 ימים',
+    day: 'יום',
+  };
+
+  const headerLabel = useMemo(() => {
+    if (viewMode === 'month') return format(currentDate, 'MMMM yyyy', { locale: he });
+    if (viewMode === 'day') return format(currentDate, 'EEEE, d MMMM yyyy', { locale: he });
+    const start = viewMode === 'week'
+      ? startOfWeek(currentDate, { weekStartsOn: 0 })
+      : currentDate;
+    const end = addDays(start, viewMode === 'week' ? 6 : 3);
+    return `${format(start, 'd MMM', { locale: he })} – ${format(end, 'd MMM yyyy', { locale: he })}`;
+  }, [viewMode, currentDate]);
+
+  return (
+    <div className="flex items-center justify-between gap-2 px-4 py-2 border-b flex-shrink-0 bg-card" dir="rtl">
+      {/* Right side: today + nav + label */}
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onToday}>היום</Button>
+        <div className="flex items-center">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onPrev}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onNext}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        </div>
+        <h2 className="text-base font-bold whitespace-nowrap">{headerLabel}</h2>
+      </div>
+
+      {/* Left side: view switcher + filter + add */}
+      <div className="flex items-center gap-2">
+        {/* View switcher */}
+        <div className="flex border rounded-md overflow-hidden">
+          {(['month', 'week', '4day', 'day'] as ViewMode[]).map((v) => (
+            <button
+              key={v}
+              className={cn(
+                'px-3 py-1 text-sm border-l last:border-l-0 transition-colors',
+                viewMode === v
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-muted/50',
+              )}
+              onClick={() => setViewMode(v)}
+            >
+              {VIEW_LABELS[v]}
+            </button>
+          ))}
+        </div>
+
+        {/* Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Filter className="ml-2 h-4 w-4" />
+              סינון
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 z-[1003]" dir="rtl">
+            <DropdownMenuLabel>הצג אירועים</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {(Object.entries(EVENT_CONFIG) as [CalendarEventType, typeof EVENT_CONFIG[CalendarEventType]][]).map(
+              ([type, cfg]) => (
+                <DropdownMenuCheckboxItem
+                  key={type}
+                  checked={visibleTypes[type]}
+                  onCheckedChange={(checked) =>
+                    setVisibleTypes((prev) => ({ ...prev, [type]: !!checked }))
+                  }
+                  className="justify-end gap-2"
+                >
+                  <span>{cfg.label}</span>
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cfg.hex }} />
+                </DropdownMenuCheckboxItem>
+              ),
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Add event */}
+        <Button size="sm" onClick={onAddEvent}>
+          <PlusCircle className="ml-2 h-4 w-4" />
+          הוסף אירוע
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main CalendarView ────────────────────────────────────────────────────────
+
 export function CalendarView({
   people,
   relationships,
   manualEvents,
-  onOpenEventEditor
+  onOpenEventEditor,
 }: {
   people: Person[];
   relationships: Relationship[];
@@ -367,117 +647,124 @@ export function CalendarView({
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedEvent, setSelectedEvent] = useState<{ event: CalEvent; day: Date } | null>(null);
   const [visibleTypes, setVisibleTypes] = useState<Record<CalendarEventType, boolean>>({
-    birth: true, death: true, marriage: true, divorce: true, custom: true,
+    birth: true,
+    death: true,
+    marriage: true,
+    divorce: true,
+    custom: true,
   });
 
-  const allEvents = useMemo(() => processEvents(people, relationships, manualEvents, getYear(currentDate)), [people, relationships, manualEvents, currentDate]);
-  const filteredEvents = useMemo(() => allEvents.filter(event => visibleTypes[event.type]), [allEvents, visibleTypes]);
+  const allEvents = useMemo(
+    () => processEvents(people, relationships, manualEvents),
+    [people, relationships, manualEvents],
+  );
 
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    const amount = direction === 'prev' ? -1 : 1;
-    if (viewMode === 'month') setCurrentDate(addMonths(currentDate, amount));
-    else if (viewMode === 'week') setCurrentDate(addDays(currentDate, amount * 7));
-    else if (viewMode === 'four-day') setCurrentDate(addDays(currentDate, amount * 4));
-    else if (viewMode === 'day') setCurrentDate(addDays(currentDate, amount));
-  };
-  
-  const handleToday = () => setCurrentDate(new Date());
+  const filteredEvents = useMemo(
+    () => allEvents.filter((e) => visibleTypes[e.type]),
+    [allEvents, visibleTypes],
+  );
 
-  const dateRangeLabel = useMemo(() => {
-    if (viewMode === 'month') return format(currentDate, 'MMMM yyyy', { locale: he });
-    if (viewMode === 'day') return format(currentDate, 'd MMMM yyyy', { locale: he });
-    const numDays = viewMode === 'week' ? 6 : 3;
-    const rangeStart = viewMode === 'week' ? startOfWeek(currentDate, { weekStartsOn: 0 }) : currentDate;
-    const rangeEnd = addDays(rangeStart, numDays);
-    
-    const startMonth = format(rangeStart, 'MMMM', { locale: he });
-    const endMonth = format(rangeEnd, 'MMMM', { locale: he });
-    const startYear = format(rangeStart, 'yyyy', { locale: he });
-    const endYear = format(rangeEnd, 'yyyy', { locale: he });
+  // Navigation
+  const handlePrev = useCallback(() => {
+    if (viewMode === 'month') setCurrentDate((d) => subMonths(d, 1));
+    else if (viewMode === 'week') setCurrentDate((d) => subWeeks(d, 1));
+    else if (viewMode === '4day') setCurrentDate((d) => subDays(d, 4));
+    else setCurrentDate((d) => subDays(d, 1));
+  }, [viewMode]);
 
-    if (startYear !== endYear) {
-      return `${format(rangeStart, 'd MMMM yyyy', { locale: he })} - ${format(rangeEnd, 'd MMMM yyyy', { locale: he })}`;
+  const handleNext = useCallback(() => {
+    if (viewMode === 'month') setCurrentDate((d) => addMonths(d, 1));
+    else if (viewMode === 'week') setCurrentDate((d) => addWeeks(d, 1));
+    else if (viewMode === '4day') setCurrentDate((d) => addDays(d, 4));
+    else setCurrentDate((d) => addDays(d, 1));
+  }, [viewMode]);
+
+  const handleToday = useCallback(() => setCurrentDate(new Date()), []);
+
+  // Days for multi-day views
+  const multiDayDays = useMemo(() => {
+    if (viewMode === 'week') {
+      const start = startOfWeek(currentDate, { weekStartsOn: 0 });
+      return eachDayOfInterval({ start, end: addDays(start, 6) });
     }
-    if (startMonth !== endMonth) {
-      return `${format(rangeStart, 'd MMMM', { locale: he })} - ${format(rangeEnd, 'd MMMM yyyy', { locale: he })}`;
+    if (viewMode === '4day') {
+      return eachDayOfInterval({ start: currentDate, end: addDays(currentDate, 3) });
     }
-    return `${format(rangeStart, 'd', { locale: he })} - ${format(rangeEnd, 'd MMMM yyyy', { locale: he })}`;
-  }, [currentDate, viewMode]);
+    if (viewMode === 'day') {
+      return [currentDate];
+    }
+    return [];
+  }, [viewMode, currentDate]);
 
-  const viewLabels: Record<ViewMode, string> = { month: 'חודש', week: 'שבוע', 'four-day': '4 ימים', day: 'יום' };
+  const handleDayClick = useCallback(
+    (day: Date) => {
+      const evs = getEventsForDay(filteredEvents, day);
+      if (evs.length === 0) {
+        onOpenEventEditor({ date: format(day, 'yyyy-MM-dd'), allDay: true });
+      }
+      // If there are events, they handle their own click
+    },
+    [filteredEvents, onOpenEventEditor],
+  );
+
+  const handleEventClick = useCallback((event: CalEvent, day: Date) => {
+    setSelectedEvent({ event, day });
+  }, []);
+
+  const handleEditManual = useCallback(
+    (id: string) => {
+      const me = manualEvents.find((e) => e.id === id);
+      if (me) onOpenEventEditor(me);
+    },
+    [manualEvents, onOpenEventEditor],
+  );
 
   return (
-    <div className="h-full w-full flex flex-col bg-card" dir="rtl">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between gap-2 p-2 md:p-4 border-b shrink-0">
-            <div className="flex items-center gap-1 md:gap-2">
-                <Button variant="outline" size="sm" onClick={handleToday}>היום</Button>
-                <div className="flex">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleNavigate('prev')}><ChevronRight className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleNavigate('next')}><ChevronLeft className="h-4 w-4" /></Button>
-                </div>
-                <h2 className="text-base md:text-lg font-bold whitespace-nowrap">{dateRangeLabel}</h2>
-            </div>
-            <div className="flex items-center gap-1 md:gap-2">
-                <Button variant="outline" size="sm" onClick={() => onOpenEventEditor({ date: format(new Date(), 'yyyy-MM-dd'), allDay: true })}>
-                    <PlusCircle className="ml-2 h-4 w-4" />
-                    הוסף אירוע
-                </Button>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm"><Filter className="ml-2 h-4 w-4" />סינון</Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 z-[1003]">
-                        <DropdownMenuLabel>הצג אירועים</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        {Object.entries(eventTypeConfig).map(([type, config]) => (
-                            <DropdownMenuCheckboxItem
-                                key={type}
-                                checked={visibleTypes[type as CalendarEventType]}
-                                onCheckedChange={(checked) => setVisibleTypes(prev => ({...prev, [type]: !!checked}))}
-                                className="justify-end gap-2"
-                            >
-                                <span>{config.label}</span>
-                                <div className='w-2.5 h-2.5 rounded-full' style={{backgroundColor: config.color}}/>
-                            </DropdownMenuCheckboxItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                 <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="w-[100px] justify-between">
-                            <span>{viewLabels[viewMode]}</span>
-                            <ChevronDown className="h-4 w-4"/>
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-[100px] z-[1003]">
-                        <DropdownMenuRadioGroup value={viewMode} onValueChange={(v) => {
-                            const newViewMode = v as ViewMode;
-                            if (newViewMode === 'week') {
-                               setCurrentDate(startOfWeek(currentDate, { weekStartsOn: 0}));
-                            }
-                            setViewMode(newViewMode);
-                        }}>
-                           {Object.keys(viewLabels).map((key) => (
-                             <DropdownMenuRadioItem key={key} value={key} className="justify-end">
-                                {viewLabels[key as ViewMode]}
-                            </DropdownMenuRadioItem>
-                           ))}
-                        </DropdownMenuRadioGroup>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-        </div>
+    <div className="h-full w-full flex flex-col bg-card overflow-hidden" dir="rtl">
+      <Toolbar
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        currentDate={currentDate}
+        onPrev={handlePrev}
+        onNext={handleNext}
+        onToday={handleToday}
+        visibleTypes={visibleTypes}
+        setVisibleTypes={setVisibleTypes}
+        onAddEvent={() =>
+          onOpenEventEditor({ date: format(currentDate, 'yyyy-MM-dd'), allDay: true })
+        }
+      />
 
-        {/* View Area */}
-        <div className="flex-1 overflow-hidden">
-            {viewMode === 'month' ? (
-                <MonthView currentDate={currentDate} events={filteredEvents} onOpenEventEditor={onOpenEventEditor} />
-            ) : (
-                <TimeGridView currentDate={currentDate} events={filteredEvents} viewMode={viewMode} onOpenEventEditor={onOpenEventEditor} />
-            )}
-        </div>
+      <div className="flex-1 overflow-hidden">
+        {viewMode === 'month' && (
+          <MonthView
+            currentDate={currentDate}
+            filteredEvents={filteredEvents}
+            onDayClick={handleDayClick}
+            onEventClick={handleEventClick}
+          />
+        )}
+        {(viewMode === 'week' || viewMode === '4day' || viewMode === 'day') && (
+          <MultiDayView
+            days={multiDayDays}
+            filteredEvents={filteredEvents}
+            onDayClick={handleDayClick}
+            onEventClick={handleEventClick}
+          />
+        )}
+      </div>
+
+      {/* Event detail popover */}
+      {selectedEvent && (
+        <EventDetailPopover
+          event={selectedEvent.event}
+          viewingYear={getYear(selectedEvent.day)}
+          onClose={() => setSelectedEvent(null)}
+          onEditManual={handleEditManual}
+        />
+      )}
     </div>
   );
 }

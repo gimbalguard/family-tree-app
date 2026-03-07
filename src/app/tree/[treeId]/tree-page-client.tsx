@@ -291,8 +291,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const [peopleSnap, relsSnap, posSnap, manualEventsSnap] = await Promise.all([
         getDocs(peopleRef),
         getDocs(relsRef),
-        getDocs(posRef),
-        getDocs(manualEventsRef),
+        getDocs(posSnap),
+        getDocs(manualEventsSnap),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
@@ -1225,6 +1225,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         relationships={relationships} 
         manualEvents={manualEvents}
         onOpenEventEditor={handleOpenManualEventEditor}
+        onEditPerson={handleEditPerson}
       />;
     }
     const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map' | 'calendar'>];
@@ -1297,62 +1298,67 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           setViewMode={setViewMode}
         />
         <main className="flex-1 relative overflow-hidden">
-          <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
-            {!isEditingName ? (
-              <h1
-                className="text-lg font-semibold cursor-pointer"
-                onDoubleClick={() => {
-                  if (tree) {
-                    setNameValue(tree.treeName);
-                    setIsEditingName(true);
-                  }
-                }}
+          {viewMode === 'tree' && (
+            <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
+              {!isEditingName ? (
+                <h1
+                  className="text-lg font-semibold cursor-pointer"
+                  onDoubleClick={() => {
+                    if (tree) {
+                      setNameValue(tree.treeName);
+                      setIsEditingName(true);
+                    }
+                  }}
+                >
+                  {tree?.treeName ?? 'עץ משפחה'}
+                </h1>
+              ) : (
+                <Input
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRenameTree();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                  onBlur={handleRenameTree}
+                  autoFocus
+                  className="text-lg h-8"
+                />
+              )}
+              <Popover
+                open={isOwnerPopoverOpen}
+                onOpenChange={setIsOwnerPopoverOpen}
               >
-                {tree?.treeName ?? 'עץ משפחה'}
-              </h1>
-            ) : (
-              <Input
-                value={nameValue}
-                onChange={(e) => setNameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRenameTree();
-                  if (e.key === 'Escape') setIsEditingName(false);
-                }}
-                onBlur={handleRenameTree}
-                autoFocus
-                className="text-lg h-8"
-              />
-            )}
-            <Popover open={isOwnerPopoverOpen} onOpenChange={setIsOwnerPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <User className="h-4 w-4" />
-                  <span className="sr-only">בחר אותי</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-0">
-                <h4 className="text-sm font-medium p-2 border-b text-center">
-                  מי אתה בעץ?
-                </h4>
-                <ScrollArea className="h-72">
-                  <div className="p-2 space-y-1">
-                    {people.map((person) => (
-                      <Button
-                        key={person.id}
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => handleSetOwner(person.id)}
-                      >
-                        {person.firstName} {person.lastName}
-                      </Button>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </PopoverContent>
-            </Popover>
-          </div>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <User className="h-4 w-4" />
+                    <span className="sr-only">בחר אותי</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 p-0">
+                  <h4 className="text-sm font-medium p-2 border-b text-center">
+                    מי אתה בעץ?
+                  </h4>
+                  <ScrollArea className="h-72">
+                    <div className="p-2 space-y-1">
+                      {people.map((person) => (
+                        <Button
+                          key={person.id}
+                          variant="ghost"
+                          className="w-full justify-start"
+                          onClick={() => handleSetOwner(person.id)}
+                        >
+                          {person.firstName} {person.lastName}
+                        </Button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
           {renderCurrentView()}
-           {contextMenu && viewMode === 'tree' && (
+          {contextMenu && viewMode === 'tree' && (
             <NodeContextMenu
               x={contextMenu.x}
               y={contextMenu.y}
