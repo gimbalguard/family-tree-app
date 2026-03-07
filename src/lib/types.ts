@@ -14,6 +14,7 @@ export type FamilyTree = {
   updatedAt: Timestamp;
   personCount?: number;
   relationshipCount?: number;
+  ownerPersonId?: string;
 };
 
 export type Person = {

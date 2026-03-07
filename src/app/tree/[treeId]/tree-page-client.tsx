@@ -9,7 +9,7 @@ import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
 import { RelationshipModal, relationshipOptions } from './relationship-modal';
 import { CanvasToolbar } from './canvas-toolbar';
-import { Loader2 } from 'lucide-react';
+import { Loader2, User } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -39,6 +39,9 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 type TreePageClientProps = {
@@ -136,6 +139,16 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState('');
+  const [isOwnerPopoverOpen, setIsOwnerPopoverOpen] = useState(false);
+
+  useEffect(() => {
+    if (tree) {
+        setNameValue(tree.treeName);
+    }
+  }, [tree?.treeName]);
+
   useEffect(() => {
     if (!isUserLoading && (!user || user.isAnonymous)) {
       router.replace('/login');
@@ -178,7 +191,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
           id: person.id,
           type: 'personNode',
           position: positionsMap.get(person.id) || { x: Math.random() * 400, y: Math.random() * 400 },
-          data: person,
+          data: { ...person, isOwner: person.id === treeData.ownerPersonId },
       }));
       setNodes(initialNodes);
 
@@ -542,6 +555,54 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     // Disallow all other connections (e.g., side to top/bottom)
     return false;
   }, []);
+
+  const handleRenameTree = async () => {
+    if (!user || !db || !tree || nameValue === tree.treeName || !nameValue.trim()) {
+        setIsEditingName(false);
+        return;
+    }
+
+    const newName = nameValue.trim();
+    const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
+    
+    setTree(prev => prev ? { ...prev, treeName: newName } : null);
+    setIsEditingName(false);
+
+    try {
+        await updateDoc(treeRef, { treeName: newName });
+        toast({ title: "השם עודכן" });
+    } catch (error: any) {
+        setTree(prev => prev ? { ...prev, treeName: tree.treeName } : null);
+        toast({ variant: 'destructive', title: 'שגיאה', description: 'לא ניתן היה לעדכן את שם העץ.' });
+        const permissionError = new FirestorePermissionError({ path: treeRef.path, operation: 'update', requestResourceData: { treeName: newName } });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+  };
+
+  const handleSetOwner = async (personId: string) => {
+    if (!user || !db || !tree || personId === tree.ownerPersonId) {
+        setIsOwnerPopoverOpen(false);
+        return;
+    }
+    
+    const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
+    const oldOwnerId = tree.ownerPersonId;
+
+    setTree(prev => prev ? { ...prev, ownerPersonId: personId } : null);
+    setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, isOwner: n.id === personId } })));
+    setIsOwnerPopoverOpen(false);
+
+    try {
+        await updateDoc(treeRef, { ownerPersonId: personId });
+        toast({ title: 'המשתמש הוגדר' });
+    } catch (error: any) {
+        setTree(prev => prev ? { ...prev, ownerPersonId: oldOwnerId } : null);
+        setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, isOwner: n.id === oldOwnerId } })));
+        toast({ variant: 'destructive', title: 'שגיאה', description: 'לא ניתן היה להגדיр את המשתמש.' });
+        const permissionError = new FirestorePermissionError({ path: treeRef.path, operation: 'update', requestResourceData: { ownerPersonId: personId } });
+        errorEmitter.emit('permission-error', permissionError);
+    }
+  };
   
   if (isUserLoading || (isLoading && !error)) {
     return (
@@ -580,8 +641,57 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
           <div className="flex h-full">
             <CanvasToolbar onAddPerson={handleOpenEditorForNew} />
             <main className="flex-1 relative">
-                <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm">
-                    <h1 className="text-lg font-semibold">{tree?.treeName ?? 'עץ משפחה'}</h1>
+                <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
+                    {!isEditingName ? (
+                        <h1
+                            className="text-lg font-semibold cursor-pointer"
+                            onDoubleClick={() => {
+                                if(tree) {
+                                    setNameValue(tree.treeName);
+                                    setIsEditingName(true);
+                                }
+                            }}
+                        >
+                            {tree?.treeName ?? 'עץ משפחה'}
+                        </h1>
+                    ) : (
+                        <Input
+                            value={nameValue}
+                            onChange={(e) => setNameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleRenameTree();
+                                if (e.key === 'Escape') setIsEditingName(false);
+                            }}
+                            onBlur={handleRenameTree}
+                            autoFocus
+                            className="text-lg h-8"
+                        />
+                    )}
+                    <Popover open={isOwnerPopoverOpen} onOpenChange={setIsOwnerPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <User className="h-4 w-4" />
+                                <span className="sr-only">בחר אותי</span>
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-0">
+                            <h4 className="text-sm font-medium p-2 border-b text-center">מי אתה בעץ?</h4>
+                            <ScrollArea className="h-72">
+                                <div className="p-2 space-y-1">
+                                {people.map(person => (
+                                    <Button
+                                        key={person.id}
+                                        variant="ghost"
+                                        className="w-full justify-start"
+                                        onClick={() => handleSetOwner(person.id)}
+                                    >
+                                        {person.firstName} {person.lastName}
+                                    </Button>
+                                ))}
+                                </div>
+                            </ScrollArea>
+                        </PopoverContent>
+                    </Popover>
                 </div>
                 <FamilyTreeCanvas
                     nodes={nodes}

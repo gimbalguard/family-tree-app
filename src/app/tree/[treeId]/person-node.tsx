@@ -23,8 +23,8 @@ function getPlaceholderImage(gender: Person['gender']) {
 }
 
 
-export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion } = data;
+export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner?: boolean }>) => {
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -88,7 +88,11 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   };
 
   return (
-    <Card className={cn("w-64 shadow-lg border-2 transition-colors duration-200", selected ? 'border-primary shadow-primary/20' : 'border-transparent')}>
+    <Card className={cn(
+        "w-64 shadow-lg border-2 transition-colors duration-200", 
+        selected ? 'border-primary shadow-primary/20' : 'border-transparent',
+        isOwner ? 'ring-2 ring-primary/50 shadow-xl shadow-primary/20' : ''
+    )}>
       {/* Each handle has a unique ID. Side handles are split into `source` and `target` to be unambiguous. */}
       
       {/* Parent handle (target only) */}
