@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Person, Relationship, ManualEvent } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -8,12 +8,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,19 +35,17 @@ import {
   addMonths,
   subMonths,
   addDays,
-  subDays,
   isSameDay,
   set,
-  getDay
 } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Filter, PlusCircle, Clock, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Filter, PlusCircle, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 
-// --- DATA PROCESSING & TYPES (UNCHANGED) ---
+// --- DATA PROCESSING & TYPES ---
 type CalendarEventType = 'birth' | 'death' | 'marriage' | 'divorce' | 'custom';
 type ViewMode = 'month' | 'week' | 'four-day' | 'day';
 
@@ -62,7 +54,7 @@ const eventTypeConfig: Record<CalendarEventType, { label: string; color: string;
   death: { label: 'יום פטירה', color: '#1a1a1a', textColor: 'text-white' },
   marriage: { label: 'נישואין', color: '#ca8a04', textColor: 'text-white' },
   divorce: { label: 'גירושין', color: '#dc2626', textColor: 'text-white' },
-  custom: { label: 'אירוע', color: '#7c3aed', textColor: 'text-white' }, // Default
+  custom: { label: 'אירוע', color: '#7c3aed', textColor: 'text-white' },
 };
 
 type CalendarEvent = {
@@ -78,20 +70,26 @@ type CalendarEvent = {
   allDay: boolean;
   time?: string;
   endDate?: Date;
+  sortDate?: Date; // For sorting all-day events
 };
 
-const processEvents = (people: Person[], relationships: Relationship[], manualEvents: ManualEvent[]): CalendarEvent[] => {
+const processEvents = (
+  people: Person[], 
+  relationships: Relationship[], 
+  manualEvents: ManualEvent[], 
+  year: number
+): CalendarEvent[] => {
   const events: CalendarEvent[] = [];
   
+  // --- Family Events ---
   people.forEach((person) => {
-    if (person.birthDate) {
-      const date = new Date(person.birthDate);
-      if (isValid(date)) {
-        events.push({
-          id: `birth-${person.id}`, type: 'birth', title: `יומולדת ל${person.firstName}`,
-          date, people: [person], isAnniversary: true, color: eventTypeConfig.birth.color, textColor: eventTypeConfig.birth.textColor, allDay: true,
-        });
-      }
+    const birthDate = person.birthDate ? new Date(person.birthDate) : null;
+    if (birthDate && isValid(birthDate)) {
+      events.push({
+        id: `birth-${person.id}`, type: 'birth', title: `יומולדת ל${person.firstName}`,
+        date: birthDate, people: [person], isAnniversary: true, color: eventTypeConfig.birth.color, textColor: eventTypeConfig.birth.textColor, allDay: true,
+        sortDate: birthDate
+      });
     }
     if (person.deathDate) {
       const date = new Date(person.deathDate);
@@ -99,6 +97,7 @@ const processEvents = (people: Person[], relationships: Relationship[], manualEv
         events.push({
           id: `death-${person.id}`, type: 'death', title: `יום פטירה של ${person.firstName}`,
           date, people: [person], isAnniversary: true, color: eventTypeConfig.death.color, textColor: eventTypeConfig.death.textColor, allDay: true,
+          sortDate: date,
         });
       }
     }
@@ -120,6 +119,7 @@ const processEvents = (people: Person[], relationships: Relationship[], manualEv
           color: isMarriage ? eventTypeConfig.marriage.color : '#7c3aed',
           textColor: eventTypeConfig.marriage.textColor,
           allDay: true,
+          sortDate: new Date(Math.min(new Date(personA.birthDate || 0).getTime(), new Date(personB.birthDate || 0).getTime())),
         });
       }
     }
@@ -134,11 +134,13 @@ const processEvents = (people: Person[], relationships: Relationship[], manualEv
           color: isDivorce ? eventTypeConfig.divorce.color : '#7c3aed',
           textColor: eventTypeConfig.divorce.textColor,
           allDay: true,
+          sortDate: new Date(Math.min(new Date(personA.birthDate || 0).getTime(), new Date(personB.birthDate || 0).getTime())),
         });
       }
     }
   });
 
+  // --- Manual Events ---
   manualEvents.forEach(event => {
     const date = new Date(event.date);
     if (isValid(date)) {
@@ -151,18 +153,18 @@ const processEvents = (people: Person[], relationships: Relationship[], manualEv
       events.push({
         id: event.id, type: 'custom', title: event.title, date: startDateTime,
         people: [], notes: event.description, isAnniversary: false, color: event.color, textColor: 'text-white',
-        allDay: event.allDay, time: event.time,
+        allDay: event.allDay, time: event.time, sortDate: startDateTime,
       });
     }
   });
+
   return events;
 };
-// --- END OF UNCHANGED DATA LOGIC ---
 
 
 // --- HELPER COMPONENTS ---
 
-const EventPopoverContent = ({ event }: { event: CalendarEvent }) => (
+const EventPopoverContent = ({ event, onOpenEventEditor }: { event: CalendarEvent, onOpenEventEditor: (event: Partial<ManualEvent> | null) => void }) => (
     <div className="p-4 space-y-3 max-w-sm" dir="rtl">
         <div className="flex items-start gap-3">
             <div className="w-3 h-3 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: event.color }} />
@@ -190,15 +192,23 @@ const EventPopoverContent = ({ event }: { event: CalendarEvent }) => (
                 <p className="italic text-muted-foreground">{event.notes}</p>
             </div>
         )}
+        {event.type === 'custom' && (
+            <div className="pt-2 border-t">
+                <Button variant="outline" size="sm" onClick={() => onOpenEventEditor(event)}>
+                    ערוך אירוע
+                </Button>
+            </div>
+        )}
     </div>
 );
 
+
 // --- VIEW COMPONENTS ---
 
-const MonthView = ({ currentDate, events, onOpenEventEditor, onEventClick }: any) => {
+const MonthView = ({ currentDate, events, onOpenEventEditor }: any) => {
     const monthStart = startOfMonth(currentDate);
     const monthEnd = endOfMonth(monthStart);
-    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 }); // Sunday
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
     const days = eachDayOfInterval({ start: startDate, end: endDate });
 
@@ -210,7 +220,7 @@ const MonthView = ({ currentDate, events, onOpenEventEditor, onEventClick }: any
                 }
                 return isSameDay(e.date, day);
             })
-            .slice(0, 3); // Limit to 3 visible events
+            .sort((a: CalendarEvent, b: CalendarEvent) => (a.sortDate?.getTime() || 0) - (b.sortDate?.getTime() || 0));
     };
 
     return (
@@ -223,30 +233,34 @@ const MonthView = ({ currentDate, events, onOpenEventEditor, onEventClick }: any
             <div className="col-span-7 grid grid-cols-7 grid-rows-6 h-full">
                 {days.map(day => {
                     const eventsOnDay = getEventsForDay(day);
+                    const isCurrentMonth = isSameMonth(day, monthStart);
                     return (
                         <div
                             key={day.toString()}
-                            className="relative border-b border-l p-1 overflow-hidden group"
+                            className="relative border-b border-l p-1 overflow-hidden group flex flex-col"
                             onClick={() => onOpenEventEditor({ date: format(day, 'yyyy-MM-dd'), allDay: true })}
                         >
                             <span className={cn(
-                                "flex items-center justify-center h-6 w-6 rounded-full text-sm",
-                                !isSameMonth(day, monthStart) && "text-muted-foreground/50",
+                                "flex items-center justify-center h-7 w-7 rounded-full text-sm font-medium self-end mb-1",
+                                !isCurrentMonth && "text-muted-foreground/50",
                                 isToday(day) && "bg-primary text-primary-foreground"
                             )}>
                                 {format(day, 'd')}
                             </span>
-                            <div className="mt-1 space-y-0.5">
-                                {eventsOnDay.map((event: CalendarEvent) => (
-                                    <Popover key={event.id}>
+                            <div className="flex-1 space-y-0.5 overflow-y-auto">
+                                {eventsOnDay.slice(0, 4).map((event: CalendarEvent) => (
+                                     <Popover key={event.id}>
                                         <PopoverTrigger asChild>
-                                             <div onClick={(e) => { e.stopPropagation(); }} className={cn("text-xs rounded px-1.5 py-0.5 truncate cursor-pointer", event.textColor)} style={{ backgroundColor: event.color }}>
+                                            <div onClick={(e) => { e.stopPropagation(); }} className={cn("text-xs rounded px-1.5 py-0.5 truncate cursor-pointer", event.textColor)} style={{ backgroundColor: event.color }}>
                                                 {event.title}
                                             </div>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} /></PopoverContent>
+                                        <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} onOpenEventEditor={onOpenEventEditor} /></PopoverContent>
                                     </Popover>
                                 ))}
+                                {eventsOnDay.length > 4 && (
+                                     <div className="text-xs text-muted-foreground cursor-pointer">+ {eventsOnDay.length - 4} נוספים</div>
+                                )}
                             </div>
                         </div>
                     );
@@ -258,21 +272,22 @@ const MonthView = ({ currentDate, events, onOpenEventEditor, onEventClick }: any
 
 const TimeGridView = ({ currentDate, events, viewMode, onOpenEventEditor }: any) => {
     const numDays = viewMode === 'day' ? 1 : viewMode === 'four-day' ? 4 : 7;
-    const days = eachDayOfInterval({ start: currentDate, end: addDays(currentDate, numDays - 1) });
+    const startDate = viewMode === 'week' ? startOfWeek(currentDate, { weekStartsOn: 0 }) : currentDate;
+    const days = eachDayOfInterval({ start: startDate, end: addDays(startDate, numDays - 1) });
     const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
     const getEventsForDay = (day: Date) => {
         const allDay = events.filter((e: CalendarEvent) => e.allDay && (e.isAnniversary ? getMonth(e.date) === getMonth(day) && getDate(e.date) === getDate(day) : isSameDay(e.date, day)))
-            .sort((a: CalendarEvent, b: CalendarEvent) => (a.people[0]?.birthDate || '').localeCompare(b.people[0]?.birthDate || ''));
+            .sort((a: CalendarEvent, b: CalendarEvent) => (a.sortDate?.getTime() || 0) - (b.sortDate?.getTime() || 0));
         const timed = events.filter((e: CalendarEvent) => !e.allDay && isSameDay(e.date, day));
         return { allDay, timed };
     };
 
     return (
         <div className="flex flex-1 h-full border-t">
-            <ScrollArea className="h-full">
+            <ScrollArea className="h-full bg-card">
                 <div className="sticky top-0 z-20 bg-card pr-2">
-                    <div className="h-12 border-b"></div>
+                    <div className="h-12 border-b invisible"></div>
                     <div className="h-10 border-b flex items-center justify-center text-xs text-muted-foreground">כל היום</div>
                 </div>
                 <div className="pr-2">
@@ -297,11 +312,11 @@ const TimeGridView = ({ currentDate, events, viewMode, onOpenEventEditor }: any)
                                     {allDay.map((event: CalendarEvent) => (
                                          <Popover key={event.id}>
                                             <PopoverTrigger asChild>
-                                                 <div className={cn("text-xs rounded px-1.5 py-0.5 truncate cursor-pointer", event.textColor)} style={{ backgroundColor: event.color }}>
+                                                 <div onClick={(e) => { e.stopPropagation(); }} className={cn("text-xs rounded px-1.5 py-0.5 truncate cursor-pointer", event.textColor)} style={{ backgroundColor: event.color }}>
                                                     {event.title}
                                                 </div>
                                             </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} /></PopoverContent>
+                                            <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} onOpenEventEditor={onOpenEventEditor} /></PopoverContent>
                                         </Popover>
                                     ))}
                                 </div>
@@ -316,14 +331,15 @@ const TimeGridView = ({ currentDate, events, viewMode, onOpenEventEditor }: any)
                                             <Popover key={event.id}>
                                                 <PopoverTrigger asChild>
                                                     <div 
-                                                        className={cn("absolute w-[95%] text-xs rounded px-1.5 py-0.5 truncate cursor-pointer z-10", event.textColor)} 
-                                                        style={{ backgroundColor: event.color, top: `${startHour * 60}px`, height: `${duration * 60}px` }}
+                                                        className={cn("absolute w-[95%] text-xs rounded px-2 py-1 cursor-pointer z-10 flex flex-col", event.textColor)} 
+                                                        style={{ backgroundColor: event.color, top: `${startHour * 60}px`, height: `${duration * 60 - 2}px`, right: '2.5%' }}
                                                         onClick={(e) => {e.stopPropagation()}}
                                                     >
-                                                        {event.title} <span className="opacity-80">{event.time}</span>
+                                                        <p className='font-semibold'>{event.title}</p>
+                                                        <p className="opacity-80">{event.time}</p>
                                                     </div>
                                                 </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} /></PopoverContent>
+                                                <PopoverContent className="w-auto p-0 z-[1004]"><EventPopoverContent event={event} onOpenEventEditor={onOpenEventEditor}/></PopoverContent>
                                             </Popover>
                                         )
                                     })}
@@ -336,7 +352,6 @@ const TimeGridView = ({ currentDate, events, viewMode, onOpenEventEditor }: any)
         </div>
     );
 };
-
 
 // --- MAIN COMPONENT ---
 export function CalendarView({
@@ -356,7 +371,7 @@ export function CalendarView({
     birth: true, death: true, marriage: true, divorce: true, custom: true,
   });
 
-  const allEvents = useMemo(() => processEvents(people, relationships, manualEvents), [people, relationships, manualEvents]);
+  const allEvents = useMemo(() => processEvents(people, relationships, manualEvents, getYear(currentDate)), [people, relationships, manualEvents, currentDate]);
   const filteredEvents = useMemo(() => allEvents.filter(event => visibleTypes[event.type]), [allEvents, visibleTypes]);
 
   const handleNavigate = (direction: 'prev' | 'next') => {
@@ -373,9 +388,21 @@ export function CalendarView({
     if (viewMode === 'month') return format(currentDate, 'MMMM yyyy', { locale: he });
     if (viewMode === 'day') return format(currentDate, 'd MMMM yyyy', { locale: he });
     const numDays = viewMode === 'week' ? 6 : 3;
-    const endDate = addDays(currentDate, numDays);
-    const startFormat = isSameMonth(currentDate, endDate) ? 'd' : 'd MMMM';
-    return `${format(currentDate, startFormat, { locale: he })} - ${format(endDate, 'd MMMM yyyy', { locale: he })}`;
+    const rangeStart = viewMode === 'week' ? startOfWeek(currentDate, { weekStartsOn: 0 }) : currentDate;
+    const rangeEnd = addDays(rangeStart, numDays);
+    
+    const startMonth = format(rangeStart, 'MMMM', { locale: he });
+    const endMonth = format(rangeEnd, 'MMMM', { locale: he });
+    const startYear = format(rangeStart, 'yyyy', { locale: he });
+    const endYear = format(rangeEnd, 'yyyy', { locale: he });
+
+    if (startYear !== endYear) {
+      return `${format(rangeStart, 'd MMMM yyyy', { locale: he })} - ${format(rangeEnd, 'd MMMM yyyy', { locale: he })}`;
+    }
+    if (startMonth !== endMonth) {
+      return `${format(rangeStart, 'd MMMM', { locale: he })} - ${format(rangeEnd, 'd MMMM yyyy', { locale: he })}`;
+    }
+    return `${format(rangeStart, 'd', { locale: he })} - ${format(rangeEnd, 'd MMMM yyyy', { locale: he })}`;
   }, [currentDate, viewMode]);
 
   const viewLabels: Record<ViewMode, string> = { month: 'חודש', week: 'שבוע', 'four-day': '4 ימים', day: 'יום' };
@@ -425,7 +452,13 @@ export function CalendarView({
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[100px] z-[1003]">
-                        <DropdownMenuRadioGroup value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+                        <DropdownMenuRadioGroup value={viewMode} onValueChange={(v) => {
+                            const newViewMode = v as ViewMode;
+                            if (newViewMode === 'week') {
+                               setCurrentDate(startOfWeek(currentDate, { weekStartsOn: 0}));
+                            }
+                            setViewMode(newViewMode);
+                        }}>
                            {Object.keys(viewLabels).map((key) => (
                              <DropdownMenuRadioItem key={key} value={key} className="justify-end">
                                 {viewLabels[key as ViewMode]}
