@@ -16,6 +16,7 @@ import { TimelinePersonNode } from './TimelinePersonNode';
 import { TimelineAxis } from './TimelineAxis';
 import type { Person, Relationship } from '@/lib/types';
 import { BackgroundVariant } from 'reactflow';
+import type { EdgeType } from '../tree-page-client';
 
 // Constants for layout
 const PIXELS_PER_YEAR = 80;
@@ -28,9 +29,14 @@ const nodeTypes = { timelinePerson: TimelinePersonNode };
 type TimelineViewProps = {
   people: Person[];
   relationships: Relationship[];
+  edgeType: EdgeType;
 };
 
-function TimelineViewContent({ people, relationships }: TimelineViewProps) {
+function TimelineViewContent({
+  people,
+  relationships,
+  edgeType,
+}: TimelineViewProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [yearRange, setYearRange] = useState({ min: 1900, max: 2024 });
@@ -39,31 +45,42 @@ function TimelineViewContent({ people, relationships }: TimelineViewProps) {
   useEffect(() => {
     // 1. Separate people with and without birthdates
     const datedPeople = people
-      .map(p => ({ ...p, birthYear: p.birthDate ? new Date(p.birthDate).getFullYear() : null }))
-      .filter(p => p.birthYear !== null && !isNaN(p.birthYear))
+      .map((p) => ({
+        ...p,
+        birthYear: p.birthDate ? new Date(p.birthDate).getFullYear() : null,
+      }))
+      .filter((p) => p.birthYear !== null && !isNaN(p.birthYear))
       .sort((a, b) => a.birthYear! - b.birthYear!);
 
-    const undatedPeople = people.filter(p => !p.birthDate || isNaN(new Date(p.birthDate).getFullYear()));
+    const undatedPeople = people.filter(
+      (p) => !p.birthDate || isNaN(new Date(p.birthDate).getFullYear())
+    );
 
     if (datedPeople.length === 0 && undatedPeople.length === 0) {
-        setNodes([]);
-        setEdges([]);
-        return;
+      setNodes([]);
+      setEdges([]);
+      return;
     }
 
-    const minYear = datedPeople.length > 0 ? datedPeople[0].birthYear! : new Date().getFullYear() - 50;
-    const maxYear = datedPeople.length > 0 ? datedPeople[datedPeople.length - 1].birthYear! : new Date().getFullYear();
+    const minYear =
+      datedPeople.length > 0
+        ? datedPeople[0].birthYear!
+        : new Date().getFullYear() - 50;
+    const maxYear =
+      datedPeople.length > 0
+        ? datedPeople[datedPeople.length - 1].birthYear!
+        : new Date().getFullYear();
     setYearRange({ min: minYear, max: maxYear });
 
     const newNodes: Node[] = [];
-    
+
     // 2. Layout dated people
     const columns: number[] = []; // Stores the y-end of the last node in each column
-    
-    datedPeople.forEach(person => {
+
+    datedPeople.forEach((person) => {
       const yPos = (person.birthYear! - minYear) * PIXELS_PER_YEAR;
       let placed = false;
-      
+
       for (let i = 0; i < columns.length; i++) {
         if (yPos > columns[i] + VERTICAL_GAP) {
           // Place in this column
@@ -95,59 +112,70 @@ function TimelineViewContent({ people, relationships }: TimelineViewProps) {
     // 3. Layout undated people
     let lastY;
     if (datedPeople.length > 0) {
-        const maxY = Math.max(...newNodes.filter(n => n.position).map(n => n.position.y));
-        lastY = maxY + NODE_HEIGHT + (VERTICAL_GAP * 3);
+      const maxY = Math.max(
+        ...newNodes.filter((n) => n.position).map((n) => n.position.y)
+      );
+      lastY = maxY + NODE_HEIGHT + VERTICAL_GAP * 3;
     } else {
-        lastY = 100; // If no dated people, start from top
+      lastY = 100; // If no dated people, start from top
     }
 
-    if(undatedPeople.length > 0) {
-        newNodes.push({
-            id: 'undated-separator',
-            type: 'default',
-            position: { x: 100, y: lastY - VERTICAL_GAP },
-            data: { label: 'תאריך לידה לא ידוע' },
-            draggable: false,
-            style: {
-                width: 'calc(100vw - 120px)',
-                backgroundColor: 'transparent',
-                border: 'none',
-                borderTop: '1px dashed hsl(var(--border))',
-                textAlign: 'center',
-                color: 'hsl(var(--muted-foreground))'
-            }
-        });
+    if (undatedPeople.length > 0) {
+      newNodes.push({
+        id: 'undated-separator',
+        type: 'default',
+        position: { x: 100, y: lastY - VERTICAL_GAP },
+        data: { label: 'תאריך לידה לא ידוע' },
+        draggable: false,
+        style: {
+          width: 'calc(100vw - 120px)',
+          backgroundColor: 'transparent',
+          border: 'none',
+          borderTop: '1px dashed hsl(var(--border))',
+          textAlign: 'center',
+          color: 'hsl(var(--muted-foreground))',
+        },
+      });
 
-        undatedPeople.forEach((person, index) => {
-            newNodes.push({
-                id: person.id,
-                type: 'timelinePerson',
-                position: { x: 100 + (index % 4) * COLUMN_WIDTH, y: lastY + Math.floor(index/4) * (NODE_HEIGHT + VERTICAL_GAP) },
-                data: person,
-            });
+      undatedPeople.forEach((person, index) => {
+        newNodes.push({
+          id: person.id,
+          type: 'timelinePerson',
+          position: {
+            x: 100 + (index % 4) * COLUMN_WIDTH,
+            y: lastY + Math.floor(index / 4) * (NODE_HEIGHT + VERTICAL_GAP),
+          },
+          data: person,
         });
+      });
     }
 
     setNodes(newNodes);
 
     // 4. Create edges
-    const newEdges: Edge[] = relationships.map(rel => ({
-        id: rel.id,
-        source: rel.personAId,
-        target: rel.personBId,
-        type: 'smoothstep',
-        animated: true,
+    const newEdges: Edge[] = relationships.map((rel) => ({
+      id: rel.id,
+      source: rel.personAId,
+      target: rel.personBId,
+      type: edgeType,
+      animated: true,
     }));
     setEdges(newEdges);
-    
-    // Set initial view
-    setTimeout(() => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }), 100);
 
-  }, [people, relationships, setViewport]);
+    // Set initial view
+    setTimeout(
+      () => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }),
+      100
+    );
+  }, [people, relationships, setViewport, edgeType]);
 
   return (
     <div className="h-full w-full relative bg-background">
-      <TimelineAxis minYear={yearRange.min} maxYear={yearRange.max} pixelsPerYear={PIXELS_PER_YEAR} />
+      <TimelineAxis
+        minYear={yearRange.min}
+        maxYear={yearRange.max}
+        pixelsPerYear={PIXELS_PER_YEAR}
+      />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -168,11 +196,10 @@ function TimelineViewContent({ people, relationships }: TimelineViewProps) {
   );
 }
 
-
 export function TimelineView(props: TimelineViewProps) {
-    return (
-        <ReactFlowProvider>
-            <TimelineViewContent {...props} />
-        </ReactFlowProvider>
-    );
+  return (
+    <ReactFlowProvider>
+      <TimelineViewContent {...props} />
+    </ReactFlowProvider>
+  );
 }

@@ -103,6 +103,8 @@ export type ViewMode =
   | 'calendar'
   | 'statistics';
 
+export type EdgeType = 'smoothstep' | 'step' | 'default' | 'straight';
+
 const getEdgeStyle = (selected = false) => ({
   strokeWidth: selected ? 2.5 : 1.5,
   stroke: selected ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
@@ -225,6 +227,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
+  const [edgeType, setEdgeType] = useState<EdgeType>('smoothstep');
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -240,6 +243,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     isGroupDrag: boolean;
     initialNodePositions: Map<string, XYPosition>;
   } | null>(null);
+
+  useEffect(() => {
+    setEdges((eds) => eds.map((e) => ({ ...e, type: edgeType })));
+  }, [edgeType, setEdges]);
 
   const onSelectionChange = useCallback(
     ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
@@ -293,7 +300,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
-        getDocs(manualEventsRef),
+        getDocs(manualEventsSnap),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
@@ -371,7 +378,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           target,
           sourceHandle,
           targetHandle,
-          type: 'smoothstep',
+          type: edgeType,
           label: getLabel(),
           labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
           labelStyle: { fill: 'hsl(var(--foreground))' },
@@ -386,7 +393,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [treeId, user, db, setNodes, setEdges]);
+  }, [treeId, user, db, setNodes, setEdges, edgeType]);
 
   useEffect(() => {
     if (!isUserLoading && user && !user.isAnonymous) {
@@ -1177,7 +1184,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           />
         );
       case 'timeline':
-        return <TimelineView people={people} relationships={relationships} />;
+        return <TimelineView people={people} relationships={relationships} edgeType={edgeType} />;
       case 'table':
         const isOwner = user?.uid === tree?.userId;
         return <TableView 
@@ -1239,6 +1246,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           canRedo={canRedo}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          edgeType={edgeType}
+          setEdgeType={setEdgeType}
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onOpenAccount={() => setIsAccountModalOpen(true)}
           onToggleChat={() => setIsChatPanelOpen(prev => !prev)}

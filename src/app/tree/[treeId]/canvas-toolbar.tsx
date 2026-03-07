@@ -21,6 +21,7 @@ import {
   Settings,
   User,
   HelpCircle,
+  Spline,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -57,6 +58,16 @@ const viewOptions: {
   },
 ];
 
+const edgeStyleOptions: {
+  value: 'smoothstep' | 'step' | 'default' | 'straight';
+  label: string;
+}[] = [
+  { value: 'smoothstep', label: 'גלי' },
+  { value: 'step', label: 'חד' },
+  { value: 'default', label: 'עקום' },
+  { value: 'straight', label: 'ישר' },
+];
+
 type CanvasToolbarProps = {
   onAddPerson: () => void;
   onUndo: () => void;
@@ -65,6 +76,10 @@ type CanvasToolbarProps = {
   canRedo: boolean;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  edgeType: 'smoothstep' | 'step' | 'default' | 'straight';
+  setEdgeType: (
+    type: 'smoothstep' | 'step' | 'default' | 'straight'
+  ) => void;
   treeId: string;
   onOpenSettings: () => void;
   onOpenAccount: () => void;
@@ -79,6 +94,8 @@ export function CanvasToolbar({
   canRedo,
   viewMode,
   setViewMode,
+  edgeType,
+  setEdgeType,
   treeId,
   onOpenSettings,
   onOpenAccount,
@@ -150,6 +167,36 @@ export function CanvasToolbar({
           <p>עריכה עם AI</p>
         </TooltipContent>
       </Tooltip>
+
+      {viewMode === 'tree' && (
+        <div className="w-full">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full justify-between">
+                <div className="flex items-center gap-2">
+                  <Spline className="h-4 w-4" />
+                  <span className="text-sm">סגנון קו</span>
+                </div>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="right"
+              className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
+            >
+              {edgeStyleOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  onClick={() => setEdgeType(option.value)}
+                  className="gap-2"
+                >
+                  <span>{option.label}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       <div className="flex-grow" />
 
