@@ -134,6 +134,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [personToDelete, setPersonToDelete] = useState<Person | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isUserLoading && (!user || user.isAnonymous)) {
