@@ -11,7 +11,6 @@ import {
   SortingState,
   ColumnFiltersState,
   VisibilityState,
-  getPaginationRowModel,
 } from '@tanstack/react-table';
 import {
   Table,
@@ -23,6 +22,9 @@ import {
 } from '@/components/ui/table';
 import { DataTableToolbar } from './data-table-toolbar';
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
+
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -83,8 +85,8 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4 h-full flex flex-col">
       <DataTableToolbar table={table} />
-      <div className="flex-1 min-h-0 overflow-x-scroll">
-        <Table style={{ tableLayout: 'fixed' }} className="w-full">
+      <div className="flex-1 min-h-0 overflow-auto">
+        <Table className="min-w-max">
           <TableHeader className="sticky top-0 bg-muted/50 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -134,7 +136,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-       <div className="flex-shrink-0 flex justify-between items-center text-sm text-muted-foreground">
+       <div className="flex-shrink-0 flex justify-between items-center text-sm text-muted-foreground pt-2 border-t">
         <div>
             סה"כ: {table.getFilteredRowModel().rows.length} שורות
         </div>
