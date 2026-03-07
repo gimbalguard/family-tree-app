@@ -106,10 +106,10 @@ type Category = { category: string; articles: Article[] };
 
 function WikiSidebar({ content, activeId, onSelect }: { content: Category[], activeId: string, onSelect: (id: string) => void }) {
   return (
-    <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r p-4 h-auto md:h-screen md:sticky top-0 bg-gray-50/50">
+    <aside className="w-full md:w-64 border-b md:border-b-0 md:border-l p-4 h-auto md:h-screen md:sticky top-0 bg-gray-50/50">
       <h2 className="font-bold mb-4 text-lg text-primary">מרכז העזרה</h2>
       <ScrollArea className="h-full max-h-48 md:max-h-full md:h-[calc(100vh-80px)]">
-        <nav className="space-y-4 pr-2">
+        <nav className="space-y-4 pl-2">
           {content.map((cat) => (
             <div key={cat.category}>
               <h3 className="font-semibold text-gray-800 mb-2">{cat.category}</h3>
@@ -221,7 +221,7 @@ export default function HelpPage() {
             />
           </div>
           <ScrollArea id="main-content" className="h-[calc(100vh-150px)]">
-             <div className="pr-4">
+             <div className="pl-4">
                  {searchTerm ? (
                      <SearchResults results={searchResults} onSelect={handleSelectArticle} />
                  ) : (

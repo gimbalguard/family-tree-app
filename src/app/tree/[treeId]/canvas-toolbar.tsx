@@ -149,43 +149,23 @@ export function CanvasToolbar({
 
       <div className="flex-grow" />
 
-      <div className="flex flex-col gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" disabled>
-              <Settings className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            <p>הגדרות</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" disabled>
-              <User className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            <p>חשבון</p>
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
-            >
-              <HelpCircle className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            <p>עזרה</p>
-          </TooltipContent>
-        </Tooltip>
+      <div className="flex w-full flex-col gap-1">
+        <Button variant="ghost" className="w-full justify-start gap-2 px-2" disabled>
+          <Settings className="h-5 w-5" />
+          <span>הגדרות</span>
+        </Button>
+        <Button variant="ghost" className="w-full justify-start gap-2 px-2" disabled>
+          <User className="h-5 w-5" />
+          <span>חשבון</span>
+        </Button>
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 px-2"
+          onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
+        >
+          <HelpCircle className="h-5 w-5" />
+          <span>עזרה</span>
+        </Button>
       </div>
 
       <Separator className="my-2 w-full" />

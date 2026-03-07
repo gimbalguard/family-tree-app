@@ -6,11 +6,12 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { Search } from 'lucide-react';
+import { Search, Users, Heart, GitCommit, Calendar, Rings, Scale, Skull } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { differenceInYears, getYear, getMonth, isValid, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const C = ['#26a69a','#42a5f5','#ffca28','#66bb6a','#ffa726','#ef5350','#ab47bc','#7e57c2','#29b6f6','#d4e157'];
 
@@ -36,66 +37,6 @@ const countBy = (arr: (string|undefined|null)[]): {name:string;value:number}[] =
   arr.forEach(v => { if (v) map[v]=(map[v]||0)+1; });
   return Object.entries(map).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
 };
-
-// ── Watermark SVGs ────────────────────────────────────────────────────────────
-
-const WmRings = () => (
-  <svg viewBox="0 0 120 80" fill="none" stroke="currentColor" strokeWidth="6" width="100%" height="100%">
-    <circle cx="40" cy="40" r="30"/><circle cx="80" cy="40" r="30"/>
-  </svg>
-);
-const WmCalendar = () => (
-  <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="5" width="100%" height="100%">
-    <rect x="8" y="16" width="84" height="76" rx="8"/>
-    <line x1="8" y1="36" x2="92" y2="36"/>
-    <line x1="30" y1="6" x2="30" y2="26"/>
-    <line x1="70" y1="6" x2="70" y2="26"/>
-    <rect x="22" y="46" width="14" height="11" rx="2" fill="currentColor" stroke="none"/>
-    <rect x="44" y="46" width="14" height="11" rx="2" fill="currentColor" stroke="none"/>
-    <rect x="66" y="46" width="14" height="11" rx="2" fill="currentColor" stroke="none"/>
-    <rect x="22" y="64" width="14" height="11" rx="2" fill="currentColor" stroke="none"/>
-    <rect x="44" y="64" width="14" height="11" rx="2" fill="currentColor" stroke="none"/>
-  </svg>
-);
-const WmTree = () => (
-  <svg viewBox="0 0 100 110" fill="none" stroke="currentColor" strokeWidth="5" width="100%" height="100%">
-    <circle cx="50" cy="38" r="28"/>
-    <line x1="50" y1="66" x2="50" y2="95"/>
-    <line x1="32" y1="82" x2="68" y2="82"/>
-    <line x1="50" y1="20" x2="50" y2="10"/>
-    <line x1="30" y1="28" x2="22" y2="20"/>
-    <line x1="70" y1="28" x2="78" y2="20"/>
-    <line x1="26" y1="46" x2="16" y2="46"/>
-    <line x1="74" y1="46" x2="84" y2="46"/>
-  </svg>
-);
-const WmNetwork = () => (
-  <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="5" width="100%" height="100%">
-    <circle cx="50" cy="16" r="12"/><circle cx="16" cy="74" r="12"/><circle cx="84" cy="74" r="12"/>
-    <circle cx="50" cy="52" r="12"/>
-    <line x1="50" y1="28" x2="50" y2="40"/>
-    <line x1="50" y1="64" x2="22" y2="68"/>
-    <line x1="50" y1="64" x2="78" y2="68"/>
-  </svg>
-);
-const WmSadFace = () => (
-  <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="5" width="100%" height="100%">
-    <circle cx="50" cy="50" r="40"/>
-    <circle cx="36" cy="42" r="4" fill="currentColor" stroke="none"/>
-    <circle cx="64" cy="42" r="4" fill="currentColor" stroke="none"/>
-    <path d="M34 68 Q50 56 66 68" strokeLinecap="round"/>
-  </svg>
-);
-const WmHeart = () => (
-  <svg viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="5" width="100%" height="100%">
-    <path d="M50 82 C18 62 6 38 6 28 C6 14 16 5 28 5 C37 5 45 11 50 20 C55 11 63 5 72 5 C84 5 94 14 94 28 C94 38 82 62 50 82Z"/>
-  </svg>
-);
-const WmPulse = () => (
-  <svg viewBox="0 0 100 70" fill="none" stroke="currentColor" strokeWidth="5" width="100%" height="100%">
-    <polyline points="0,35 20,35 30,10 40,60 50,20 60,50 70,35 100,35" strokeLinejoin="round" strokeLinecap="round"/>
-  </svg>
-);
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 
@@ -142,59 +83,29 @@ function DonutChart({ data, height=240 }: { data:{name:string;value:number}[]; h
 }
 
 // ── Stat Card ─────────────────────────────────────────────────────────────────
-// bg: CSS background string (gradient or solid color)
-// textColor: color of title text
-// valueColor: color of value
-// wmColor: color of watermark
-
 interface StatCardDef {
   title: string;
-  value: string|number;
+  value: string | number;
   subtitle?: string;
-  bg: string;
-  titleColor: string;
-  valueColor: string;
-  wmColor: string;
-  watermark: React.ReactNode;
+  icon: React.ReactNode;
+  iconBg: string;
   onClick?: () => void;
 }
 
-function StatCard({ title, value, subtitle, bg, titleColor, valueColor, wmColor, watermark, onClick }: StatCardDef) {
+function StatCard({ title, value, subtitle, icon, iconBg, onClick }: StatCardDef) {
   return (
     <div
       onClick={onClick}
-      style={{
-        background: bg,
-        borderRadius: 16,
-        padding: '16px 18px 14px',
-        minHeight: 112,
-        position: 'relative',
-        overflow: 'hidden',
-        cursor: 'pointer',
-        boxShadow: '0 4px 18px rgba(0,0,0,0.13)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between',
-        transition: 'transform 0.15s, box-shadow 0.15s',
-      }}
-      onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.transform='translateY(-3px)';(e.currentTarget as HTMLDivElement).style.boxShadow='0 10px 28px rgba(0,0,0,0.18)';}}
-      onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.transform='translateY(0)';(e.currentTarget as HTMLDivElement).style.boxShadow='0 4px 18px rgba(0,0,0,0.13)';}}
+      className="bg-card p-4 rounded-xl shadow-sm border flex items-center gap-4 cursor-pointer transition-shadow hover:shadow-md"
     >
-      {/* Watermark */}
-      <div style={{position:'absolute',bottom:-14,left:-14,width:100,height:100,opacity:0.18,color:wmColor,pointerEvents:'none'}}>
-        {watermark}
-      </div>
-      {/* Title */}
-      <span style={{fontSize:12,fontWeight:600,color:titleColor,lineHeight:1.35,position:'relative',zIndex:1,maxWidth:'80%'}}>
-        {title}
-      </span>
-      {/* Value */}
-      <div style={{position:'relative',zIndex:1,marginTop:6}}>
-        <div style={{fontSize:subtitle?26:34,fontWeight:800,color:valueColor,lineHeight:1.05}}>
-          {value}
+        <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center", iconBg)}>
+            {icon}
         </div>
-        {subtitle&&<div style={{fontSize:14,fontWeight:600,color:valueColor,opacity:0.85}}>{subtitle}</div>}
-      </div>
+        <div className="flex-1">
+            <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
+            <p className="text-2xl font-bold text-foreground">{value}</p>
+            {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+        </div>
     </div>
   );
 }
@@ -207,15 +118,13 @@ function ChartCard({ title, children, dataAvailable, onClick }: {
   return (
     <div
       onClick={onClick}
-      style={{background:'#fff',borderRadius:16,padding:'16px 14px 10px',boxShadow:'0 2px 10px rgba(0,0,0,0.07)',border:'1px solid #e8ecf0',cursor:'pointer',display:'flex',flexDirection:'column',transition:'box-shadow 0.15s, transform 0.15s'}}
-      onMouseEnter={e=>{(e.currentTarget as HTMLDivElement).style.boxShadow='0 8px 24px rgba(0,0,0,0.13)';(e.currentTarget as HTMLDivElement).style.transform='translateY(-2px)';}}
-      onMouseLeave={e=>{(e.currentTarget as HTMLDivElement).style.boxShadow='0 2px 10px rgba(0,0,0,0.07)';(e.currentTarget as HTMLDivElement).style.transform='translateY(0)';}}
+      className="bg-card rounded-xl p-4 shadow-sm border cursor-pointer transition-shadow hover:shadow-md"
     >
-      <p style={{textAlign:'center',fontWeight:700,fontSize:14,color:'#1e293b',marginBottom:8}}>{title}</p>
+      <p className="text-center font-bold text-sm text-foreground mb-2">{title}</p>
       {dataAvailable ? children : (
-        <div style={{height:220,display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontSize:13}}>אין מספיק נתונים</div>
+        <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">אין מספיק נתונים</div>
       )}
-      <p style={{textAlign:'center',fontSize:11,color:'#cbd5e1',marginTop:6}}>לחץ להרחבה</p>
+      <p className="text-center text-xs text-muted-foreground/60 mt-2">לחץ להרחבה</p>
     </div>
   );
 }
@@ -227,11 +136,11 @@ function DrillModal({ title, open, onClose, chart, children }: {
 }) {
   return (
     <Dialog open={open} onOpenChange={v=>!v&&onClose()}>
-      <DialogContent className="max-w-2xl w-full max-h-[88vh] flex flex-col gap-4" dir="rtl">
+      <DialogContent className="max-w-3xl w-full max-h-[88vh] flex flex-col gap-4" dir="rtl">
         <DialogHeader><DialogTitle>{title}</DialogTitle></DialogHeader>
         <div className="flex-1 overflow-auto space-y-4">
-          <div style={{height:340}}><ResponsiveContainer width="100%" height="100%">{chart as React.ReactElement}</ResponsiveContainer></div>
-          {children&&<div className="border-t pt-4">{children}</div>}
+          <div className="min-h-[340px]">{chart}</div>
+          {children && <div className="border-t pt-4">{children}</div>}
         </div>
       </DialogContent>
     </Dialog>
@@ -240,37 +149,76 @@ function DrillModal({ title, open, onClose, chart, children }: {
 
 // ── People List ───────────────────────────────────────────────────────────────
 
-function PeopleList({ rows, onEditPerson, extraLabel }: {
-  rows:{person:Person;detail?:string}[]; onEditPerson?:(id:string)=>void; extraLabel?:string;
+function PeopleList({
+  rows,
+  columns,
+  onEditPerson,
+}: {
+  rows: { person: Person; [key: string]: any }[];
+  columns: { header: string; accessor: string | ((row: any) => React.ReactNode) }[];
+  onEditPerson?: (id: string) => void;
 }) {
-  const [q,setQ]=useState('');
-  const filtered=rows.filter(({person})=>`${person.firstName} ${person.lastName}`.includes(q));
+  const [q, setQ] = useState('');
+  const filtered = rows.filter(({ person }) =>
+    `${person.firstName} ${person.lastName}`.toLowerCase().includes(q.toLowerCase())
+  );
+
   return (
     <div className="space-y-2">
       <div className="relative">
-        <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground"/>
-        <Input className="pr-8 text-sm" placeholder="חיפוש שם..." value={q} onChange={e=>setQ(e.target.value)}/>
+        <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          className="pr-10 text-sm"
+          placeholder="חיפוש שם..."
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
       </div>
-      <ScrollArea className="h-56 border rounded-md">
-        <table className="w-full text-sm">
+      <ScrollArea className="h-72 border rounded-md">
+        <table className="w-full text-sm" dir="rtl">
           <thead className="sticky top-0 bg-background z-10">
             <tr className="border-b text-muted-foreground">
-              <th className="text-right py-2 pr-3 font-medium">שם</th>
-              {extraLabel&&<th className="text-right py-2 font-medium">{extraLabel}</th>}
+              {columns.map((col, i) => (
+                <th key={i} className="text-right py-2 px-3 font-medium">
+                  {col.header}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map(({person,detail})=>(
+            {filtered.map(({ person, ...rest }, rowIndex) => (
               <tr key={person.id} className="border-b hover:bg-muted/30 transition-colors">
-                <td className="py-1.5 pr-3">
-                  {onEditPerson
-                    ?<button className="text-primary underline underline-offset-2 hover:opacity-80" onClick={()=>onEditPerson(person.id)}>{person.firstName} {person.lastName}</button>
-                    :<span>{person.firstName} {person.lastName}</span>}
-                </td>
-                {extraLabel&&<td className="py-1.5">{detail??'—'}</td>}
+                {columns.map((col, colIndex) => (
+                  <td key={colIndex} className="py-1.5 px-3">
+                    {typeof col.accessor === 'function' ? (
+                      col.accessor({ person, ...rest })
+                    ) : col.accessor === 'name' ? (
+                      onEditPerson ? (
+                        <button
+                          className="text-primary underline underline-offset-2 hover:opacity-80"
+                          onClick={() => onEditPerson(person.id)}
+                        >
+                          {person.firstName} {person.lastName}
+                        </button>
+                      ) : (
+                        <span>
+                          {person.firstName} {person.lastName}
+                        </span>
+                      )
+                    ) : (
+                      (rest[col.accessor] ?? '—')
+                    )}
+                  </td>
+                ))}
               </tr>
             ))}
-            {filtered.length===0&&<tr><td colSpan={2} className="text-center py-4 text-muted-foreground text-sm">לא נמצאו תוצאות</td></tr>}
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={columns.length} className="text-center py-4 text-muted-foreground text-sm">
+                  לא נמצאו תוצאות
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </ScrollArea>
@@ -278,10 +226,11 @@ function PeopleList({ rows, onEditPerson, extraLabel }: {
   );
 }
 
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function StatisticsView({ people, relationships, onEditPerson }: {
-  people:Person[]; relationships:Relationship[]; onEditPerson?:(personId:string)=>void;
+  people:Person[]; relationships:Relationship[]; onEditPerson?:(id:string)=>void;
 }) {
   const [modal,setModal]=useState<string|null>(null);
   const open=(k:string)=>setModal(k);
@@ -300,12 +249,14 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
     const avgMarriage=marriageAges.length?(marriageAges.reduce((a,b)=>a+b,0)/marriageAges.length).toFixed(1):'N/A';
     const deceasedWithDates=people.filter(p=>p.status==='deceased'&&p.birthDate&&p.deathDate&&isValid(parseISO(p.birthDate))&&isValid(parseISO(p.deathDate)));
     const avgLifespan=deceasedWithDates.length?Math.round(deceasedWithDates.reduce((s,p)=>s+differenceInYears(parseISO(p.deathDate!),parseISO(p.birthDate!)),0)/deceasedWithDates.length):null;
+    
     return {
       total:people.length, living:people.filter(p=>p.status==='alive').length,
       deceased:people.filter(p=>p.status==='deceased').length,
-      totalRels:relationships.length, lastNames:new Set(people.map(p=>p.lastName)).size,
-      treeFrom:earliest??'N/A', treeTo:getYear(new Date()),
+      totalRels:relationships.length,
+      treeFrom:earliest, treeTo:getYear(new Date()),
       avgMarriage, avgLifespan,
+      lastNamesCount: new Set(people.map(p => p.lastName)).size,
     };
   },[people,relationships]);
 
@@ -346,152 +297,70 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
   const childrenData=useMemo(()=>{
     const map:Record<string,number>={};
     relationships.forEach(r=>{if(['parent','adoptive_parent','step_parent'].includes(r.relationshipType))map[r.personAId]=(map[r.personAId]||0)+1;});
-    return Object.entries(map).map(([id,count])=>{const p=people.find(x=>x.id===id);return{id,name:p?`${p.firstName} ${p.lastName}`:id,value:count};}).sort((a,b)=>b.value-a.value).slice(0,10);
+    return Object.entries(map).map(([id,count])=>{const p=people.find(x=>x.id===id);return{person: p,name:p?`${p.firstName} ${p.lastName}`:id,value:count};}).sort((a,b)=>b.value-a.value).slice(0,10);
   },[people,relationships]);
-  const allRows=useMemo(()=>people.map(p=>({person:p,detail:p.birthDate&&isValid(parseISO(p.birthDate))?String(getYear(parseISO(p.birthDate))):'—'})),[people]);
-  const livingRows=useMemo(()=>people.filter(p=>p.status==='alive').map(p=>({person:p,detail:p.birthDate&&isValid(parseISO(p.birthDate))?`${differenceInYears(new Date(),parseISO(p.birthDate!))} שנים`:'—'})),[people]);
-  const deceasedRows=useMemo(()=>people.filter(p=>p.status==='deceased').map(p=>({person:p,detail:p.birthDate&&p.deathDate?`${differenceInYears(parseISO(p.deathDate),parseISO(p.birthDate!))} שנים`:'—'})),[people]);
-  const childrenRows=useMemo(()=>childrenData.map(d=>({person:people.find(p=>p.id===d.id)!,detail:`${d.value} ילדים`})).filter(x=>x.person),[childrenData,people]);
 
-  // ── 7 stat cards — EXACT order & colors from reference (RTL = first in array = rightmost) ──
-  // Reference order right→left:
-  // 1. גיל נישואין  — white/light grey, dark text, rings watermark
-  // 2. טווח שנים    — white, dark text, calendar watermark
-  // 3. תוחלת חיים   — warm cream/gold, dark text, tree watermark (golden)
-  // 4. סה"כ קשרים   — muted steel blue, white text, network watermark
-  // 5. נפטרו        — muted pink/mauve, white text, sad face watermark
-  // 6. חיים         — deep red/coral gradient, white text, heart watermark
-  // 7. סה"כ אנשים   — teal/green gradient, white text, pulse watermark
+  // People lists for modals
+  const allPeopleRows = useMemo(()=> people.map(p => ({ person: p })), [people]);
+  const ageRows = useMemo(() => people.filter(p=>p.status === 'alive' && p.birthDate && isValid(parseISO(p.birthDate))).map(p => ({ person: p, age: differenceInYears(new Date(), parseISO(p.birthDate!)), birthDate: p.birthDate })), [people]);
+  const genderRows = useMemo(() => people.map(p => ({ person: p, birthYear: p.birthDate ? getYear(parseISO(p.birthDate)) : '?', gender: p.gender })), [people]);
+  
+  const GENDER_LABELS = { male: 'זכר', female: 'נקבה', other: 'אחר' };
 
   const cards: StatCardDef[] = [
-    {
-      title: 'גיל נישואין ממוצע',
-      value: summary.avgMarriage,
-      bg: 'linear-gradient(145deg,#f9f6f0,#ede8de)',
-      titleColor: '#78716c',
-      valueColor: '#292524',
-      wmColor: '#a8a29e',
-      watermark: <WmRings/>,
-      onClick: ()=>open('marriage'),
-    },
-    {
-      title: 'טווח שנים בעץ',
-      value: String(summary.treeFrom),
-      subtitle: `- ${summary.treeTo}`,
-      bg: 'linear-gradient(145deg,#f8fafc,#eef2f7)',
-      titleColor: '#64748b',
-      valueColor: '#1e293b',
-      wmColor: '#94a3b8',
-      watermark: <WmCalendar/>,
-      onClick: ()=>open('treespan'),
-    },
-    {
-      title: 'תוחלת חיים ממוצעת',
-      value: summary.avgLifespan??'N/A',
-      subtitle: summary.avgLifespan?'שנים':undefined,
-      bg: 'linear-gradient(145deg,#fdf6e3,#f5e6b8)',
-      titleColor: '#92743a',
-      valueColor: '#5c4813',
-      wmColor: '#c9a227',
-      watermark: <WmTree/>,
-      onClick: ()=>open('lifespan'),
-    },
-    {
-      title: 'סה"כ קשרים',
-      value: summary.totalRels,
-      bg: 'linear-gradient(145deg,#7a9db5,#5b84a0)',
-      titleColor: 'rgba(255,255,255,0.8)',
-      valueColor: '#ffffff',
-      wmColor: '#ffffff',
-      watermark: <WmNetwork/>,
-      onClick: ()=>open('rels'),
-    },
-    {
-      title: 'נפטרו',
-      value: summary.deceased,
-      bg: 'linear-gradient(145deg,#b07a8a,#8d5a6a)',
-      titleColor: 'rgba(255,255,255,0.8)',
-      valueColor: '#ffffff',
-      wmColor: '#ffffff',
-      watermark: <WmSadFace/>,
-      onClick: ()=>open('status'),
-    },
-    {
-      title: 'חיים',
-      value: summary.living,
-      bg: 'linear-gradient(145deg,#e05c5c,#b83030)',
-      titleColor: 'rgba(255,255,255,0.85)',
-      valueColor: '#ffffff',
-      wmColor: '#ffffff',
-      watermark: <WmHeart/>,
-      onClick: ()=>open('status'),
-    },
-    {
-      title: 'סה"כ אנשים',
-      value: summary.total,
-      bg: 'linear-gradient(145deg,#2ec4a5,#178a72)',
-      titleColor: 'rgba(255,255,255,0.85)',
-      valueColor: '#ffffff',
-      wmColor: '#ffffff',
-      watermark: <WmPulse/>,
-      onClick: ()=>open('total'),
-    },
+    { title: 'סה"כ אנשים', value: summary.total, icon: <Users className="w-6 h-6 text-blue-800" />, iconBg: 'bg-blue-100', onClick: () => open('total') },
+    { title: 'חיים', value: summary.living, icon: <Heart className="w-6 h-6 text-green-800" />, iconBg: 'bg-green-100', onClick: () => open('status') },
+    { title: 'נפטרו', value: summary.deceased, icon: <Skull className="w-6 h-6 text-gray-800" />, iconBg: 'bg-gray-200', onClick: () => open('status') },
+    { title: 'סה"כ קשרים', value: summary.totalRels, icon: <GitCommit className="w-6 h-6 text-purple-800" />, iconBg: 'bg-purple-100', onClick: () => open('rels') },
+    { title: 'טווח שנים בעץ', value: `${summary.treeFrom ?? '?'} - ${summary.treeTo}`, icon: <Calendar className="w-6 h-6 text-orange-800" />, iconBg: 'bg-orange-100', onClick: () => open('decade') },
+    { title: 'גיל נישואין ממוצע', value: summary.avgMarriage, icon: <Rings className="w-6 h-6 text-pink-800" />, iconBg: 'bg-pink-100', onClick: () => open('marriage') },
+    { title: 'תוחלת חיים ממוצעת', value: summary.avgLifespan ?? 'N/A', icon: <Scale className="w-6 h-6 text-teal-800" />, iconBg: 'bg-teal-100', onClick: () => open('lifespan') },
   ];
 
   return (
-    <div style={{height:'100%',width:'100%',background:'#f1f5f9',overflowY:'auto',direction:'rtl'}}>
-      <div style={{padding:'24px',maxWidth:1400,margin:'0 auto'}}>
-
-        {/* ── 7-card summary row ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:14,marginBottom:24}}>
+    <div className="h-full w-full bg-muted/30 overflow-y-auto" dir="rtl">
+      <div className="p-6 max-w-7xl mx-auto">
+        
+        <h2 className="text-lg font-bold mb-4">סיכום כללי</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
           {cards.map((card,i)=><StatCard key={i} {...card}/>)}
         </div>
 
-        {/* ── Charts grid ── */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))',gap:18}}>
-
+        <h2 className="text-lg font-bold mb-4">התפלגויות דמוגרפיות</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <ChartCard title="התפלגות גילאים (חיים)" dataAvailable={ageData.some(d=>d['מספר אנשים']>0)} onClick={()=>open('age')}>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={ageData} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis dataKey="name" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis allowDecimals={false} orientation="right" fontSize={11} tick={{fill:'#64748b'}}/>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb"/>
+                <XAxis dataKey="name" fontSize={11} tick={{fill:'#6b7280'}}/>
+                <YAxis allowDecimals={false} orientation="right" fontSize={11} tick={{fill:'#6b7280'}}/>
                 <Tooltip content={<CTip/>}/>
                 <Bar dataKey="מספר אנשים" radius={[6,6,0,0]}>{ageData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="התפלגות דתית" dataAvailable={religionData.length>0} onClick={()=>open('religion')}>
-            <DonutChart data={religionData}/>
-          </ChartCard>
-
           <ChartCard title="התפלגות סטטוס" dataAvailable={statusData.length>0} onClick={()=>open('status')}>
             <DonutChart data={statusData}/>
           </ChartCard>
-
+          
           <ChartCard title="התפלגות מגדר" dataAvailable={genderData.length>0} onClick={()=>open('gender')}>
             <DonutChart data={genderData}/>
           </ChartCard>
 
-          <ChartCard title="10 שמות המשפחה הנפוצים" dataAvailable={lastNamesData.length>0} onClick={()=>open('lastnames')}>
-            <ResponsiveContainer width="100%" height={Math.max(220,lastNamesData.length*36)}>
-              <BarChart data={lastNamesData} layout="vertical" barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis type="number" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis dataKey="name" type="category" width={88} fontSize={12} orientation="right" tick={{fill:'#374151'}}/>
-                <Tooltip content={<CTip/>}/>
-                <Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{lastNamesData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
+           <ChartCard title="התפלגות דתית" dataAvailable={religionData.length>0} onClick={()=>open('religion')}>
+            <DonutChart data={religionData}/>
           </ChartCard>
+        </div>
 
-          <ChartCard title="לידות לפי עשור" dataAvailable={decadeData.length>0} onClick={()=>open('decade')}>
+        <h2 className="text-lg font-bold mb-4">שמות ותרבות</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <ChartCard title="לידות לפי עשור" dataAvailable={decadeData.length>0} onClick={()=>open('decade')}>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={decadeData} barCategoryGap="25%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis dataKey="name" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis allowDecimals={false} orientation="right" fontSize={11} tick={{fill:'#64748b'}}/>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb"/>
+                <XAxis dataKey="name" fontSize={11} tick={{fill:'#6b7280'}}/>
+                <YAxis allowDecimals={false} orientation="right" fontSize={11} tick={{fill:'#6b7280'}}/>
                 <Tooltip content={<CTip/>}/>
                 <Bar dataKey="אנשים" radius={[6,6,0,0]}>{decadeData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
               </BarChart>
@@ -505,155 +374,106 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
           <ChartCard title="לידות לפי חודש" dataAvailable={birthMonthData.some(d=>d['לידות']>0)} onClick={()=>open('birthmonth')}>
             <ResponsiveContainer width="100%" height={230}>
               <BarChart data={birthMonthData} barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={50} fontSize={11} tick={{fill:'#64748b'}} interval={0}/>
-                <YAxis allowDecimals={false} orientation="right" fontSize={11} tick={{fill:'#64748b'}}/>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb"/>
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={50} fontSize={11} tick={{fill:'#6b7280'}} interval={0}/>
+                <YAxis allowDecimals={false} orientation="right" fontSize={11} tick={{fill:'#6b7280'}}/>
                 <Tooltip content={<CTip/>}/>
                 <Bar dataKey="לידות" radius={[6,6,0,0]}>{birthMonthData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="10 שמות פרטיים נפוצים" dataAvailable={firstNamesData.length>0} onClick={()=>open('firstnames')}>
-            <ResponsiveContainer width="100%" height={Math.max(220,firstNamesData.length*36)}>
-              <BarChart data={firstNamesData} layout="vertical" barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis type="number" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis dataKey="name" type="category" width={88} fontSize={12} orientation="right" tick={{fill:'#374151'}}/>
-                <Tooltip content={<CTip/>}/>
-                <Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{firstNamesData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
+           <ChartCard title="שמות משפחה נפוצים" dataAvailable={lastNamesData.length > 0} onClick={() => open('lastnames')}>
+                <ResponsiveContainer width="100%" height={Math.max(220, lastNamesData.length * 28)}>
+                    <BarChart data={lastNamesData} layout="vertical" barSize={12} margin={{ right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" fontSize={10} tick={{ fill: '#6b7280' }} allowDecimals={false} />
+                        <YAxis dataKey="name" type="category" width={80} fontSize={11} tick={{ fill: '#374151' }} orientation="right" />
+                        <Tooltip content={<CTip />} />
+                        <Bar dataKey="value" name="כמות" radius={[0, 4, 4, 0]}>
+                            {lastNamesData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </ChartCard>
 
-          <ChartCard title="הורים עם הכי הרבה ילדים" dataAvailable={childrenData.length>0} onClick={()=>open('children')}>
-            <ResponsiveContainer width="100%" height={Math.max(220,childrenData.length*36)}>
-              <BarChart data={childrenData} layout="vertical" barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis type="number" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis dataKey="name" type="category" width={88} fontSize={12} orientation="right" tick={{fill:'#374151'}}/>
-                <Tooltip content={<CTip/>}/>
-                <Bar dataKey="value" name="ילדים" radius={[0,6,6,0]}>{childrenData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="10 מדינות מגורים מובילות" dataAvailable={residenceData.length>0} onClick={()=>open('residence')}>
-            <ResponsiveContainer width="100%" height={Math.max(220,residenceData.length*36)}>
-              <BarChart data={residenceData} layout="vertical" barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis type="number" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis dataKey="name" type="category" width={88} fontSize={12} orientation="right" tick={{fill:'#374151'}}/>
-                <Tooltip content={<CTip/>}/>
-                <Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{residenceData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
-          <ChartCard title="10 מקומות לידה מובילים" dataAvailable={birthPlaceData.length>0} onClick={()=>open('birthplace')}>
-            <ResponsiveContainer width="100%" height={Math.max(220,birthPlaceData.length*36)}>
-              <BarChart data={birthPlaceData} layout="vertical" barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9"/>
-                <XAxis type="number" fontSize={11} tick={{fill:'#64748b'}}/>
-                <YAxis dataKey="name" type="category" width={88} fontSize={12} orientation="right" tick={{fill:'#374151'}}/>
-                <Tooltip content={<CTip/>}/>
-                <Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{birthPlaceData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </ChartCard>
-
+            <ChartCard title="שמות פרטיים נפוצים" dataAvailable={firstNamesData.length > 0} onClick={() => open('firstnames')}>
+                 <ResponsiveContainer width="100%" height={Math.max(220, firstNamesData.length * 28)}>
+                    <BarChart data={firstNamesData} layout="vertical" barSize={12} margin={{ right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" fontSize={10} tick={{ fill: '#6b7280' }} allowDecimals={false} />
+                        <YAxis dataKey="name" type="category" width={80} fontSize={11} tick={{ fill: '#374151' }} orientation="right" />
+                        <Tooltip content={<CTip />} />
+                        <Bar dataKey="value" name="כמות" radius={[0, 4, 4, 0]}>
+                            {firstNamesData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </ChartCard>
         </div>
+        
+        <h2 className="text-lg font-bold mb-4">משפחה וקשרים</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <ChartCard title="הורים עם הכי הרבה ילדים" dataAvailable={childrenData.length>0} onClick={()=>open('children')}>
+             <ResponsiveContainer width="100%" height={Math.max(220, childrenData.length * 28)}>
+                 <BarChart data={childrenData} layout="vertical" barSize={12} margin={{ right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" fontSize={10} tick={{ fill: '#6b7280' }} allowDecimals={false} />
+                    <YAxis dataKey="name" type="category" width={80} fontSize={11} tick={{ fill: '#374151' }} orientation="right" />
+                    <Tooltip content={<CTip />} />
+                    <Bar dataKey="value" name="ילדים" radius={[0, 4, 4, 0]}>
+                        {childrenData.map((_, i) => <Cell key={i} fill={C[i % C.length]} />)}
+                    </Bar>
+                </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+
       </div>
 
       {/* ══ Modals ══ */}
-      <DrillModal title='סה"כ אנשים' open={modal==='total'} onClose={close}
-        chart={<BarChart data={[{name:'זכרים',value:people.filter(p=>p.gender==='male').length},{name:'נקבות',value:people.filter(p=>p.gender==='female').length},{name:'אחר',value:people.filter(p=>p.gender!=='male'&&p.gender!=='female').length}]}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis orientation="right" allowDecimals={false}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[6,6,0,0]}>{[0,1,2].map(i=><Cell key={i} fill={C[i]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
+       <DrillModal title='סה"כ אנשים' open={modal==='total'} onClose={close}
+        chart={<ResponsiveContainer width="100%" height={300}>
+            <BarChart data={[{name:'זכרים',value:people.filter(p=>p.gender==='male').length},{name:'נקבות',value:people.filter(p=>p.gender==='female').length},{name:'אחר',value:people.filter(p=>p.gender!=='male'&&p.gender!=='female').length}]}>
+                <CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis orientation="right" allowDecimals={false}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[6,6,0,0]}>{[0,1,2].map(i=><Cell key={i} fill={C[i]}/>)}</Bar>
+            </BarChart>
+        </ResponsiveContainer>}>
+        <PeopleList rows={allPeopleRows} onEditPerson={onEditPerson} columns={[{ header: 'שם', accessor: 'name'}, { header: 'שנת לידה', accessor: (row) => row.person.birthDate ? getYear(parseISO(row.person.birthDate)) : '?' }]}/>
       </DrillModal>
 
-      <DrillModal title="התפלגות מגדר" open={modal==='gender'} onClose={close}
-        chart={<PieChart><Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label>{genderData.map((_,i)=><Cell key={i} fill={C[i]}/>)}</Pie><Tooltip content={<CTip/>}/><Legend/></PieChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
+      <DrillModal title="התפלגות מגדר" open={modal === 'gender'} onClose={close}
+          chart={<ResponsiveContainer width="100%" height={300}>
+              <PieChart><Pie data={genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>{genderData.map((_, i) => <Cell key={i} fill={C[i]} />)}</Pie><Tooltip content={<CTip />} /><Legend /></PieChart>
+          </ResponsiveContainer>}>
+          <PeopleList rows={genderRows} onEditPerson={onEditPerson} columns={[{ header: 'שם', accessor: 'name' }, { header: 'שנת לידה', accessor: 'birthYear' }, { header: 'מין', accessor: (row) => GENDER_LABELS[row.gender] || 'לא ידוע' }]} />
       </DrillModal>
 
       <DrillModal title="התפלגות סטטוס" open={modal==='status'} onClose={close}
-        chart={<PieChart><Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label>{statusData.map((_,i)=><Cell key={i} fill={C[i]}/>)}</Pie><Tooltip content={<CTip/>}/><Legend/></PieChart>}>
-        <div className="space-y-3">
-          <p className="font-semibold text-sm">חיים — {summary.living} אנשים</p>
-          <PeopleList rows={livingRows} onEditPerson={onEditPerson} extraLabel="גיל"/>
-          <p className="font-semibold text-sm pt-2">נפטרו — {summary.deceased} אנשים</p>
-          <PeopleList rows={deceasedRows} onEditPerson={onEditPerson} extraLabel="גיל פטירה"/>
-        </div>
-      </DrillModal>
-
-      <DrillModal title="התפלגות דתית" open={modal==='religion'} onClose={close}
-        chart={<PieChart><Pie data={religionData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label>{religionData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/><Legend/></PieChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
+        chart={<ResponsiveContainer width="100%" height={300}>
+            <PieChart><Pie data={statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>{statusData.map((_,i)=><Cell key={i} fill={C[i]}/>)}</Pie><Tooltip content={<CTip/>}/><Legend/></PieChart>
+        </ResponsiveContainer>}>
+         <PeopleList rows={allPeopleRows} onEditPerson={onEditPerson} columns={[{ header: 'שם', accessor: 'name'}, { header: 'סטטוס', accessor: (row) => row.person.status }]}/>
       </DrillModal>
 
       <DrillModal title="התפלגות גילאים" open={modal==='age'} onClose={close}
-        chart={<BarChart data={ageData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="מספר אנשים" radius={[6,6,0,0]}>{ageData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={livingRows} onEditPerson={onEditPerson} extraLabel="גיל"/>
+        chart={<ResponsiveContainer width="100%" height={300}>
+            <BarChart data={ageData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="מספר אנשים" radius={[6,6,0,0]}>{ageData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>
+        </ResponsiveContainer>}>
+        <PeopleList rows={ageRows} onEditPerson={onEditPerson} columns={[{ header: 'שם', accessor: 'name' }, { header: 'תאריך לידה', accessor: (row) => row.birthDate ? new Date(row.birthDate).toLocaleDateString('he-IL') : '?' }, { header: 'גיל', accessor: 'age' }]}/>
       </DrillModal>
 
-      <DrillModal title="לידות לפי חודש" open={modal==='birthmonth'} onClose={close}
-        chart={<BarChart data={birthMonthData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="לידות" radius={[6,6,0,0]}>{birthMonthData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
+       <DrillModal title="לידות לפי עשור" open={modal==='decade'} onClose={close}
+        chart={<ResponsiveContainer width="100%" height={300}>
+            <BarChart data={decadeData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="אנשים" radius={[6,6,0,0]}>{decadeData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>
+        </ResponsiveContainer>}>
+        <PeopleList rows={allPeopleRows} onEditPerson={onEditPerson} columns={[{ header: 'שם', accessor: 'name' }, { header: 'שנת לידה', accessor: (row) => row.person.birthDate ? getYear(parseISO(row.person.birthDate)) : '?' }]} />
       </DrillModal>
 
-      <DrillModal title="התפלגות מזלות" open={modal==='zodiac'} onClose={close}
-        chart={<PieChart><Pie data={zodiacData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={130} label>{zodiacData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/><Legend wrapperStyle={{fontSize:11}}/></PieChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
-      </DrillModal>
-
-      <DrillModal title="לידות לפי עשור" open={modal==='decade'} onClose={close}
-        chart={<BarChart data={decadeData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="אנשים" radius={[6,6,0,0]}>{decadeData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
-      </DrillModal>
-
-      <DrillModal title="שמות משפחה" open={modal==='lastnames'} onClose={close}
-        chart={<BarChart data={lastNamesData} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={100} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{lastNamesData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
-      </DrillModal>
-
-      <DrillModal title="שמות פרטיים" open={modal==='firstnames'} onClose={close}
-        chart={<BarChart data={firstNamesData} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={100} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{firstNamesData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
-      </DrillModal>
-
-      <DrillModal title="הורים עם הכי הרבה ילדים" open={modal==='children'} onClose={close}
-        chart={<BarChart data={childrenData} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={100} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="ילדים" radius={[0,6,6,0]}>{childrenData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={childrenRows} onEditPerson={onEditPerson} extraLabel="מספר ילדים"/>
-      </DrillModal>
-
-      <DrillModal title="מדינות מגורים" open={modal==='residence'} onClose={close}
-        chart={<BarChart data={residenceData} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={100} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{residenceData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="מדינת מגורים"/>
-      </DrillModal>
-
-      <DrillModal title="מקומות לידה" open={modal==='birthplace'} onClose={close}
-        chart={<BarChart data={birthPlaceData} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number"/><YAxis dataKey="name" type="category" width={100} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,6,6,0]}>{birthPlaceData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="מקום לידה"/>
-      </DrillModal>
-
-      <DrillModal title="תוחלת חיים ממוצעת" open={modal==='lifespan'} onClose={close}
-        chart={<BarChart data={[{name:'ממוצע',value:summary.avgLifespan??0}]}><XAxis dataKey="name"/><YAxis orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="שנים" fill={C[3]} radius={[6,6,0,0]}/></BarChart>}>
-        <PeopleList rows={deceasedRows} onEditPerson={onEditPerson} extraLabel="גיל פטירה"/>
-      </DrillModal>
-
-      <DrillModal title='סה"כ קשרים' open={modal==='rels'} onClose={close}
-        chart={<BarChart data={[{name:'בני זוג',value:relationships.filter(r=>['spouse','partner'].includes(r.relationshipType)).length},{name:'הורה-ילד',value:relationships.filter(r=>['parent','adoptive_parent','step_parent'].includes(r.relationshipType)).length},{name:'גרושים',value:relationships.filter(r=>['ex_spouse','ex_partner','separated'].includes(r.relationshipType)).length},{name:'אחים',value:relationships.filter(r=>['sibling','twin','step_sibling'].includes(r.relationshipType)).length}]}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis orientation="right" allowDecimals={false}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="קשרים" radius={[6,6,0,0]}>{[0,1,2,3].map(i=><Cell key={i} fill={C[i]}/>)}</Bar></BarChart>}>
-        <p className="text-sm text-muted-foreground">סה״כ {summary.totalRels} קשרים בעץ המשפחה.</p>
-      </DrillModal>
-
-      <DrillModal title="טווח שנים בעץ" open={modal==='treespan'} onClose={close}
-        chart={<BarChart data={decadeData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name"/><YAxis allowDecimals={false} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="אנשים" radius={[6,6,0,0]}>{decadeData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>}>
-        <PeopleList rows={allRows} onEditPerson={onEditPerson} extraLabel="שנת לידה"/>
-      </DrillModal>
-
-      <DrillModal title="גיל נישואין ממוצע" open={modal==='marriage'} onClose={close}
-        chart={<BarChart data={[{name:'ממוצע',value:Number(summary.avgMarriage)||0}]}><XAxis dataKey="name"/><YAxis orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="גיל" fill={C[4]} radius={[6,6,0,0]}/></BarChart>}>
-        <p className="text-sm text-muted-foreground">גיל נישואין ממוצע: {summary.avgMarriage} שנים, על בסיס {relationships.filter(r=>['spouse','partner'].includes(r.relationshipType)&&r.startDate).length} זוגות.</p>
+       <DrillModal title="הורים עם הכי הרבה ילדים" open={modal==='children'} onClose={close}
+        chart={<ResponsiveContainer width="100%" height={300}>
+            <BarChart data={childrenData} layout="vertical"><CartesianGrid strokeDasharray="3 3"/><XAxis type="number" allowDecimals={false}/><YAxis dataKey="name" type="category" width={100} orientation="right"/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="ילדים" radius={[0,6,6,0]}>{childrenData.map((_,i)=><Cell key={i} fill={C[i%C.length]}/>)}</Bar></BarChart>
+        </ResponsiveContainer>}>
+        <PeopleList rows={childrenData.map(d => ({person: d.person!, value: d.value}))} onEditPerson={onEditPerson} columns={[{header: 'שם', accessor: 'name'}, {header: 'מספר ילדים', accessor: 'value'}]} />
       </DrillModal>
 
     </div>
