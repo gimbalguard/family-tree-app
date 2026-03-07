@@ -300,7 +300,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
-        getDocs(manualEventsSnap),
+        getDocs(manualEventsRef),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
@@ -1319,7 +1319,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           handleRelModalClose();
           if (pendingDeleteId) setPendingDeleteId(null);
         }}
-        connection={newConnection}
         relationship={
           editingRelationship ||
           (pendingDeleteId
