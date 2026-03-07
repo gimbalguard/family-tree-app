@@ -224,11 +224,13 @@ function EventDetailPopover({
   viewingYear,
   onClose,
   onEditManual,
+  onEditPerson,
 }: {
   event: CalEvent;
   viewingYear: number;
   onClose: () => void;
   onEditManual?: (id: string) => void;
+  onEditPerson?: (personId: string) => void;
 }) {
   const yearsAgo = event.isAnniversary
     ? differenceInYears(new Date(viewingYear, getMonth(event.originalDate), getDate(event.originalDate)), event.originalDate)
@@ -257,16 +259,28 @@ function EventDetailPopover({
         </p>
 
         {event.people.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="space-y-2">
             {event.people.map((p) => (
-              <Avatar key={p.id} className="h-8 w-8 border">
-                <AvatarImage src={p.photoURL || undefined} />
-                <AvatarFallback>
-                  <img src={getPlaceholderImage(p.gender)} alt="avatar" />
-                </AvatarFallback>
-              </Avatar>
+              <div key={p.id} className="flex items-center gap-2">
+                <Avatar className="h-8 w-8 border flex-shrink-0">
+                  <AvatarImage src={p.photoURL || undefined} />
+                  <AvatarFallback>
+                    <img src={getPlaceholderImage(p.gender)} alt="avatar" />
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm flex-1">{p.firstName} {p.lastName}</span>
+                {onEditPerson && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs px-2"
+                    onClick={() => { onEditPerson(p.id); onClose(); }}
+                  >
+                    פתח כרטיס
+                  </Button>
+                )}
+              </div>
             ))}
-            <span className="text-sm">{event.people.map((p) => `${p.firstName} ${p.lastName}`).join(', ')}</span>
           </div>
         )}
 
@@ -446,38 +460,7 @@ function MultiDayView({
         ))}
       </div>
 
-      {/* All-day events banner */}
-      <div className="flex border-b flex-shrink-0 min-h-[2rem]">
-        <div className="w-14 flex-shrink-0 text-right pr-2 pt-1">
-          <span className="text-xs text-muted-foreground">כל היום</span>
-        </div>
-        {days.map((day) => {
-          const evs = getEventsForDay(filteredEvents, day);
-          return (
-            <div key={day.toISOString()} className="flex-1 border-l p-0.5 space-y-0.5">
-              {evs.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="rounded text-white text-xs font-medium cursor-pointer truncate px-1.5 leading-5"
-                  style={{
-                    backgroundColor: ev.colorHex,
-                    height: `${EVENT_BLOCK_HEIGHT}px`,
-                    marginBottom: '2px',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                  onClick={(e) => { e.stopPropagation(); onEventClick(ev, day); }}
-                  title={ev.title}
-                >
-                  {ev.title}
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Hourly grid (scrollable) */}
+      {/* Hourly grid (scrollable) — events placed starting at 08:00 */}
       <ScrollArea className="flex-1">
         <div className="flex" style={{ height: `${HOUR_HEIGHT * 24}px` }}>
           {/* Time gutter */}
@@ -494,23 +477,42 @@ function MultiDayView({
           </div>
 
           {/* Day columns */}
-          {days.map((day) => (
-            <div
-              key={day.toISOString()}
-              className="flex-1 border-l relative cursor-pointer"
-              style={{ height: `${HOUR_HEIGHT * 24}px` }}
-              onClick={() => onDayClick(day)}
-            >
-              {/* Hour lines */}
-              {hours.map((h) => (
-                <div
-                  key={h}
-                  className="absolute w-full border-t border-border/40"
-                  style={{ top: h * HOUR_HEIGHT }}
-                />
-              ))}
-            </div>
-          ))}
+          {days.map((day) => {
+            const evs = getEventsForDay(filteredEvents, day);
+            return (
+              <div
+                key={day.toISOString()}
+                className="flex-1 border-l relative cursor-pointer"
+                style={{ height: `${HOUR_HEIGHT * 24}px` }}
+                onClick={() => onDayClick(day)}
+              >
+                {/* Hour lines */}
+                {hours.map((h) => (
+                  <div
+                    key={h}
+                    className="absolute w-full border-t border-border/40"
+                    style={{ top: h * HOUR_HEIGHT }}
+                  />
+                ))}
+                {/* Events — stacked from 08:00, each 45 min tall */}
+                {evs.map((ev, index) => (
+                  <div
+                    key={ev.id}
+                    className="absolute left-0.5 right-0.5 rounded text-white text-xs font-medium cursor-pointer px-1.5 flex items-center truncate shadow-sm"
+                    style={{
+                      backgroundColor: ev.colorHex,
+                      top: 8 * HOUR_HEIGHT + index * (EVENT_BLOCK_HEIGHT + 2),
+                      height: EVENT_BLOCK_HEIGHT,
+                    }}
+                    onClick={(e) => { e.stopPropagation(); onEventClick(ev, day); }}
+                    title={ev.title}
+                  >
+                    {ev.title}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
@@ -639,11 +641,13 @@ export function CalendarView({
   relationships,
   manualEvents,
   onOpenEventEditor,
+  onEditPerson,
 }: {
   people: Person[];
   relationships: Relationship[];
   manualEvents: ManualEvent[];
   onOpenEventEditor: (event: Partial<ManualEvent> | null) => void;
+  onEditPerson?: (personId: string) => void;
 }) {
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -763,6 +767,7 @@ export function CalendarView({
           viewingYear={getYear(selectedEvent.day)}
           onClose={() => setSelectedEvent(null)}
           onEditManual={handleEditManual}
+          onEditPerson={onEditPerson}
         />
       )}
     </div>

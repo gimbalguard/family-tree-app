@@ -291,7 +291,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const [peopleSnap, relsSnap, posSnap, manualEventsSnap] = await Promise.all([
         getDocs(peopleRef),
         getDocs(relsRef),
-        getDocs(posSnap),
+        getDocs(posRef),
         getDocs(manualEventsSnap),
       ]);
 
