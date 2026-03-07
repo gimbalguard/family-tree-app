@@ -11,7 +11,6 @@ import ReactFlow, {
   type OnConnect,
   type NodeTypes,
   type OnNodeDragStop,
-  type OnNodeClick,
   type OnEdgeDoubleClick,
   BackgroundVariant,
   type OnPaneClick,
@@ -40,7 +39,6 @@ type FamilyTreeCanvasProps = {
   onNodesChange: OnNodesChange;
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
-  onNodeClick?: OnNodeClick;
   onNodeDoubleClick?: OnNodeDoubleClick;
   onEdgeClick?: OnEdgeClick;
   onEdgeDoubleClick?: OnEdgeDoubleClick;
@@ -55,7 +53,6 @@ export function FamilyTreeCanvas({
   onNodesChange,
   onEdgesChange,
   onConnect,
-  onNodeClick,
   onNodeDoubleClick,
   onEdgeClick,
   onEdgeDoubleClick,
@@ -72,7 +69,6 @@ export function FamilyTreeCanvas({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
@@ -87,6 +83,7 @@ export function FamilyTreeCanvas({
         panOnDrag={true}
         zoomOnScroll={true}
         selectNodesOnDrag={false}
+        multiSelectionKey="Shift"
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />

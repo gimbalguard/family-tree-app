@@ -1,11 +1,13 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnNodeClick, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection } from 'reactflow';
+import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection, NodeChange } from 'reactflow';
 import {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
   useStore,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -257,6 +259,25 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   }, [fetchData, isUserLoading, user]);
 
+  // This effect handles highlighting edges for a single selected node.
+  useEffect(() => {
+    const selectedNodes = nodes.filter(n => n.selected);
+
+    if (selectedNodes.length === 1) {
+        const selectedNodeId = selectedNodes[0].id;
+        setEdges(eds => {
+            const connectedEdgeIds = new Set(eds.filter(e => e.source === selectedNodeId || e.target === selectedNodeId).map(e => e.id));
+            return eds.map(e => {
+                const isSelected = connectedEdgeIds.has(e.id);
+                return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
+            });
+        });
+    } else {
+        // When multiple nodes or no nodes are selected, deselect all edges.
+        setEdges(eds => eds.map(e => ({ ...e, selected: false, animated: false, style: getEdgeStyle(false) })));
+    }
+  }, [nodes, setEdges]);
+
   const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback((_, edge) => {
     const rel = relationships.find(r => r.id === edge.id);
     if (rel) {
@@ -269,17 +290,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     setSelectedPerson(node.data);
     setIsEditorOpen(true);
   }, []);
-
-  const handleNodeClick: OnNodeClick = useCallback((_, clickedNode) => {
-    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === clickedNode.id })));
-    setEdges(eds => {
-        const connectedEdgeIds = new Set(eds.filter(e => e.source === clickedNode.id || e.target === clickedNode.id).map(e => e.id));
-        return eds.map(e => {
-            const isSelected = connectedEdgeIds.has(e.id);
-            return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
-        });
-    });
-  }, [setNodes, setEdges]);
 
   const handleEdgeClick: OnEdgeClick = useCallback((_, clickedEdge) => {
     setEdges(eds => eds.map(e => {
@@ -451,9 +461,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         } else {
             const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
             const newDocRef = doc(relsRef);
-            relData.id = newDocRef.id;
-            const dataToCreate = { ...cleanedData, id: newDocRef.id, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
-            batch.set(newDocRef, dataToCreate);
+            batch.set(newDocRef, { ...cleanedData, id: newDocRef.id, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         }
 
         if (genderUpdate) {
@@ -719,7 +727,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                     edges={edges}
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
-                    onNodeClick={handleNodeClick}
                     onNodeDoubleClick={handleNodeDoubleClick}
                     onEdgeClick={handleEdgeClick}
                     onPaneClick={handlePaneClick}
