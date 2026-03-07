@@ -305,82 +305,75 @@ export function AiBuildClient() {
     
     setStory(''); // Clear input immediately
     
-    // Use functional update to get the latest history and trigger AI call
-    setChatHistory(currentHistory => {
-      const updatedHistory = [...currentHistory, userMessage];
+    const newHistory = [...chatHistory, userMessage];
+    setChatHistory(newHistory);
+    setIsGenerating(true);
+    
+    try {
+      const flowInput = {
+        newUserMessage: messageContent,
+        treeName: treeName,
+        chatHistory: newHistory.map(m => ({
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
+        })),
+        existingPeople: [], // No existing people on the build page
+      };
 
-      // IIFE to run async logic inside the sync state updater
-      (async () => {
-        setIsGenerating(true);
-        try {
-          const flowInput = {
-            newUserMessage: messageContent,
-            treeName: treeName,
-            chatHistory: updatedHistory.map(m => ({
-              role: m.role,
-              content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
-            })),
-            existingPeople: [], // No existing people on the build page
-          };
+      const result = await generateTreeFromStory(flowInput);
 
-          const result = await generateTreeFromStory(flowInput);
-
-          const assistantMessageContent = (
-            <div className="space-y-4 text-right">
-              <p className="font-semibold">{result.summary}</p>
-              
-              {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
-                <div className="space-y-2">
-                  {result.clarificationQuestions.map((q, index) => (
-                    <Alert dir="rtl" key={index}>
-                      <Info className="h-4 w-4" />
-                      <AlertTitle>{q.question}</AlertTitle>
-                      {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
-                        <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
-                          {q.suggestedAnswers.map((ans, i) => (
-                            <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
-                              {ans}
-                            </Button>
-                          ))}
-                        </AlertDescription>
-                      )}
-                    </Alert>
-                  ))}
-                </div>
-              )}
+      const assistantMessageContent = (
+        <div className="space-y-4 text-right">
+          <p className="font-semibold">{result.summary}</p>
+          
+          {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
+            <div className="space-y-2">
+              {result.clarificationQuestions.map((q, index) => (
+                <Alert dir="rtl" key={index}>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>{q.question}</AlertTitle>
+                  {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
+                    <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
+                      {q.suggestedAnswers.map((ans, i) => (
+                        <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
+                          {ans}
+                        </Button>
+                      ))}
+                    </AlertDescription>
+                  )}
+                </Alert>
+              ))}
             </div>
-          );
+          )}
+        </div>
+      );
 
-          const assistantMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content: assistantMessageContent,
-            data: result.isComplete ? result : null,
-          };
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: assistantMessageContent,
+        data: result.isComplete ? result : null,
+      };
 
-          setChatHistory(prev => [...prev, assistantMessage]);
+      setChatHistory(prev => [...prev, assistantMessage]);
 
-        } catch (error) {
-          console.error('Error generating tree from story:', error);
-          const errorMessage: ChatMessage = {
-            id: (Date.now() + 1).toString(),
-            role: 'assistant',
-            content:
-              'מצטער, נתקלתי בשגיאה בעת ניתוח הסיפור שלך. נסה לנסח מחדש או נסה שוב מאוחר יותר.',
-          };
-          setChatHistory((prev) => [...prev, errorMessage]);
-          toast({
-            variant: 'destructive',
-            title: 'שגיאת AI',
-            description: 'לא ניתן היה לעבד את הסיפור.',
-          });
-        } finally {
-          setIsGenerating(false);
-        }
-      })();
-      
-      return updatedHistory;
-    });
+    } catch (error) {
+      console.error('Error generating tree from story:', error);
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content:
+          'מצטער, נתקלתי בשגיאה בעת ניתוח הסיפור שלך. נסה לנסח מחדש או נסה שוב מאוחר יותר.',
+      };
+      setChatHistory((prev) => [...prev, errorMessage]);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאת AI',
+        description: 'לא ניתן היה לעבד את הסיפור.',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
 
@@ -453,7 +446,7 @@ export function AiBuildClient() {
                       </Avatar>
                     )}
                     <div
-                      className={`max-w-[75%] rounded-lg p-3 ${
+                      className={`max-w-[75%] rounded-lg p-3 break-words ${
                         message.role === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-background'

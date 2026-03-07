@@ -32,18 +32,17 @@ const prompt = ai.definePrompt({
 **Core Task:** For each user message, analyze it in the context of the conversation history and the people already in the tree. Your goal is to identify people and relationships, then decide if you have enough information or if you need to ask for clarification.
 
 **Input for this turn:**
-1.  **Existing People:**
+1.  **Existing People:** A list of people already in the tree.
     \`\`\`json
     {{{json existingPeople}}}
     \`\`\`
-    *   Use this to avoid creating duplicates. Match new people against this list.
 
-2.  **Conversation History:**
+2.  **Conversation History:** The full back-and-forth so far.
     \`\`\`json
     {{{json chatHistory}}}
     \`\`\`
 
-3.  **User's New Message:**
+3.  **User's New Message:** The latest input from the user.
     > "{{{newUserMessage}}}"
 
 ---
@@ -52,15 +51,29 @@ const prompt = ai.definePrompt({
 
 You **MUST** produce a JSON object that follows the \`GenerateTreeOutput\` schema.
 
+**CRITICAL RULE: Deduplication**
+Before identifying any new person from the user's message, you MUST check if a person with a similar first and last name already exists in the \`existingPeople\` list.
+
+1.  **If a likely duplicate is found:**
+    *   DO NOT add them to the \`people\` array in your output.
+    *   Instead, you MUST ask a clarification question. For example: "מצאתי אדם בשם 'משה כהן' שכבר קיים בעץ. האם מדובר באותו אדם?"
+    *   Set \`isComplete\` to \`false\`.
+    *   In the \`clarificationQuestions\` array, add a question object. Provide suggested answers like "כן, זה אותו אדם" and "לא, זה אדם חדש".
+
+2.  **If the person is clearly new:**
+    *   Proceed with the analysis as described below.
+
+**Standard Analysis and Output Generation:**
+
 1.  **Analyze and Decide:**
     *   Read the new message and compare it with the history and existing people.
-    *   Have you gathered enough information to form a complete group of people and relationships? Or is there ambiguity or missing info (e.g., a missing spouse, unclear relationship)?
+    *   Have you gathered enough information to form a complete group of new people and relationships? Or is there ambiguity or missing info (e.g., a missing spouse, unclear relationship)?
 
 2.  **Produce Output based on Decision:**
 
     *   **Case 1: Information is Complete.**
         *   Set \`isComplete\` to \`true\`.
-        *   Populate the \`people\` and \`relationships\` arrays with ALL individuals and connections you have identified *throughout the entire conversation*.
+        *   Populate the \`people\` and \`relationships\` arrays with ALL new individuals and connections you have identified *throughout the entire conversation*. Do not include people from the \`existingPeople\` input list.
         *   Write a \`summary\` in Hebrew that confirms what you found (e.g., "מצאתי 6 אנשים ו-4 קשרים משפחתיים. האם תרצה להוסיף אותם לעץ?").
 
     *   **Case 2: Information is Incomplete or Ambiguous.**
@@ -76,7 +89,6 @@ You **MUST** produce a JSON object that follows the \`GenerateTreeOutput\` schem
         *   Leave all other fields empty or null.
 
 **Important Reminders:**
-*   **Deduplication is Key:** Do not create a person if they are already in \`existingPeople\`. If you are unsure if someone is a duplicate, ask a clarification question.
 *   **Parent Relationship:** For \`parent\` type relationships, \`personA\` is the parent, and \`personB\` is the child.
 *   **Hebrew Only:** All text in \`summary\` and \`clarificationQuestions\` must be in Hebrew.
 `,
