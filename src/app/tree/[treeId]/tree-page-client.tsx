@@ -1229,7 +1229,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   return (
     <div className="h-screen w-full" dir="rtl">
-      <div className="flex h-full flex-row-reverse">
+      <div className="flex h-full">
         <CanvasToolbar
           treeId={treeId}
           onAddPerson={handleOpenEditorForNew}
