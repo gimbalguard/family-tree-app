@@ -5,7 +5,6 @@ import {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
-  useUndoRedo,
   ConnectionMode,
 } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
@@ -112,19 +111,6 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
         targetHandle: 'upper-left-source',
     };
 };
-
-function CanvasToolbarWithHistory({ onAddPerson }: { onAddPerson: () => void }) {
-  const { undo, redo, canUndo, canRedo } = useUndoRedo();
-  return (
-    <CanvasToolbar
-      onAddPerson={onAddPerson}
-      onUndo={undo}
-      onRedo={redo}
-      canUndo={canUndo}
-      canRedo={canRedo}
-    />
-  );
-}
 
 export function TreePageClient({ treeId }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
@@ -490,6 +476,11 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
   
   const handleDeleteRelationship = async (relationshipId: string) => {
+    console.log('=== DELETE START ===');
+    console.log('relationshipId received:', relationshipId);
+    console.log('user uid:', user?.uid);
+    console.log('treeId:', treeId);
+    console.log('Full Firestore path:', `users/${user?.uid}/familyTrees/${treeId}/relationships/${relationshipId}`);
     if (!user || !db) return;
   
     let edgeToDelete: any;
@@ -658,7 +649,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
     <div className="h-screen w-full overflow-hidden">
         <ReactFlowProvider>
           <div className="flex h-full">
-            <CanvasToolbarWithHistory onAddPerson={handleOpenEditorForNew} />
+            <CanvasToolbar onAddPerson={handleOpenEditorForNew} />
             <main className="flex-1 relative">
                 <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
                     {!isEditingName ? (
