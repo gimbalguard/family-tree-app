@@ -18,7 +18,7 @@ export type FamilyTree = {
 };
 
 export type Person = {
-  id: string;
+  id:string;
   userId: string;
   treeId: string;
   firstName: string;
@@ -34,6 +34,7 @@ export type Person = {
   status: 'alive' | 'deceased' | 'unknown';
   religion?: 'jewish' | 'christian' | 'muslim' | 'buddhist' | 'other' | '';
   countryOfResidence?: string;
+  cityOfResidence?: string;
   photoURL?: string;
   description?: string;
   createdAt: Timestamp;

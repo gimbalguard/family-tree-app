@@ -36,10 +36,10 @@ const getInitialVisibility = (treeId: string): VisibilityState => {
   if (typeof window === 'undefined') return {};
   try {
     const saved = localStorage.getItem(`table-visibility-${treeId}`);
-    return saved ? JSON.parse(saved) : {};
+    return saved ? JSON.parse(saved) : { 'age': false, 'description': false };
   } catch (e) {
     console.error('Failed to parse table visibility from localStorage', e);
-    return {};
+    return { 'age': false, 'description': false };
   }
 };
 
@@ -85,60 +85,62 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4 h-full flex flex-col">
       <DataTableToolbar table={table} />
-      <div className="flex-1 min-h-0 overflow-auto">
-        <Table className="min-w-max">
-          <TableHeader className="sticky top-0 bg-muted/50 z-10">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} style={{ width: header.getSize() }}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
+      <div className="flex-1 min-h-0 relative">
+          <div className="absolute inset-0 overflow-auto">
+             <Table className="min-w-max">
+              <TableHeader className="sticky top-0 bg-muted/50 z-10">
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      return (
+                        <TableHead key={header.id} style={{ width: header.getSize() }}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-state={row.getIsSelected() && 'selected'}
+                      className="even:bg-muted/30 h-12"
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id} className="p-1">
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
                           )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && 'selected'}
-                  className="even:bg-muted/30 h-12"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-1">
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={columns.length}
+                      className="h-24 text-center"
+                    >
+                      לא נמצאו תוצאות.
                     </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  לא נמצאו תוצאות.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
       </div>
        <div className="flex-shrink-0 flex justify-between items-center text-sm text-muted-foreground pt-2 border-t">
         <div>
-            סה"כ: {table.getFilteredRowModel().rows.length} שורות
+            מציג {table.getRowModel().rows.length} מתוך {data.length}
         </div>
         <Button onClick={() => meta.onAddPerson()} disabled={!meta.isOwner}>
             <PlusCircle className="ml-2 h-4 w-4" />

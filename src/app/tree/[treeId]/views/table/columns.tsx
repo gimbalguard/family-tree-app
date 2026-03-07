@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { ColumnDef, CellContext } from '@tanstack/react-table';
+import { ColumnDef, CellContext, FilterFn } from '@tanstack/react-table';
 import type { Person } from '@/lib/types';
 import { DataTableColumnHeader } from './data-table-column-header';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -17,6 +17,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+
+// Custom filter function for age ranges
+const filterInAgeRange: FilterFn<Person> = (row, columnId, value, addMeta) => {
+    if (!value || value.length === 0) return true;
+
+    const age = row.getValue('age') as number | null;
+    if (age === null) return false;
+
+    const selectedRanges = value as string[];
+
+    return selectedRanges.some(range => {
+        if (range.endsWith('+')) {
+            const minAge = parseInt(range.slice(0, -1), 10);
+            return age >= minAge;
+        }
+        const [min, max] = range.split('-').map(Number);
+        return age >= min && age <= max;
+    });
+};
+
 
 // Generic Editable Cell Component
 const EditableCell = <T,>({
@@ -205,8 +225,6 @@ export const columns: ColumnDef<Person>[] = [
         enableSorting: false,
         enableHiding: false,
         size: 60,
-        minSize: 60,
-        maxSize: 60,
     },
     {
         accessorKey: 'firstName',
@@ -217,14 +235,12 @@ export const columns: ColumnDef<Person>[] = [
             return <Button variant="link" className="p-0 h-auto whitespace-nowrap" onClick={() => meta.onEditPerson(id)}>{props.getValue() as string}</Button>
         },
         size: 150,
-        minSize: 120,
     },
     {
         accessorKey: 'lastName',
         header: ({ column }) => <DataTableColumnHeader column={column} title="שם משפחה" />,
         cell: props => <EditableCell {...props} />,
         size: 150,
-        minSize: 120,
     },
     {
         accessorKey: 'gender',
@@ -232,7 +248,6 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableSelectCell {...props} options={[{value: 'male', label: 'זכר'}, {value: 'female', label: 'נקבה'}, {value: 'other', label: 'אחר'}]} />,
         filterFn: 'arrIncludes',
         size: 120,
-        minSize: 100,
     },
     {
         accessorKey: 'birthDate',
@@ -240,10 +255,9 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableDateCell {...props} />,
         sortingFn: 'datetime',
         size: 150,
-        minSize: 130,
     },
      {
-        id: 'age',
+        accessorKey: 'age',
         header: ({ column }) => <DataTableColumnHeader column={column} title="גיל" />,
         accessorFn: (row) => {
             if (!row.birthDate) return null;
@@ -257,15 +271,14 @@ export const columns: ColumnDef<Person>[] = [
             const age = getValue() as number | null;
             return age !== null ? <div className='whitespace-nowrap px-2 py-1'>{age}</div> : '–';
         },
+        filterFn: filterInAgeRange,
         size: 80,
-        minSize: 80,
     },
     {
         accessorKey: 'birthPlace',
         header: ({ column }) => <DataTableColumnHeader column={column} title="מקום לידה" />,
         cell: props => <EditableCell {...props} />,
         size: 180,
-        minSize: 150,
     },
     {
         accessorKey: 'deathDate',
@@ -273,7 +286,6 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableDateCell {...props} />,
         sortingFn: 'datetime',
         size: 150,
-        minSize: 130,
     },
     {
         accessorKey: 'status',
@@ -281,14 +293,19 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableSelectCell {...props} options={[{value: 'alive', label: 'חי'}, {value: 'deceased', label: 'נפטר'}, {value: 'unknown', label: 'לא ידוע'}]} />,
         filterFn: 'arrIncludes',
         size: 120,
-        minSize: 120,
     },
     {
         accessorKey: 'countryOfResidence',
         header: ({ column }) => <DataTableColumnHeader column={column} title="ארץ מגורים" />,
         cell: props => <EditableCell {...props} />,
         size: 180,
-        minSize: 150,
+    },
+    {
+        accessorKey: 'cityOfResidence',
+        header: ({ column }) => <DataTableColumnHeader column={column} title="עיר מגורים" />,
+        cell: props => <EditableCell {...props} />,
+        filterFn: 'arrIncludes',
+        size: 180,
     },
     {
         accessorKey: 'religion',
@@ -296,13 +313,11 @@ export const columns: ColumnDef<Person>[] = [
         cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}]} />,
         filterFn: 'arrIncludes',
         size: 120,
-        minSize: 120,
     },
     {
         accessorKey: 'description',
         header: ({ column }) => <DataTableColumnHeader column={column} title="הערות" />,
         cell: props => <EditableCell {...props} />,
         size: 300,
-        minSize: 250,
     },
 ];

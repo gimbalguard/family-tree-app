@@ -74,6 +74,7 @@ const personSchema = z.object({
   nickname: z.string().optional(),
   religion: z.enum(['jewish', 'christian', 'muslim', 'buddhist', 'other', '']).optional(),
   countryOfResidence: z.string().optional(),
+  cityOfResidence: z.string().optional(),
 });
 
 type PersonEditorProps = {
@@ -119,7 +120,7 @@ export function PersonEditor({
       birthDate: '', deathDate: '', birthPlace: '', photoURL: '',
       description: '', socialLinks: [], middleName: '',
       previousFirstName: '', maidenName: '', nickname: '',
-      religion: '', countryOfResidence: '',
+      religion: '', countryOfResidence: '', cityOfResidence: '',
     },
   });
 
@@ -145,7 +146,7 @@ export function PersonEditor({
             birthDate: '', deathDate: '', birthPlace: '', photoURL: '',
             description: '', socialLinks: [], middleName: '',
             previousFirstName: '', maidenName: '', nickname: '',
-            religion: '' as const, countryOfResidence: '',
+            religion: '' as const, countryOfResidence: '', cityOfResidence: '',
         };
 
         if (person) {
@@ -165,6 +166,7 @@ export function PersonEditor({
                 nickname: person.nickname || '',
                 religion: person.religion || '',
                 countryOfResidence: person.countryOfResidence || '',
+                cityOfResidence: person.cityOfResidence || '',
                 socialLinks: person.socialLinks || [],
             });
         } else {
@@ -398,6 +400,11 @@ export function PersonEditor({
                     <FormField control={form.control} name="countryOfResidence" render={({ field }) => (
                         <FormItem className="text-right"><FormLabel>ארץ מגורים</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-white" /></FormControl><FormMessage /></FormItem>
                     )}/>
+                    <FormField control={form.control} name="cityOfResidence" render={({ field }) => (
+                        <FormItem className="text-right"><FormLabel>עיר מגורים</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-white" /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
+                <div className="grid grid-cols-1">
                     <FormField control={form.control} name="religion" render={({ field }) => (
                         <FormItem className="text-right"><FormLabel>דת</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || ''} dir="rtl">

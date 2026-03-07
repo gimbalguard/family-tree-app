@@ -136,6 +136,10 @@
           "type": "string",
           "description": "The person's country of residence."
         },
+        "cityOfResidence": {
+          "type": "string",
+          "description": "The person's city of residence."
+        },
         "photoURL": {
           "type": "string",
           "description": "A URL to the person's profile photo. Must be a valid HTTPS URL.",
