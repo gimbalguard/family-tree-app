@@ -219,6 +219,7 @@ export function RelationshipModal({
     try {
       await onDelete(idToDelete);
       setDeleteConfirmOpen(false);
+      onClose();
     } finally {
       setIsDeleting(false);
     }
@@ -313,10 +314,7 @@ export function RelationshipModal({
                 <Button type="submit">שמור קשר</Button>
               </div>
               {isEditing && (
-                 <Button type="button" variant="ghost" size="icon" onClick={() => {
-                  onClose();
-                  setTimeout(() => setDeleteConfirmOpen(true), 200);
-                }}>
+                 <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteConfirmOpen(true)}>
                     <Trash2 className="h-5 w-5 text-destructive"/>
                     <span className="sr-only">מחק קשר</span>
                 </Button>
