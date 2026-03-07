@@ -123,7 +123,7 @@ const EditableSelectCell = <T,>({
      return <div className="px-2 py-1 whitespace-nowrap">{displayLabel || initialValue}</div>;
   }
   
-  const selectValue = initialValue === '' ? '--clear--' : initialValue;
+  const selectValue = initialValue === '' || !initialValue ? '--clear--' : initialValue;
 
   return (
     <Select value={selectValue} onValueChange={onSelect} dir='rtl'>

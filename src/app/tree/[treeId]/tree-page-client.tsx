@@ -1240,7 +1240,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           viewMode={viewMode}
           setViewMode={setViewMode}
         />
-        <main className="flex-1 relative">
+        <main className="flex-1 relative overflow-hidden">
           <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
             {!isEditingName ? (
               <h1

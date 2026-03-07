@@ -29,15 +29,7 @@ export function TableView({ data, isOwner, treeId, updatePersonData, onAddPerson
 
   return (
     <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 gap-4">
-      <div className="flex-1 min-h-0">
         <DataTable columns={columns} data={tableData} meta={meta} />
-      </div>
-      <div className="flex-shrink-0 flex justify-start pt-4 border-t">
-        <Button onClick={onAddPerson} disabled={!isOwner}>
-          <PlusCircle className="ml-2 h-4 w-4" />
-          הוסף אדם
-        </Button>
-      </div>
     </div>
   );
 }

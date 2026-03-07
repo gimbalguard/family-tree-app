@@ -11,6 +11,7 @@ import {
   SortingState,
   ColumnFiltersState,
   VisibilityState,
+  getPaginationRowModel,
 } from '@tanstack/react-table';
 import {
   Table,
@@ -82,8 +83,8 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4 h-full flex flex-col">
       <DataTableToolbar table={table} />
-      <div style={{ flex: 1, minHeight: 0, width: '100%', overflowX: 'scroll', overflowY: 'auto' }}>
-        <Table style={{ width: 'max-content', minWidth: 'max-content', tableLayout: 'fixed' }}>
+      <div className="flex-1 min-h-0 overflow-x-scroll">
+        <Table style={{ tableLayout: 'fixed' }} className="w-full">
           <TableHeader className="sticky top-0 bg-muted/50 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -133,8 +134,14 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end text-sm text-muted-foreground">
-        סה"כ: {table.getFilteredRowModel().rows.length} שורות
+       <div className="flex-shrink-0 flex justify-between items-center text-sm text-muted-foreground">
+        <div>
+            סה"כ: {table.getFilteredRowModel().rows.length} שורות
+        </div>
+        <Button onClick={() => meta.onAddPerson()} disabled={!meta.isOwner}>
+            <PlusCircle className="ml-2 h-4 w-4" />
+            הוסף אדם
+        </Button>
       </div>
     </div>
   );
