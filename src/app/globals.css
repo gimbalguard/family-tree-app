@@ -115,3 +115,8 @@
 .leaflet-container a.leaflet-popup-close-button {
   @apply text-foreground/70 hover:text-foreground;
 }
+
+/* Day-picker custom class */
+.rdp-day_button {
+    @apply h-full w-full p-1;
+}

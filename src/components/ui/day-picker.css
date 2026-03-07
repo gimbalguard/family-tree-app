@@ -1,0 +1,37 @@
+.rdp {
+  --rdp-cell-size: 40px;
+  --rdp-accent-color: hsl(var(--primary));
+  --rdp-background-color: hsl(var(--secondary));
+  --rdp-accent-color-dark: hsl(var(--primary));
+  --rdp-background-color-dark: hsl(var(--secondary));
+  --rdp-outline: 2px solid hsl(var(--ring));
+  --rdp-outline-selected: 3px solid hsl(var(--primary));
+  --rdp-selected-color: hsl(var(--primary-foreground));
+
+  margin: 1em 0;
+}
+
+.rdp-button:focus:not([disabled]),
+.rdp-button:active:not([disabled]) {
+  border: var(--rdp-outline);
+}
+
+.rdp-button[disabled] {
+  opacity: 0.25;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus,
+.rdp-day_selected:active {
+  font-weight: bold;
+  color: var(--rdp-selected-color);
+  background-color: var(--rdp-background-color);
+  border: none;
+}
+
+/* Add the custom style for the day button */
+.rdp-day_button {
+    height: 100%;
+    width: 100%;
+    padding: 0.25rem;
+}

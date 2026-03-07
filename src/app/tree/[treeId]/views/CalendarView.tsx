@@ -17,7 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { DayPicker, DayContent, type DayContentProps } from 'react-day-picker';
+import { DayPicker } from 'react-day-picker';
 import {
   format,
   getYear,
@@ -226,31 +226,29 @@ export function CalendarView({
   }, [filteredEvents]);
 
 
-  function CustomDayContent(props: DayContentProps) {
-    const anniversaryKey = `${getMonth(props.date)}-${getDate(props.date)}`;
-    const exactKey = format(props.date, 'yyyy-MM-dd');
+  const formatDay = (date: Date) => {
+    const anniversaryKey = `${getMonth(date)}-${getDate(date)}`;
+    const exactKey = format(date, 'yyyy-MM-dd');
     
     const anniversaryEventsOnDay = eventsByAnniversaryDay.get(anniversaryKey) || [];
     const exactEventsOnDay = eventsByExactDay.get(exactKey) || [];
-
     const allEventsOnDay = [...anniversaryEventsOnDay, ...exactEventsOnDay];
-    if (props.isOutside || allEventsOnDay.length === 0) {
-      return <DayContent {...props} />;
-    }
-
+    
     const uniqueEventTypes = [...new Set(allEventsOnDay.map(e => e.type))];
 
     return (
-      <div className="relative h-full w-full">
-        <DayContent {...props} />
-        <div className="absolute bottom-1 right-1 flex items-center justify-end gap-0.5">
-          {uniqueEventTypes.slice(0, 4).map(type => (
-            <div key={type} className={cn('h-1.5 w-1.5 rounded-full', eventTypeConfig[type].color)} />
-          ))}
-        </div>
+      <div className="relative h-full w-full flex items-center justify-center">
+        {format(date, 'd')}
+        {uniqueEventTypes.length > 0 && (
+          <div className="absolute bottom-1 right-1 flex items-center justify-end gap-0.5">
+            {uniqueEventTypes.slice(0, 4).map(type => (
+              <div key={type} className={cn('h-1.5 w-1.5 rounded-full', eventTypeConfig[type].color)} />
+            ))}
+          </div>
+        )}
       </div>
     );
-  }
+  };
 
   const handleDayClick = (date: Date, modifiers: any, e: React.MouseEvent<HTMLButtonElement>) => {
     if (modifiers.outside) return;
@@ -329,8 +327,8 @@ export function CalendarView({
           locale={he}
           showOutsideDays
           onDayClick={handleDayClick}
-          components={{
-            DayContent: CustomDayContent,
+          formatters={{
+            formatDay,
           }}
           classNames={{
             months: 'w-full',
@@ -341,7 +339,7 @@ export function CalendarView({
             head_cell: 'w-[calc(100%/7)] text-muted-foreground text-sm font-normal py-2',
             row: 'flex w-full min-h-[6rem]',
             cell: 'w-[calc(100%/7)] text-center text-sm relative focus-within:relative focus-within:z-20 border-l border-b',
-            day: 'h-full w-full p-1',
+            day_button: 'h-full w-full p-1',
             day_today: 'bg-accent/10 text-accent-foreground',
             day_outside: 'text-muted-foreground/50',
           }}
