@@ -86,3 +86,17 @@ export type CanvasPosition = {
   isLocked?: boolean;
   groupId?: string | null;
 };
+
+export type ManualEvent = {
+  id: string;
+  userId: string;
+  treeId: string;
+  title: string;
+  date: string; // YYYY-MM-DD
+  time?: string; // HH:mm
+  allDay: boolean;
+  description?: string;
+  color: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};

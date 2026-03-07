@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -35,6 +36,7 @@ import type {
   Person,
   Relationship,
   CanvasPosition,
+  ManualEvent,
 } from '@/lib/types';
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
@@ -83,6 +85,7 @@ import { TimelineView } from './views/TimelineView';
 import { TableView } from './views/table/TableView';
 import { MapView } from './views/MapView';
 import { CalendarView } from './views/CalendarView';
+import { ManualEventEditor } from './views/ManualEventEditor';
 
 type TreePageClientProps = {
   treeId: string;
@@ -193,6 +196,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
+  const [manualEvents, setManualEvents] = useState<ManualEvent[]>([]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -218,6 +222,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
   const [isOwnerPopoverOpen, setIsOwnerPopoverOpen] = useState(false);
+  
+  const [isManualEventEditorOpen, setIsManualEventEditorOpen] = useState(false);
+  const [editingManualEvent, setEditingManualEvent] = useState<Partial<ManualEvent> | null>(null);
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
@@ -271,56 +278,33 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     setError(null);
     try {
       const treeDetailsRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
-      const peopleRef = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'people'
-      );
-      const relsRef = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'relationships'
-      );
-      const posRef = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'canvasPositions'
-      );
+      const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
+      const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+      const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+      const manualEventsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'manualEvents');
 
       const treeSnap = await getDoc(treeDetailsRef);
       if (!treeSnap.exists()) {
         throw new Error('עץ המשפחה לא נמצא או שאין לך גישה.');
       }
 
-      const [peopleSnap, relsSnap, posSnap] = await Promise.all([
+      const [peopleSnap, relsSnap, posSnap, manualEventsSnap] = await Promise.all([
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
+        getDocs(manualEventsRef),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
-      const peopleData = peopleSnap.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as Person)
-      );
-      const relsData = relsSnap.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as Relationship)
-      );
-      const posData = posSnap.docs.map(
-        (d) => ({ id: d.id, ...d.data() } as CanvasPosition)
-      );
+      const peopleData = peopleSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Person));
+      const relsData = relsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Relationship));
+      const posData = posSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CanvasPosition));
+      const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
 
       setTree(treeData);
       setPeople(peopleData);
       setRelationships(relsData);
+      setManualEvents(manualEventsData);
 
       const positionsMap = new Map<string, Partial<CanvasPosition>>(
         posData.map((p) => [p.personId, p])
@@ -871,7 +855,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
       const [rels1Snapshot, rels2Snapshot] = await Promise.all([
         getDocs(relsQuery1),
-        getDocs(rels2Snapshot),
+        getDocs(relsQuery2),
       ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
@@ -1138,6 +1122,65 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   }, [people]);
 
+  const handleOpenManualEventEditor = (event: Partial<ManualEvent> | null) => {
+    setEditingManualEvent(event);
+    setIsManualEventEditorOpen(true);
+  };
+  
+  const handleSaveManualEvent = async (eventData: Omit<ManualEvent, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'treeId'> & { id?: string }) => {
+      if (!user || !db) return;
+  
+      const isEditing = 'id' in eventData;
+  
+      try {
+          if (isEditing) {
+              const eventRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'manualEvents', eventData.id!);
+              const { id, ...dataToUpdate} = eventData;
+              await updateDoc(eventRef, { ...dataToUpdate, updatedAt: serverTimestamp() });
+              toast({ title: 'האירוע עודכן' });
+          } else {
+              const eventsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'manualEvents');
+              await addDoc(eventsRef, { 
+                  ...eventData, 
+                  userId: user.uid, 
+                  treeId, 
+                  createdAt: serverTimestamp(), 
+                  updatedAt: serverTimestamp() 
+              });
+              toast({ title: 'האירוע נוצר' });
+          }
+          fetchData(); // Refetch all data to update the view
+          setIsManualEventEditorOpen(false);
+      } catch (error: any) {
+          const permissionError = new FirestorePermissionError({
+              path: `users/${user.uid}/familyTrees/${treeId}/manualEvents`,
+              operation: isEditing ? 'update' : 'create',
+              requestResourceData: eventData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          toast({ variant: 'destructive', title: 'שגיאה', description: 'לא ניתן היה לשמור את האירוע.' });
+      }
+  };
+  
+  const handleDeleteManualEvent = async (eventId: string) => {
+      if (!user || !db) return;
+  
+      try {
+          const eventRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'manualEvents', eventId);
+          await deleteDoc(eventRef);
+          toast({ title: 'האירוע נמחק' });
+          fetchData();
+          setIsManualEventEditorOpen(false);
+      } catch (error: any) {
+          const permissionError = new FirestorePermissionError({
+              path: `users/${user.uid}/familyTrees/${treeId}/manualEvents/${eventId}`,
+              operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          toast({ variant: 'destructive', title: 'שגיאה', description: 'לא ניתן היה למחוק את האירוע.' });
+      }
+  };
+
   const renderCurrentView = () => {
     if (viewMode === 'tree') {
       return (
@@ -1177,7 +1220,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       return <MapView people={people} onEditPerson={handleEditPerson} />;
     }
     if (viewMode === 'calendar') {
-      return <CalendarView people={people} relationships={relationships} />;
+      return <CalendarView 
+        people={people} 
+        relationships={relationships} 
+        manualEvents={manualEvents}
+        onOpenEventEditor={handleOpenManualEventEditor}
+      />;
     }
     const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map' | 'calendar'>];
     if (placeholder) {
@@ -1345,6 +1393,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         treeId={treeId}
         onSave={handleSavePerson}
         onDelete={handleDeleteRequest}
+      />
+       <ManualEventEditor 
+        isOpen={isManualEventEditorOpen}
+        onClose={() => setIsManualEventEditorOpen(false)}
+        event={editingManualEvent}
+        onSave={handleSaveManualEvent}
+        onDelete={handleDeleteManualEvent}
       />
       <AlertDialog
         open={isDuplicateAlertOpen}

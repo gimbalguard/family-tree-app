@@ -207,6 +207,18 @@ service cloud.firestore {
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
+        
+        /**
+         * @description Controls access to user-created manual calendar events.
+         * @path /users/{userId}/familyTrees/{treeId}/manualEvents/{eventId}
+         */
+        match /manualEvents/{eventId} {
+          allow get: if isOwner(userId);
+          allow list: if isOwner(userId);
+          allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
+          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
+          allow delete: if isExistingOwner(userId);
+        }
       }
     }
   }

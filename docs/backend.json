@@ -300,6 +300,70 @@
         "y",
         "updatedAt"
       ]
+    },
+    "ManualEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ManualEvent",
+      "type": "object",
+      "description": "A user-defined event on the calendar for a specific tree.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the event."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner of the tree."
+        },
+        "treeId": {
+          "type": "string",
+          "description": "Parent family tree ID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the event."
+        },
+        "date": {
+          "type": "string",
+          "description": "Event date in YYYY-MM-DD format.",
+          "format": "date"
+        },
+        "time": {
+          "type": "string",
+          "description": "Optional event time in HH:mm format."
+        },
+        "allDay": {
+          "type": "boolean",
+          "description": "True if the event is all-day."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description for the event."
+        },
+        "color": {
+          "type": "string",
+          "description": "Hex color code for the event display."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "treeId",
+        "title",
+        "date",
+        "allDay",
+        "color",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "auth": {
@@ -436,6 +500,30 @@
             {
               "name": "socialLinkId",
               "description": "The unique identifier for the social link document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}/manualEvents/{eventId}",
+        "definition": {
+          "entityName": "ManualEvent",
+          "schema": {
+            "$ref": "#/backend/entities/ManualEvent"
+          },
+          "description": "Stores user-defined calendar events for a specific family tree. Path parameters must match denormalized fields.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Owner's UID."
+            },
+            {
+              "name": "treeId",
+              "description": "Parent tree's ID."
+            },
+            {
+              "name": "eventId",
+              "description": "The event's unique ID."
             }
           ]
         }
