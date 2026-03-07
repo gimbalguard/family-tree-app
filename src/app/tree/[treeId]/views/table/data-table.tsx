@@ -8,10 +8,10 @@ import {
   getFacetedRowModel,
   getFacetedUniqueValues,
   useReactTable,
-  Table as ReactTable,
   SortingState,
   ColumnFiltersState,
   VisibilityState,
+  getPaginationRowModel,
 } from '@tanstack/react-table';
 import {
   Table,
@@ -32,8 +32,13 @@ interface DataTableProps<TData, TValue> {
 
 const getInitialVisibility = (treeId: string): VisibilityState => {
   if (typeof window === 'undefined') return {};
-  const saved = localStorage.getItem(`table-visibility-${treeId}`);
-  return saved ? JSON.parse(saved) : {};
+  try {
+    const saved = localStorage.getItem(`table-visibility-${treeId}`);
+    return saved ? JSON.parse(saved) : {};
+  } catch (e) {
+    console.error('Failed to parse table visibility from localStorage', e);
+    return {};
+  }
 };
 
 export function DataTable<TData, TValue>({
@@ -41,12 +46,12 @@ export function DataTable<TData, TValue>({
   data,
   meta,
 }: DataTableProps<TData, TValue>) {
-  const treeId = (meta as any)?.treeId || '';
+  const treeId = meta?.treeId || '';
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(getInitialVisibility(treeId));
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => getInitialVisibility(treeId));
   const [globalFilter, setGlobalFilter] = useState('');
-
+  
   useEffect(() => {
     if (typeof window !== 'undefined' && treeId) {
       localStorage.setItem(`table-visibility-${treeId}`, JSON.stringify(columnVisibility));
@@ -75,9 +80,9 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 h-full flex flex-col">
       <DataTableToolbar table={table} />
-      <div className="rounded-md border">
+      <div className="rounded-md border flex-1 relative overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 bg-muted/50 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -106,7 +111,7 @@ export function DataTable<TData, TValue>({
                   className="even:bg-muted/30"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-2 h-12">
+                    <TableCell key={cell.id} className="p-1 h-12">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

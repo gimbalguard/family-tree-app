@@ -809,6 +809,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         await updateDoc(personRef, { [field]: value, updatedAt: serverTimestamp() });
         // Update local state for immediate feedback
         setPeople(prev => prev.map(p => p.id === personId ? { ...p, [field]: value } : p));
+        toast({ title: 'השדה עודכן', duration: 2000 });
         return true;
     } catch (error: any) {
         const permissionError = new FirestorePermissionError({
@@ -870,7 +871,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
       const [rels1Snapshot, rels2Snapshot] = await Promise.all([
         getDocs(relsQuery1),
-        getDocs(relsQuery2),
+        getDocs(rels2Snapshot),
       ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
@@ -1158,6 +1159,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         return <TableView 
             data={people} 
             isOwner={isOwner} 
+            treeId={treeId}
             updatePersonData={updatePersonData}
             onAddPerson={handleOpenEditorForNew}
             onEditPerson={(personId) => {

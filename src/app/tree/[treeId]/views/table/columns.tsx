@@ -7,7 +7,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { differenceInYears, format } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -34,8 +34,7 @@ const EditableCell = <T,>({
   const isOwner = meta?.isOwner ?? false;
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const selectTriggerRef = useRef<HTMLButtonElement>(null);
-
+  
   useEffect(() => {
     setValue(initialValue);
   }, [initialValue]);
@@ -43,7 +42,7 @@ const EditableCell = <T,>({
   useEffect(() => {
     if (isEditing) {
       inputRef.current?.focus();
-      selectTriggerRef.current?.focus();
+      inputRef.current?.select();
     }
   }, [isEditing]);
   
@@ -93,7 +92,7 @@ const EditableCell = <T,>({
   }
   
   return (
-    <div className="px-2 py-1 min-h-[32px] cursor-pointer" onClick={() => setIsEditing(true)}>
+    <div className="px-2 py-1 min-h-[32px] cursor-pointer whitespace-nowrap" onClick={() => setIsEditing(true)}>
       {value || '–'}
     </div>
   );
@@ -118,12 +117,12 @@ const EditableSelectCell = <T,>({
   };
 
   if (!isOwner) {
-     return <div className="px-2 py-1">{options.find(o => o.value === initialValue)?.label || initialValue || '–'}</div>;
+     return <div className="px-2 py-1 whitespace-nowrap">{options.find(o => o.value === initialValue)?.label || initialValue || '–'}</div>;
   }
   
   return (
     <Select value={initialValue || ''} onValueChange={onSelect} dir='rtl'>
-        <SelectTrigger className="h-8 border-none bg-transparent focus:ring-0 focus:ring-offset-0">
+        <SelectTrigger className="h-8 border-none bg-transparent focus:ring-0 focus:ring-offset-0 whitespace-nowrap">
             <SelectValue placeholder="בחר..." />
         </SelectTrigger>
         <SelectContent>
@@ -164,16 +163,21 @@ const EditableDateCell = <T,>({
   };
   
   if (!isOwner) {
-    return <div className="px-2 py-1">{initialValue ? format(new Date(initialValue), 'dd/MM/yyyy') : '–'}</div>;
+    const date = initialValue ? new Date(initialValue) : null;
+    const displayValue = date && !isNaN(date.getTime()) ? format(date, 'dd/MM/yyyy') : '–';
+    return <div className="px-2 py-1 whitespace-nowrap">{displayValue}</div>;
   }
   
   if (isEditing) {
     return <Input type="date" ref={inputRef} value={value || ''} onChange={e => setValue(e.target.value)} onBlur={onSave} className="h-8"/>;
   }
 
+  const date = initialValue ? new Date(initialValue) : null;
+  const displayValue = date && !isNaN(date.getTime()) ? format(date, 'dd/MM/yyyy') : '–';
+
   return (
-    <div className="px-2 py-1 min-h-[32px] cursor-pointer" onClick={() => setIsEditing(true)}>
-      {initialValue ? format(new Date(initialValue), 'dd/MM/yyyy') : '–'}
+    <div className="px-2 py-1 min-h-[32px] cursor-pointer whitespace-nowrap" onClick={() => setIsEditing(true)}>
+      {displayValue}
     </div>
   );
 };
@@ -193,6 +197,7 @@ export const columns: ColumnDef<Person>[] = [
             );
         },
         enableSorting: false,
+        enableHiding: false,
     },
     {
         accessorKey: 'firstName',
@@ -200,7 +205,7 @@ export const columns: ColumnDef<Person>[] = [
         cell: (props) => {
             const { table, row: { original: { id } } } = props;
             const meta = table.options.meta as any;
-            return <Button variant="link" className="p-0 h-auto" onClick={() => meta.onEditPerson(id)}>{props.getValue() as string}</Button>
+            return <Button variant="link" className="p-0 h-auto whitespace-nowrap" onClick={() => meta.onEditPerson(id)}>{props.getValue() as string}</Button>
         }
     },
     {
@@ -212,7 +217,7 @@ export const columns: ColumnDef<Person>[] = [
         accessorKey: 'gender',
         header: ({ column }) => <DataTableColumnHeader column={column} title="מין" />,
         cell: props => <EditableSelectCell {...props} options={[{value: 'male', label: 'זכר'}, {value: 'female', label: 'נקבה'}, {value: 'other', label: 'אחר'}]} />,
-        filterFn: (row, id, value) => value.includes(row.getValue(id)),
+        filterFn: 'equals',
     },
     {
         accessorKey: 'birthDate',
@@ -225,12 +230,15 @@ export const columns: ColumnDef<Person>[] = [
         header: ({ column }) => <DataTableColumnHeader column={column} title="גיל" />,
         accessorFn: (row) => {
             if (!row.birthDate) return null;
+            const birthDate = new Date(row.birthDate);
+            if (isNaN(birthDate.getTime())) return null;
             const end = row.deathDate ? new Date(row.deathDate) : new Date();
-            return differenceInYears(end, new Date(row.birthDate));
+            if (isNaN(end.getTime())) return differenceInYears(new Date(), birthDate);
+            return differenceInYears(end, birthDate);
         },
         cell: ({ getValue }) => {
             const age = getValue() as number | null;
-            return age !== null ? age : '–';
+            return age !== null ? <div className='whitespace-nowrap'>{age}</div> : '–';
         }
     },
     {
@@ -248,7 +256,7 @@ export const columns: ColumnDef<Person>[] = [
         accessorKey: 'status',
         header: ({ column }) => <DataTableColumnHeader column={column} title="סטטוס" />,
         cell: props => <EditableSelectCell {...props} options={[{value: 'alive', label: 'חי'}, {value: 'deceased', label: 'נפטר'}, {value: 'unknown', label: 'לא ידוע'}]} />,
-        filterFn: (row, id, value) => value.includes(row.getValue(id)),
+        filterFn: 'equals',
     },
     {
         accessorKey: 'countryOfResidence',
@@ -258,8 +266,8 @@ export const columns: ColumnDef<Person>[] = [
     {
         accessorKey: 'religion',
         header: ({ column }) => <DataTableColumnHeader column={column} title="דת" />,
-        cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}]} />,
-        filterFn: (row, id, value) => value.includes(row.getValue(id)),
+        cell: props => <EditableSelectCell {...props} options={[{value: 'jewish', label: 'יהדות'}, {value: 'christian', label: 'נצרות'}, {value: 'muslim', label: 'אסלאם'}, {value: 'buddhist', label: 'בודהיזם'}, {value: 'other', label: 'אחר'}, {value: '', label: 'בחר...'}]} />,
+        filterFn: 'equals',
     },
     {
         accessorKey: 'description',
