@@ -13,16 +13,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -120,7 +110,7 @@ export function RelationshipModal({
 }: RelationshipModalProps) {
   
   const isEditing = !!relationship;
-  const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const form = useForm<z.infer<typeof relationshipSchema>>({
@@ -148,6 +138,9 @@ export function RelationshipModal({
 
   useEffect(() => {
     if (isOpen) {
+      // When the modal opens, reset the delete confirmation state
+      setIsConfirmingDelete(false);
+      
       if (isEditing && relationship && sourcePerson) {
         const selectedType = getRelationshipValue(relationship, sourcePerson);
         form.reset({
@@ -218,10 +211,10 @@ export function RelationshipModal({
     setIsDeleting(true);
     try {
       await onDelete(idToDelete);
-      setDeleteConfirmOpen(false);
-      onClose();
+      onClose(); // Close the modal after successful deletion
     } finally {
       setIsDeleting(false);
+      setIsConfirmingDelete(false);
     }
   };
 
@@ -240,107 +233,122 @@ export function RelationshipModal({
     return null;
   }
 
-  return (
-    <>
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="rounded-xl">
-        <DialogHeader className="text-right">
-          <DialogTitle>{isEditing ? 'עריכת קשר' : 'הגדרת קשר'}</DialogTitle>
-          <DialogDescription>
-            {isEditing ? `עריכת הקשר בין` : `צור קשר בין`}{' '}
-            <strong>{`${sourcePerson.firstName} ${sourcePerson.lastName}`}</strong> ו-{' '}
-            <strong>{`${targetPerson.firstName} ${targetPerson.lastName}`}</strong>.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <div className="flex items-center justify-center gap-2 text-lg text-center bg-muted p-3 rounded-md">
-                <strong>{displaySubject?.firstName}</strong>
-                <span className="text-muted-foreground">{currentSelectedOption?.label}</span>
-                <span className="text-muted-foreground">{isChildDirection ? 'של' : ''}</span>
-                <strong>{displayObject?.firstName}</strong>
-            </div>
+  const handleDialogClose = (open: boolean) => {
+    if(!open) {
+      // If the dialog is closing for any reason, reset the confirmation state
+      setIsConfirmingDelete(false);
+      onClose();
+    }
+  }
 
-            <FormField
-              control={form.control}
-              name="relationshipType"
-              render={({ field }) => (
-                <FormItem className="text-right">
-                  <FormLabel>סוג קשר</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                    <FormControl><SelectTrigger><SelectValue placeholder="בחר סוג קשר..." /></SelectTrigger></FormControl>
-                    <SelectContent>
-                        {relationshipOptions.map(opt => (
-                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            {dateVisibility !== 'none' && (
-                <div className={`grid ${dateVisibility === 'both' ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
-                <FormField
+  return (
+    <Dialog open={isOpen} onOpenChange={handleDialogClose}>
+      <DialogContent dir="rtl" className="rounded-xl">
+        {isConfirmingDelete ? (
+            <>
+                <DialogHeader className="text-right">
+                    <DialogTitle>האם אתה בטוח?</DialogTitle>
+                    <DialogDescription>
+                        פעולה זו תמחק לצמיתות את הקשר בין{' '}
+                        <strong>{`${sourcePerson.firstName} ${sourcePerson.lastName}`}</strong> ו-{' '}
+                        <strong>{`${targetPerson.firstName} ${targetPerson.lastName}`}</strong>.
+                        <br/>
+                        לא ניתן לבטל פעולה זו.
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="pt-4 mt-4 border-t">
+                    <Button variant="outline" onClick={() => setIsConfirmingDelete(false)} disabled={isDeleting}>
+                        ביטול
+                    </Button>
+                    <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                        {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                        מחק
+                    </Button>
+                </DialogFooter>
+            </>
+        ) : (
+            <>
+                <DialogHeader className="text-right">
+                <DialogTitle>{isEditing ? 'עריכת קשר' : 'הגדרת קשר'}</DialogTitle>
+                <DialogDescription>
+                    {isEditing ? `עריכת הקשר בין` : `צור קשר בין`}{' '}
+                    <strong>{`${sourcePerson.firstName} ${sourcePerson.lastName}`}</strong> ו-{' '}
+                    <strong>{`${targetPerson.firstName} ${targetPerson.lastName}`}</strong>.
+                </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                    <div className="flex items-center justify-center gap-2 text-lg text-center bg-muted p-3 rounded-md">
+                        <strong>{displaySubject?.firstName}</strong>
+                        <span className="text-muted-foreground">{currentSelectedOption?.label}</span>
+                        <span className="text-muted-foreground">{isChildDirection ? 'של' : ''}</span>
+                        <strong>{displayObject?.firstName}</strong>
+                    </div>
+
+                    <FormField
                     control={form.control}
-                    name="startDate"
+                    name="relationshipType"
                     render={({ field }) => (
                         <FormItem className="text-right">
-                            <FormLabel>תאריך התחלה</FormLabel>
-                            <FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl>
+                        <FormLabel>סוג קשר</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} dir="rtl">
+                            <FormControl><SelectTrigger><SelectValue placeholder="בחר סוג קשר..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {relationshipOptions.map(opt => (
+                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
                         </FormItem>
                     )}
-                />
-                {dateVisibility === 'both' && (
-                    <FormField
-                        control={form.control}
-                        name="endDate"
-                        render={({ field }) => (
-                            <FormItem className="text-right">
-                                <FormLabel>תאריך סיום</FormLabel>
-                                <FormControl><Input type="date" {...field} value={field.value || ''}/></FormControl>
-                            </FormItem>
-                        )}
                     />
-                )}
-                </div>
-            )}
-             <FormField control={form.control} name="notes" render={({ field }) => (
-                <FormItem className="text-right"><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl></FormItem>
-              )}/>
-            <DialogFooter className="pt-4 mt-4 border-t flex flex-row-reverse justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
-                <Button type="submit">שמור קשר</Button>
-              </div>
-              {isEditing && (
-                 <Button type="button" variant="ghost" size="icon" onClick={() => setDeleteConfirmOpen(true)}>
-                    <Trash2 className="h-5 w-5 text-destructive"/>
-                    <span className="sr-only">מחק קשר</span>
-                </Button>
-              )}
-            </DialogFooter>
-          </form>
-        </Form>
+                    {dateVisibility !== 'none' && (
+                        <div className={`grid ${dateVisibility === 'both' ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                        <FormField
+                            control={form.control}
+                            name="startDate"
+                            render={({ field }) => (
+                                <FormItem className="text-right">
+                                    <FormLabel>תאריך התחלה</FormLabel>
+                                    <FormControl><Input type="date" {...field} value={field.value || ''} /></FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        {dateVisibility === 'both' && (
+                            <FormField
+                                control={form.control}
+                                name="endDate"
+                                render={({ field }) => (
+                                    <FormItem className="text-right">
+                                        <FormLabel>תאריך סיום</FormLabel>
+                                        <FormControl><Input type="date" {...field} value={field.value || ''}/></FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+                        </div>
+                    )}
+                    <FormField control={form.control} name="notes" render={({ field }) => (
+                        <FormItem className="text-right"><FormLabel>הערות (אופציונלי)</FormLabel><FormControl><Textarea {...field} value={field.value || ''} /></FormControl></FormItem>
+                    )}/>
+                    <DialogFooter className="pt-4 mt-4 border-t flex flex-row-reverse justify-between items-center">
+                    <div className="flex items-center gap-2">
+                        <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
+                        <Button type="submit">שמור קשר</Button>
+                    </div>
+                    {isEditing && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => setIsConfirmingDelete(true)}>
+                            <Trash2 className="h-5 w-5 text-destructive"/>
+                            <span className="sr-only">מחק קשר</span>
+                        </Button>
+                    )}
+                    </DialogFooter>
+                </form>
+                </Form>
+            </>
+        )}
       </DialogContent>
     </Dialog>
-    <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent dir="rtl">
-            <AlertDialogHeader className="text-right">
-                <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    פעולה זו תמחק לצמיתות את הקשר. לא ניתן לבטל פעולה זו.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
-                <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-                    {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                    מחק
-                </Button>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    </>
   );
 }
