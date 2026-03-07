@@ -82,6 +82,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { TimelineView } from './views/TimelineView';
 import { TableView } from './views/table/TableView';
 import { MapView } from './views/MapView';
+import { CalendarView } from './views/CalendarView';
 
 type TreePageClientProps = {
   treeId: string;
@@ -96,10 +97,9 @@ export type ViewMode =
   | 'statistics';
 
 const viewPlaceholders: Record<
-  Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map'>,
+  Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map' | 'calendar'>,
   { label: string; emoji: string }
 > = {
-  calendar: { label: 'לוח שנה', emoji: '📆' },
   statistics: { label: 'סטטיסטיקות', emoji: '📊' },
 };
 
@@ -1176,7 +1176,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     if (viewMode === 'map') {
       return <MapView people={people} onEditPerson={handleEditPerson} />;
     }
-    const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map'>];
+    if (viewMode === 'calendar') {
+      return <CalendarView people={people} relationships={relationships} />;
+    }
+    const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table' | 'map' | 'calendar'>];
     if (placeholder) {
       return (
         <div className="flex h-full w-full items-center justify-center bg-muted/20">
