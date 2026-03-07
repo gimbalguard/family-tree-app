@@ -182,9 +182,9 @@ export const columns: ColumnDef<Person>[] = [
     {
         id: 'photoURL',
         header: 'תמונה',
-        cell: ({ row }) => {
+        cell: ({ row, table }) => {
             const { photoURL, firstName, lastName, gender, id } = row.original;
-            const meta = row.getContext().table.options.meta as any;
+            const meta = table.options.meta as any;
             return (
                 <Avatar className="h-9 w-9 cursor-pointer" onClick={() => meta.onEditPerson(id)}>
                     <AvatarImage src={photoURL || undefined} alt={`${firstName} ${lastName}`} />
