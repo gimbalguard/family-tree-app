@@ -7,7 +7,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { Search, Users, Heart, GitCommit, Calendar, Ring, Scale, Skull } from 'lucide-react';
+import { Search, Users, Heart, GitCommit, Calendar, HeartHandshake, Scale, Skull } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -314,7 +314,7 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
     { title: 'נפטרו', value: summary.deceased, icon: <Skull className="w-6 h-6 text-gray-800" />, iconBg: 'bg-gray-200', onClick: () => open('status') },
     { title: 'סה"כ קשרים', value: summary.totalRels, icon: <GitCommit className="w-6 h-6 text-purple-800" />, iconBg: 'bg-purple-100', onClick: () => open('rels') },
     { title: 'טווח שנים בעץ', value: `${summary.treeFrom ?? '?'} - ${summary.treeTo}`, icon: <Calendar className="w-6 h-6 text-orange-800" />, iconBg: 'bg-orange-100', onClick: () => open('decade') },
-    { title: 'גיל נישואין ממוצע', value: summary.avgMarriage, icon: <Ring className="w-6 h-6 text-pink-800" />, iconBg: 'bg-pink-100', onClick: () => open('marriage') },
+    { title: 'גיל נישואין ממוצע', value: summary.avgMarriage, icon: <HeartHandshake className="w-6 h-6 text-pink-800" />, iconBg: 'bg-pink-100', onClick: () => open('marriage') },
     { title: 'תוחלת חיים ממוצעת', value: summary.avgLifespan ?? 'N/A', icon: <Scale className="w-6 h-6 text-teal-800" />, iconBg: 'bg-teal-100', onClick: () => open('lifespan') },
   ];
 
@@ -480,5 +480,7 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
     </div>
   );
 }
+
+    
 
     
