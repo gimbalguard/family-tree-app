@@ -292,7 +292,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
-        getDocs(manualEventsSnap),
+        getDocs(manualEventsRef),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
@@ -1097,7 +1097,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       setNodes((nds) =>
         nds.map((n) => ({
           ...n,
-          data: { ...n.data, isOwner: n.id === oldOwnerId },
+          data: { ...n, data: { ...n.data, isOwner: n.id === oldOwnerId } },
         }))
       );
       toast({
