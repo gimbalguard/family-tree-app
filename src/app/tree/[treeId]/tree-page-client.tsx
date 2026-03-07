@@ -1300,6 +1300,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     <div className="h-screen w-full">
       <div className="flex h-full">
         <CanvasToolbar
+          treeId={treeId}
           onAddPerson={handleOpenEditorForNew}
           onUndo={undo}
           onRedo={redo}

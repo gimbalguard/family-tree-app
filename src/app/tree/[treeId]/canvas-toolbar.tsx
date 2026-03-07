@@ -18,6 +18,9 @@ import {
   Calendar as CalendarIcon,
   BarChart,
   ChevronDown,
+  Settings,
+  User,
+  HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -27,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ViewMode } from './tree-page-client';
+import { Separator } from '@/components/ui/separator';
 
 const viewOptions: {
   value: ViewMode;
@@ -61,6 +65,7 @@ type CanvasToolbarProps = {
   canRedo: boolean;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
+  treeId: string;
 };
 
 export function CanvasToolbar({
@@ -71,6 +76,7 @@ export function CanvasToolbar({
   canRedo,
   viewMode,
   setViewMode,
+  treeId,
 }: CanvasToolbarProps) {
   const currentView =
     viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
@@ -142,6 +148,47 @@ export function CanvasToolbar({
       </Tooltip>
 
       <div className="flex-grow" />
+
+      <div className="flex flex-col gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" disabled>
+              <Settings className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>הגדרות</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" disabled>
+              <User className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>חשבון</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
+            >
+              <HelpCircle className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>עזרה</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+
+      <Separator className="my-2 w-full" />
 
       <div className="flex gap-2">
         <Tooltip>
