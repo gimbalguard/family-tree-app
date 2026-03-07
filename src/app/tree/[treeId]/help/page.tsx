@@ -107,19 +107,19 @@ type Category = { category: string; articles: Article[] };
 function WikiSidebar({ content, activeId, onSelect }: { content: Category[], activeId: string, onSelect: (id: string) => void }) {
   return (
     <aside className="w-full md:w-64 border-b md:border-b-0 md:border-l p-4 h-auto md:h-screen md:sticky top-0 bg-gray-50/50">
-      <h2 className="font-bold mb-4 text-lg text-primary">מרכז העזרה</h2>
+      <h2 className="font-bold mb-4 text-lg text-primary text-right">מרכז העזרה</h2>
       <ScrollArea className="h-full max-h-48 md:max-h-full md:h-[calc(100vh-80px)]">
-        <nav className="space-y-4 pl-2">
+        <nav className="space-y-4 pr-2">
           {content.map((cat) => (
             <div key={cat.category}>
-              <h3 className="font-semibold text-gray-800 mb-2">{cat.category}</h3>
+              <h3 className="font-semibold text-gray-800 mb-2 text-right">{cat.category}</h3>
               <ul className="space-y-1">
                 {cat.articles.map((article) => (
                   <li key={article.id}>
                     <Button
                       variant="ghost"
                       className={cn(
-                        "w-full justify-start h-auto py-1 px-2 text-sm text-muted-foreground hover:text-foreground",
+                        "w-full justify-start h-auto py-1 px-2 text-sm text-muted-foreground hover:text-foreground text-right",
                         activeId === article.id && "text-primary bg-primary/10"
                       )}
                       onClick={() => onSelect(article.id)}
@@ -207,7 +207,7 @@ export default function HelpPage() {
 
   return (
     <div dir="rtl" className="bg-white text-gray-900 min-h-screen">
-      <div className="flex flex-col md:flex-row-reverse">
+      <div className="flex flex-col md:flex-row">
         <WikiSidebar content={wikiContent} activeId={activeArticleId} onSelect={handleSelectArticle} />
         
         <main className="flex-1 p-6 md:p-10">
