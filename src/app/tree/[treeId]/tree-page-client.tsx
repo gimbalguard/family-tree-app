@@ -80,6 +80,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
 import { TimelineView } from './views/TimelineView';
+import { TableView } from './views/table/TableView';
 
 type TreePageClientProps = {
   treeId: string;
@@ -94,10 +95,9 @@ export type ViewMode =
   | 'statistics';
 
 const viewPlaceholders: Record<
-  Exclude<ViewMode, 'tree' | 'timeline'>,
+  Exclude<ViewMode, 'tree' | 'timeline' | 'table'>,
   { label: string; emoji: string }
 > = {
-  table: { label: 'טבלה', emoji: '🗂️' },
   map: { label: 'מפה', emoji: '🗺️' },
   calendar: { label: 'לוח שנה', emoji: '📆' },
   statistics: { label: 'סטטיסטיקות', emoji: '📊' },
@@ -799,6 +799,33 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   };
 
+  const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any) => {
+    if (!user || !db) {
+        toast({ variant: 'destructive', title: 'שגיאת אימות' });
+        return false;
+    }
+    try {
+        const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personId);
+        await updateDoc(personRef, { [field]: value, updatedAt: serverTimestamp() });
+        // Update local state for immediate feedback
+        setPeople(prev => prev.map(p => p.id === personId ? { ...p, [field]: value } : p));
+        return true;
+    } catch (error: any) {
+        const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid}/familyTrees/${treeId}/people/${personId}`,
+            operation: 'update',
+            requestResourceData: { [field]: value },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        toast({
+            variant: 'destructive',
+            title: 'שגיאת עדכון',
+            description: `לא ניתן היה לעדכן את השדה.`,
+        });
+        return false;
+    }
+  }, [user, db, treeId, toast]);
+
   const handleDeleteRequest = (personId: string) => {
     const person = people.find((p) => p.id === personId);
     if (person) {
@@ -1102,6 +1129,62 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   };
 
+  const renderCurrentView = () => {
+    if (viewMode === 'tree') {
+      return (
+        <FamilyTreeCanvas
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onNodeDoubleClick={handleNodeDoubleClick}
+          onPaneClick={handlePaneClick}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDrag={onNodeDrag}
+          onNodeDragStop={onNodeDragStop}
+          onConnect={handleConnect}
+          onEdgeDoubleClick={handleEdgeDoubleClick}
+          onNodeContextMenu={onNodeContextMenu}
+          isValidConnection={isValidConnection}
+          onSelectionChange={onSelectionChange}
+        />
+      );
+    }
+    if (viewMode === 'timeline') {
+      return <TimelineView people={people} relationships={relationships} />;
+    }
+    if (viewMode === 'table') {
+        const isOwner = user?.uid === tree?.userId;
+        return <TableView 
+            data={people} 
+            isOwner={isOwner} 
+            updatePersonData={updatePersonData}
+            onAddPerson={handleOpenEditorForNew}
+            onEditPerson={(personId) => {
+                const person = people.find(p => p.id === personId);
+                if(person) {
+                    setSelectedPerson(person);
+                    setIsEditorOpen(true);
+                }
+            }}
+        />;
+    }
+    const placeholder = viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline' | 'table'>];
+    if (placeholder) {
+      return (
+        <div className="flex h-full w-full items-center justify-center bg-muted/20">
+          <div className="text-center text-muted-foreground">
+            <span className="text-6xl">{placeholder.emoji}</span>
+            <h2 className="mt-4 text-2xl font-bold">{placeholder.label}</h2>
+            <p>(תצוגה זו תפותח בקרוב)</p>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
+
   if (isUserLoading || (isLoading && !error)) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
@@ -1210,39 +1293,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
               </PopoverContent>
             </Popover>
           </div>
-          {viewMode === 'tree' ? (
-            <FamilyTreeCanvas
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onNodeDoubleClick={handleNodeDoubleClick}
-              onPaneClick={handlePaneClick}
-              onNodeDragStart={onNodeDragStart}
-              onNodeDrag={onNodeDrag}
-              onNodeDragStop={onNodeDragStop}
-              onConnect={handleConnect}
-              onEdgeDoubleClick={handleEdgeDoubleClick}
-              onNodeContextMenu={onNodeContextMenu}
-              isValidConnection={isValidConnection}
-              onSelectionChange={onSelectionChange}
-            />
-          ) : viewMode === 'timeline' ? (
-            <TimelineView people={people} relationships={relationships} />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-muted/20">
-              <div className="text-center text-muted-foreground">
-                <span className="text-6xl">
-                  {viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline'>].emoji}
-                </span>
-                <h2 className="mt-4 text-2xl font-bold">
-                  {viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline'>].label}
-                </h2>
-                <p>(תצוגה זו תפותח בקרוב)</p>
-              </div>
-            </div>
-          )}
-           {contextMenu && (
+          {renderCurrentView()}
+           {contextMenu && viewMode === 'tree' && (
             <NodeContextMenu
               x={contextMenu.x}
               y={contextMenu.y}
