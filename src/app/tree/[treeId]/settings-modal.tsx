@@ -96,7 +96,11 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
   const handleSaveChanges = async (values: z.infer<typeof settingsSchema>) => {
     setIsLoading(true);
     
-    let detailsToUpdate: Partial<FamilyTree> = { ...values };
+    const detailsToUpdate: Partial<FamilyTree> = { ...values };
+
+    if (detailsToUpdate.ownerPersonId === '--none--') {
+      detailsToUpdate.ownerPersonId = '';
+    }
 
     if (values.privacy === 'link' && !tree.shareToken) {
         const newShareToken = uuidv4();
@@ -158,7 +162,7 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                     <Select onValueChange={field.onChange} value={field.value} dir="rtl">
                         <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
                         <SelectContent>
-                            <SelectItem value="">- ללא -</SelectItem>
+                            <SelectItem value="--none--">- ללא -</SelectItem>
                             {people.map(p => (
                                 <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
                             ))}
