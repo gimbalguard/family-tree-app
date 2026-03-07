@@ -5,7 +5,6 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   getFilteredRowModel,
-  getPaginationRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
   useReactTable,
@@ -71,7 +70,6 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
@@ -131,7 +129,7 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
       <div className="flex items-center justify-end text-sm text-muted-foreground">
-        סה"כ: {table.getFilteredRowModel().rows.length} מתוך {table.getCoreRowModel().rows.length}
+        סה"כ: {table.getFilteredRowModel().rows.length} שורות
       </div>
     </div>
   );
