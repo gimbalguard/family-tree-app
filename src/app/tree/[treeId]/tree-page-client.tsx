@@ -457,11 +457,8 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
   };
   
   const handleDeleteRelationship = async (relationshipId: string) => {
-    console.log('=== DELETE START ===');
-    console.log('relationshipId received:', relationshipId);
-    console.log('user uid:', user?.uid);
-    console.log('treeId:', treeId);
-    console.log('Full Firestore path:', `users/${user?.uid}/familyTrees/${treeId}/relationships/${relationshipId}`);
+    if (!user || !db) return;
+  
     let edgeToDelete: any;
     setEdges(currentEdges => {
       edgeToDelete = currentEdges.find(e => e.id === relationshipId);
@@ -475,7 +472,11 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
       toast({ title: 'קשר נמחק' });
     } catch (error: any) {
       console.error('Error deleting relationship:', error);
-      toast({ variant: 'destructive', title: 'שגיאה במחיקת קשר' });
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה במחיקת קשר',
+        description: "לא ניתן היה למחוק את הקשר. החיבור שוחזר.",
+      });
       if (edgeToDelete) {
         setEdges(currentEdges => [...currentEdges, edgeToDelete!]);
       }

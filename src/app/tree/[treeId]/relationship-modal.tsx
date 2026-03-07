@@ -210,13 +210,11 @@ export function RelationshipModal({
   }
 
   const handleDelete = async () => {
-    console.log('handleDelete called, relationship:', relationship, 'relationshipId prop:', relationshipId);
     const idToDelete = relationshipId ?? relationship?.id;
     if (!idToDelete) {
       console.error('No ID available to delete');
       return;
     }
-    console.log('DELETE CALLED WITH ID:', idToDelete);
     setIsDeleting(true);
     try {
       await onDelete(idToDelete);
@@ -316,8 +314,8 @@ export function RelationshipModal({
               </div>
               {isEditing && (
                  <Button type="button" variant="ghost" size="icon" onClick={() => {
-                  onClose(); // close the edit dialog first
-                  setTimeout(() => setDeleteConfirmOpen(true), 150); // then open confirm dialog
+                  onClose();
+                  setTimeout(() => setDeleteConfirmOpen(true), 200);
                 }}>
                     <Trash2 className="h-5 w-5 text-destructive"/>
                     <span className="sr-only">מחק קשר</span>
