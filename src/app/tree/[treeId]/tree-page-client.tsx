@@ -6,7 +6,6 @@ import {
   useNodesState,
   useEdgesState,
   useStore,
-  useStoreApi,
 } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -119,9 +118,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   
-  const store = useStoreApi();
-  const canUndo = useStore((s) => !!s.past?.length);
-  const canRedo = useStore((s) => !!s.future?.length);
+  const undo = useStore((s) => s.undo);
+  const redo = useStore((s) => s.redo);
+  const canUndo = useStore((s) => (s.past?.length ?? 0) > 0);
+  const canRedo = useStore((s) => (s.future?.length ?? 0) > 0);
 
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
@@ -656,8 +656,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         <div className="flex h-full">
             <CanvasToolbar
                 onAddPerson={handleOpenEditorForNew}
-                onUndo={store.getState().undo}
-                onRedo={store.getState().redo}
+                onUndo={undo}
+                onRedo={redo}
                 canUndo={canUndo}
                 canRedo={canRedo}
             />
