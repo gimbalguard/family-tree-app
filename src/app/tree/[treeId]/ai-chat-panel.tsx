@@ -265,8 +265,9 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
       role: 'user',
       content: messageContent,
     };
-    const newHistory = [...chatHistory, userMessage];
-    setChatHistory(newHistory);
+    
+    const historyForAI = [...chatHistory, userMessage];
+    setChatHistory(historyForAI);
     setStory('');
     setIsGenerating(true);
 
@@ -274,7 +275,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
       const flowInput = {
         newUserMessage: messageContent,
         treeName: treeName,
-        chatHistory: newHistory.map(m => ({
+        chatHistory: historyForAI.map(m => ({
           role: m.role,
           content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
         })),
