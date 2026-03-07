@@ -79,6 +79,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { v4 as uuidv4 } from 'uuid';
+import { TimelineView } from './views/TimelineView';
 
 type TreePageClientProps = {
   treeId: string;
@@ -93,10 +94,9 @@ export type ViewMode =
   | 'statistics';
 
 const viewPlaceholders: Record<
-  Exclude<ViewMode, 'tree'>,
+  Exclude<ViewMode, 'tree' | 'timeline'>,
   { label: string; emoji: string }
 > = {
-  timeline: { label: 'ציר זמן', emoji: '📅' },
   table: { label: 'טבלה', emoji: '🗂️' },
   map: { label: 'מפה', emoji: '🗺️' },
   calendar: { label: 'לוח שנה', emoji: '📆' },
@@ -228,8 +228,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     nodes: Node<Person>[];
   } | null>(null);
   const dragRef = useRef<{
-    startPos: XYPosition;
     nodeId: string;
+    isGroupDrag: boolean;
     initialNodePositions: Map<string, XYPosition>;
   } | null>(null);
 
@@ -340,7 +340,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           type: 'personNode',
           position: pos ? { x: pos.x, y: pos.y } : { x: Math.random() * 400, y: Math.random() * 400 },
           data: personWithUiState,
-          draggable: !personWithUiState.isLocked,
+          draggable: !(pos?.isLocked ?? false),
         };
       });
       setNodes(initialNodes);
@@ -412,22 +412,25 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
     (event, node) => {
       event.preventDefault();
-      setContextMenu(null);
+      setContextMenu(null); // Close any existing menu
 
       const allNodes = getNodes();
-      const selectedNodes = allNodes.filter((n) => n.selected);
+      let selectedNodes = allNodes.filter((n) => n.selected);
 
-      // If right-clicked node is not in current selection, make it the only selection
-      if (!selectedNodes.find((n) => n.id === node.id)) {
+      // If the right-clicked node is not part of the current selection,
+      // make it the only selected node.
+      const isClickedNodeSelected = selectedNodes.some((n) => n.id === node.id);
+      if (!isClickedNodeSelected) {
+        selectedNodes = [node];
         setNodes((nds) =>
-          nds.map((n) => ({ ...n, selected: n.id === node.id }))
+          nds.map((n) => ({
+            ...n,
+            selected: n.id === node.id,
+          }))
         );
-        setContextMenu({
-          x: event.clientX,
-          y: event.clientY,
-          nodes: [node as Node<Person>],
-        });
-      } else if (selectedNodes.length > 0) {
+      }
+
+      if (selectedNodes.length > 0) {
         setContextMenu({
           x: event.clientX,
           y: event.clientY,
@@ -451,81 +454,79 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     );
   }, [setNodes, setEdges]);
 
-  const onNodeDragStart: OnNodeDragStart = useCallback((_, node) => {
-    dragRef.current = {
-      nodeId: node.id,
-      startPos: { ...node.position },
-      initialNodePositions: new Map(getNodes().map((n) => [n.id, n.position])),
-    };
-  }, [getNodes]);
+  const onNodeDragStart: OnNodeDragStart = useCallback(
+    (_, node) => {
+      const allNodes = getNodes();
+      const isGroupDrag =
+        !!node.data.groupId && allNodes.filter((n) => n.data.groupId === node.data.groupId).length > 1;
+
+      dragRef.current = {
+        nodeId: node.id,
+        isGroupDrag,
+        initialNodePositions: new Map(allNodes.map((n) => [n.id, n.position])),
+      };
+    },
+    [getNodes]
+  );
 
   const onNodeDrag: OnNodeDrag = useCallback(
-    (_, node) => {
+    (_, draggedNode) => {
       if (!dragRef.current) return;
+      const { nodeId, isGroupDrag, initialNodePositions } = dragRef.current;
+      if (draggedNode.data.isLocked) return;
 
-      const { startPos, nodeId, initialNodePositions } = dragRef.current;
+      const startPos = initialNodePositions.get(nodeId);
+      if (!startPos) return;
 
       const diff = {
-        x: node.position.x - startPos.x,
-        y: node.position.y - startPos.y,
+        x: draggedNode.position.x - startPos.x,
+        y: draggedNode.position.y - startPos.y,
       };
-
-      const draggedNode = getNodes().find((n) => n.id === nodeId);
-      if (!draggedNode || draggedNode.data.isLocked) {
-        return;
-      }
-      
-      const groupId = draggedNode.data.groupId;
 
       setNodes((nds) =>
         nds.map((n) => {
-          const initialPos = initialNodePositions.get(n.id);
-          if (!initialPos) return n;
-
-          if (n.id === nodeId && !n.data.isLocked) {
-            return n;
+          // If it's a group drag, move all non-locked nodes in the group
+          if (isGroupDrag && n.data.groupId === draggedNode.data.groupId && !n.data.isLocked) {
+            const initialPos = initialNodePositions.get(n.id);
+            if (initialPos) {
+              return {
+                ...n,
+                position: {
+                  x: initialPos.x + diff.x,
+                  y: initialPos.y + diff.y,
+                },
+              };
+            }
           }
-
-          if (groupId && n.data.groupId === groupId && !n.data.isLocked) {
-            return {
-              ...n,
-              position: {
-                x: initialPos.x + diff.x,
-                y: initialPos.y + diff.y,
-              },
-            };
+          // Always move the node being dragged (if it's not part of the group logic above)
+          if (n.id === nodeId) {
+            return n;
           }
           return n;
         })
       );
     },
-    [getNodes, setNodes]
+    [setNodes]
   );
 
   const onNodeDragStop: OnNodeDragStop = useCallback(
-    async (_, node) => {
+    async (_, draggedNode) => {
       if (!user || !db || !dragRef.current) return;
 
-      const draggedNode = getNodes().find((n) => n.id === node.id);
-      if (!draggedNode || draggedNode.data.isLocked) return;
-      
-      const affectedNodes = draggedNode.data.groupId
-        ? getNodes().filter(
-            (n) => n.data.groupId === draggedNode.data.groupId
-          )
-        : [draggedNode];
+      const { isGroupDrag } = dragRef.current;
+      const nodesToUpdate = isGroupDrag
+        ? getNodes().filter((n) => n.data.groupId === draggedNode.data.groupId && !n.data.isLocked)
+        : [getNodes().find(n => n.id === draggedNode.id)].filter(Boolean) as Node[];
 
+
+      if (nodesToUpdate.length === 0) return;
+      
       const batch = writeBatch(db);
       const canvasPositionsRef = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'canvasPositions'
+        db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions'
       );
       
-      for (const n of affectedNodes) {
+      for (const n of nodesToUpdate) {
         const q = query(canvasPositionsRef, where('personId', '==', n.id), limit(1));
         const snapshot = await getDocs(q);
 
@@ -590,8 +591,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleUngroup = async () => {
-    const selectedNodes = getNodes().filter((n) => n.selected);
-    const groupId = selectedNodes[0]?.data.groupId;
+    const selectedNode = getNodes().find((n) => n.selected);
+    const groupId = selectedNode?.data.groupId;
     if (!groupId || !user || !db) return;
 
     const nodesInGroup = getNodes().filter(n => n.data.groupId === groupId);
@@ -905,36 +906,18 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     genderUpdate?: { personId: string; gender: 'male' | 'female' | 'other' };
   }) => {
     if (!user || !db) return;
-
     const { relData, genderUpdate } = payload;
     const isEditing = !!editingRelationship;
-
     try {
       const batch = writeBatch(db);
-
       if (isEditing) {
-        const relRef = doc(
-          db,
-          'users',
-          user.uid,
-          'familyTrees',
-          treeId,
-          'relationships',
-          relData.id
-        );
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relData.id);
         const dataToUpdate = { ...relData, updatedAt: serverTimestamp() };
         delete dataToUpdate.id;
         batch.update(relRef, dataToUpdate);
       } else {
-        const relsRef = collection(
-          db,
-          'users',
-          user.uid,
-          'familyTrees',
-          treeId,
-          'relationships'
-        );
-        const newDocRef = doc(relsRef); // Create ref with auto-generated ID
+        const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+        const newDocRef = doc(relsRef);
         const dataToCreate = {
           ...relData,
           userId: user.uid,
@@ -945,24 +928,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         delete dataToCreate.id;
         batch.set(newDocRef, dataToCreate);
       }
-
       if (genderUpdate) {
-        const personRef = doc(
-          db,
-          'users',
-          user.uid,
-          'familyTrees',
-          treeId,
-          'people',
-          genderUpdate.personId
-        );
+        const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', genderUpdate.personId);
         batch.update(personRef, { gender: genderUpdate.gender });
       }
-
       await batch.commit();
-
       toast({ title: isEditing ? 'קשר עודכן' : 'קשר נוסף' });
-
       fetchData();
       handleRelModalClose();
     } catch (error: any) {
@@ -1256,14 +1227,16 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
               isValidConnection={isValidConnection}
               onSelectionChange={onSelectionChange}
             />
+          ) : viewMode === 'timeline' ? (
+            <TimelineView people={people} relationships={relationships} />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-muted/20">
               <div className="text-center text-muted-foreground">
                 <span className="text-6xl">
-                  {viewPlaceholders[viewMode as Exclude<ViewMode, 'tree'>].emoji}
+                  {viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline'>].emoji}
                 </span>
                 <h2 className="mt-4 text-2xl font-bold">
-                  {viewPlaceholders[viewMode as Exclude<ViewMode, 'tree'>].label}
+                  {viewPlaceholders[viewMode as Exclude<ViewMode, 'tree' | 'timeline'>].label}
                 </h2>
                 <p>(תצוגה זו תפותח בקרוב)</p>
               </div>
