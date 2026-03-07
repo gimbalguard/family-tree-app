@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
-import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection, NodeChange } from 'reactflow';
+import type { Node, Edge, Connection, OnConnect, OnNodeDragStop, OnEdgeDoubleClick, OnPaneClick, OnEdgeClick, OnNodeDoubleClick, IsValidConnection, NodeChange, OnSelectionChangeParams } from 'reactflow';
 import {
   ReactFlowProvider,
   useNodesState,
@@ -257,6 +257,30 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   }, [fetchData, isUserLoading, user]);
 
+  const onSelectionChange = useCallback(
+    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+      setEdges((eds) =>
+        eds.map((edge) => {
+          // Animate edges if exactly one node is selected
+          const isAnimated =
+            selectedNodes.length === 1 &&
+            (edge.source === selectedNodes[0].id ||
+              edge.target === selectedNodes[0].id);
+
+          // An edge is visually "selected" if it was clicked directly
+          const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
+
+          return {
+            ...edge,
+            animated: isAnimated,
+            style: getEdgeStyle(isAnimated || isEdgeSelected),
+          };
+        })
+      );
+    },
+    [setEdges]
+  );
+
   const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback((_, edge) => {
     const rel = relationships.find(r => r.id === edge.id);
     if (rel) {
@@ -269,13 +293,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     setSelectedPerson(node.data);
     setIsEditorOpen(true);
   }, []);
-
-  const handleEdgeClick: OnEdgeClick = useCallback((_, clickedEdge) => {
-    setEdges(eds => eds.map(e => {
-        const isSelected = e.id === clickedEdge.id;
-        return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
-    }));
-  }, [setEdges]);
   
   const handlePaneClick: OnPaneClick = useCallback(() => {
     setSelectedPerson(null);
@@ -422,51 +439,59 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const handleSaveRelationship = async (payload: { relData: any, genderUpdate?: { personId: string, gender: 'male' | 'female' | 'other' }}) => {
     if (!user || !db) return;
-
+  
     const { relData, genderUpdate } = payload;
-    
+  
     const cleanedData = Object.fromEntries(
       Object.entries(relData).filter(([, v]) => v !== undefined)
     );
-
+  
     try {
-        const batch = writeBatch(db);
-        
-        if (editingRelationship) {
-            const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', editingRelationship.id);
-            const dataToUpdate = { ...cleanedData, userId: user.uid, treeId, updatedAt: serverTimestamp() };
-            batch.update(relRef, dataToUpdate);
-        } else {
-            const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-            const newDocRef = doc(relsRef);
-            batch.set(newDocRef, { ...cleanedData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        }
-
-        if (genderUpdate) {
-            const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', genderUpdate.personId);
-            batch.update(personRef, { gender: genderUpdate.gender });
-        }
-
-        await batch.commit();
-
-        toast({ title: editingRelationship ? 'קשר עודכן' : 'קשר נוסף' });
-        
-        // This is the correct way: refetch all data to ensure UI consistency after a complex change.
-        fetchData(); 
-        handleRelModalClose();
-
+      const batch = writeBatch(db);
+  
+      if (editingRelationship) {
+        // Update existing relationship
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', editingRelationship.id);
+        const dataToUpdate = { ...cleanedData, updatedAt: serverTimestamp() };
+        batch.update(relRef, dataToUpdate);
+      } else {
+        // Create new relationship
+        const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
+        const newDocRef = doc(relsRef); // Create ref with a new ID
+        const dataToCreate = {
+          ...cleanedData,
+          userId: user.uid, // Explicitly add userId
+          treeId: treeId,   // Explicitly add treeId
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        batch.set(newDocRef, dataToCreate);
+      }
+  
+      if (genderUpdate) {
+        const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', genderUpdate.personId);
+        batch.update(personRef, { gender: genderUpdate.gender });
+      }
+  
+      await batch.commit();
+  
+      toast({ title: editingRelationship ? 'קשר עודכן' : 'קשר נוסף' });
+  
+      fetchData();
+      handleRelModalClose();
+  
     } catch (error: any) {
-        toast({
-          variant: 'destructive',
-          title: 'שגיאה בשמירת קשר',
-          description: error.message || "An unexpected error occurred.",
-        });
-        const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/familyTrees/${treeId}/relationships`,
-            operation: editingRelationship ? 'update' : 'create',
-            requestResourceData: cleanedData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה בשמירת קשר',
+        description: error.message || "An unexpected error occurred.",
+      });
+      const permissionError = new FirestorePermissionError({
+        path: `users/${user.uid}/familyTrees/${treeId}/relationships`,
+        operation: editingRelationship ? 'update' : 'create',
+        requestResourceData: relData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
     }
   };
   
@@ -706,12 +731,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                     onNodesChange={onNodesChange}
                     onEdgesChange={onEdgesChange}
                     onNodeDoubleClick={handleNodeDoubleClick}
-                    onEdgeClick={handleEdgeClick}
                     onPaneClick={handlePaneClick}
                     onNodeDragStop={handleNodeDragStop}
                     onConnect={handleConnect}
                     onEdgeDoubleClick={handleEdgeDoubleClick}
                     isValidConnection={isValidConnection}
+                    onSelectionChange={onSelectionChange}
                 />
             </main>
         </div>

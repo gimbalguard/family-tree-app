@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ReactFlow, {
   useReactFlow,
   Background,
@@ -19,6 +19,7 @@ import ReactFlow, {
   type OnNodeDoubleClick,
   type IsValidConnection,
   ConnectionMode,
+  type OnSelectionChange,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -41,11 +42,11 @@ type FamilyTreeCanvasProps = {
   onEdgesChange: OnEdgesChange;
   onConnect: OnConnect;
   onNodeDoubleClick?: OnNodeDoubleClick;
-  onEdgeClick?: OnEdgeClick;
   onEdgeDoubleClick?: OnEdgeDoubleClick;
   onPaneClick?: OnPaneClick;
   onNodeDragStop: OnNodeDragStop;
   isValidConnection: IsValidConnection;
+  onSelectionChange: OnSelectionChange;
 };
 
 export function FamilyTreeCanvas({
@@ -55,23 +56,14 @@ export function FamilyTreeCanvas({
   onEdgesChange,
   onConnect,
   onNodeDoubleClick,
-  onEdgeClick,
   onEdgeDoubleClick,
   onPaneClick,
   onNodeDragStop,
   isValidConnection,
+  onSelectionChange,
 }: FamilyTreeCanvasProps) {
   const [isMinimapVisible, setIsMinimapVisible] = useState(false);
-  const { setMultiSelectionKey } = useReactFlow();
 
-  useEffect(() => {
-    setMultiSelectionKey('Shift');
-    // Set it back to null on unmount to be clean
-    return () => {
-      setMultiSelectionKey(null);
-    };
-  }, [setMultiSelectionKey]);
-  
   return (
     <div className="h-full w-full relative">
       <ReactFlow
@@ -81,7 +73,6 @@ export function FamilyTreeCanvas({
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         onNodeDoubleClick={onNodeDoubleClick}
-        onEdgeClick={onEdgeClick}
         onEdgeDoubleClick={onEdgeDoubleClick}
         onPaneClick={onPaneClick}
         onNodeDragStop={onNodeDragStop}
@@ -94,6 +85,8 @@ export function FamilyTreeCanvas({
         panOnDrag={true}
         zoomOnScroll={true}
         selectNodesOnDrag={false}
+        multiSelectionKey="Control"
+        onSelectionChange={onSelectionChange}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
