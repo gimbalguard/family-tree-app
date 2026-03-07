@@ -386,7 +386,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           target,
           sourceHandle,
           targetHandle,
-          type: 'bezier',
+          type: 'smoothstep',
           label: getLabel(),
           labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
           labelStyle: { fill: 'hsl(var(--foreground))' },

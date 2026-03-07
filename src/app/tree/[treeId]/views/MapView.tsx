@@ -62,7 +62,7 @@ export function MapView({ people, onEditPerson }: MapViewProps) {
             // Nominatim's Usage Policy requires a valid User-Agent.
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}&limit=1`, {
               headers: {
-                'User-Agent': 'FamilyTreeApp/1.0 (for support, contact your administrator)'
+                'User-Agent': 'FamilyTreeApp/1.0'
               }
             });
             
