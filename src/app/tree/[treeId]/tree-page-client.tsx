@@ -6,8 +6,6 @@ import {
   useNodesState,
   useEdgesState,
   useStore,
-  applyNodeChanges,
-  applyEdgeChanges,
 } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -259,25 +257,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   }, [fetchData, isUserLoading, user]);
 
-  // This effect handles highlighting edges for a single selected node.
-  useEffect(() => {
-    const selectedNodes = nodes.filter(n => n.selected);
-
-    if (selectedNodes.length === 1) {
-        const selectedNodeId = selectedNodes[0].id;
-        setEdges(eds => {
-            const connectedEdgeIds = new Set(eds.filter(e => e.source === selectedNodeId || e.target === selectedNodeId).map(e => e.id));
-            return eds.map(e => {
-                const isSelected = connectedEdgeIds.has(e.id);
-                return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
-            });
-        });
-    } else {
-        // When multiple nodes or no nodes are selected, deselect all edges.
-        setEdges(eds => eds.map(e => ({ ...e, selected: false, animated: false, style: getEdgeStyle(false) })));
-    }
-  }, [nodes, setEdges]);
-
   const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback((_, edge) => {
     const rel = relationships.find(r => r.id === edge.id);
     if (rel) {
@@ -296,8 +275,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         const isSelected = e.id === clickedEdge.id;
         return { ...e, selected: isSelected, animated: isSelected, style: getEdgeStyle(isSelected) };
     }));
-    setNodes(nds => nds.map(n => ({ ...n, selected: n.id === clickedEdge.source || n.id === clickedEdge.target })));
-  }, [setNodes, setEdges]);
+  }, [setEdges]);
   
   const handlePaneClick: OnPaneClick = useCallback(() => {
     setSelectedPerson(null);
@@ -461,7 +439,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         } else {
             const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
             const newDocRef = doc(relsRef);
-            batch.set(newDocRef, { ...cleanedData, userId: user.uid, treeId: treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            batch.set(newDocRef, { ...cleanedData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         }
 
         if (genderUpdate) {
