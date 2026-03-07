@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -6,7 +7,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { Search, Users, Heart, GitCommit, Calendar, Rings, Scale, Skull } from 'lucide-react';
+import { Search, Users, Heart, GitCommit, Calendar, Ring, Scale, Skull } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -264,7 +265,7 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
   const statusData=useMemo(()=>[{name:'חיים',value:summary.living},{name:'נפטרים',value:summary.deceased},{name:'לא ידוע',value:people.filter(p=>!p.status||p.status==='unknown').length}].filter(d=>d.value>0),[people,summary]);
   const ageData=useMemo(()=>{
     const b:Record<string,number>={'0-10':0,'11-20':0,'21-30':0,'31-40':0,'41-50':0,'51-60':0,'61-70':0,'71-80':0,'81-90':0,'91+':0};
-    people.filter(p=>p.status==='alive'&&p.birthDate&&isValid(parseISO(p.birthDate))).forEach(p=>{
+    people.filter(p=>p.status==='alive'&&p.birthDate&&isValid(parseISO(p.birthDate!))).forEach(p=>{
       const age=differenceInYears(new Date(),parseISO(p.birthDate!));
       const k=age<=10?'0-10':age<=20?'11-20':age<=30?'21-30':age<=40?'31-40':age<=50?'41-50':age<=60?'51-60':age<=70?'61-70':age<=80?'71-80':age<=90?'81-90':'91+';
       b[k]++;
@@ -313,7 +314,7 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
     { title: 'נפטרו', value: summary.deceased, icon: <Skull className="w-6 h-6 text-gray-800" />, iconBg: 'bg-gray-200', onClick: () => open('status') },
     { title: 'סה"כ קשרים', value: summary.totalRels, icon: <GitCommit className="w-6 h-6 text-purple-800" />, iconBg: 'bg-purple-100', onClick: () => open('rels') },
     { title: 'טווח שנים בעץ', value: `${summary.treeFrom ?? '?'} - ${summary.treeTo}`, icon: <Calendar className="w-6 h-6 text-orange-800" />, iconBg: 'bg-orange-100', onClick: () => open('decade') },
-    { title: 'גיל נישואין ממוצע', value: summary.avgMarriage, icon: <Rings className="w-6 h-6 text-pink-800" />, iconBg: 'bg-pink-100', onClick: () => open('marriage') },
+    { title: 'גיל נישואין ממוצע', value: summary.avgMarriage, icon: <Ring className="w-6 h-6 text-pink-800" />, iconBg: 'bg-pink-100', onClick: () => open('marriage') },
     { title: 'תוחלת חיים ממוצעת', value: summary.avgLifespan ?? 'N/A', icon: <Scale className="w-6 h-6 text-teal-800" />, iconBg: 'bg-teal-100', onClick: () => open('lifespan') },
   ];
 
@@ -479,3 +480,5 @@ export function StatisticsView({ people, relationships, onEditPerson }: {
     </div>
   );
 }
+
+    
