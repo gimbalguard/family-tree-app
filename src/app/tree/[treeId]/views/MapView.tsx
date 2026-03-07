@@ -100,6 +100,7 @@ export function MapView({ people, onEditPerson }: MapViewProps) {
             const coords = await geocodeLocation(locationString);
             if (isMounted && coords) {
               located.push({ person, coords, locationString });
+              await new Promise(resolve => setTimeout(resolve, 200)); // Client-side rate limit
             } else {
               excluded++;
             }
@@ -205,32 +206,26 @@ export function MapView({ people, onEditPerson }: MapViewProps) {
     };
   }, [people, onEditPerson]);
 
-  if (isLoading) {
-    return (
-        <div className="flex h-full w-full items-center justify-center bg-muted/20">
+  return (
+    <div className="h-full w-full relative">
+       {isLoading && (
+         <div className="absolute inset-0 flex items-center justify-center bg-muted/50 z-[1001]">
             <div className="flex flex-col items-center gap-4 text-muted-foreground">
                 <Loader2 className="h-10 w-10 animate-spin" />
                 <span className="text-lg">טוען את המפה ומיקומי האנשים...</span>
             </div>
-        </div>
-    )
-  }
-  
-  if (locatedPeople.length === 0) {
-    return (
-        <div className="flex h-full w-full items-center justify-center bg-muted/20">
-            <div className="text-center text-muted-foreground">
+         </div>
+       )}
+       {!isLoading && locatedPeople.length === 0 && (
+         <div className="absolute inset-0 flex items-center justify-center bg-muted/20 z-[1001]">
+             <div className="text-center text-muted-foreground">
                 <MapPin className="mx-auto h-16 w-16" />
                 <h2 className="mt-4 text-2xl font-bold">לא נמצאו אנשים עם נתוני מיקום</h2>
                 <p>הוסף ארץ מגורים, עיר מגורים, או מקום לידה בפרופיל של אדם כדי להציג אותו על המפה.</p>
             </div>
-        </div>
-    );
-  }
-
-  return (
-    <div className="h-full w-full relative">
-       {excludedCount > 0 && (
+         </div>
+       )}
+       {!isLoading && excludedCount > 0 && (
          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] w-auto">
             <Alert variant="default" className="shadow-lg bg-background/90 backdrop-blur-sm">
                 <MapPin className="h-4 w-4" />

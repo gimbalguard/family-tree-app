@@ -1,9 +1,6 @@
 
 import { NextResponse } from 'next/server';
 
-// Function to introduce a delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
@@ -13,9 +10,6 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Respect Nominatim's rate limit policy (max 1 request per second)
-    await delay(1000);
-
     const nominatimUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`;
     
     const response = await fetch(nominatimUrl, {
