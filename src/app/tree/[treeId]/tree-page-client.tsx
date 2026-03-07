@@ -6,6 +6,8 @@ import {
   useNodesState,
   useEdgesState,
   useStore,
+  applyNodeChanges,
+  applyEdgeChanges,
 } from 'reactflow';
 import { useUser, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -153,6 +155,30 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
+  const onSelectionChange = useCallback(
+    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+      setEdges((eds) =>
+        eds.map((edge) => {
+          // Animate edges if exactly one node is selected
+          const isAnimated =
+            selectedNodes.length === 1 &&
+            (edge.source === selectedNodes[0].id ||
+              edge.target === selectedNodes[0].id);
+
+          // An edge is visually "selected" if it was clicked directly
+          const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
+
+          return {
+            ...edge,
+            animated: isAnimated,
+            style: getEdgeStyle(isAnimated || isEdgeSelected),
+          };
+        })
+      );
+    },
+    [setEdges]
+  );
+
   useEffect(() => {
     if (tree) {
         setNameValue(tree.treeName);
@@ -256,30 +282,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       fetchData();
     }
   }, [fetchData, isUserLoading, user]);
-
-  const onSelectionChange = useCallback(
-    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
-      setEdges((eds) =>
-        eds.map((edge) => {
-          // Animate edges if exactly one node is selected
-          const isAnimated =
-            selectedNodes.length === 1 &&
-            (edge.source === selectedNodes[0].id ||
-              edge.target === selectedNodes[0].id);
-
-          // An edge is visually "selected" if it was clicked directly
-          const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
-
-          return {
-            ...edge,
-            animated: isAnimated,
-            style: getEdgeStyle(isAnimated || isEdgeSelected),
-          };
-        })
-      );
-    },
-    [setEdges]
-  );
 
   const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback((_, edge) => {
     const rel = relationships.find(r => r.id === edge.id);
@@ -442,28 +444,24 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   
     const { relData, genderUpdate } = payload;
   
-    const cleanedData = Object.fromEntries(
-      Object.entries(relData).filter(([, v]) => v !== undefined)
-    );
-  
     try {
       const batch = writeBatch(db);
   
       if (editingRelationship) {
         // Update existing relationship
         const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', editingRelationship.id);
-        const dataToUpdate = { ...cleanedData, updatedAt: serverTimestamp() };
+        const dataToUpdate = { ...relData, updatedAt: serverTimestamp() };
         batch.update(relRef, dataToUpdate);
       } else {
         // Create new relationship
         const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-        const newDocRef = doc(relsRef); // Create ref with a new ID
+        const newDocRef = doc(relsRef);
         const dataToCreate = {
-          ...cleanedData,
-          userId: user.uid, // Explicitly add userId
-          treeId: treeId,   // Explicitly add treeId
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+            ...relData,
+            userId: user.uid,
+            treeId: treeId,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
         };
         batch.set(newDocRef, dataToCreate);
       }

@@ -85,7 +85,7 @@ export function FamilyTreeCanvas({
         panOnDrag={true}
         zoomOnScroll={true}
         selectNodesOnDrag={false}
-        multiSelectionKey="Control"
+        selectionKeyCode="Control"
         onSelectionChange={onSelectionChange}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
