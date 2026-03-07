@@ -87,6 +87,7 @@ export function FamilyTreeCanvas({
         selectNodesOnDrag={false}
         selectionKeyCode="Control"
         onSelectionChange={onSelectionChange}
+        minZoom={0.25}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
