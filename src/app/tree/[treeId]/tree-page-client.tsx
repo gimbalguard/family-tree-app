@@ -461,7 +461,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         } else {
             const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
             const newDocRef = doc(relsRef);
-            batch.set(newDocRef, { ...cleanedData, id: newDocRef.id, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+            batch.set(newDocRef, { ...cleanedData, userId: user.uid, treeId: treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         }
 
         if (genderUpdate) {

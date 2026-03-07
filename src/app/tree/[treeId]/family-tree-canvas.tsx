@@ -1,6 +1,7 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactFlow, {
+  useReactFlow,
   Background,
   Controls,
   MiniMap,
@@ -61,6 +62,16 @@ export function FamilyTreeCanvas({
   isValidConnection,
 }: FamilyTreeCanvasProps) {
   const [isMinimapVisible, setIsMinimapVisible] = useState(false);
+  const { setMultiSelectionKey } = useReactFlow();
+
+  useEffect(() => {
+    setMultiSelectionKey('Shift');
+    // Set it back to null on unmount to be clean
+    return () => {
+      setMultiSelectionKey(null);
+    };
+  }, [setMultiSelectionKey]);
+  
   return (
     <div className="h-full w-full relative">
       <ReactFlow
@@ -83,7 +94,6 @@ export function FamilyTreeCanvas({
         panOnDrag={true}
         zoomOnScroll={true}
         selectNodesOnDrag={false}
-        multiSelectionKey="Shift"
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
