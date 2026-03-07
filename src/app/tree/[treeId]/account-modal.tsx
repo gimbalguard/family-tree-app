@@ -91,7 +91,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
     if (!user || !storage) return;
     setIsUploading(true);
     try {
-      const filePath = `avatars/${user.uid}/${uuidv4()}-${file.name}`;
+      const filePath = `users/${user.uid}/avatars/${uuidv4()}-${file.name}`;
       const fileRef = storageRef(storage, filePath);
       const snapshot = await uploadBytes(fileRef, file);
       const photoURL = await getDownloadURL(snapshot.ref);
@@ -100,10 +100,11 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
       // The useUser hook will pick up the change and re-render components.
       toast({ title: 'תמונת הפרופיל עודכנה' });
     } catch (error: any) {
+      console.error("Image upload failed:", error); // Log the full error for debugging
       toast({
         variant: 'destructive',
         title: 'שגיאת העלאה',
-        description: 'לא ניתן היה להעלות את התמונה.',
+        description: error.message || 'לא ניתן היה להעלות את התמונה.',
       });
     } finally {
       setIsUploading(false);
