@@ -478,7 +478,7 @@ export function TreePageClient({ treeId }: TreePageClientProps) {
         fetchData(); 
         handleRelModalClose();
 
-    } catch (error: any) => {
+    } catch (error: any) {
         console.error('Real error:', error);
         toast({
           variant: 'destructive',
