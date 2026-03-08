@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -21,7 +22,6 @@ import type {
 } from 'reactflow';
 import {
   ReactFlowProvider,
-  useStore,
   applyNodeChanges,
   applyEdgeChanges,
   useReactFlow,
@@ -188,11 +188,11 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { getNodes } = useReactFlow();
-
-  const undo = useStore((s) => s.undo);
-  const redo = useStore((s) => s.redo);
-  const canUndo = useStore((s) => (s.past?.length ?? 0) > 0);
-  const canRedo = useStore((s) => (s.future?.length ?? 0) > 0);
+  
+  const historyRef = useRef<{ past: { nodes: Node[]; edges: Edge[] }[]; future: { nodes: Node[]; edges: Edge[] }[] }>({ past: [], future: [] });
+  const HISTORY_LIMIT = 30;
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -266,6 +266,51 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     isGroupDrag: boolean;
     initialNodePositions: Map<string, XYPosition>;
   } | null>(null);
+
+  const recordHistory = useCallback(() => {
+    const currentPast = historyRef.current.past;
+    if (currentPast.length > 0) {
+      const lastState = currentPast[currentPast.length - 1];
+      if (lastState.nodes === nodes && lastState.edges === edges) {
+        return;
+      }
+    }
+    const newPast = [...currentPast, { nodes, edges }];
+    if (newPast.length > HISTORY_LIMIT) {
+      newPast.shift();
+    }
+    historyRef.current = { past: newPast, future: [] };
+    setCanUndo(true);
+    setCanRedo(false);
+  }, [nodes, edges]);
+
+  const handleUndo = useCallback(() => {
+    if (historyRef.current.past.length === 0) return;
+    const newPast = [...historyRef.current.past];
+    const present = newPast.pop();
+    if (present) {
+      historyRef.current.future.unshift({ nodes, edges });
+      historyRef.current.past = newPast;
+      setNodes(present.nodes);
+      setEdges(present.edges);
+      setCanUndo(newPast.length > 0);
+      setCanRedo(true);
+    }
+  }, [nodes, edges, setNodes, setEdges]);
+
+  const handleRedo = useCallback(() => {
+    if (historyRef.current.future.length === 0) return;
+    const newFuture = [...historyRef.current.future];
+    const present = newFuture.shift();
+    if (present) {
+      historyRef.current.past.push({ nodes, edges });
+      historyRef.current.future = newFuture;
+      setNodes(present.nodes);
+      setEdges(present.edges);
+      setCanUndo(true);
+      setCanRedo(newFuture.length > 0);
+    }
+  }, [nodes, edges, setNodes, setEdges]);
 
   const deriveStateFromData = useCallback((
     peopleData: Person[], 
@@ -581,6 +626,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const onNodeDragStart: OnNodeDragStart = useCallback(
     (_, node) => {
+      recordHistory();
       const allNodes = getNodes();
       const isGroupDrag =
         !!node.data.groupId && allNodes.filter((n) => n.data.groupId === node.data.groupId).length > 1;
@@ -591,7 +637,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         initialNodePositions: new Map(allNodes.map((n) => [n.id, n.position])),
       };
     },
-    [getNodes]
+    [getNodes, recordHistory]
   );
 
   const onNodeDrag: OnNodeDrag = useCallback(
@@ -688,6 +734,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   );
 
   const handleGroup = async () => {
+    recordHistory();
     const selectedNodes = getNodes().filter((n) => n.selected);
     if (selectedNodes.length < 2 || !user || !db) return;
 
@@ -716,6 +763,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleUngroup = async () => {
+    recordHistory();
     const selectedNode = getNodes().find((n) => n.selected);
     const groupId = selectedNode?.data.groupId;
     if (!groupId || !user || !db) return;
@@ -742,6 +790,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleLock = async () => {
+    recordHistory();
     const selectedNodes = getNodes().filter((n) => n.selected);
     if (selectedNodes.length === 0 || !user || !db) return;
 
@@ -768,6 +817,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleUnlock = async () => {
+    recordHistory();
     const selectedNodes = getNodes().filter((n) => n.selected);
     if (selectedNodes.length === 0 || !user || !db) return;
 
@@ -821,6 +871,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     if (!user || !db) return;
     setIsDuplicateAlertOpen(false);
     
+    recordHistory();
+
     const newPersonId = uuidv4();
     const newPersonData = {
       ...personData,
@@ -863,6 +915,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleSavePerson = async (personData: any) => {
+    recordHistory();
     if (selectedPerson) {
       await handleUpdatePerson(personData as Person);
     } else {
@@ -941,6 +994,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         toast({ variant: 'destructive', title: 'שגיאת אימות' });
         return false;
     }
+    
+    recordHistory();
     const birthDateChanged = field === 'birthDate';
 
     const oldPeople = people;
@@ -977,7 +1032,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
         return false;
     }
-  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, fetchData]);
+  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, fetchData, recordHistory]);
 
   const handleDeleteRequest = (personId: string) => {
     const person = people.find((p) => p.id === personId);
@@ -990,6 +1045,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db) return;
+    
+    recordHistory();
     setIsDeleting(true);
 
     const personIdToDelete = personToDelete.id;
@@ -1073,6 +1130,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     genderUpdate?: { personId: string; gender: 'male' | 'female' | 'other' };
   }) => {
     if (!user || !db || !tree) return;
+
+    recordHistory();
     const { relData, genderUpdate } = payload;
     const isEditing = !!relData.id;
     const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
@@ -1147,7 +1206,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const handleDeleteRelationship = async (relationshipId: string) => {
     if (!user || !db) return;
-
+    
+    recordHistory();
     const oldRelationships = relationships;
     const newRelationships = relationships.filter(r => r.id !== relationshipId);
     setRelationships(newRelationships);
@@ -1554,8 +1614,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         <CanvasToolbar
           treeId={treeId}
           onAddPerson={handleOpenEditorForNew}
-          onUndo={undo}
-          onRedo={redo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
           canUndo={canUndo}
           canRedo={canRedo}
           viewMode={viewMode}
