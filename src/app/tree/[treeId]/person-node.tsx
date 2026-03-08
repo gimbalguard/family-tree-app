@@ -91,18 +91,23 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     height: 10,
     background: 'hsl(var(--primary))',
   };
-
+  
   const cardStyle: React.CSSProperties = {};
+  const glowStyle: React.CSSProperties = {};
+  
   if (isOwner) {
     if (creatorCardSize) {
       cardStyle.transform = `scale(${creatorCardSize / 100})`;
     }
+
     if (!creatorCardBacklightDisabled) {
       const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
-      const blur = 5 + intensity * 25; // e.g., 5px to 30px
-      const spread = 2 + intensity * 8;   // e.g., 2px to 10px
-      const alpha = 0.15 + intensity * 0.25; // e.g., 0.15 to 0.4
-      cardStyle.boxShadow = `0 0 ${blur}px ${spread}px hsla(var(--primary), ${alpha})`;
+      glowStyle['--backlight-intensity' as any] = intensity;
+
+      if (intensity > 0) {
+        cardStyle.transform = `${cardStyle.transform || ''} translateY(-2px)`;
+        cardStyle.boxShadow = `0 4px 15px rgba(0, 0, 0, 0.1)`;
+      }
     }
   }
 
@@ -113,16 +118,17 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
         "w-64 transition-all duration-200 relative", 
         "data-[shape=default]:rounded-lg",
         "data-[shape=rounded]:rounded-full",
+        "data-[shape=hexagon]:[clip-path:polygon(50%_0%,_100%_25%,_100%_75%,_50%_100%,_0%_75%,_0%_25%)]",
         "data-[shape=bordered]:border-4 data-[shape=bordered]:border-amber-400",
         selected ? 'border-primary shadow-lg' : 'border-border',
         isLocked && 'border-destructive border-2',
       )}
       data-shape={isOwner ? creatorCardShape : 'default'}
     >
-      {isOwner && creatorCardShape === 'hexagon' && (
-        <div 
-          className="absolute inset-0 bg-primary -z-10"
-          style={{clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'}} 
+      {isOwner && !creatorCardBacklightDisabled && (
+        <div
+          className="creator-glow"
+          style={glowStyle}
         />
       )}
       {isLocked && (
