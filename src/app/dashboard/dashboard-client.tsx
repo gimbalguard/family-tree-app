@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useUser, useFirestore } from '@/firebase';
@@ -298,7 +299,7 @@ export function DashboardClient() {
     if (isAnonymous) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center mt-8">
-          <h3 className="mt-4 text-lg font-semibold">ברוכים הבאים!</h3>
+          <h3 className="mt-4 text-lg font-semibold">ברוכים השבים!</h3>
           <p className="mt-1 text-sm text-muted-foreground">היכנסו או הירשמו כדי ליצור ולנהל את עצי המשפחה שלכם.</p>
           <Button className="mt-6" onClick={() => router.push('/login')}>
             <LogIn className="ml-2 h-4 w-4" />
@@ -329,7 +330,7 @@ export function DashboardClient() {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {myTrees.map((tree) => (
                 <TreeCard
-                  key={tree.id}
+                  key={`my-${tree.id}`}
                   tree={tree}
                   type="owned"
                   onDelete={() => handleDeleteClick(tree)}
@@ -348,7 +349,7 @@ export function DashboardClient() {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sharedTrees.map((tree) => (
                 <TreeCard
-                  key={tree.id}
+                  key={`shared-${tree.id}`}
                   tree={tree}
                   type="shared"
                 />
@@ -362,7 +363,7 @@ export function DashboardClient() {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {publicTrees.map((tree) => (
                 <TreeCard
-                  key={tree.id}
+                  key={`public-${tree.id}`}
                   tree={tree}
                   type="public"
                 />
