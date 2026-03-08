@@ -271,7 +271,7 @@ export function DashboardClient() {
       const batch = writeBatch(db);
       const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
 
-      const collectionsToDelete = ['people', 'relationships', 'canvasPositions', 'manualEvents', 'exportedFiles'];
+      const collectionsToDelete = ['people', 'relationships', 'canvasPositions', 'manualEvents'];
       for (const coll of collectionsToDelete) {
         const subCollectionRef = collection(treeDocRef, coll);
         const snapshot = await getDocs(subCollectionRef);
