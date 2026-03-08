@@ -84,6 +84,7 @@ const assignGenerations = (
   return generations;
 };
 
+const nodeTypes = { timelinePerson: TimelinePersonNode };
 
 function TimelineViewContent({
   people,
@@ -138,7 +139,6 @@ function TimelineViewContent({
     const newNodes: Node<Person>[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
-    // 2. Position nodes based on mode (Compact vs Normal)
     for(const gen of sortedGenerationKeys) {
         const peopleInGen = peopleByGeneration.get(gen) || [];
         const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
