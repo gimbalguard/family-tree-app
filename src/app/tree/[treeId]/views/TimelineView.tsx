@@ -20,7 +20,7 @@ import type { EdgeType } from '../tree-page-client';
 
 // Constants for layout
 const PIXELS_PER_YEAR = 80;
-const COLUMN_WIDTH = 250; // card width + gap
+const COLUMN_WIDTH = 280;
 const VERTICAL_GAP = 40;
 const NODE_HEIGHT = 70; // Approximate height of TimelinePersonNode
 
@@ -32,6 +32,58 @@ type TimelineViewProps = {
   edgeType: EdgeType;
   isCompact: boolean;
 };
+
+// Helper function to determine the generation of each person
+const assignGenerations = (people: Person[], relationships: Relationship[]): Map<string, number> => {
+    const generations = new Map<string, number>();
+    const parentRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
+
+    // Map person ID to their parent IDs
+    const parentMap = new Map<string, string[]>();
+    relationships.forEach(rel => {
+        if (parentRelTypes.includes(rel.relationshipType)) {
+            if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
+            parentMap.get(rel.personBId)!.push(rel.personAId);
+        }
+    });
+
+    function getGeneration(personId: string): number {
+        // Memoization check to prevent re-computation and handle cycles
+        if (generations.has(personId)) {
+            return generations.get(personId)!;
+        }
+
+        const parents = parentMap.get(personId);
+        
+        // Base case: If no parents, this is a root node (generation 1)
+        if (!parents || parents.length === 0) {
+            generations.set(personId, 1);
+            return 1;
+        }
+
+        // To avoid infinite loops in case of cyclical relationships, we temporarily set a high value
+        generations.set(personId, 999);
+
+        // Recursive step: generation is 1 + max generation of parents
+        const maxParentGen = Math.max(...parents.map(pId => getGeneration(pId)));
+        const newGen = maxParentGen + 1;
+        generations.set(personId, newGen);
+        return newGen;
+    }
+    
+    // Calculate generation for every person
+    people.forEach(p => getGeneration(p.id));
+    
+    // Handle any people who were not reached (disconnected nodes)
+    people.forEach(p => {
+        if (!generations.has(p.id) || generations.get(p.id) === 999) {
+            generations.set(p.id, 0); // Generation 0 for unassigned/cyclical
+        }
+    });
+
+    return generations;
+};
+
 
 function TimelineViewContent({
   people,
@@ -75,35 +127,28 @@ function TimelineViewContent({
     setYearRange({ min: minYear, max: maxYear });
 
     const newNodes: Node[] = [];
-    const MAX_COLUMNS = 5;
 
     if (isCompact) {
-      // --- COMPACT LAYOUT LOGIC ---
-      const columns: number[] = Array(MAX_COLUMNS).fill(0);
+      // --- CORRECTED COMPACT LAYOUT LOGIC ---
+      const generations = assignGenerations(people, relationships);
+        
       datedPeople.forEach((person) => {
-        let targetColumnIndex = 0;
-        let minYEnd = columns[0];
-        for (let i = 1; i < columns.length; i++) {
-          if (columns[i] < minYEnd) {
-            minYEnd = columns[i];
-            targetColumnIndex = i;
-          }
-        }
-        
-        const yPos = (minYEnd === 0 ? 0 : minYEnd + VERTICAL_GAP);
-        
-        newNodes.push({
-          id: person.id,
-          type: 'timelinePerson',
-          position: { x: 100 + targetColumnIndex * COLUMN_WIDTH, y: yPos },
-          data: person,
-        });
-        
-        columns[targetColumnIndex] = yPos + NODE_HEIGHT;
-      });
+          const gen = generations.get(person.id) || 0;
+          // Position by generation, unassigned (gen 0) goes far right
+          const xPos = 100 + (gen > 0 ? (gen - 1) * COLUMN_WIDTH : 20 * COLUMN_WIDTH); 
+          // CRITICAL: Y position is ALWAYS based on the birth year
+          const yPos = (person.birthYear! - minYear) * PIXELS_PER_YEAR;
 
+          newNodes.push({
+              id: person.id,
+              type: 'timelinePerson',
+              position: { x: xPos, y: yPos },
+              data: person,
+          });
+      });
+      
     } else {
-      // --- ORIGINAL LAYOUT LOGIC ---
+      // --- ORIGINAL (EXPANDED) LAYOUT LOGIC ---
       const columns: number[] = []; // Stores the y-end of the last node in each column
       datedPeople.forEach((person) => {
         const yPos = (person.birthYear! - minYear) * PIXELS_PER_YEAR;
