@@ -350,7 +350,6 @@ export function DashboardClient() {
       });
     } finally {
       setIsDeleting(false);
-      setIsAlertOpen(false);
       setTreeToDelete(null);
     }
   };
