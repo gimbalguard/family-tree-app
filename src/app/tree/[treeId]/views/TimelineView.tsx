@@ -20,71 +20,59 @@ import type { EdgeType } from '../tree-page-client';
 
 // Constants for layout
 const PIXELS_PER_YEAR = 80;
-const COLUMN_WIDTH = 300; // Increased spacing between columns
-const NODE_HEIGHT = 76; // Height of the TimelinePersonNode
+const COLUMN_WIDTH = 300;
+const NODE_HEIGHT = 76;
 const MIN_VERTICAL_GAP = 8;
-
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
 
-// This function needs to be absolutely correct.
+const nodeTypes = { timelinePerson: TimelinePersonNode };
+
+/**
+ * A robust function to assign a generation number to each person.
+ * - Generation 1: People with no parents in the tree (roots).
+ * - Subsequent generations are calculated based on their parents.
+ * - Handles complex family structures and disconnected graphs.
+ */
 const assignGenerations = (
   people: Person[],
   relationships: Relationship[]
 ): Map<string, number> => {
   const generations = new Map<string, number>();
-  const childrenMap = new Map<string, string[]>();
   const parentMap = new Map<string, string[]>();
-
-  for (const rel of relationships) {
-    if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
-      // personA is parent, personB is child
-      if (!childrenMap.has(rel.personAId)) childrenMap.set(rel.personAId, []);
-      childrenMap.get(rel.personAId)!.push(rel.personBId);
-
-      if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
-      parentMap.get(rel.personBId)!.push(rel.personAId);
-    }
-  }
-
-  // Roots are people who are not children in any parental relationship.
-  const roots = people.filter(p => !parentMap.has(p.id));
-
-  // BFS from the roots to assign generations
-  const queue: { personId: string; gen: number }[] = [];
-  const visited = new Set<string>();
-
-  roots.forEach(root => {
-    if (!visited.has(root.id)) {
-      queue.push({ personId: root.id, gen: 1 });
-      visited.add(root.id);
-    }
-  });
-
-  let head = 0;
-  while (head < queue.length) {
-    const { personId, gen } = queue[head++];
-    generations.set(personId, gen);
-
-    const children = childrenMap.get(personId) || [];
-    for (const childId of children) {
-      if (!visited.has(childId)) {
-        queue.push({ personId: childId, gen: gen + 1 });
-        visited.add(childId);
-      }
-    }
-  }
+  people.forEach(p => parentMap.set(p.id, []));
   
-  // Handle any disconnected graphs or cycles by assigning them generation 1
-  people.forEach(p => {
-    if (!generations.has(p.id)) {
-      generations.set(p.id, 1);
+  relationships.forEach(rel => {
+    if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
+      parentMap.get(rel.personBId)?.push(rel.personAId);
     }
   });
+
+  const getGeneration = (personId: string): number => {
+    // Memoization to avoid re-computation
+    if (generations.has(personId)) {
+      return generations.get(personId)!;
+    }
+    
+    const parents = parentMap.get(personId) || [];
+    if (parents.length === 0) {
+      generations.set(personId, 1);
+      return 1;
+    }
+    
+    // A person's generation is 1 + the max generation of their parents.
+    const parentGens = parents.map(parentId => getGeneration(parentId));
+    const maxParentGen = Math.max(...parentGens);
+    const newGen = maxParentGen + 1;
+    generations.set(personId, newGen);
+    return newGen;
+  };
+  
+  // Trigger calculation for every person
+  people.forEach(p => getGeneration(p.id));
 
   return generations;
 };
 
-const nodeTypes = { timelinePerson: TimelinePersonNode };
 
 function TimelineViewContent({
   people,
@@ -92,10 +80,10 @@ function TimelineViewContent({
   edgeType,
   isCompact,
 }: {
-    people: Person[],
-    relationships: Relationship[],
-    edgeType: EdgeType,
-    isCompact: boolean
+  people: Person[];
+  relationships: Relationship[];
+  edgeType: EdgeType;
+  isCompact: boolean;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -108,21 +96,30 @@ function TimelineViewContent({
       setEdges([]);
       return;
     }
-    
+
     // 1. Determine Year Range & Generations
-    const datedPeople = people.map(p => ({
+    const datedPeople = people
+      .map(p => ({
         ...p,
         birthYear: p.birthDate ? new Date(p.birthDate).getFullYear() : null,
-      })).filter(p => p.birthYear !== null && !isNaN(p.birthYear));
+      }))
+      .filter(p => p.birthYear !== null && !isNaN(p.birthYear));
 
     const minYear =
       datedPeople.length > 0
         ? Math.min(...datedPeople.map(p => p.birthYear!)) - 5
         : new Date().getFullYear() - 50;
-    
+
     const maxYear =
       datedPeople.length > 0
-        ? Math.max( ...datedPeople.map(p => (p.deathDate ? new Date(p.deathDate).getFullYear() : p.birthYear!)), new Date().getFullYear()) + 5
+        ? Math.max(
+            ...datedPeople.map(p =>
+              p.deathDate
+                ? new Date(p.deathDate).getFullYear()
+                : p.birthYear!
+            ),
+            new Date().getFullYear()
+          ) + 5
         : new Date().getFullYear();
 
     setYearRange({ min: minYear, max: maxYear });
@@ -131,65 +128,68 @@ function TimelineViewContent({
     const peopleByGeneration = new Map<number, Person[]>();
 
     for (const person of people) {
-        const gen = generations.get(person.id) || 1;
-        if (!peopleByGeneration.has(gen)) peopleByGeneration.set(gen, []);
-        peopleByGeneration.get(gen)!.push(person);
+      const gen = generations.get(person.id) || 1;
+      if (!peopleByGeneration.has(gen)) peopleByGeneration.set(gen, []);
+      peopleByGeneration.get(gen)!.push(person);
     }
-
-    const newNodes: Node<Person>[] = [];
-    const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
-    for(const gen of sortedGenerationKeys) {
-        const peopleInGen = peopleByGeneration.get(gen) || [];
-        const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-        
-        // Always sort by birthdate within a generation
-        const sortedPeopleInGen = [...peopleInGen].sort((a, b) => (a.birthDate || '9999').localeCompare(b.birthDate || '9999'));
+    // 2. Create Nodes based on mode
+    const newNodes: Node<Person>[] = [];
+    const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort(
+      (a, b) => a - b
+    );
 
-        if (isCompact) {
-            // COMPACT MODE: Stack vertically, ignoring year axis for positioning.
-            let currentY = 0;
-            for (const person of sortedPeopleInGen) {
-                newNodes.push({
-                    id: person.id,
-                    type: 'timelinePerson',
-                    position: { x: xPos, y: currentY },
-                    data: person,
-                });
-                currentY += NODE_HEIGHT + MIN_VERTICAL_GAP;
-            }
-        } else {
-            // NORMAL MODE: Align to Y axis based on birth year.
-            const tempNodesInGen: Node<Person>[] = [];
-            for (const person of sortedPeopleInGen) {
-                 const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
-                 // Position primarily by birth year. If no birth year, place it at the start of the timeline for visibility.
-                 const yPos = birthYear ? (birthYear - minYear) * PIXELS_PER_YEAR : 0;
-                 tempNodesInGen.push({
-                    id: person.id,
-                    type: 'timelinePerson',
-                    position: { x: xPos, y: yPos },
-                    data: person,
-                });
-            }
+    for (const gen of sortedGenerationKeys) {
+      const peopleInGen = peopleByGeneration.get(gen) || [];
+      const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
 
-            // After initial placement, resolve overlaps within this column
-            for (let i = 1; i < tempNodesInGen.length; i++) {
-                const prevNode = tempNodesInGen[i-1];
-                const currentNode = tempNodesInGen[i];
-                
-                const requiredY = prevNode.position.y + NODE_HEIGHT + MIN_VERTICAL_GAP;
-                if (currentNode.position.y < requiredY) {
-                    currentNode.position.y = requiredY;
-                }
-            }
-            newNodes.push(...tempNodesInGen);
+      // Always sort by birthdate within a generation
+      const sortedPeopleInGen = [...peopleInGen].sort((a, b) =>
+        (a.birthDate || '9999').localeCompare(b.birthDate || '9999')
+      );
+
+      if (isCompact) {
+        // COMPACT MODE: Stack vertically, ignoring year axis for positioning.
+        let currentY = 0;
+        for (const person of sortedPeopleInGen) {
+          newNodes.push({
+            id: person.id,
+            type: 'timelinePerson',
+            position: { x: xPos, y: currentY },
+            data: person,
+          });
+          currentY += NODE_HEIGHT + MIN_VERTICAL_GAP;
         }
+      } else {
+        // NORMAL MODE: Align to Y axis, then resolve overlaps.
+        const tempNodesInGen: Node<Person>[] = [];
+        for (const person of sortedPeopleInGen) {
+          const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
+          const yPos = birthYear ? (birthYear - minYear) * PIXELS_PER_YEAR : 0;
+          tempNodesInGen.push({
+            id: person.id,
+            type: 'timelinePerson',
+            position: { x: xPos, y: yPos },
+            data: person,
+          });
+        }
+        
+        // After initial placement, resolve overlaps within this column
+        for (let i = 1; i < tempNodesInGen.length; i++) {
+            const prevNode = tempNodesInGen[i - 1];
+            const currentNode = tempNodesInGen[i];
+            const requiredY = prevNode.position.y + NODE_HEIGHT + MIN_VERTICAL_GAP;
+            if (currentNode.position.y < requiredY) {
+                currentNode.position.y = requiredY;
+            }
+        }
+        newNodes.push(...tempNodesInGen);
+      }
     }
     setNodes(newNodes);
 
     // 3. Create Edges
-    const newEdges: Edge[] = relationships.map((rel) => ({
+    const newEdges: Edge[] = relationships.map(rel => ({
       id: rel.id,
       source: rel.personAId,
       target: rel.personBId,
@@ -198,11 +198,10 @@ function TimelineViewContent({
     }));
     setEdges(newEdges);
 
-    // Don't auto-fit view, let user explore
-    if (nodes.length === 0) { // Only fit view on initial load
+    // Only fit view on initial load
+    if (nodes.length === 0) {
       setTimeout(() => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }), 100);
     }
-
   }, [people, relationships, setViewport, edgeType, isCompact, nodes.length]);
 
   return (
@@ -233,10 +232,10 @@ function TimelineViewContent({
 }
 
 export function TimelineView(props: {
-    people: Person[],
-    relationships: Relationship[],
-    edgeType: EdgeType,
-    isCompact: boolean
+  people: Person[];
+  relationships: Relationship[];
+  edgeType: EdgeType;
+  isCompact: boolean;
 }) {
   return (
     <ReactFlowProvider>
