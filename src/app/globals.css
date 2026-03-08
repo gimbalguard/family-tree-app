@@ -88,8 +88,14 @@
     @apply bg-primary;
 }
 
-.react-flow .react-flow__edge-path {
-    @apply stroke-primary;
+.react-flow__edge.custom-edge .react-flow__edge-path {
+    stroke: hsl(var(--primary));
+    stroke-width: 1.5px;
+}
+
+.react-flow__edge.custom-edge.selected .react-flow__edge-path {
+    stroke: hsl(var(--accent));
+    stroke-width: 2.5px;
 }
 
 .react-flow .react-flow__attribution {
@@ -128,6 +134,7 @@ body.pdf-export-mode [data-export-hide] {
   display: none !important;
 }
 
-body.pdf-export-mode .react-flow__edge-path {
+body.pdf-export-mode .react-flow__edge-path,
+body.pdf-export-mode .react-flow__edge.custom-edge .react-flow__edge-path {
   stroke: #334155 !important;
 }

@@ -97,6 +97,7 @@ import { ImageExportModal } from './image-export-modal';
 import { PowerPointExportModal } from './powerpoint-export-modal';
 import { exportToExcel, parseAndValidateExcel, ParsedExcelData } from '@/lib/excel-handler';
 import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal';
+import { cn } from '@/lib/utils';
 
 type TreePageClientProps = {
   treeId: string;
@@ -111,11 +112,6 @@ export type ViewMode =
   | 'statistics';
 
 export type EdgeType = 'default' | 'step' | 'straight';
-
-const getEdgeStyle = (selected = false) => ({
-  strokeWidth: selected ? 2.5 : 1.5,
-  stroke: selected ? 'hsl(var(--accent))' : 'hsl(var(--primary))',
-});
 
 // This function now intelligently determines the correct source and target handles
 // based on the LOGICAL relationship type, not the handles used to draw the initial line.
@@ -367,7 +363,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
           labelStyle: { fill: 'hsl(var(--foreground))' },
           data: rel,
-          style: getEdgeStyle(false),
+          className: 'custom-edge',
         };
       });
       setEdges(initialEdges);
@@ -497,7 +493,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           return {
             ...edge,
             animated: isAnimated,
-            style: getEdgeStyle(isAnimated || isEdgeSelected),
+            className: cn('custom-edge', (isAnimated || isEdgeSelected) && 'selected'),
           };
         })
       );
@@ -563,7 +559,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         ...e,
         selected: false,
         animated: false,
-        style: getEdgeStyle(false),
+        className: 'custom-edge',
       }))
     );
   }, [setNodes, setEdges]);
