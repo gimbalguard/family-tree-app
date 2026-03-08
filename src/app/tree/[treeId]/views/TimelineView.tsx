@@ -28,12 +28,7 @@ const NORMAL_VERTICAL_GAP = 40;
 const nodeTypes = { timelinePerson: TimelinePersonNode };
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
 
-/**
- * Assigns a generation number to each person.
- * @param people - Array of all people in the tree.
- * @param relationships - Array of all relationships in the tree.
- * @returns A Map where keys are person IDs and values are their generation number.
- */
+
 const assignGenerations = (
   people: Person[],
   relationships: Relationship[]
@@ -56,8 +51,9 @@ const assignGenerations = (
       .filter((r) => PARENT_REL_TYPES.includes(r.relationshipType))
       .map((r) => r.personBId)
   );
-
+    
   const roots = people.filter((p) => !allChildrenIds.has(p.id));
+
   const queue: { personId: string; gen: number }[] = [];
 
   roots.forEach((root) => {
@@ -82,7 +78,7 @@ const assignGenerations = (
   // Handle any disconnected subgraphs or cycles
   for (const person of people) {
     if (!generations.has(person.id)) {
-      generations.set(person.id, 1); // Assign to gen 1 if unassigned
+      generations.set(person.id, 1);
     }
   }
 
@@ -95,26 +91,29 @@ function TimelineViewContent({
   relationships,
   edgeType,
   isCompact,
-}: TimelineViewProps) {
+}: {
+    people: Person[],
+    relationships: Relationship[],
+    edgeType: EdgeType,
+    isCompact: boolean
+}) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [yearRange, setYearRange] = useState({ min: 1900, max: 2024 });
   const { setViewport } = useReactFlow();
 
   useEffect(() => {
-    // 1. Determine Year Range & Generations
-    const datedPeople = people
-      .map((p) => ({
-        ...p,
-        birthYear: p.birthDate ? new Date(p.birthDate).getFullYear() : null,
-      }))
-      .filter((p) => p.birthYear !== null && !isNaN(p.birthYear as number));
-
     if (people.length === 0) {
       setNodes([]);
       setEdges([]);
       return;
     }
+    
+    // 1. Determine Year Range & Generations
+    const datedPeople = people.map((p) => ({
+        ...p,
+        birthYear: p.birthDate ? new Date(p.birthDate).getFullYear() : null,
+      })).filter((p) => p.birthYear !== null && !isNaN(p.birthYear as number));
 
     const minYear =
       datedPeople.length > 0
@@ -123,20 +122,14 @@ function TimelineViewContent({
     
     const maxYear =
       datedPeople.length > 0
-        ? Math.max(
-            ...datedPeople.map((p) =>
-              p.deathDate
-                ? new Date(p.deathDate).getFullYear()
-                : p.birthYear!
-            ),
-            new Date().getFullYear()
-          ) + 5
+        ? Math.max( ...datedPeople.map((p) => p.deathDate ? new Date(p.deathDate).getFullYear() : p.birthYear!), new Date().getFullYear()) + 5
         : new Date().getFullYear();
 
     setYearRange({ min: minYear, max: maxYear });
 
     const generations = assignGenerations(people, relationships);
     const peopleByGeneration = new Map<number, Person[]>();
+
     for (const person of people) {
         const gen = generations.get(person.id) || 1;
         if (!peopleByGeneration.has(gen)) {
@@ -145,23 +138,21 @@ function TimelineViewContent({
         peopleByGeneration.get(gen)!.push(person);
     }
 
-    // 2. Sort people within each generation by birth year
     peopleByGeneration.forEach((group) => {
         group.sort((a, b) => (a.birthDate || '9999').localeCompare(b.birthDate || '9999'));
     });
 
     const newNodes: Node[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a,b) => a-b);
-
+    
+    // 2. Position nodes based on mode (Compact vs Normal)
     if (isCompact) {
       // ── COMPACT MODE ───────────────────────────────────────────────
       // Stack cards tightly within each column, ignore Y axis for positioning.
-      const columnYTrack = new Map<number, number>();
-
       for(const gen of sortedGenerationKeys) {
         const peopleInGen = peopleByGeneration.get(gen) || [];
         const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-        let currentY = columnYTrack.get(gen) || 0;
+        let currentY = 0;
 
         for (const person of peopleInGen) {
            newNodes.push({
@@ -185,8 +176,8 @@ function TimelineViewContent({
         for (const person of peopleInGen) {
           const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
 
-          // Default position for people without a birth year (at the bottom)
-          let idealY = (maxYear - minYear) * PIXELS_PER_YEAR + 100;
+          // Default position for people without a birth year (at the bottom of their gen)
+          let idealY = (columnBottomY.get(gen) || (maxYear - minYear) * PIXELS_PER_YEAR) + NORMAL_VERTICAL_GAP;
           if (birthYear) {
             idealY = (birthYear - minYear) * PIXELS_PER_YEAR;
           }
@@ -205,7 +196,6 @@ function TimelineViewContent({
         }
       }
     }
-
     setNodes(newNodes);
 
     // 3. Create Edges
@@ -214,7 +204,7 @@ function TimelineViewContent({
       source: rel.personAId,
       target: rel.personBId,
       type: edgeType,
-      animated: true,
+      animated: PARENT_REL_TYPES.includes(rel.relationshipType),
     }));
     setEdges(newEdges);
 
@@ -251,7 +241,12 @@ function TimelineViewContent({
   );
 }
 
-export function TimelineView(props: TimelineViewProps) {
+export function TimelineView(props: {
+    people: Person[],
+    relationships: Relationship[],
+    edgeType: EdgeType,
+    isCompact: boolean
+}) {
   return (
     <ReactFlowProvider>
       <TimelineViewContent {...props} />
