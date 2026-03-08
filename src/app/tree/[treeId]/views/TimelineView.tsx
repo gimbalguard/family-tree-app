@@ -34,56 +34,50 @@ const nodeTypes = { timelinePerson: TimelinePersonNode };
  * and then assigns generation numbers downwards. Includes cycle detection.
  */
 const assignGenerations = (people: Person[], relationships: Relationship[]): Map<string, number> => {
-  const generations = new Map<string, number>();
-  const parentMap = new Map<string, string[]>();
-  const personIds = new Set(people.map(p => p.id));
+    const generations = new Map<string, number>();
+    const parentMap = new Map<string, string[]>();
+    const personIds = new Set(people.map(p => p.id));
 
-  // Initialize parent map for all people
-  for (const person of people) {
-    parentMap.set(person.id, []);
-  }
-
-  // Populate parent map from relationships
-  for (const rel of relationships) {
-    if (PARENT_REL_TYPES.includes(rel.relationshipType) && personIds.has(rel.personAId) && personIds.has(rel.personBId)) {
-      parentMap.get(rel.personBId)!.push(rel.personAId);
-    }
-  }
-
-  const memo = new Map<string, number>();
-
-  function findGeneration(personId: string, path: Set<string> = new Set()): number {
-    if (path.has(personId)) {
-      return 1; // Cycle detected, break it by treating as a root.
-    }
-    if (memo.has(personId)) {
-      return memo.get(personId)!;
+    for (const person of people) {
+        parentMap.set(person.id, []);
     }
 
-    const parents = parentMap.get(personId) || [];
-    if (parents.length === 0) {
-      memo.set(personId, 1);
-      return 1;
+    for (const rel of relationships) {
+        if (PARENT_REL_TYPES.includes(rel.relationshipType) && personIds.has(rel.personAId) && personIds.has(rel.personBId)) {
+            const currentParents = parentMap.get(rel.personBId) || [];
+            parentMap.set(rel.personBId, [...currentParents, rel.personAId]);
+        }
     }
 
-    path.add(personId);
-    const parentGenerations = parents.map(pId => findGeneration(pId, path));
-    path.delete(personId);
+    const memo = new Map<string, number>();
 
-    const generation = Math.max(...parentGenerations) + 1;
-    memo.set(personId, generation);
-    return generation;
-  }
+    function findGeneration(personId: string, path: Set<string> = new Set()): number {
+        if (path.has(personId)) return 1; // Cycle detected
+        if (memo.has(personId)) return memo.get(personId)!;
 
-  for (const person of people) {
-    if (!memo.has(person.id)) {
-      findGeneration(person.id);
+        const parents = parentMap.get(personId) || [];
+        if (parents.length === 0) {
+            memo.set(personId, 1);
+            return 1;
+        }
+
+        path.add(personId);
+        const parentGenerations = parents.map(pId => findGeneration(pId, new Set(path)));
+        path.delete(personId);
+
+        const generation = Math.max(...parentGenerations) + 1;
+        memo.set(personId, generation);
+        return generation;
     }
-  }
-  
-  return memo;
+
+    for (const person of people) {
+        if (!memo.has(person.id)) {
+            findGeneration(person.id);
+        }
+    }
+    
+    return memo;
 };
-
 
 function TimelineViewContent({
   people,
@@ -108,89 +102,76 @@ function TimelineViewContent({
       return;
     }
 
-    // 1. Determine Year Range & Generations
-    const peopleWithBirthYear = people.map(p => {
+    // 1. Prepare Data: Add birthYear and generation to each person
+    const generations = assignGenerations(people, relationships);
+    const peopleWithData = people.map(p => {
         const date = p.birthDate ? parseISO(p.birthDate) : null;
         return {
             ...p,
             birthYear: date && isValid(date) ? getYear(date) : null,
+            generation: generations.get(p.id) || 0,
         };
-    });
+    }).filter(p => p.generation > 0); // Exclude people who couldn't be placed
 
-    const validBirthYears = peopleWithBirthYear.map(p => p.birthYear).filter((y): y is number => y !== null);
+    const validBirthYears = peopleWithData.map(p => p.birthYear).filter((y): y is number => y !== null);
     const minYear = validBirthYears.length > 0 ? Math.min(...validBirthYears) - 5 : new Date().getFullYear() - 50;
     const maxYear = validBirthYears.length > 0 ? Math.max(...validBirthYears, new Date().getFullYear()) + 5 : new Date().getFullYear();
-
     setYearRange({ min: minYear, max: maxYear });
 
-    const generations = assignGenerations(people, relationships);
-    const peopleByGeneration = new Map<number, typeof peopleWithBirthYear>();
-
-    for (const person of peopleWithBirthYear) {
-      const gen = generations.get(person.id) || 1;
-      if (!peopleByGeneration.has(gen)) peopleByGeneration.set(gen, []);
-      peopleByGeneration.get(gen)!.push(person);
+    // 2. Group people by generation
+    const peopleByGeneration = new Map<number, typeof peopleWithData>();
+    for (const person of peopleWithData) {
+      if (!peopleByGeneration.has(person.generation)) peopleByGeneration.set(person.generation, []);
+      peopleByGeneration.get(person.generation)!.push(person);
     }
     
-    // 2. Create Nodes with correct positioning
+    // 3. Create Nodes with correct positioning based on mode
     const newNodes: Node<Person>[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
-
-    // NORMAL MODE (EXPANDED)
+    
+    // NORMAL (EXPANDED) MODE
     if (!isCompact) {
         for (const gen of sortedGenerationKeys) {
-            const peopleInGen = peopleByGeneration.get(gen) || [];
+            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
             const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
+            let lastOccupiedYinColumn = -Infinity;
 
-            const sortedPeopleInGen = [...peopleInGen].sort((a, b) =>
-                (a.birthYear ?? 9999) - (b.birthYear ?? 9999)
-            );
-            
-            let lastYEndInColumn = -Infinity;
-
-            for (const person of sortedPeopleInGen) {
+            for (const person of peopleInGen) {
                 if (person.birthYear === null) continue;
-
-                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
-                const yPos = Math.max(idealY, lastYEndInColumn);
                 
-                lastYEndInColumn = yPos + NODE_HEIGHT + MIN_VERTICAL_GAP;
-
+                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
+                const yPos = Math.max(idealY, lastOccupiedYinColumn + MIN_VERTICAL_GAP);
+                
                 newNodes.push({
                     id: person.id,
                     type: 'timelinePerson',
                     position: { x: xPos, y: yPos },
                     data: person,
                 });
+                lastOccupiedYinColumn = yPos + NODE_HEIGHT;
             }
         }
     } 
     // COMPACT MODE
     else {
         for (const gen of sortedGenerationKeys) {
-            const peopleInGen = peopleByGeneration.get(gen) || [];
+            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
             const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-            
-            const sortedPeopleInGen = [...peopleInGen].sort((a, b) =>
-                (a.birthYear ?? 9999) - (b.birthYear ?? 9999)
-            );
 
-            let currentY = 0;
-            for (const person of sortedPeopleInGen) {
+            peopleInGen.forEach((person, index) => {
                 newNodes.push({
                     id: person.id,
                     type: 'timelinePerson',
-                    position: { x: xPos, y: currentY },
+                    position: { x: xPos, y: index * (NODE_HEIGHT + MIN_VERTICAL_GAP) },
                     data: person,
                 });
-                currentY += NODE_HEIGHT + MIN_VERTICAL_GAP;
-            }
+            });
         }
     }
     
     setNodes(newNodes);
 
-    // 3. Create Edges
+    // 4. Create Edges
     const newEdges: Edge[] = relationships.map(rel => ({
       id: rel.id,
       source: rel.personAId,
