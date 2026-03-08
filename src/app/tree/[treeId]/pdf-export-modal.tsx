@@ -129,6 +129,21 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
         }
       }
       
+      // Force SVG edges to render correctly in export
+      const svgElements = document.querySelectorAll('.react-flow__edges svg, .react-flow__edge path, .react-flow__edge line');
+      svgElements.forEach((el: any) => {
+        el.style.visibility = 'visible';
+        el.style.display = 'block';
+        el.style.opacity = '1';
+      });
+
+      const edgePaths = document.querySelectorAll('.react-flow__edge path');
+      edgePaths.forEach((el: any) => {
+        el.style.stroke = '#26a69a';
+        el.style.strokeWidth = '2px';
+        el.style.fill = 'none';
+      });
+      
       const canvas = await html2canvas(reactFlowElement, {
         scale: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
         useCORS: true,
