@@ -210,7 +210,11 @@ function getEventsForDay(allEvents: CalEvent[], day: Date): CalEvent[] {
 
   allEvents.forEach((ev) => {
     if (ev.isAnniversary) {
-      if (getMonth(ev.originalDate) === dayMonth && getDate(ev.originalDate) === dayDate) {
+      if (
+        getMonth(ev.originalDate) === dayMonth &&
+        getDate(ev.originalDate) === dayDate &&
+        dayYear >= getYear(ev.originalDate)
+      ) {
         results.push(ev);
       }
     } else {
