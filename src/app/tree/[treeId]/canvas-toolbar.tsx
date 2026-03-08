@@ -99,8 +99,9 @@ type CanvasToolbarProps = {
   onOpenAccount: () => void;
   onToggleChat: () => void;
   onOpenPdfModal: () => void;
-  onOpenPowerPointModal: () => void;
   onExportExcel: () => void;
+  onOpenImageExport: () => void;
+  onOpenPptExport: () => void;
   onImportClick: () => void;
 };
 
@@ -119,8 +120,9 @@ export function CanvasToolbar({
   onOpenAccount,
   onToggleChat,
   onOpenPdfModal,
-  onOpenPowerPointModal,
   onExportExcel,
+  onOpenImageExport,
+  onOpenPptExport,
   onImportClick,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
@@ -131,8 +133,8 @@ export function CanvasToolbar({
   const exportOptions = [
     { label: 'PDF', icon: <FileText />, onClick: onOpenPdfModal },
     { label: 'אקסל', icon: <FileSpreadsheet />, onClick: onExportExcel },
-    { label: 'פאוורפוינט', icon: <Presentation />, onClick: onOpenPowerPointModal },
-    { label: 'תמונה', icon: <ImageIcon />, onClick: () => handleComingSoonClick() },
+    { label: 'פאוורפוינט', icon: <Presentation />, onClick: onOpenPptExport },
+    { label: 'תמונה', icon: <ImageIcon />, onClick: onOpenImageExport },
     { label: 'HTML אינטראקטיבי', icon: <Globe />, onClick: () => handleComingSoonClick() },
     { label: 'הדפסה', icon: <Printer />, onClick: () => handleComingSoonClick() },
     { label: 'עבודת שורשים', icon: <Book />, onClick: () => handleComingSoonClick() },

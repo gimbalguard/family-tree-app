@@ -1421,19 +1421,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         fileType
       }));
       
-      fetch('/api/save-export', {
+      await fetch('/api/save-export', {
         method: 'POST',
         body: formData,
-      }).then(response => {
-        if (!response.ok) {
-           response.json().then(err => {
-              console.warn('Failed to save file to cloud:', err.error || 'Server error');
-           }).catch(() => {
-              console.warn('Failed to save file to cloud and could not parse error response.');
-           });
-        }
-      }).catch(err => {
-        console.warn('Could not save to My Files (network error):', err);
       });
 
     } catch (err) {
@@ -1485,6 +1475,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast]);
 
+  const handleOpenImageExport = () => {
+      toast({
+        title: 'בקרוב',
+        description: 'אפשרות ייצוא התמונה תהיה זמינה בעדכונים הבאים.',
+      });
+  };
 
   const renderCurrentView = () => {
     switch (viewMode) {
@@ -1576,8 +1572,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onOpenAccount={() => setIsAccountModalOpen(true)}
           onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
           onOpenPdfModal={() => setIsPdfModalOpen(true)}
-          onOpenPowerPointModal={() => setIsPowerPointModalOpen(true)}
+          onOpenPptExport={() => setIsPowerPointModalOpen(true)}
           onExportExcel={handleExportExcel}
+          onOpenImageExport={handleOpenImageExport}
           onImportClick={() => importFileInputRef.current?.click()}
         />
         <main className="flex-1 relative overflow-hidden">
