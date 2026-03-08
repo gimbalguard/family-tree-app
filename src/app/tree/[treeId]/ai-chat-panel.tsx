@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
 import type { Person } from '@/lib/types';
+import * as XLSX from 'xlsx';
 
 interface AiChatPanelProps {
     treeId: string;
@@ -35,6 +36,19 @@ interface AiChatPanelProps {
     onClose: () => void;
     onDataAdded: () => void;
 }
+
+const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
+    return (
+        <div className="flex items-center gap-2 p-2 mb-2 border rounded-lg bg-background">
+            <Paperclip className="h-4 w-4 text-muted-foreground"/>
+            <span className="text-sm text-muted-foreground flex-1 truncate">{attachment.file.name}</span>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onRemove}>
+                <X className="h-4 w-4"/>
+            </Button>
+        </div>
+    );
+};
+
 
 export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: AiChatPanelProps) {
   const router = useRouter();
@@ -49,6 +63,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
     setIsGenerating,
     isTranscribing,
     setIsTranscribing,
+    addMessage,
   } = useAiChat();
 
   const [story, setStory] = useState('');
@@ -58,38 +73,41 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  
+  const [attachment, setAttachment] = useState<{ file: File, type: 'image' | 'text', data: string } | null>(null);
+  const [isFileHovering, setIsFileHovering] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Drag and drop state
+  // Drag and drop state for the panel itself
   const [position, setPosition] = useState({ x: 30, y: 30 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [isPanelDragging, setIsPanelDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const handleDragStart = (e: React.MouseEvent) => {
+  const handlePanelDragStart = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    setIsDragging(true);
+    setIsPanelDragging(true);
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
     dragStartPos.current = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
-    document.addEventListener('mousemove', handleDragMove);
-    document.addEventListener('mouseup', handleDragEnd);
+    document.addEventListener('mousemove', handlePanelDragMove);
+    document.addEventListener('mouseup', handlePanelDragEnd);
   };
   
-  const handleDragMove = (e: MouseEvent) => {
+  const handlePanelDragMove = (e: MouseEvent) => {
     setPosition({
       x: e.clientX - dragStartPos.current.x,
       y: e.clientY - dragStartPos.current.y,
     });
   };
   
-  const handleDragEnd = () => {
-    setIsDragging(false);
-    document.removeEventListener('mousemove', handleDragMove);
-    document.removeEventListener('mouseup', handleDragEnd);
+  const handlePanelDragEnd = () => {
+    setIsPanelDragging(false);
+    document.removeEventListener('mousemove', handlePanelDragMove);
+    document.removeEventListener('mouseup', handlePanelDragEnd);
   };
 
   useEffect(() => {
@@ -148,24 +166,78 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
     }
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileSelect = (file: File | null) => {
     if (!file) return;
 
-    if (file.type.startsWith('text/')) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        setStory((prev) => (prev ? `${prev}\n${text}` : text));
-        toast({ title: 'הקובץ נטען', description: 'תוכן הקובץ נוסף לתיבת הסיפור.' });
-      };
-      reader.readAsText(file);
-    } else {
-      toast({ variant: 'destructive', title: 'סוג קובץ לא נתמך', description: 'אנא העלה קובץ טקסט (.txt, .md).'});
+    if (file.size > 10 * 1024 * 1024) { // 10MB
+        toast({ variant: 'destructive', title: 'קובץ גדול מדי', description: 'גודל הקובץ המקסימלי הוא 10MB.' });
+        return;
     }
-    event.target.value = ''; // Reset for re-uploading the same file
+    setAttachment(null);
+
+    const fileType = file.type;
+    const fileName = file.name;
+
+    if (fileType.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            setAttachment({ file, type: 'image', data: e.target?.result as string });
+        };
+        reader.readAsDataURL(file);
+    } else if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                let fullText = '';
+                workbook.SheetNames.forEach(sheetName => {
+                    const worksheet = workbook.Sheets[sheetName];
+                    const text = XLSX.utils.sheet_to_txt(worksheet);
+                    fullText += `--- ${sheetName} ---\n${text}\n\n`;
+                });
+                setAttachment({ file, type: 'text', data: fullText });
+            } catch (error) {
+                console.error("Error parsing Excel file:", error);
+                toast({ variant: 'destructive', title: 'שגיאה בעיבוד הקובץ', description: 'לא ניתן היה לקרוא את קובץ האקסל.' });
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    } else if (fileType.startsWith('audio/')) {
+        const assistantMessage: ChatMessage = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
+        };
+        addMessage(assistantMessage);
+    } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
+        toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע לא ניתן לעבד טקסט מקבצי PDF או PowerPoint.' });
+    } else {
+        toast({ variant: 'destructive', title: 'סוג קובץ לא נתמך' });
+    }
   };
 
+  const handleFileDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isPanelDragging) {
+        setIsFileHovering(true);
+    }
+  };
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileHovering(false);
+  };
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFileHovering(false);
+    if (!isPanelDragging && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+        e.dataTransfer.clearData();
+    }
+  };
 
   const handleAddDataToTree = async (data: GenerateTreeOutput | null) => {
     if (!data || !user || !db || !treeId) {
@@ -249,7 +321,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
   };
 
   const handleSend = async (messageContent: string) => {
-    if (!messageContent.trim() || !user) return;
+    if ((!messageContent.trim() && !attachment) || !user) return;
     if (user.isAnonymous) {
       toast({
         variant: 'destructive',
@@ -259,21 +331,37 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
       router.push('/login');
       return;
     }
+    
+    const userMessageContent = (
+      <div className="space-y-2 text-right">
+        {attachment && attachment.type === 'image' && (
+          <img src={attachment.data} alt={attachment.file.name} className="max-h-48 w-auto rounded-md border" />
+        )}
+        {attachment && (
+          <p className="text-sm italic opacity-80 border-t border-white/20 pt-2 mt-2">
+            קובץ מצורף: {attachment.file.name}
+          </p>
+        )}
+        {messageContent && <p>{messageContent}</p>}
+      </div>
+    );
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: messageContent,
+      content: userMessageContent,
     };
     
     setStory(''); // Clear input immediately
+    const currentAttachment = attachment;
+    setAttachment(null);
     
     const newHistory = [...chatHistory, userMessage];
     setChatHistory(newHistory);
     setIsGenerating(true);
 
     try {
-      const flowInput = {
+      const flowInput: any = {
         newUserMessage: messageContent,
         treeName: treeName,
         chatHistory: newHistory.map(m => ({
@@ -283,6 +371,14 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
         existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
       };
 
+      if (currentAttachment?.type === 'image') {
+        flowInput.photoDataUri = currentAttachment.data;
+      }
+
+      if (currentAttachment?.type === 'text') {
+        flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
+      }
+      
       const result = await generateTreeFromStory(flowInput);
       
       const assistantMessageContent = (
@@ -339,13 +435,15 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
       className="fixed bottom-8 right-8 z-[1050] w-full max-w-md"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
-        cursor: isDragging ? 'grabbing' : 'default',
+        cursor: isPanelDragging ? 'grabbing' : 'default',
       }}
+      onDragEnter={handleFileDragOver}
+      onDragOver={handleFileDragOver}
     >
       <Card className="flex flex-col shadow-2xl h-[60vh] min-h-[400px]">
         <CardHeader
           className="flex-row items-center justify-between space-y-0 py-3 px-4 border-b cursor-grab"
-          onMouseDown={handleDragStart}
+          onMouseDown={handlePanelDragStart}
         >
           <div className="flex items-center gap-2">
             <GripVertical className="h-5 w-5 text-muted-foreground" />
@@ -357,6 +455,15 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
           <div className="flex h-full flex-col space-y-4 bg-muted/20 p-4">
+             {isFileHovering && (
+                <div 
+                    className="absolute inset-0 z-10 border-2 border-dashed border-primary rounded-lg bg-primary/10 flex items-center justify-center m-4"
+                    onDragLeave={handleFileDragLeave}
+                    onDrop={handleFileDrop}
+                >
+                    <span className="font-bold text-primary">שחרר קובץ כאן</span>
+                </div>
+            )}
             <ScrollArea className="flex-1" ref={scrollAreaRef}>
               <div className="pr-4 space-y-6">
                 {chatHistory.length === 0 && !isTranscribing && (
@@ -392,6 +499,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
               </div>
             </ScrollArea>
             <div className="relative mt-4">
+               {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
               <Textarea
                 placeholder="ספר על אדם או קשר כדי להוסיף לעץ..."
                 className="pr-28 pl-12 h-20"
@@ -403,7 +511,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
                 disabled={disabledWhileBusy}
               />
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="text/*" disabled={disabledWhileBusy} />
+                <input type="file" ref={fileInputRef} onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} className="hidden" accept="image/*,.pdf,.xlsx,.xls,.pptx,.mp3,.wav,.m4a,.ogg" disabled={disabledWhileBusy} />
                 <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={disabledWhileBusy}>
                     <Paperclip className="h-5 w-5" /><span className="sr-only">צרף קובץ</span>
                 </Button>
@@ -412,7 +520,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
                     <span className="sr-only">{isRecording ? 'עצור הקלטה' : 'הקלט הודעה'}</span>
                 </Button>
               </div>
-              <Button variant="default" size="icon" className="absolute left-3 top-1/2 -translate-y-1/2" onClick={() => handleSend(story)} disabled={disabledWhileBusy || !story.trim()}>
+              <Button variant="default" size="icon" className="absolute left-3 top-1/2 -translate-y-1/2" onClick={() => handleSend(story)} disabled={disabledWhileBusy || (!story.trim() && !attachment)}>
                 <Send className="h-5 w-5" /><span className="sr-only">שלח</span>
               </Button>
             </div>

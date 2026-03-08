@@ -69,6 +69,12 @@ export const GenerateTreeInputSchema = z.object({
   treeName: z.string().describe('A name for the new family tree.'),
   chatHistory: z.array(ChatMessageSchema).describe("The history of the conversation so far."),
   existingPeople: z.array(ExistingPersonSchema).describe("A list of people who already exist in the tree to avoid duplicates."),
+  photoDataUri: z
+    .string()
+    .optional()
+    .describe(
+      "A photo attached by the user, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+    ),
 });
 export type GenerateTreeInput = z.infer<typeof GenerateTreeInputSchema>;
 

@@ -44,6 +44,10 @@ const prompt = ai.definePrompt({
 
 3.  **User's New Message:** The latest input from the user.
     > "{{{newUserMessage}}}"
+    {{#if photoDataUri}}
+    **Attached Photo:**
+    {{media url=photoDataUri}}
+    {{/if}}
 
 ---
 
