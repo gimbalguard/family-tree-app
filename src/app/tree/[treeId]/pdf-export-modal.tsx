@@ -129,20 +129,30 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
         }
       }
       
-      // Force SVG edges to render correctly in export
-      const svgElements = document.querySelectorAll('.react-flow__edges svg, .react-flow__edge path, .react-flow__edge line');
-      svgElements.forEach((el: any) => {
-        el.style.visibility = 'visible';
-        el.style.display = 'block';
-        el.style.opacity = '1';
-      });
-
-      const edgePaths = document.querySelectorAll('.react-flow__edge path');
-      edgePaths.forEach((el: any) => {
-        el.style.stroke = '#26a69a';
-        el.style.strokeWidth = '2px';
-        el.style.fill = 'none';
-      });
+      const exportStyle = document.createElement('style');
+      exportStyle.id = 'export-edge-fix';
+      exportStyle.textContent = `
+        .react-flow__edges { overflow: visible !important; }
+        .react-flow__edge path { 
+          stroke: #26a69a !important; 
+          stroke-width: 2px !important; 
+          fill: none !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          display: block !important;
+        }
+        .react-flow__edge-path {
+          stroke: #26a69a !important;
+          stroke-width: 2px !important;
+          fill: none !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        .react-flow__edges svg {
+          overflow: visible !important;
+        }
+      `;
+      document.head.appendChild(exportStyle);
       
       const canvas = await html2canvas(reactFlowElement, {
         scale: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
@@ -151,6 +161,8 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
         backgroundColor: canvasBgColor,
         logging: false,
       });
+
+      document.getElementById('export-edge-fix')?.remove();
       
       const orientation = options.orientation === 'landscape' ? 'l' : 'p';
       const pdf = new jsPDF(orientation, 'mm', 'a4');

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -68,20 +69,30 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
     await new Promise(resolve => setTimeout(resolve, 200));
 
     try {
-      // Force SVG edges to render correctly in export
-      const svgElements = document.querySelectorAll('.react-flow__edges svg, .react-flow__edge path, .react-flow__edge line');
-      svgElements.forEach((el: any) => {
-        el.style.visibility = 'visible';
-        el.style.display = 'block';
-        el.style.opacity = '1';
-      });
-
-      const edgePaths = document.querySelectorAll('.react-flow__edge path');
-      edgePaths.forEach((el: any) => {
-        el.style.stroke = '#26a69a';
-        el.style.strokeWidth = '2px';
-        el.style.fill = 'none';
-      });
+      const exportStyle = document.createElement('style');
+      exportStyle.id = 'export-edge-fix';
+      exportStyle.textContent = `
+        .react-flow__edges { overflow: visible !important; }
+        .react-flow__edge path { 
+          stroke: #26a69a !important; 
+          stroke-width: 2px !important; 
+          fill: none !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          display: block !important;
+        }
+        .react-flow__edge-path {
+          stroke: #26a69a !important;
+          stroke-width: 2px !important;
+          fill: none !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+        }
+        .react-flow__edges svg {
+          overflow: visible !important;
+        }
+      `;
+      document.head.appendChild(exportStyle);
 
       const canvas = await html2canvas(mainView, {
         scale: options.quality,
@@ -90,6 +101,8 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
         backgroundColor: window.getComputedStyle(document.body).backgroundColor,
         logging: false,
       });
+
+      document.getElementById('export-edge-fix')?.remove();
 
       const headerHeight = options.includeTitle ? 50 : 0;
       const finalCanvas = document.createElement('canvas');
