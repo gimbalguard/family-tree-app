@@ -208,9 +208,9 @@ export function MyFilesClient() {
                                     </Button>
                                 </a>
                             ) : (
-                                <Button variant="ghost" className="w-full rounded-none rounded-br-md" disabled>
-                                    <FileDown className="ml-2 h-4 w-4 text-muted-foreground" />
-                                    לא זמין
+                                <Button variant="ghost" className="w-full rounded-none rounded-br-md text-muted-foreground" disabled>
+                                    <FileDown className="ml-2 h-4 w-4" />
+                                    הורדה מקומית בלבד
                                 </Button>
                             )}
                             <div className="border-l h-full my-auto h-6 self-center"/>

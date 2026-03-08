@@ -1409,45 +1409,33 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     fileName: string,
     fileType: ExportedFile['fileType']
   ) => {
-    if (!user || !db || !tree || !storage) {
-        toast({
-            variant: "destructive",
-            title: "שגיאת שמירה בענן",
-            description: "לא ניתן לגשת לשירותי הענן. ודא שאתה מחובר.",
-        });
-        return;
-    }
+    if (!user || !db || !tree) return;
     try {
-      const storagePath = `users/${user.uid}/trees/${treeId}/exports/${Date.now()}_${fileName}`;
-      const storageRef = ref(storage, storagePath);
-
-      console.log('Starting upload to:', storagePath);
-      const snapshot = await uploadBytes(storageRef, blob);
-      console.log('Upload success:', snapshot.ref.fullPath);
-
-      const downloadURL = await getDownloadURL(storageRef);
-
+      // Bypassing Firebase Storage due to CORS issues in the dev environment.
+      // Saving metadata only to Firestore.
       await addDoc(collection(db, 'exportedFiles'), {
         userId: user.uid,
         treeId: tree.id,
         treeName: tree.treeName,
         fileName,
         fileType,
-        storagePath,
-        downloadURL,
+        storagePath: null, // No storage path
+        downloadURL: null, // No download URL
         fileSizeBytes: blob.size,
         createdAt: serverTimestamp(),
       });
-      
+      // The toast for successful local download happens in the calling function.
+      // We don't need another toast here.
     } catch (error) {
-      console.error('saveExportedFile error:', error);
+      // This will only catch Firestore errors now, which are less likely.
+      console.error('saveExportedFile metadata error:', error);
       toast({
         variant: "destructive",
-        title: "שגיאת שמירה בענן",
-        description: "הקובץ הורד למחשבך, אך הגיבוי בענן נכשל.",
+        title: "שגיאת שמירת מטא-נתונים",
+        description: "הקובץ הורד, אך רישום שלו נכשל. בדוק את חיבור האינטרנט.",
       });
     }
-  }, [user, db, tree, storage, treeId, toast]);
+  }, [user, db, tree, toast]);
 
   const handleExportExcel = useCallback(async () => {
     if (!tree || !user || !db) return;
