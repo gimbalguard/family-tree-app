@@ -129,31 +129,8 @@ function TimelineViewContent({
     const newNodes: Node<Person>[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
-    // NORMAL (EXPANDED) MODE
-    if (!isCompact) {
-        for (const gen of sortedGenerationKeys) {
-            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-            const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-            let lastOccupiedYinColumn = -Infinity;
-
-            for (const person of peopleInGen) {
-                if (person.birthYear === null) continue;
-                
-                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
-                const yPos = Math.max(idealY, lastOccupiedYinColumn + MIN_VERTICAL_GAP);
-                
-                newNodes.push({
-                    id: person.id,
-                    type: 'timelinePerson',
-                    position: { x: xPos, y: yPos },
-                    data: person,
-                });
-                lastOccupiedYinColumn = yPos + NODE_HEIGHT;
-            }
-        }
-    } 
-    // COMPACT MODE
-    else {
+    if (isCompact) {
+        // COMPACT MODE
         for (const gen of sortedGenerationKeys) {
             const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
             const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
@@ -162,10 +139,36 @@ function TimelineViewContent({
                 newNodes.push({
                     id: person.id,
                     type: 'timelinePerson',
-                    position: { x: xPos, y: index * (NODE_HEIGHT + MIN_VERTICAL_GAP) },
+                    position: { x: xPos, y: index * (NODE_HEIGHT + 8) }, // 8px gap
                     data: person,
                 });
             });
+        }
+    } else {
+        // NORMAL (EXPANDED) MODE - WITH OVERLAP AVOIDANCE
+        const lastOccupiedYinColumn = new Map<number, number>();
+        for (const gen of sortedGenerationKeys) {
+            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
+            const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
+            lastOccupiedYinColumn.set(gen, -Infinity);
+
+            for (const person of peopleInGen) {
+                if (person.birthYear === null) continue;
+                
+                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
+                const lastY = lastOccupiedYinColumn.get(gen)!;
+
+                // Push node down only if it overlaps with the previous one in the same column
+                const yPos = Math.max(idealY, lastY + MIN_VERTICAL_GAP);
+                
+                newNodes.push({
+                    id: person.id,
+                    type: 'timelinePerson',
+                    position: { x: xPos, y: yPos },
+                    data: person,
+                });
+                lastOccupiedYinColumn.set(gen, yPos + NODE_HEIGHT);
+            }
         }
     }
     
