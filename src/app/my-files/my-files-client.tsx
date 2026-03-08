@@ -31,7 +31,6 @@ import {
   getDocs,
   deleteDoc,
   doc,
-  orderBy as firestoreOrderBy,
 } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import {
@@ -87,7 +86,7 @@ export function MyFilesClient() {
     if (!user || !db) return;
     setIsLoading(true);
     try {
-      const filesQuery = query(collection(db, 'exportedFiles'), where('userId', '==', user.uid), firestoreOrderBy('createdAt', 'desc'));
+      const filesQuery = query(collection(db, 'exportedFiles'), where('userId', '==', user.uid));
       const treesQuery = query(collection(db, 'users', user.uid, 'familyTrees'));
       
       const [filesSnapshot, treesSnapshot] = await Promise.all([getDocs(filesQuery), getDocs(treesQuery)]);
