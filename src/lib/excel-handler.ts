@@ -36,7 +36,7 @@ export const exportToExcel = ({
   socialLinks: (SocialLink & { personId: string })[],
   manualEvents: ManualEvent[],
   canvasPositions: CanvasPosition[],
-}) => {
+}): { blob: Blob; fileName: string } => {
   const personMap = new Map(people.map(p => [p.id, `${p.firstName} ${p.lastName}`]));
 
   const peopleSheetData = people.map(p => ({
@@ -164,7 +164,7 @@ export const exportToExcel = ({
         if (!ws[address]) continue;
         ws[address].s = {
           font: { bold: true, color: { rgb: "FFFFFFFF" } },
-          fill: { fgColor: { rgb: "FF26a69a" } },
+          fill: { fgColor: { rgb: "26a69a" } }, // Teal color
         };
       }
     }
@@ -172,8 +172,11 @@ export const exportToExcel = ({
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
   });
 
-  const filename = `משפחת-${tree.treeName}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-  XLSX.writeFile(wb, filename);
+  const fileName = `משפחת-${tree.treeName}-${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  
+  return { blob, fileName };
 };
 
 
@@ -188,7 +191,7 @@ export const parseAndValidateExcel = (fileBuffer: ArrayBuffer): ParsedExcelData 
     }
 
     const treeInfoData = XLSX.utils.sheet_to_json(wb.Sheets["מידע על העץ"]);
-    if (treeInfoData.length === 0 || (treeInfoData[0] as any).formatVersion !== "2.0") {
+    if (treeInfoData.length === 0 || !(treeInfoData[0] as any).formatVersion || parseFloat((treeInfoData[0] as any).formatVersion) < 2) {
         throw new Error(`גרסת קובץ לא נתמכת — ייצא מחדש`);
     }
 

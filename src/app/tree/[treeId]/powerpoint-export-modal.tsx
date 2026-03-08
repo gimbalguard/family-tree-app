@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, Presentation } from 'lucide-react';
 import type { FamilyTree, Person, Relationship } from '@/lib/types';
 import { exportToPowerPoint } from '@/lib/powerpoint-handler';
+import { format } from 'date-fns';
 
 export type PptxExportTheme = 'light' | 'dark' | 'family';
 export type PptxExportOptions = {
@@ -32,9 +33,10 @@ type PowerPointExportModalProps = {
   tree: FamilyTree | null;
   people: Person[];
   relationships: Relationship[];
+  onSave: (blob: Blob, fileName: string) => Promise<void>;
 };
 
-export function PowerPointExportModal({ isOpen, onClose, tree, people, relationships }: PowerPointExportModalProps) {
+export function PowerPointExportModal({ isOpen, onClose, tree, people, relationships, onSave }: PowerPointExportModalProps) {
   const { toast } = useToast();
   const defaultTitle = useMemo(() => tree?.treeName || 'עץ המשפחה שלי', [tree]);
   
@@ -65,13 +67,27 @@ export function PowerPointExportModal({ isOpen, onClose, tree, people, relations
     setProgress({ text: 'מתחיל...', percentage: 0 });
 
     try {
-      await exportToPowerPoint({
+      const blob = await exportToPowerPoint({
         options,
         tree,
         people,
         relationships,
         onProgress: (p) => setProgress(p)
       });
+      
+      const fileName = `משפחת-${tree.treeName}-${format(new Date(), 'yyyy-MM-dd')}.pptx`;
+      
+      await onSave(blob, fileName);
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+      
       toast({ title: 'המצגת הורדה בהצלחה 📑' });
     } catch (error) {
       console.error('PowerPoint export failed:', error);

@@ -51,6 +51,12 @@ export function AppHeader() {
             >
               עצים שלי
             </Link>
+             <Link
+              href="/my-files"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              הקבצים שלי
+            </Link>
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">

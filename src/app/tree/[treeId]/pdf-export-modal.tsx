@@ -35,9 +35,10 @@ type PdfExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
   tree: FamilyTree | null;
+  onSave: (blob: Blob, fileName: string) => Promise<void>;
 };
 
-export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
+export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModalProps) {
   const { toast } = useToast();
   const { getNodes, getViewport, setViewport, fitView } = useReactFlow();
 
@@ -69,10 +70,9 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
         return;
     }
     
-    // Get computed colors to avoid passing CSS variables to html2canvas
     const computedStyle = window.getComputedStyle(document.body);
-    const canvasBgColor = computedStyle.backgroundColor; // e.g., rgb(242, 243, 247)
-    const titleColor = computedStyle.color; // e.g., rgb(30, 30, 40)
+    const canvasBgColor = computedStyle.backgroundColor;
+    const titleColor = computedStyle.color;
     
     const rawBackgroundHsl = computedStyle.getPropertyValue('--background').trim();
     const headerBgColor = `hsla(${rawBackgroundHsl}, 0.7)`;
@@ -80,8 +80,6 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
     const rawMutedForegroundHsl = computedStyle.getPropertyValue('--muted-foreground').trim();
     const textColor = `hsl(${rawMutedForegroundHsl})`;
 
-
-    // Create temporary header and footer for capture
     const headerEl = document.createElement('div');
     headerEl.style.position = 'absolute';
     headerEl.style.top = '20px';
@@ -114,7 +112,6 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
 
     const previousViewport = getViewport();
 
-    // Give DOM time to update before capture
     await new Promise(resolve => setTimeout(resolve, 200));
 
     try {
@@ -133,7 +130,7 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
         backgroundColor: canvasBgColor,
         logging: false,
       });
-
+      
       const orientation = options.orientation === 'landscape' ? 'l' : 'p';
       const pdf = new jsPDF(orientation, 'mm', 'a4');
       
@@ -159,7 +156,19 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
         heightLeft -= pdfHeight;
       }
       
-      pdf.save(`${options.title.replace(/ /g, '_')}-${new Date().getFullYear()}.pdf`);
+      const fileName = `${options.title.replace(/ /g, '_')}-${new Date().getFullYear()}.pdf`;
+      const pdfBlob = pdf.output('blob');
+
+      await onSave(pdfBlob, fileName);
+      
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
       
       toast({ title: 'קובץ PDF הורד בהצלחה ✓' });
 
@@ -262,5 +271,3 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
     </Dialog>
   );
 }
-
-    

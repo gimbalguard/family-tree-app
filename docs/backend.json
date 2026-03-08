@@ -396,6 +396,24 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "ExportedFile": {
+      "title": "ExportedFile",
+      "type": "object",
+      "description": "Metadata for a file exported by a user and saved to storage.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "treeId": { "type": "string" },
+        "treeName": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileType": { "type": "string", "enum": ["pdf", "xlsx", "pptx", "png", "html", "docx"] },
+        "storagePath": { "type": "string" },
+        "downloadURL": { "type": "string", "format": "uri" },
+        "fileSizeBytes": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "treeId", "treeName", "fileName", "fileType", "storagePath", "downloadURL", "fileSizeBytes", "createdAt"]
     }
   },
   "auth": {
@@ -558,6 +576,16 @@
               "description": "The event's unique ID."
             }
           ]
+        }
+      },
+      {
+        "path": "/exportedFiles/{fileId}",
+        "definition": {
+          "entityName": "ExportedFile",
+          "schema": {
+            "$ref": "#/backend/entities/ExportedFile"
+          },
+          "description": "Stores metadata for user-exported files. Document ID is auto-generated. Access is restricted to the owner."
         }
       }
     ],

@@ -28,7 +28,7 @@ import {
   applyEdgeChanges,
   useReactFlow,
 } from 'reactflow';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, useStorage } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import type {
   FamilyTree,
@@ -37,6 +37,7 @@ import type {
   CanvasPosition,
   ManualEvent,
   SocialLink,
+  ExportedFile,
 } from '@/lib/types';
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
@@ -71,6 +72,7 @@ import {
   updateDoc,
   limit,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import {
@@ -187,6 +189,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
 function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
+  const storage = useStorage();
   const router = useRouter();
   const { toast } = useToast();
   const { getNodes } = useReactFlow();
@@ -1338,7 +1341,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                     const newId = uuidv4();
                     oldIdToNewIdMap.set(p.id, newId);
                     const { id, ...data } = p;
-                    const personRef = doc(newTreeRef, 'people', newId);
+                    const personRef = doc(collection(newTreeRef, 'people'), newId);
                     batch.set(personRef, { ...data, treeId: newTreeId, userId: user.uid });
                 });
     
@@ -1348,7 +1351,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                     const newPersonAId = oldIdToNewIdMap.get(data.personAId);
                     const newPersonBId = oldIdToNewIdMap.get(data.personBId);
                     if (newPersonAId && newPersonBId) {
-                        const relRef = doc(newTreeRef, 'relationships', uuidv4());
+                        const relRef = doc(collection(newTreeRef, 'relationships'), uuidv4());
                         batch.set(relRef, { ...data, personAId: newPersonAId, personBId: newPersonBId, treeId: newTreeId, userId: user.uid });
                     }
                 });
@@ -1401,38 +1404,80 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         }
     };
     
-    const handleExportExcel = useCallback(async () => {
-        if (!tree || !user || !db) return;
-    
-        toast({ title: 'מכין נתונים לייצוא...' });
-    
-        try {
-            // Social links are not part of the main data fetch, so we get them here.
-            const peopleCollectionRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
-            const peopleSnapshot = await getDocs(peopleCollectionRef);
-            
-            const socialLinksPromises = peopleSnapshot.docs.map(async (personDoc) => {
-                const socialLinksRef = collection(personDoc.ref, 'socialLinks');
-                const socialLinksSnap = await getDocs(socialLinksRef);
-                return socialLinksSnap.docs.map(doc => ({ ...doc.data(), id: doc.id, personId: personDoc.id } as SocialLink & { personId: string }));
-            });
-    
-            const allSocialLinks = (await Promise.all(socialLinksPromises)).flat();
-    
-            exportToExcel({
-                tree,
-                people,
-                relationships,
-                socialLinks: allSocialLinks,
-                manualEvents,
-                canvasPositions,
-            });
-        } catch (error) {
-            console.error("Excel export failed:", error);
-            toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'לא ניתן היה להכין את הנתונים.' });
-        }
-    
-    }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast]);
+  const saveExportedFile = async (
+    blob: Blob,
+    fileName: string,
+    fileType: ExportedFile['fileType']
+  ) => {
+    if (!user || !db || !storage || !tree) return;
+    try {
+      const storagePath = `exports/${user.uid}/${treeId}/${Date.now()}_${fileName}`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      await addDoc(collection(db, 'exportedFiles'), {
+        userId: user.uid,
+        treeId,
+        treeName: tree.treeName,
+        fileName,
+        fileType,
+        storagePath,
+        downloadURL,
+        fileSizeBytes: blob.size,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Failed to save exported file:", error);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה בשמירת הקובץ',
+        description: 'הקובץ לא נשמר בענן אך ייתכן שהורד למחשבך.',
+      });
+    }
+  };
+
+  const handleExportExcel = useCallback(async () => {
+    if (!tree || !user || !db) return;
+
+    toast({ title: 'מכין נתונים לייצוא...' });
+
+    try {
+      const peopleCollectionRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
+      const peopleSnapshot = await getDocs(peopleCollectionRef);
+      
+      const socialLinksPromises = peopleSnapshot.docs.map(async (personDoc) => {
+          const socialLinksRef = collection(personDoc.ref, 'socialLinks');
+          const socialLinksSnap = await getDocs(socialLinksRef);
+          return socialLinksSnap.docs.map(doc => ({ ...doc.data(), id: doc.id, personId: personDoc.id } as SocialLink & { personId: string }));
+      });
+
+      const allSocialLinks = (await Promise.all(socialLinksPromises)).flat();
+
+      const { blob, fileName } = exportToExcel({
+          tree, people, relationships,
+          socialLinks: allSocialLinks,
+          manualEvents, canvasPositions,
+      });
+
+      await saveExportedFile(blob, fileName, 'xlsx');
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+
+      toast({ title: "קובץ אקסל יוצא בהצלחה ✓" });
+
+    } catch (error) {
+        console.error("Excel export failed:", error);
+        toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'לא ניתן היה להכין את הנתונים.' });
+    }
+  }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast]);
 
 
   const renderCurrentView = () => {
@@ -1642,6 +1687,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           isOpen={isPdfModalOpen}
           onClose={() => setIsPdfModalOpen(false)}
           tree={tree}
+          onSave={(blob, fileName) => saveExportedFile(blob, fileName, 'pdf')}
         />
       )}
       
@@ -1652,6 +1698,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           tree={tree}
           people={people}
           relationships={relationships}
+          onSave={(blob, fileName) => saveExportedFile(blob, fileName, 'pptx')}
         />
       )}
       

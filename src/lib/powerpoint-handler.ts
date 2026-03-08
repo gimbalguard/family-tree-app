@@ -28,8 +28,10 @@ interface ExportParams {
 
 async function fetchImageAsBase64(url: string): Promise<string> {
   if (!url) return '';
+  // Use a CORS proxy for external images if needed
+  const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
   try {
-    const response = await fetch(url);
+    const response = await fetch(proxyUrl);
     if (!response.ok) return '';
     const blob = await response.blob();
     return new Promise((resolve, reject) => {
@@ -97,7 +99,7 @@ function assignGenerations(people: Person[], relationships: Relationship[], root
   return { peopleByGeneration: remappedPeople, totalGenerations };
 }
 
-export async function exportToPowerPoint({ options, tree, people, relationships, onProgress }: ExportParams) {
+export async function exportToPowerPoint({ options, tree, people, relationships, onProgress }: ExportParams): Promise<Blob> {
   const pptx = new PptxGenJS();
   pptx.layout = 'LAYOUT_WIDE';
   pptx.rtl = true;
@@ -163,8 +165,8 @@ export async function exportToPowerPoint({ options, tree, people, relationships,
         
         if (person.birthDate) slide.addText(`נולד/ה: ${format(new Date(person.birthDate), 'd MMMM yyyy', {locale: he})} ב${person.birthPlace || ''}`, { x: 4.5, y: yPos, w: 5, h: 0.3, fontSize: 12, color: theme.textColor, align: 'right' });
         yPos += 0.3;
-        if (person.status === 'deceased' && person.deathDate) {
-            const age = differenceInYears(new Date(person.deathDate), new Date(person.birthDate!));
+        if (person.status === 'deceased' && person.deathDate && person.birthDate) {
+            const age = differenceInYears(new Date(person.deathDate), new Date(person.birthDate));
             slide.addText(`נפטר/ה: ${format(new Date(person.deathDate), 'd MMMM yyyy', {locale: he})} (גיל ${age})`, { x: 4.5, y: yPos, w: 5, h: 0.3, fontSize: 12, color: theme.textColor, align: 'right' });
             yPos += 0.3;
         }
@@ -200,5 +202,5 @@ export async function exportToPowerPoint({ options, tree, people, relationships,
     slide.addText(`נוצר באמצעות FamilyTree | ${format(new Date(), 'd MMMM yyyy', {locale: he})}`, { x: 0, y: 4.5, w: '100%', h: 0.5, align: 'center', fontSize: 12, color: theme.textColor });
   }
   
-  await pptx.writeFile({ fileName: `משפחת-${tree.treeName}-${format(new Date(), 'yyyy-MM-dd')}.pptx` });
+  return await pptx.write('blob');
 }

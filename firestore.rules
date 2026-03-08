@@ -221,5 +221,14 @@ service cloud.firestore {
         }
       }
     }
+    
+    /**
+     * @description Controls access to metadata for exported files.
+     * @path /exportedFiles/{fileId}
+     */
+    match /exportedFiles/{fileId} {
+        allow read, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+        allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+    }
   }
 }

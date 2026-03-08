@@ -105,3 +105,16 @@ export type ManualEvent = {
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
+
+export type ExportedFile = {
+  id: string;
+  userId: string;
+  treeId: string;
+  treeName: string;
+  fileName: string;
+  fileType: 'pdf' | 'xlsx' | 'pptx' | 'png' | 'html' | 'docx';
+  storagePath: string;
+  downloadURL: string;
+  fileSizeBytes: number;
+  createdAt: Timestamp;
+};
