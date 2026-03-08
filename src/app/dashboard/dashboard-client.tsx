@@ -60,23 +60,52 @@ export function DashboardClient() {
       const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
         const treeData = { id: treeDoc.id, ...treeDoc.data() } as FamilyTree;
+        
         const peopleRef = collection(treeDoc.ref, 'people');
         const relsRef = collection(treeDoc.ref, 'relationships');
+        
+        // This is simplified but less secure/performant for huge collections.
+        // For a production app, use server-side aggregation.
         const [peopleSnap, relsSnap] = await Promise.all([
-            getDocs(query(peopleRef, limit(1000))),
-            getDocs(query(relsRef, limit(1000))),
+            getDocs(query(peopleRef)),
+            getDocs(query(relsRef)),
         ]);
+
         treeData.personCount = peopleSnap.size;
         treeData.relationshipCount = relsSnap.size;
         return treeData;
       });
       const userTrees = await Promise.all(myTreesPromises);
-      setMyTrees(userTrees);
+      // Deduplicate to prevent React key errors, just in case.
+      const uniqueTrees = Array.from(new Map(userTrees.map(t => [t.id, t])).values());
+      setMyTrees(uniqueTrees);
 
-      // Fetch Shared Trees
+      // Fetch Shared Trees with counts
       const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       const sharedSnapshot = await getDocs(sharedQuery);
-      const sharedTreesData = sharedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SharedTree));
+      const sharedTreesPromises = sharedSnapshot.docs.map(async (doc) => {
+        const sharedData = { id: doc.id, ...doc.data() } as SharedTree;
+        
+        // Fetch counts for the shared tree. This might fail if user doesn't have read access to the tree.
+        try {
+          const treeRef = doc(db, 'users', sharedData.ownerUserId, 'familyTrees', sharedData.treeId);
+          const peopleRef = collection(treeRef, 'people');
+          const relsRef = collection(treeRef, 'relationships');
+          const [peopleSnap, relsSnap] = await Promise.all([
+              getDocs(query(peopleRef)),
+              getDocs(query(relsRef)),
+          ]);
+          sharedData.personCount = peopleSnap.size;
+          sharedData.relationshipCount = relsSnap.size;
+        } catch (e) {
+          // If we can't get counts, default to 0. User might not have read access to subcollections.
+          sharedData.personCount = 0;
+          sharedData.relationshipCount = 0;
+        }
+
+        return sharedData;
+      });
+      const sharedTreesData = await Promise.all(sharedTreesPromises);
       setSharedTrees(sharedTreesData);
       
       // Fetch Public Trees
@@ -87,7 +116,7 @@ export function DashboardClient() {
 
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      toast({ variant: 'destructive', title: 'שגיאה בטעינת נתונים', description: 'ייתכן שחסרות לך הרשאות לצפייה במידע.' });
+      toast({ variant: 'destructive', title: 'שגיאה בטעינת נתונים' });
     }
     setIsLoading(false);
   }, [user, db, toast, isUserLoading]);
