@@ -154,7 +154,7 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
       `;
       document.head.appendChild(exportStyle);
       
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 800));
 
       const canvas = await html2canvas(reactFlowElement, {
         scale: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,

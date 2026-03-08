@@ -58,15 +58,14 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
     if (!tree) return;
     setIsExporting(true);
 
-    const mainView = document.getElementById('main-view-container');
-    if (!mainView) {
-      toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'רכיב התצוגה הראשי לא נמצא.' });
+    const captureTarget = document.querySelector('.react-flow') as HTMLElement;
+    if (!captureTarget) {
+      toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'רכיב הקנבס לא נמצא.' });
       setIsExporting(false);
       return;
     }
 
     document.body.classList.add('pdf-export-mode');
-    await new Promise(resolve => setTimeout(resolve, 200));
 
     try {
       const exportStyle = document.createElement('style');
@@ -94,14 +93,14 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
       `;
       document.head.appendChild(exportStyle);
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 800));
 
-      const canvas = await html2canvas(mainView, {
+      const canvas = await html2canvas(captureTarget, {
         scale: options.quality,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: window.getComputedStyle(document.body).backgroundColor,
         logging: false,
+        backgroundColor: window.getComputedStyle(document.body).backgroundColor,
       });
 
       document.getElementById('export-edge-fix')?.remove();
