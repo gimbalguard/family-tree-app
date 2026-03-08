@@ -32,6 +32,7 @@ import {
   Printer,
   Book,
   Link as LinkIcon,
+  Upload,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -98,6 +99,8 @@ type CanvasToolbarProps = {
   onOpenAccount: () => void;
   onToggleChat: () => void;
   onOpenPdfModal: () => void;
+  onExportExcel: () => void;
+  onImportClick: () => void;
 };
 
 export function CanvasToolbar({
@@ -115,14 +118,17 @@ export function CanvasToolbar({
   onOpenAccount,
   onToggleChat,
   onOpenPdfModal,
+  onExportExcel,
+  onImportClick,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
+
   const currentView =
     viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
 
   const exportOptions = [
     { label: 'PDF', icon: <FileText />, onClick: onOpenPdfModal },
-    { label: 'אקסל', icon: <FileSpreadsheet />, onClick: () => handleComingSoonClick() },
+    { label: 'אקסל', icon: <FileSpreadsheet />, onClick: onExportExcel },
     { label: 'פאוורפוינט', icon: <Presentation />, onClick: () => handleComingSoonClick() },
     { label: 'תמונה', icon: <ImageIcon />, onClick: () => handleComingSoonClick() },
     { label: 'HTML אינטראקטיבי', icon: <Globe />, onClick: () => handleComingSoonClick() },
@@ -306,8 +312,8 @@ export function CanvasToolbar({
               <span className="text-xs">ייצוא / הדפסה</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent side="right" align="center" className="w-80 z-[1003]">
-            <div className="grid grid-cols-3 gap-2" dir="rtl">
+          <PopoverContent side="right" align="center" className="w-80 z-[1003] p-2">
+            <div className="grid grid-cols-3 gap-1" dir="rtl">
               {exportOptions.map((option) => (
                 <Button
                   key={option.label}
@@ -320,6 +326,15 @@ export function CanvasToolbar({
                 </Button>
               ))}
             </div>
+            <Separator className="my-2"/>
+            <Button
+              variant="ghost"
+              className="flex w-full h-auto flex-col items-center justify-center gap-1.5 p-3"
+              onClick={onImportClick}
+            >
+              <Upload className="h-7 w-7" />
+              <span className="text-xs text-center">ייבוא מקובץ Excel</span>
+            </Button>
           </PopoverContent>
         </Popover>
       </div>
