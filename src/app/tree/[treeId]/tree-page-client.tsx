@@ -288,8 +288,49 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const posData = posSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CanvasPosition));
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
 
+      const parentRelTypes = ['parent', 'adoptive_parent', 'step_parent'];
+
+      const childrenCountMap = new Map<string, number>();
+      relsData.forEach(rel => {
+          if (parentRelTypes.includes(rel.relationshipType)) {
+              childrenCountMap.set(rel.personAId, (childrenCountMap.get(rel.personAId) || 0) + 1);
+          }
+      });
+
+      const parentMap = new Map<string, string[]>(); 
+      relsData.forEach(rel => {
+          if (parentRelTypes.includes(rel.relationshipType)) {
+              if (!parentMap.has(rel.personBId)) {
+                  parentMap.set(rel.personBId, []);
+              }
+              parentMap.get(rel.personBId)!.push(rel.personAId);
+          }
+      });
+      
+      const enrichedPeopleData = peopleData.map(person => {
+          const parents = parentMap.get(person.id);
+          let siblingsCount = 0;
+          if (parents && parents.length > 0) {
+              const siblings = new Set<string>();
+              relsData.forEach(rel => {
+                  if (parentRelTypes.includes(rel.relationshipType) && parents.includes(rel.personAId)) {
+                      if (rel.personBId !== person.id) {
+                          siblings.add(rel.personBId);
+                      }
+                  }
+              });
+              siblingsCount = siblings.size;
+          }
+
+          return {
+              ...person,
+              childrenCount: childrenCountMap.get(person.id) || 0,
+              siblingsCount: siblingsCount
+          }
+      });
+
       setTree(treeData);
-      setPeople(peopleData);
+      setPeople(enrichedPeopleData);
       setRelationships(relsData);
       setCanvasPositions(posData);
       setManualEvents(manualEventsData);
@@ -298,7 +339,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         posData.map((p) => [p.personId, p])
       );
 
-      const initialNodes = peopleData.map((person) => {
+      const initialNodes = enrichedPeopleData.map((person) => {
         const pos = positionsMap.get(person.id);
         const personWithUiState: Person = {
           ...person,

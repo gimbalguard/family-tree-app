@@ -46,6 +46,8 @@ export type Person = {
   isLocked?: boolean;
   groupId?: string | null;
   isOwner?: boolean;
+  childrenCount?: number;
+  siblingsCount?: number;
 };
 
 export type Relationship = {

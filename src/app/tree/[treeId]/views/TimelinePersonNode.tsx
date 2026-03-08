@@ -7,6 +7,7 @@ import type { Person } from '@/lib/types';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { differenceInYears } from 'date-fns';
+import { Baby, Users } from 'lucide-react';
 
 function getPlaceholderImage(gender: Person['gender']) {
     switch(gender) {
@@ -17,7 +18,7 @@ function getPlaceholderImage(gender: Person['gender']) {
 }
 
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status } = data;
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, childrenCount, siblingsCount } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -47,7 +48,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   return (
     <div className={cn(
-        "flex items-center gap-2 rounded-lg p-2 bg-card border-2 shadow-md transition-colors duration-200 w-56", 
+        "flex items-center gap-2 rounded-lg p-2 bg-card border-2 shadow-md transition-colors duration-200 w-64", 
         selected ? 'border-primary' : 'border-transparent',
     )}>
       {/* Handles for relationships */}
@@ -60,9 +61,27 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
             <img src={getPlaceholderImage(gender)} alt={`${firstName} ${lastName}`} />
         </AvatarFallback>
       </Avatar>
-      <div className="flex-1 space-y-0 leading-tight">
+      <div className="flex-1 space-y-0.5 leading-tight">
         <h3 className="font-semibold text-sm">{`${firstName} ${lastName}`}</h3>
-        {lifeYears && <p className="text-xs text-muted-foreground">{lifeYears}</p>}
+        <p className="text-xs text-muted-foreground">
+            {lifeYears || <>&nbsp;</>}
+        </p>
+         {(childrenCount || 0) > 0 || (siblingsCount || 0) > 0 ? (
+            <div className="flex items-center gap-3 pt-1">
+                {(childrenCount || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
+                        <Baby className="h-3.5 w-3.5" />
+                        <span>{childrenCount}</span>
+                    </div>
+                )}
+                {(siblingsCount || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
+                        <Users className="h-3.5 w-3.5" />
+                        <span>{siblingsCount}</span>
+                    </div>
+                )}
+            </div>
+        ) : null}
       </div>
     </div>
   );

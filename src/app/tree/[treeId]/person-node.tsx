@@ -10,12 +10,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Heart, Lock } from 'lucide-react';
+import { Heart, Lock, Baby, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
 
-export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner?: boolean }>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked } = data;
+export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked, childrenCount, siblingsCount } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -24,7 +24,12 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner
 
       if (hasBirthDate && !hasDeathDate && status === 'alive') {
         const age = differenceInYears(new Date(), new Date(birthDate!));
-        return `${format(new Date(birthDate!), 'dd/MM/yyyy')} (גיל ${age})`;
+        return (
+          <>
+            {format(new Date(birthDate!), 'dd/MM/yyyy')}
+            <span className="font-semibold"> (גיל {age})</span>
+          </>
+        );
       }
       if (hasBirthDate && hasDeathDate) {
         return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
@@ -122,6 +127,22 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person & { isOwner
                 {getStatusIcon()}
                 {getReligionIcon()}
             </div>
+             {(childrenCount || 0) > 0 || (siblingsCount || 0) > 0 ? (
+              <div className="flex items-center gap-4 pt-1.5">
+                {(childrenCount || 0) > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
+                    <Baby className="h-4 w-4" />
+                    <span>{childrenCount}</span>
+                  </div>
+                )}
+                {(siblingsCount || 0) > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
+                    <Users className="h-4 w-4" />
+                    <span>{siblingsCount}</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </div>
       </CardHeader>
