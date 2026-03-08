@@ -26,7 +26,7 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
-  FilePresentation,
+  Presentation,
   Image as ImageIcon,
   Globe,
   Printer,
@@ -121,7 +121,7 @@ export function CanvasToolbar({
   const exportOptions = [
     { label: 'PDF', icon: <FileText /> },
     { label: 'אקסל', icon: <FileSpreadsheet /> },
-    { label: 'פאוורפוינט', icon: <FilePresentation /> },
+    { label: 'פאוורפוינט', icon: <Presentation /> },
     { label: 'תמונה', icon: <ImageIcon /> },
     { label: 'HTML אינטראקטיבי', icon: <Globe /> },
     { label: 'הדפסה', icon: <Printer /> },
