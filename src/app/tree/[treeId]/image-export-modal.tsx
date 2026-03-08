@@ -96,8 +96,8 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
       await new Promise(resolve => setTimeout(resolve, 800));
 
       const dataUrl = options.format === 'jpg'
-        ? await toJpeg(captureTarget, { quality: 0.95, pixelRatio: options.quality })
-        : await toPng(captureTarget, { pixelRatio: options.quality });
+        ? await toJpeg(captureTarget, { quality: 0.95, pixelRatio: options.quality, skipFonts: true })
+        : await toPng(captureTarget, { pixelRatio: options.quality, skipFonts: true });
       
       document.getElementById('export-edge-fix')?.remove();
 

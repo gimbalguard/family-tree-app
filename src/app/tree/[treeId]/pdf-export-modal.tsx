@@ -154,7 +154,10 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
         }
       }
       
-      const dataUrl = await toPng(reactFlowElement, { pixelRatio: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1 });
+      const dataUrl = await toPng(reactFlowElement, { 
+        pixelRatio: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
+        skipFonts: true
+      });
       
       document.getElementById('export-edge-fix')?.remove();
       
