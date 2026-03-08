@@ -1404,32 +1404,46 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         }
     };
     
-  const saveExportedFile = async (
+  const saveExportedFile = useCallback(async (
     blob: Blob,
     fileName: string,
     fileType: ExportedFile['fileType']
   ) => {
-    if (!user || !tree) return;
+    if (!user || !storage || !db || !tree) {
+      toast({
+        variant: "destructive",
+        title: "שגיאת שמירה בענן",
+        description: "לא ניתן לגשת לשירותי הענן. ודא שאתה מחובר.",
+      });
+      return;
+    }
     try {
-      const formData = new FormData();
-      formData.append('file', new File([blob], fileName, { type: blob.type }));
-      formData.append('metadata', JSON.stringify({
+      const storagePath = `users/${user.uid}/exports/${tree.id}/${Date.now()}_${fileName}`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, blob);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      await addDoc(collection(db, 'exportedFiles'), {
         userId: user.uid,
-        treeId,
+        treeId: tree.id,
         treeName: tree.treeName,
         fileName,
-        fileType
-      }));
-      
-      await fetch('/api/save-export', {
-        method: 'POST',
-        body: formData,
+        fileType,
+        storagePath,
+        downloadURL,
+        fileSizeBytes: blob.size,
+        createdAt: serverTimestamp(),
       });
-
-    } catch (err) {
-      console.warn('Could not save to My Files (client-side error):', err);
+      
+    } catch (error) {
+      console.error('saveExportedFile error:', error);
+      toast({
+        variant: "destructive",
+        title: "שגיאת שמירה בענן",
+        description: "הקובץ הורד למחשבך, אך הגיבוי בענן נכשל. ודא שהרשאות האחסון מוגדרות כראוי.",
+      });
     }
-  };
+  }, [user, storage, db, tree, toast]);
 
   const handleExportExcel = useCallback(async () => {
     if (!tree || !user || !db) return;
@@ -1473,7 +1487,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         console.error("Excel export failed:", error);
         toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'לא ניתן היה להכין את הנתונים.' });
     }
-  }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast]);
+  }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast, saveExportedFile]);
 
   const handleOpenImageExport = () => {
       toast({
