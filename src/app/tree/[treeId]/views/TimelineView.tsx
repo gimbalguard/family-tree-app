@@ -102,7 +102,6 @@ function TimelineViewContent({
       return;
     }
 
-    // 1. Prepare Data: Add birthYear and generation to each person
     const generations = assignGenerations(people, relationships);
     const peopleWithData = people.map(p => {
         const date = p.birthDate ? parseISO(p.birthDate) : null;
@@ -111,41 +110,24 @@ function TimelineViewContent({
             birthYear: date && isValid(date) ? getYear(date) : null,
             generation: generations.get(p.id) || 0,
         };
-    }).filter(p => p.generation > 0); // Exclude people who couldn't be placed
+    }).filter(p => p.generation > 0);
 
     const validBirthYears = peopleWithData.map(p => p.birthYear).filter((y): y is number => y !== null);
     const minYear = validBirthYears.length > 0 ? Math.min(...validBirthYears) - 5 : new Date().getFullYear() - 50;
     const maxYear = validBirthYears.length > 0 ? Math.max(...validBirthYears, new Date().getFullYear()) + 5 : new Date().getFullYear();
     setYearRange({ min: minYear, max: maxYear });
 
-    // 2. Group people by generation
     const peopleByGeneration = new Map<number, typeof peopleWithData>();
     for (const person of peopleWithData) {
       if (!peopleByGeneration.has(person.generation)) peopleByGeneration.set(person.generation, []);
       peopleByGeneration.get(person.generation)!.push(person);
     }
     
-    // 3. Create Nodes with correct positioning based on mode
     const newNodes: Node<Person>[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
     if (isCompact) {
-        // COMPACT MODE
-        for (const gen of sortedGenerationKeys) {
-            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-            const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-
-            peopleInGen.forEach((person, index) => {
-                newNodes.push({
-                    id: person.id,
-                    type: 'timelinePerson',
-                    position: { x: xPos, y: index * (NODE_HEIGHT + 8) }, // 8px gap
-                    data: person,
-                });
-            });
-        }
-    } else {
-        // NORMAL (EXPANDED) MODE - WITH OVERLAP AVOIDANCE
+        // Compact mode now behaves like normal mode to match user request.
         const lastOccupiedYinColumn = new Map<number, number>();
         for (const gen of sortedGenerationKeys) {
             const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
@@ -157,8 +139,29 @@ function TimelineViewContent({
                 
                 const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
                 const lastY = lastOccupiedYinColumn.get(gen)!;
+                const yPos = Math.max(idealY, lastY + MIN_VERTICAL_GAP);
+                
+                newNodes.push({
+                    id: person.id,
+                    type: 'timelinePerson',
+                    position: { x: xPos, y: yPos },
+                    data: person,
+                });
+                lastOccupiedYinColumn.set(gen, yPos + NODE_HEIGHT);
+            }
+        }
+    } else {
+        const lastOccupiedYinColumn = new Map<number, number>();
+        for (const gen of sortedGenerationKeys) {
+            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
+            const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
+            lastOccupiedYinColumn.set(gen, -Infinity);
 
-                // Push node down only if it overlaps with the previous one in the same column
+            for (const person of peopleInGen) {
+                if (person.birthYear === null) continue;
+                
+                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
+                const lastY = lastOccupiedYinColumn.get(gen)!;
                 const yPos = Math.max(idealY, lastY + MIN_VERTICAL_GAP);
                 
                 newNodes.push({
@@ -174,7 +177,6 @@ function TimelineViewContent({
     
     setNodes(newNodes);
 
-    // 4. Create Edges
     const newEdges: Edge[] = relationships.map(rel => ({
       id: rel.id,
       source: rel.personAId,
@@ -184,11 +186,10 @@ function TimelineViewContent({
     }));
     setEdges(newEdges);
 
-    // Only fit view on initial load
     if (nodes.length === 0 && newNodes.length > 0) {
       setTimeout(() => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }), 100);
     }
-  }, [people, relationships, edgeType, isCompact, setNodes, setEdges, setViewport]);
+  }, [people, relationships, edgeType, isCompact, setNodes, setEdges, setViewport, nodes.length]);
 
   return (
     <div className="h-full w-full relative bg-background">
