@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import html2canvas from 'html2canvas';
+import { toPng, toJpeg } from 'html-to-image';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -67,48 +67,48 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
 
     document.body.classList.add('pdf-export-mode');
 
-    try {
-      const exportStyle = document.createElement('style');
-      exportStyle.id = 'export-edge-fix';
-      exportStyle.textContent = `
-        .react-flow__edges { overflow: visible !important; }
-        .react-flow__edge path { 
-          stroke: #26a69a !important; 
-          stroke-width: 2px !important; 
-          fill: none !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          display: block !important;
-        }
-        .react-flow__edge-path {
-          stroke: #26a69a !important;
-          stroke-width: 2px !important;
-          fill: none !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-        }
-        .react-flow__edges svg {
-          overflow: visible !important;
-        }
-      `;
-      document.head.appendChild(exportStyle);
+    const exportStyle = document.createElement('style');
+    exportStyle.id = 'export-edge-fix';
+    exportStyle.textContent = `
+      .react-flow__edges { overflow: visible !important; }
+      .react-flow__edge path { 
+        stroke: #26a69a !important; 
+        stroke-width: 2px !important; 
+        fill: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: block !important;
+      }
+      .react-flow__edge-path {
+        stroke: #26a69a !important;
+        stroke-width: 2px !important;
+        fill: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      .react-flow__edges svg {
+        overflow: visible !important;
+      }
+    `;
+    document.head.appendChild(exportStyle);
 
+    try {
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      const canvas = await html2canvas(captureTarget, {
-        scale: options.quality,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: window.getComputedStyle(document.body).backgroundColor,
-      });
-
+      const dataUrl = options.format === 'jpg'
+        ? await toJpeg(captureTarget, { quality: 0.95, pixelRatio: options.quality })
+        : await toPng(captureTarget, { pixelRatio: options.quality });
+      
       document.getElementById('export-edge-fix')?.remove();
+
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise(resolve => { img.onload = resolve; });
 
       const headerHeight = options.includeTitle ? 50 : 0;
       const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = canvas.width;
-      finalCanvas.height = canvas.height + (headerHeight * options.quality);
+      finalCanvas.width = img.width;
+      finalCanvas.height = img.height + (headerHeight * options.quality);
       const ctx = finalCanvas.getContext('2d');
       
       if (ctx) {
@@ -128,7 +128,7 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
         }
         
         // Draw main content
-        ctx.drawImage(canvas, 0, headerHeight * options.quality);
+        ctx.drawImage(img, 0, headerHeight * options.quality);
       }
 
       const imageType = options.format === 'jpg' ? 'image/jpeg' : 'image/png';
@@ -165,6 +165,7 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
     } catch (error) {
       console.error('Image export failed:', error);
       toast({ variant: 'destructive', title: 'שגיאה בייצוא תמונה', description: 'נסה שוב.' });
+      document.getElementById('export-edge-fix')?.remove();
       document.body.classList.remove('pdf-export-mode');
       setIsExporting(false);
       onClose();

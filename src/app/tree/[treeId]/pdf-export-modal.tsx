@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
 import { useReactFlow } from 'reactflow';
@@ -120,50 +120,42 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
 
     await new Promise(resolve => setTimeout(resolve, 200));
 
+    const exportStyle = document.createElement('style');
+    exportStyle.id = 'export-edge-fix';
+    exportStyle.textContent = `
+      .react-flow__edges { overflow: visible !important; }
+      .react-flow__edge path { 
+        stroke: #26a69a !important; 
+        stroke-width: 2px !important; 
+        fill: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        display: block !important;
+      }
+      .react-flow__edge-path {
+        stroke: #26a69a !important;
+        stroke-width: 2px !important;
+        fill: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      .react-flow__edges svg {
+        overflow: visible !important;
+      }
+    `;
+    document.head.appendChild(exportStyle);
+
     try {
       if (options.scope === 'full') {
         const nodes = getNodes();
         if (nodes.length > 0) {
             await fitView({ padding: 0.1, duration: 0 });
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 800));
         }
       }
       
-      const exportStyle = document.createElement('style');
-      exportStyle.id = 'export-edge-fix';
-      exportStyle.textContent = `
-        .react-flow__edges { overflow: visible !important; }
-        .react-flow__edge path { 
-          stroke: #26a69a !important; 
-          stroke-width: 2px !important; 
-          fill: none !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-          display: block !important;
-        }
-        .react-flow__edge-path {
-          stroke: #26a69a !important;
-          stroke-width: 2px !important;
-          fill: none !important;
-          visibility: visible !important;
-          opacity: 1 !important;
-        }
-        .react-flow__edges svg {
-          overflow: visible !important;
-        }
-      `;
-      document.head.appendChild(exportStyle);
+      const dataUrl = await toPng(reactFlowElement, { pixelRatio: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1 });
       
-      await new Promise(resolve => setTimeout(resolve, 800));
-
-      const canvas = await html2canvas(reactFlowElement, {
-        scale: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: canvasBgColor,
-        logging: false,
-      });
-
       document.getElementById('export-edge-fix')?.remove();
       
       const orientation = options.orientation === 'landscape' ? 'l' : 'p';
@@ -172,8 +164,7 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const imgProps = pdf.getImageProperties(imgData);
+      const imgProps = pdf.getImageProperties(dataUrl);
       
       const imgWidth = pdfWidth;
       const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
@@ -181,13 +172,13 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
       let heightLeft = imgHeight;
       let position = 0;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
       heightLeft -= pdfHeight;
 
       while (heightLeft > 0) {
         position -= pdfHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        pdf.addImage(dataUrl, 'PNG', 0, position, imgWidth, imgHeight);
         heightLeft -= pdfHeight;
       }
       
@@ -220,6 +211,7 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
         if (options.scope === 'full') {
             setViewport(previousViewport, { duration: 0 });
         }
+        document.getElementById('export-edge-fix')?.remove();
         document.body.classList.remove('pdf-export-mode');
         if (reactFlowElement.contains(headerEl)) reactFlowElement.removeChild(headerEl);
         if (reactFlowElement.contains(footerEl)) reactFlowElement.removeChild(footerEl);
