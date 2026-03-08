@@ -21,8 +21,6 @@ import type {
 } from 'reactflow';
 import {
   ReactFlowProvider,
-  useNodesState,
-  useEdgesState,
   useStore,
   applyNodeChanges,
   applyEdgeChanges,
@@ -196,13 +194,22 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const canUndo = useStore((s) => (s.past?.length ?? 0) > 0);
   const canRedo = useStore((s) => (s.future?.length ?? 0) > 0);
 
+  const [nodes, setNodes] = useState<Node[]>([]);
+  const [edges, setEdges] = useState<Edge[]>([]);
+
+  const onNodesChange: OnNodesChange = useCallback(
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  );
+  const onEdgesChange: OnEdgesChange = useCallback(
+    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    []
+  );
+
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [manualEvents, setManualEvents] = useState<ManualEvent[]>([]);
-
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   
   const [canvasPositions, setCanvasPositions] = useState<CanvasPosition[]>([]);
 
@@ -260,6 +267,122 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     initialNodePositions: Map<string, XYPosition>;
   } | null>(null);
 
+  const deriveStateFromData = useCallback((
+    peopleData: Person[], 
+    relsData: Relationship[], 
+    posData: CanvasPosition[],
+    currentTree: FamilyTree
+  ) => {
+    const allParentalRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
+    const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling'];
+
+    const childrenMap = new Map<string, string[]>();
+    relsData.forEach(rel => {
+      if (allParentalRelTypes.includes(rel.relationshipType)) {
+        if (!childrenMap.has(rel.personAId)) childrenMap.set(rel.personAId, []);
+        childrenMap.get(rel.personAId)!.push(rel.personBId);
+      }
+    });
+    
+    const parentMap = new Map<string, string[]>();
+    relsData.forEach(rel => {
+      if (allParentalRelTypes.includes(rel.relationshipType)) {
+        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
+        parentMap.get(rel.personBId)!.push(rel.personAId);
+      }
+    });
+
+    const enrichedPeopleData = peopleData.map(person => {
+        const children = childrenMap.get(person.id) || [];
+        const childrenCount = children.length;
+
+        const parents = parentMap.get(person.id) || [];
+        const siblings = new Set<string>();
+        if (parents.length > 0) {
+            parents.forEach(parentId => {
+                const childrenOfParent = childrenMap.get(parentId) || [];
+                childrenOfParent.forEach(siblingId => {
+                    if (siblingId !== person.id) siblings.add(siblingId);
+                });
+            });
+        }
+        relsData.forEach(rel => {
+            if (directSiblingRelTypes.includes(rel.relationshipType)) {
+                if (rel.personAId === person.id) siblings.add(rel.personBId);
+                if (rel.personBId === person.id) siblings.add(rel.personAId);
+            }
+        });
+        const siblingsCount = siblings.size;
+
+        const grandchildren = children.flatMap(childId => childrenMap.get(childId) || []);
+        const greatGrandchildren = grandchildren.flatMap(grandchildId => childrenMap.get(grandchildId) || []);
+        const gen4 = greatGrandchildren.flatMap(greatGrandchildId => childrenMap.get(greatGrandchildId) || []);
+        const gen5 = gen4.flatMap(gen4Id => childrenMap.get(gen4Id) || []);
+
+        return {
+            ...person,
+            childrenCount,
+            siblingsCount,
+            grandchildrenCount: new Set(grandchildren).size,
+            greatGrandchildrenCount: new Set(greatGrandchildren).size,
+            gen4Count: new Set(gen4).size,
+            gen5Count: new Set(gen5).size,
+        };
+    });
+    setPeople(enrichedPeopleData);
+    setRelationships(relsData);
+    
+    const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
+    const newNodes = enrichedPeopleData.map(person => {
+      const pos = positionsMap.get(person.id);
+      return {
+        id: person.id,
+        type: 'personNode',
+        position: pos ? { x: pos.x, y: pos.y } : { x: Math.random() * 400, y: Math.random() * 400 },
+        data: {
+          ...person,
+          isLocked: pos?.isLocked ?? false,
+          groupId: pos?.groupId ?? null,
+          isOwner: person.id === currentTree.ownerPersonId,
+        },
+        draggable: !(pos?.isLocked ?? false),
+      };
+    });
+    setNodes(newNodes);
+
+    const relLabelMap = new Map(relationshipOptions.map(opt => [opt.type, opt.label]));
+    relLabelMap.set('spouse', 'נשואים');
+    relLabelMap.set('ex_spouse', 'גרושים');
+    relLabelMap.set('separated', 'פרודים');
+    relLabelMap.set('partner', 'בן/בת זוג');
+    relLabelMap.set('ex_partner', 'בן/בת זוג לשעבר');
+
+    const newEdges = relsData.map(rel => {
+      const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, newNodes);
+      const getLabel = () => {
+        if (['parent', 'step_parent', 'adoptive_parent'].includes(rel.relationshipType)) {
+          const parent = peopleData.find(p => p.id === rel.personAId);
+          if (parent) {
+            const parentOption = relationshipOptions.find(opt => opt.type === rel.relationshipType && opt.gender === parent.gender);
+            return parentOption?.label || 'הורה';
+          }
+          return 'הורה';
+        }
+        return relLabelMap.get(rel.relationshipType) || rel.relationshipType;
+      };
+      return {
+        id: rel.id,
+        source, target, sourceHandle, targetHandle, type: edgeType,
+        label: getLabel(),
+        labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
+        labelStyle: { fill: 'hsl(var(--foreground))' },
+        data: rel,
+        className: 'custom-edge',
+      };
+    });
+    setEdges(newEdges);
+  }, [edgeType]);
+
   const fetchData = useCallback(async () => {
     if (!user || user.isAnonymous || !db) return;
     setIsLoading(true);
@@ -288,198 +411,56 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const relsData = relsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Relationship));
       const posData = posSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CanvasPosition));
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
-
-      const allParentalRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
-      const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling'];
-
-      const childrenMap = new Map<string, string[]>();
-      relsData.forEach(rel => {
-          if (allParentalRelTypes.includes(rel.relationshipType)) {
-              if (!childrenMap.has(rel.personAId)) childrenMap.set(rel.personAId, []);
-              childrenMap.get(rel.personAId)!.push(rel.personBId);
-          }
-      });
-      
-      const parentMap = new Map<string, string[]>();
-      relsData.forEach(rel => {
-          if (allParentalRelTypes.includes(rel.relationshipType)) {
-              if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
-              parentMap.get(rel.personBId)!.push(rel.personAId);
-          }
-      });
-
-      const enrichedPeopleData = peopleData.map(person => {
-          const children = childrenMap.get(person.id) || [];
-          const childrenCount = children.length;
-
-          const parents = parentMap.get(person.id) || [];
-          const siblings = new Set<string>();
-          if (parents.length > 0) {
-              parents.forEach(parentId => {
-                  const childrenOfParent = childrenMap.get(parentId) || [];
-                  childrenOfParent.forEach(siblingId => {
-                      if (siblingId !== person.id) siblings.add(siblingId);
-                  });
-              });
-          }
-          relsData.forEach(rel => {
-              if (directSiblingRelTypes.includes(rel.relationshipType)) {
-                  if (rel.personAId === person.id) siblings.add(rel.personBId);
-                  if (rel.personBId === person.id) siblings.add(rel.personAId);
-              }
-          });
-          const siblingsCount = siblings.size;
-
-          const grandchildren = children.flatMap(childId => childrenMap.get(childId) || []);
-          const greatGrandchildren = grandchildren.flatMap(grandchildId => childrenMap.get(grandchildId) || []);
-          const gen4 = greatGrandchildren.flatMap(greatGrandchildId => childrenMap.get(greatGrandchildId) || []);
-          const gen5 = gen4.flatMap(gen4Id => childrenMap.get(gen4Id) || []);
-
-          return {
-              ...person,
-              childrenCount,
-              siblingsCount,
-              grandchildrenCount: new Set(grandchildren).size,
-              greatGrandchildrenCount: new Set(greatGrandchildren).size,
-              gen4Count: new Set(gen4).size,
-              gen5Count: new Set(gen5).size,
-          };
-      });
       
       setTree(treeData);
-      setPeople(enrichedPeopleData);
-      setRelationships(relsData);
       setCanvasPositions(posData);
       setManualEvents(manualEventsData);
-
-      const positionsMap = new Map<string, Partial<CanvasPosition>>(
-        posData.map((p) => [p.personId, p])
-      );
-
-      const initialNodes = enrichedPeopleData.map((person) => {
-        const pos = positionsMap.get(person.id);
-        const personWithUiState: Person = {
-          ...person,
-          isLocked: pos?.isLocked ?? false,
-          groupId: pos?.groupId ?? null,
-          isOwner: person.id === treeData.ownerPersonId,
-        };
-
-        return {
-          id: person.id,
-          type: 'personNode',
-          position: pos ? { x: pos.x, y: pos.y } : { x: Math.random() * 400, y: Math.random() * 400 },
-          data: personWithUiState,
-          draggable: !(pos?.isLocked ?? false),
-        };
-      });
-      setNodes(initialNodes);
-
-      const relLabelMap = new Map(
-        relationshipOptions.map((opt) => [opt.type, opt.label])
-      );
-      // Fallback for types that might map to the same base type but have different labels in the modal
-      relLabelMap.set('spouse', 'נשואים');
-      relLabelMap.set('ex_spouse', 'גרושים');
-      relLabelMap.set('separated', 'פרודים');
-      relLabelMap.set('partner', 'בן/בת זוג');
-      relLabelMap.set('ex_partner', 'בן/בת זוג לשעבר');
-
-      const initialEdges = relsData.map((rel) => {
-        const { source, target, sourceHandle, targetHandle } = getEdgeProps(
-          rel,
-          initialNodes
-        );
-        const getLabel = () => {
-          if (
-            rel.relationshipType === 'parent' ||
-            rel.relationshipType === 'step_parent' ||
-            rel.relationshipType === 'adoptive_parent'
-          ) {
-            const parent = peopleData.find((p) => p.id === rel.personAId);
-            if (parent) {
-              const parentOption = relationshipOptions.find(
-                (opt) =>
-                  opt.type === rel.relationshipType &&
-                  opt.gender === parent.gender
-              );
-              return parentOption?.label || 'הורה';
-            }
-            return 'הורה';
-          }
-          return relLabelMap.get(rel.relationshipType) || rel.relationshipType;
-        };
-
-        return {
-          id: rel.id,
-          source,
-          target,
-          sourceHandle,
-          targetHandle,
-          type: edgeType,
-          label: getLabel(),
-          labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
-          labelStyle: { fill: 'hsl(var(--foreground))' },
-          data: rel,
-          className: 'custom-edge',
-        };
-      });
-      setEdges(initialEdges);
+      deriveStateFromData(peopleData, relsData, posData, treeData);
+      
     } catch (err: any) {
       console.error('Error fetching tree data:', err);
       setError(err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [treeId, user, db, setNodes, setEdges, edgeType]);
-
-  const runSiblingDetection = useCallback(async (personIdsForCheck: string[]) => {
-    if (!user || !db || personIdsForCheck.length === 0) return;
-
-    // Fetch fresh data to ensure we're working with the latest state
-    const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
-    const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-    const [peopleSnap, relsSnap] = await Promise.all([ getDocs(peopleRef), getDocs(relsRef) ]);
-    const currentPeople = peopleSnap.docs.map(d => ({...d.data(), id: d.id}) as Person);
-    const currentRelationships = relsSnap.docs.map(d => ({...d.data(), id: d.id}) as Relationship);
-
+  }, [treeId, user, db, deriveStateFromData]);
+  
+  const runSiblingDetection = useCallback((
+    personIdsForCheck: string[], 
+    currentPeople: Person[], 
+    currentRels: Relationship[]
+  ) => {
     const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
     const siblingTypes = ['sibling', 'twin'];
     
-    // Find all parents of the people who might have new sibling relationships
     const parentsToCheck = new Set<string>();
-    currentRelationships.forEach(rel => {
+    currentRels.forEach(rel => {
         if (parentTypes.includes(rel.relationshipType) && personIdsForCheck.includes(rel.personBId)) {
             parentsToCheck.add(rel.personAId);
         }
     });
 
     if (parentsToCheck.size === 0) {
-      // This handles the case where a birthdate was updated for a person.
-      // We need to find their siblings through existing relationships to identify the parents.
       const personId = personIdsForCheck[0];
-      const siblingRels = currentRelationships.filter(r => (r.personAId === personId || r.personBId === personId) && siblingTypes.includes(r.relationshipType));
+      if (!personId) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
+      const siblingRels = currentRels.filter(r => (r.personAId === personId || r.personBId === personId) && siblingTypes.includes(r.relationshipType));
       const siblingIds = siblingRels.map(r => r.personAId === personId ? r.personBId : r.personAId);
       const allInvolvedIds = [...siblingIds, personId];
-      
-      currentRelationships.forEach(rel => {
+      currentRels.forEach(rel => {
         if (parentTypes.includes(rel.relationshipType) && allInvolvedIds.includes(rel.personBId)) {
           parentsToCheck.add(rel.personAId);
         }
       });
     }
 
-    if (parentsToCheck.size === 0) return; // No parents, no siblings to detect
+    if (parentsToCheck.size === 0) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
 
-    const batch = writeBatch(db);
-    let changesMade = false;
+    const relationshipsToAdd: Relationship[] = [];
+    const relationshipsToUpdate: Partial<Relationship>[] = [];
 
-    // For each parent, check all pairs of their children for sibling relationships
     for (const parentId of parentsToCheck) {
         const children = currentPeople.filter(p =>
-            currentRelationships.some(r =>
-                parentTypes.includes(r.relationshipType) && r.personAId === parentId && r.personBId === p.id
-            )
+            currentRels.some(r => parentTypes.includes(r.relationshipType) && r.personAId === parentId && r.personBId === p.id)
         );
 
         if (children.length < 2) continue;
@@ -488,52 +469,28 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
             for (let j = i + 1; j < children.length; j++) {
                 const childA = children[i];
                 const childB = children[j];
-
-                // Check for existing sibling/twin relationship
-                const existingRel = currentRelationships.find(r =>
-                    siblingTypes.includes(r.relationshipType) &&
-                    ((r.personAId === childA.id && r.personBId === childB.id) || (r.personAId === childB.id && r.personBId === childA.id))
-                );
-
+                const existingRel = currentRels.find(r => siblingTypes.includes(r.relationshipType) && ((r.personAId === childA.id && r.personBId === childB.id) || (r.personAId === childB.id && r.personBId === childA.id)));
                 const isTwin = childA.birthDate && childA.birthDate === childB.birthDate;
                 const correctRelType = isTwin ? 'twin' : 'sibling';
 
                 if (existingRel) {
-                    if (existingRel.manuallyEdited) continue; // Skip manually edited relationships
+                    if (existingRel.manuallyEdited) continue;
                     if (existingRel.relationshipType !== correctRelType) {
-                        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', existingRel.id);
-                        batch.update(relRef, { relationshipType: correctRelType });
-                        changesMade = true;
+                        relationshipsToUpdate.push({ id: existingRel.id, relationshipType: correctRelType });
                     }
                 } else {
-                    const newRelRef = doc(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'));
-                    const [personAId, personBId] = [childA.id, childB.id].sort(); // Sort IDs for consistency
-                    batch.set(newRelRef, {
-                        personAId,
-                        personBId,
-                        relationshipType: correctRelType,
-                        treeId: treeId,
-                        userId: user.uid,
-                        createdAt: serverTimestamp(),
-                        updatedAt: serverTimestamp(),
-                        manuallyEdited: false,
-                    });
-                    changesMade = true;
+                    const [personAId, personBId] = [childA.id, childB.id].sort();
+                    relationshipsToAdd.push({
+                        id: uuidv4(),
+                        personAId, personBId, relationshipType: correctRelType,
+                        treeId: treeId, userId: user!.uid, manuallyEdited: false
+                    } as Relationship);
                 }
             }
         }
     }
-
-    if (changesMade) {
-        try {
-            await batch.commit();
-            toast({ title: "קשרי אחים עודכנו אוטומטית" });
-        } catch (error) {
-            console.error("Error committing sibling detection batch:", error);
-            toast({ variant: 'destructive', title: "שגיאה בעדכון קשרי אחים" });
-        }
-    }
-  }, [user, db, treeId, toast]);
+    return { relationshipsToAdd, relationshipsToUpdate };
+  }, [treeId, user]);
 
   useEffect(() => {
     setEdges((eds) => eds.map((e) => ({ ...e, type: edgeType })));
@@ -863,35 +820,36 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const proceedWithCreation = async (personData: any) => {
     if (!user || !db) return;
     setIsDuplicateAlertOpen(false);
-
-    const data = {
+    
+    const newPersonId = uuidv4();
+    const newPersonData = {
       ...personData,
+      id: newPersonId,
       userId: user.uid,
       treeId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as Person;
+    
+    // Optimistic UI update
+    setPeople(ps => [...ps, newPersonData]);
+    deriveStateFromData([...people, newPersonData], relationships, canvasPositions, tree!);
+
     try {
-      const peopleCollection = collection(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'people'
-      );
-      const docRef = await addDoc(peopleCollection, data);
-      const newPerson = { id: docRef.id, ...data };
+      const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
+      await addDoc(peopleCollection, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       toast({
         title: 'אדם נוסף',
-        description: `${newPerson.firstName} ${newPerson.lastName} נוסף.`,
+        description: `${newPersonData.firstName} ${newPersonData.lastName} נוסף.`,
       });
-      fetchData();
     } catch (error: any) {
+      // Revert UI on error
+      setPeople(ps => ps.filter(p => p.id !== newPersonId));
+      deriveStateFromData(people.filter(p => p.id !== newPersonId), relationships, canvasPositions, tree!);
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people`,
         operation: 'create',
-        requestResourceData: data,
+        requestResourceData: personData,
       });
       errorEmitter.emit('permission-error', permissionError);
       toast({
@@ -901,6 +859,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       });
     }
     setPersonToCreate(null);
+    handleEditorClose();
   };
 
   const handleSavePerson = async (personData: any) => {
@@ -928,7 +887,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       setIsDuplicateAlertOpen(true);
     } else {
       await proceedWithCreation(personData);
-      handleEditorClose();
     }
   };
 
@@ -937,30 +895,33 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     const oldPerson = people.find(p => p.id === personData.id);
     const birthDateChanged = oldPerson?.birthDate !== personData.birthDate;
 
+    // Optimistic update
+    const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
+    setPeople(newPeople);
+    deriveStateFromData(newPeople, relationships, canvasPositions, tree!);
+
     try {
-      const docRef = doc(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'people',
-        personData.id
-      );
+      const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       const dataToUpdate = { ...personData, updatedAt: serverTimestamp() };
       await updateDoc(docRef, dataToUpdate);
 
       if (birthDateChanged) {
-        await runSiblingDetection([personData.id]);
+        // This is a side-effect, we can keep it as is, but it might be better to make it optimistic too
+        // For now, we will let it run and refetch to get the new sibling relations
+        await runSiblingDetection([personData.id], newPeople, relationships);
+        fetchData(); // Refetch to get new sibling relations
       }
 
       toast({
         title: 'אדם עודכן',
         description: `${personData.firstName} ${personData.lastName} עודכן.`,
       });
-      fetchData();
       handleEditorClose();
     } catch (error: any) {
+      // Revert on error
+      setPeople(people);
+      deriveStateFromData(people, relationships, canvasPositions, tree!);
+
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people/${personData.id}`,
         operation: 'update',
@@ -975,27 +936,34 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     }
   };
 
-  const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any) => {
+  const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
     if (!user || !db) {
         toast({ variant: 'destructive', title: 'שגיאת אימות' });
         return false;
     }
     const birthDateChanged = field === 'birthDate';
 
+    const oldPeople = people;
+    const newPeople = people.map(p => p.id === personId ? { ...p, [field]: value } : p);
+    setPeople(newPeople);
+    deriveStateFromData(newPeople, relationships, canvasPositions, tree!);
+
     try {
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personId);
         await updateDoc(personRef, { [field]: value, updatedAt: serverTimestamp() });
         
         if (birthDateChanged) {
-          await runSiblingDetection([personId]);
+          await runSiblingDetection([personId], newPeople, relationships);
+          fetchData(); // Refetch for siblings
         }
         
-        // Update local state for immediate feedback
-        setPeople(prev => prev.map(p => p.id === personId ? { ...p, [field]: value } : p));
         toast({ title: 'השדה עודכן', duration: 2000 });
-        fetchData(); // Refetch all data to reflect changes
         return true;
     } catch (error: any) {
+        // Revert
+        setPeople(oldPeople);
+        deriveStateFromData(oldPeople, relationships, canvasPositions, tree!);
+
         const permissionError = new FirestorePermissionError({
             path: `users/${user.uid}/familyTrees/${treeId}/people/${personId}`,
             operation: 'update',
@@ -1009,7 +977,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
         return false;
     }
-  }, [user, db, treeId, toast, runSiblingDetection, fetchData]);
+  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, fetchData]);
 
   const handleDeleteRequest = (personId: string) => {
     const person = people.find((p) => p.id === personId);
@@ -1023,24 +991,37 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db) return;
     setIsDeleting(true);
+
+    const personIdToDelete = personToDelete.id;
+    const originalState = { people, relationships, canvasPositions };
+
+    // Optimistic Update
+    const newPeople = people.filter(p => p.id !== personIdToDelete);
+    const newRelationships = relationships.filter(r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete);
+    const newCanvasPositions = canvasPositions.filter(c => c.personId !== personIdToDelete);
+    setPeople(newPeople);
+    setRelationships(newRelationships);
+    setCanvasPositions(newCanvasPositions);
+    deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
+
     try {
       const batch = writeBatch(db);
-      const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personToDelete.id);
+      const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
       batch.delete(personRef);
   
       const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-      const relsQuery1 = query(relsRef, where('personAId', '==', personToDelete.id));
-      const relsQuery2 = query(relsRef, where('personBId', '==', personToDelete.id));
-      const [rels1Snapshot, rels2Snapshot] = await Promise.all([ getDocs(relsQuery1), getDocs(relsQuery2) ]);
+      const relsQuery1 = query(relsRef, where('personAId', '==', personIdToDelete));
+      const relsQuery2 = query(relsRef, where('personBId', '==', personIdToDelete));
+      const [rels1Snapshot, rels2Snapshot] = await Promise.all([ getDocs(relsQuery1), getDocs(rels2Snapshot) ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
   
-      const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personToDelete.id, 'socialLinks');
+      const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
       const socialLinksSnapshot = await getDocs(socialLinksRef);
       socialLinksSnapshot.forEach((doc) => batch.delete(doc.ref));
 
       const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-      const posQuery = query( posRef, where('personId', '==', personToDelete.id), limit(1) );
+      const posQuery = query( posRef, where('personId', '==', personIdToDelete), limit(1) );
       const posSnapshot = await getDocs(posQuery);
       if (!posSnapshot.empty) {
         batch.delete(posSnapshot.docs[0].ref);
@@ -1051,11 +1032,16 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         title: 'אדם נמחק',
         description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`,
       });
-      fetchData();
     } catch (error: any) {
+        // Revert UI on error
+        setPeople(originalState.people);
+        setRelationships(originalState.relationships);
+        setCanvasPositions(originalState.canvasPositions);
+        deriveStateFromData(originalState.people, originalState.relationships, originalState.canvasPositions, tree!);
+
         console.error("Error deleting person:", error);
         const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/familyTrees/${treeId}/people/${personToDelete.id}`,
+            path: `users/${user.uid}/familyTrees/${treeId}/people/${personIdToDelete}`,
             operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -1086,116 +1072,101 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     relData: any;
     genderUpdate?: { personId: string; gender: 'male' | 'female' | 'other' };
   }) => {
-    if (!user || !db) return;
+    if (!user || !db || !tree) return;
     const { relData, genderUpdate } = payload;
-    const isEditing = !!editingRelationship;
+    const isEditing = !!relData.id;
     const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
     const isParental = parentTypes.includes(relData.relationshipType);
 
+    const oldState = { people, relationships };
+    let newRelationship: Relationship;
+    let newRelationships: Relationship[];
+
+    if (isEditing) {
+      newRelationships = relationships.map(r => r.id === relData.id ? { ...r, ...relData, updatedAt: new Date() } : r);
+    } else {
+      newRelationship = { ...relData, id: uuidv4(), createdAt: new Date(), updatedAt: new Date() } as Relationship;
+      newRelationships = [...relationships, newRelationship];
+    }
+    
+    let newPeople = people;
+    if (genderUpdate) {
+      newPeople = people.map(p => p.id === genderUpdate.personId ? { ...p, gender: genderUpdate.gender } : p);
+    }
+    
+    const siblingChanges = runSiblingDetection([relData.personBId], newPeople, newRelationships);
+    newRelationships.push(...siblingChanges.relationshipsToAdd);
+    siblingChanges.relationshipsToUpdate.forEach(updatedRel => {
+      newRelationships = newRelationships.map(r => r.id === updatedRel.id ? {...r, ...updatedRel} : r);
+    });
+
+    // Optimistic update
+    setPeople(newPeople);
+    setRelationships(newRelationships);
+    deriveStateFromData(newPeople, newRelationships, canvasPositions, tree);
+    
     try {
       const batch = writeBatch(db);
       if (isEditing) {
         const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relData.id);
-        const dataToUpdate = { ...relData, updatedAt: serverTimestamp() };
-        delete dataToUpdate.id;
-        batch.update(relRef, dataToUpdate);
+        batch.update(relRef, { ...relData, updatedAt: serverTimestamp() });
       } else {
-        const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-        const newDocRef = doc(relsRef);
-        const dataToCreate = {
-          ...relData,
-          userId: user.uid,
-          treeId,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        delete dataToCreate.id;
-        batch.set(newDocRef, dataToCreate);
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', newRelationship!.id);
+        batch.set(relRef, { ...newRelationship, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       }
+
       if (genderUpdate) {
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', genderUpdate.personId);
         batch.update(personRef, { gender: genderUpdate.gender });
       }
-      await batch.commit();
-
-      if (isParental) {
-        await runSiblingDetection([relData.personBId]);
-      }
       
+      siblingChanges.relationshipsToAdd.forEach(r => {
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id);
+        batch.set(relRef, r);
+      });
+      siblingChanges.relationshipsToUpdate.forEach(r => {
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!);
+        batch.update(relRef, r);
+      });
+
+      await batch.commit();
       toast({ title: isEditing ? 'קשר עודכן' : 'קשר נוסף' });
-      fetchData();
       handleRelModalClose();
     } catch (error: any) {
+      // Revert UI on error
+      setPeople(oldState.people);
+      setRelationships(oldState.relationships);
+      deriveStateFromData(oldState.people, oldState.relationships, canvasPositions, tree);
       toast({
         variant: 'destructive',
         title: 'שגיאה בשמירת קשר',
         description: error.message || 'An unexpected error occurred.',
       });
-      const permissionError = new FirestorePermissionError({
-        path: `users/${user.uid}/familyTrees/${treeId}/relationships`,
-        operation: isEditing ? 'update' : 'create',
-        requestResourceData: relData,
-      });
-      errorEmitter.emit('permission-error', permissionError);
     }
   };
 
   const handleDeleteRelationship = async (relationshipId: string) => {
     if (!user || !db) return;
 
-    let edgeToDelete: any;
-    let relToDelete: Relationship | undefined;
-
-    setEdges((currentEdges) => {
-      edgeToDelete = currentEdges.find((e) => e.id === relationshipId);
-      return currentEdges.filter((e) => e.id !== relationshipId);
-    });
-
-    setRelationships(currentRels => {
-      relToDelete = currentRels.find(r => r.id === relationshipId);
-      return currentRels.filter(r => r.id !== relationshipId);
-    });
-
-    const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
-    const wasParental = relToDelete && parentTypes.includes(relToDelete.relationshipType);
-    const childId = relToDelete?.personBId;
+    const oldRelationships = relationships;
+    const newRelationships = relationships.filter(r => r.id !== relationshipId);
+    setRelationships(newRelationships);
+    deriveStateFromData(people, newRelationships, canvasPositions, tree!);
 
     try {
-      const relRef = doc(
-        db,
-        'users',
-        user.uid,
-        'familyTrees',
-        treeId,
-        'relationships',
-        relationshipId
-      );
+      const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
       await deleteDoc(relRef);
-
-      if (wasParental && childId) {
-        await runSiblingDetection([childId]);
-      }
-      
       toast({ title: 'קשר נמחק' });
-      fetchData(); // Refetch to ensure consistency
     } catch (error: any) {
+      // Revert UI on error
+      setRelationships(oldRelationships);
+      deriveStateFromData(people, oldRelationships, canvasPositions, tree!);
       console.error('Error deleting relationship:', error);
       toast({
         variant: 'destructive',
         title: 'שגיאה במחיקת קשר',
         description: 'לא ניתן היה למחוק את הקשר. החיבור שוחזר.',
       });
-      if (edgeToDelete) {
-        setEdges((currentEdges) => [...currentEdges, edgeToDelete!]);
-      }
-      if (relToDelete) {
-        setRelationships(currentRels => [...currentRels, relToDelete!]);
-      }
-      const permissionError = new FirestorePermissionError({
-        path: `users/${user.uid}/familyTrees/${treeId}/relationships/${relationshipId}`,
-        operation: 'delete',
-      });
-      errorEmitter.emit('permission-error', permissionError);
     } finally {
       handleRelModalClose();
     }
