@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import { useUser, useFirestore } from '@/firebase';
@@ -55,7 +54,6 @@ export function DashboardClient() {
 
     setIsLoading(true);
     try {
-      // Fetch My Trees with counts
       const myTreesRef = collection(db, 'users', user.uid, 'familyTrees');
       const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
@@ -76,7 +74,6 @@ export function DashboardClient() {
       const userTrees = await Promise.all(myTreesPromises);
       setMyTrees(userTrees);
 
-      // Fetch Shared Trees with counts
       const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       const sharedSnapshot = await getDocs(sharedQuery);
       const sharedTreesPromises = sharedSnapshot.docs.map(async (doc) => {
@@ -102,7 +99,6 @@ export function DashboardClient() {
       const sharedTreesData = await Promise.all(sharedTreesPromises);
       setSharedTrees(sharedTreesData);
       
-      // Fetch Public Trees
       const publicQuery = query(collection(db, "publicTrees"), limit(20));
       const publicSnapshot = await getDocs(publicQuery);
       const publicTreesData = publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree));
@@ -137,7 +133,6 @@ export function DashboardClient() {
         const newTreeId = newTreeRef.id;
         const batch = writeBatch(db);
 
-        // 1. Duplicate tree doc
         const newTreeData = {
             userId: user.uid,
             treeName: `${treeToDuplicate.treeName} - עותק`,
@@ -149,7 +144,6 @@ export function DashboardClient() {
         };
         batch.set(newTreeRef, newTreeData);
 
-        // 2. Read all subcollections for the original tree
         const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeToDuplicate.id, 'people');
         const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeToDuplicate.id, 'relationships');
         const posRef = collection(db, 'users', user.uid, 'familyTrees', treeToDuplicate.id, 'canvasPositions');
@@ -158,7 +152,6 @@ export function DashboardClient() {
         
         const oldPersonIdToNewPersonIdMap = new Map<string, string>();
         
-        // 3. Write people subcollection to new tree
         peopleSnap.forEach(d => {
             const oldPersonData = d.data();
             const { id, createdAt, updatedAt, ...restOfPerson } = oldPersonData as Person;
@@ -174,7 +167,6 @@ export function DashboardClient() {
             });
         });
         
-        // 4. Write relationships subcollection, mapping old IDs to new IDs
         relsSnap.forEach(d => {
             const oldRelData = d.data();
             const { id, createdAt, updatedAt, personAId, personBId, ...restOfRel } = oldRelData as Relationship;
@@ -196,7 +188,6 @@ export function DashboardClient() {
             }
         });
         
-        // 5. Write canvas positions subcollection, mapping old IDs to new IDs
         posSnap.forEach(d => {
             const oldPosData = d.data();
             const { id, updatedAt, personId, ...restOfPos } = oldPosData as CanvasPosition;
@@ -336,7 +327,7 @@ export function DashboardClient() {
       });
 
       batch.delete(treeDocRef);
-      if(treeToDelete.privacy === 'public') {
+      if (treeToDelete.privacy === 'public') {
         batch.delete(doc(db, 'publicTrees', treeToDelete.id));
       }
 
@@ -350,19 +341,18 @@ export function DashboardClient() {
       setMyTrees(prev => prev.filter(t => t.id !== treeToDelete.id));
       setPublicTrees(prev => prev.filter(t => t.id !== treeToDelete.id));
 
-
     } catch (error: any) {
-        console.error("Error deleting tree:", error);
-        toast({
-          variant: 'destructive',
-          title: 'שגיאה במחיקת העץ',
-          description: "לא ניתן היה למחוק את העץ. נסה שוב.",
-        });
+      console.error("Error deleting tree:", error);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאה במחיקת העץ',
+        description: "לא ניתן היה למחוק את העץ. נסה שוב.",
+      });
+    } finally {
+      setIsDeleting(false);
+      setIsAlertOpen(false);
+      setTreeToDelete(null);
     }
-
-    setIsDeleting(false);
-    setIsAlertOpen(false);
-    setTreeToDelete(null);
   };
   
   const handleNewTreeClick = () => {
@@ -434,7 +424,7 @@ export function DashboardClient() {
           </section>
         )}
         {sharedTrees.length > 0 && (
-           <section>
+          <section>
             <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Share2 className="text-primary"/>עצים ששותפו איתי</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sharedTrees.map((tree) => (
@@ -447,8 +437,8 @@ export function DashboardClient() {
             </div>
           </section>
         )}
-         {publicTrees.length > 0 && (
-           <section>
+        {publicTrees.length > 0 && (
+          <section>
             <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Globe className="text-primary"/>עצים ציבוריים</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {publicTrees.map((tree) => (
@@ -521,8 +511,8 @@ export function DashboardClient() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
-            <Button
-              variant="destructive"
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
@@ -530,7 +520,7 @@ export function DashboardClient() {
                 <Loader2 className="ml-2 h-4 w-4 animate-spin" />
               )}
               מחק
-            </Button>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
