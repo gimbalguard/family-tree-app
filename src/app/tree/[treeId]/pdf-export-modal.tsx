@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -68,6 +69,18 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
         return;
     }
     
+    // Get computed colors to avoid passing CSS variables to html2canvas
+    const computedStyle = window.getComputedStyle(document.body);
+    const canvasBgColor = computedStyle.backgroundColor; // e.g., rgb(242, 243, 247)
+    const titleColor = computedStyle.color; // e.g., rgb(30, 30, 40)
+    
+    const rawBackgroundHsl = computedStyle.getPropertyValue('--background').trim();
+    const headerBgColor = `hsla(${rawBackgroundHsl}, 0.7)`;
+
+    const rawMutedForegroundHsl = computedStyle.getPropertyValue('--muted-foreground').trim();
+    const textColor = `hsl(${rawMutedForegroundHsl})`;
+
+
     // Create temporary header and footer for capture
     const headerEl = document.createElement('div');
     headerEl.style.position = 'absolute';
@@ -79,9 +92,9 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
     headerEl.style.fontFamily = 'Rubik, sans-serif';
     headerEl.style.pointerEvents = 'none';
     headerEl.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; background: hsla(var(--background), 0.7); padding: 5px 10px; border-radius: 6px;">
-            <h1 style="font-size: 1.25rem; font-weight: 600; color: hsl(var(--foreground));">${options.title}</h1>
-            <p style="font-size: 0.8rem; color: hsl(var(--muted-foreground));">הופק בתאריך: ${new Date().toLocaleDateString('he-IL')}</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; background: ${headerBgColor}; padding: 5px 10px; border-radius: 6px; backdrop-filter: blur(2px);">
+            <h1 style="font-size: 1.25rem; font-weight: 600; color: ${titleColor};">${options.title}</h1>
+            <p style="font-size: 0.8rem; color: ${textColor};">הופק בתאריך: ${new Date().toLocaleDateString('he-IL')}</p>
         </div>
     `;
 
@@ -90,7 +103,7 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
     footerEl.style.bottom = '10px';
     footerEl.style.left = '10px';
     footerEl.style.fontSize = '0.7rem';
-    footerEl.style.color = 'hsl(var(--muted-foreground))';
+    footerEl.style.color = textColor;
     footerEl.style.zIndex = '20';
     footerEl.style.pointerEvents = 'none';
     footerEl.innerHTML = 'נוצר באמצעות FamilyTree';
@@ -117,7 +130,7 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
         scale: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: 'hsl(var(--background))',
+        backgroundColor: canvasBgColor,
         logging: false,
       });
 
@@ -249,3 +262,5 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
     </Dialog>
   );
 }
+
+    
