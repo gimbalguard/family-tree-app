@@ -12,8 +12,8 @@ service firebase.storage {
       allow read, write, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Allow users to read, write and delete their own exported files
-    match /users/{userId}/exports/{allPaths=**} {
+    // Allow users to read, write and delete exported files for a specific tree they own
+    match /users/{userId}/trees/{treeId}/exports/{allPaths=**} {
       allow read, write, delete: if request.auth != null && request.auth.uid == userId;
     }
   }

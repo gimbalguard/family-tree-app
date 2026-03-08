@@ -1409,18 +1409,22 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     fileName: string,
     fileType: ExportedFile['fileType']
   ) => {
-    if (!user || !storage || !db || !tree) {
-      toast({
-        variant: "destructive",
-        title: "שגיאת שמירה בענן",
-        description: "לא ניתן לגשת לשירותי הענן. ודא שאתה מחובר.",
-      });
-      return;
+    if (!user || !db || !tree || !storage) {
+        toast({
+            variant: "destructive",
+            title: "שגיאת שמירה בענן",
+            description: "לא ניתן לגשת לשירותי הענן. ודא שאתה מחובר.",
+        });
+        return;
     }
     try {
-      const storagePath = `users/${user.uid}/exports/${tree.id}/${Date.now()}_${fileName}`;
+      const storagePath = `users/${user.uid}/trees/${treeId}/exports/${Date.now()}_${fileName}`;
       const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, blob);
+
+      console.log('Starting upload to:', storagePath);
+      const snapshot = await uploadBytes(storageRef, blob);
+      console.log('Upload success:', snapshot.ref.fullPath);
+
       const downloadURL = await getDownloadURL(storageRef);
 
       await addDoc(collection(db, 'exportedFiles'), {
@@ -1440,10 +1444,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       toast({
         variant: "destructive",
         title: "שגיאת שמירה בענן",
-        description: "הקובץ הורד למחשבך, אך הגיבוי בענן נכשל. ודא שהרשאות האחסון מוגדרות כראוי.",
+        description: "הקובץ הורד למחשבך, אך הגיבוי בענן נכשל.",
       });
     }
-  }, [user, storage, db, tree, toast]);
+  }, [user, db, tree, storage, treeId, toast]);
 
   const handleExportExcel = useCallback(async () => {
     if (!tree || !user || !db) return;
