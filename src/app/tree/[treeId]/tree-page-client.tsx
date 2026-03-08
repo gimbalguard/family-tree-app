@@ -1427,13 +1427,15 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         fileSizeBytes: blob.size,
         createdAt: serverTimestamp(),
       });
+      toast({ title: 'הקובץ נשמר בהצלחה בענן' });
     } catch (error) {
-      console.error("Failed to save exported file:", error);
+      console.error("Failed to save exported file to cloud:", error);
       toast({
         variant: 'destructive',
-        title: 'שגיאה בשמירת הקובץ',
-        description: 'הקובץ לא נשמר בענן אך ייתכן שהורד למחשבך.',
+        title: 'שגיאה בשמירת הקובץ בענן',
+        description: 'ודא שאתה מחובר לאינטרנט ושיש לך הרשאות.',
       });
+      throw error;
     }
   };
 
@@ -1460,8 +1462,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           manualEvents, canvasPositions,
       });
 
-      await saveExportedFile(blob, fileName, 'xlsx');
-
+      // Trigger local download immediately
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1472,6 +1473,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       a.remove();
 
       toast({ title: "קובץ אקסל יוצא בהצלחה ✓" });
+      
+      // Save to cloud in the background
+      saveExportedFile(blob, fileName, 'xlsx');
 
     } catch (error) {
         console.error("Excel export failed:", error);

@@ -77,8 +77,7 @@ export function PowerPointExportModal({ isOpen, onClose, tree, people, relations
       
       const fileName = `משפחת-${tree.treeName}-${format(new Date(), 'yyyy-MM-dd')}.pptx`;
       
-      await onSave(blob, fileName);
-
+      // Trigger local download immediately
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -89,6 +88,10 @@ export function PowerPointExportModal({ isOpen, onClose, tree, people, relations
       a.remove();
       
       toast({ title: 'המצגת הורדה בהצלחה 📑' });
+      
+      // Save to cloud in background
+      onSave(blob, fileName);
+
     } catch (error) {
       console.error('PowerPoint export failed:', error);
       toast({

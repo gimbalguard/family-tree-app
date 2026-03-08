@@ -72,13 +72,19 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
     
     const computedStyle = window.getComputedStyle(document.body);
     const canvasBgColor = computedStyle.backgroundColor;
-    const titleColor = computedStyle.color;
     
-    const rawBackgroundHsl = computedStyle.getPropertyValue('--background').trim();
-    const headerBgColor = `hsla(${rawBackgroundHsl}, 0.7)`;
+    // Convert HSL strings from CSS variables to RGB for the library
+    const getRgbColor = (variableName: string) => {
+        const hslString = computedStyle.getPropertyValue(variableName).trim();
+        const [h, s, l] = hslString.split(' ').map(parseFloat);
+        // This is a simplified HSL to RGB conversion, might need a library for accuracy
+        return `hsl(${h}, ${s}%, ${l}%)`;
+    };
 
-    const rawMutedForegroundHsl = computedStyle.getPropertyValue('--muted-foreground').trim();
-    const textColor = `hsl(${rawMutedForegroundHsl})`;
+    const titleColor = getRgbColor('--foreground');
+    const headerBgColor = `hsla(${computedStyle.getPropertyValue('--background').trim()}, 0.7)`;
+    const textColor = getRgbColor('--muted-foreground');
+
 
     const headerEl = document.createElement('div');
     headerEl.style.position = 'absolute';
@@ -158,9 +164,8 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
       
       const fileName = `${options.title.replace(/ /g, '_')}-${new Date().getFullYear()}.pdf`;
       const pdfBlob = pdf.output('blob');
-
-      await onSave(pdfBlob, fileName);
       
+      // Trigger local download immediately
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -171,6 +176,9 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
       a.remove();
       
       toast({ title: 'קובץ PDF הורד בהצלחה ✓' });
+      
+      // Save to cloud in the background
+      onSave(pdfBlob, fileName);
 
     } catch (error) {
       console.error('PDF export failed:', error);
