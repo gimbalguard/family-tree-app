@@ -95,6 +95,26 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
 
+      const edgePaths = document.querySelectorAll<SVGPathElement>(
+        '.react-flow__edge-path, .react-flow__edge-interaction'
+      );
+      edgePaths.forEach(path => {
+        path.style.setProperty('stroke', '#26a69a', 'important');
+        path.style.setProperty('stroke-width', '2', 'important');
+        path.style.setProperty('fill', 'none', 'important');
+        path.style.setProperty('opacity', '1', 'important');
+        path.style.setProperty('visibility', 'visible', 'important');
+      });
+
+      const edgeSvgs = document.querySelectorAll<SVGElement>(
+        '.react-flow__edges, .react-flow__edges svg'
+      );
+      edgeSvgs.forEach(svg => {
+        svg.style.setProperty('overflow', 'visible', 'important');
+        svg.style.setProperty('opacity', '1', 'important');
+        svg.style.setProperty('visibility', 'visible', 'important');
+      });
+
       const dataUrl = options.format === 'jpg'
         ? await toJpeg(captureTarget, { quality: 0.95, pixelRatio: options.quality, skipFonts: true })
         : await toPng(captureTarget, { pixelRatio: options.quality, skipFonts: true });

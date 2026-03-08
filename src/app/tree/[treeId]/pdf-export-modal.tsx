@@ -154,6 +154,26 @@ export function PdfExportModal({ isOpen, onClose, tree, onSave }: PdfExportModal
         }
       }
       
+      const edgePaths = document.querySelectorAll<SVGPathElement>(
+        '.react-flow__edge-path, .react-flow__edge-interaction'
+      );
+      edgePaths.forEach(path => {
+        path.style.setProperty('stroke', '#26a69a', 'important');
+        path.style.setProperty('stroke-width', '2', 'important');
+        path.style.setProperty('fill', 'none', 'important');
+        path.style.setProperty('opacity', '1', 'important');
+        path.style.setProperty('visibility', 'visible', 'important');
+      });
+
+      const edgeSvgs = document.querySelectorAll<SVGElement>(
+        '.react-flow__edges, .react-flow__edges svg'
+      );
+      edgeSvgs.forEach(svg => {
+        svg.style.setProperty('overflow', 'visible', 'important');
+        svg.style.setProperty('opacity', '1', 'important');
+        svg.style.setProperty('visibility', 'visible', 'important');
+      });
+      
       const dataUrl = await toPng(reactFlowElement, { 
         pixelRatio: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
         skipFonts: true
