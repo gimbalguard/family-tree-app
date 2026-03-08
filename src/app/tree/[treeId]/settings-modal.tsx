@@ -204,7 +204,7 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                     <h3 className="font-semibold">כרטיס יוצר העץ</h3>
                     <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
                       <FormItem>
-                        <FormLabel>עוצמת תאורה אחורית</FormLabel>
+                        <FormLabel>עוצמת תאורה אחורית ({field.value || 0}%)</FormLabel>
                         <FormControl>
                           <Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} />
                         </FormControl>
@@ -229,37 +229,35 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                     <FormField control={form.control} name="creatorCardShape" render={({ field }) => (
                       <FormItem>
                         <FormLabel>צורת כרטיס</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            className="flex flex-wrap gap-2"
-                          >
-                            {[
-                              {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
-                              {value: 'rounded', label: 'מעוגל', icon: <CircleIcon/>},
-                              {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
-                              {value: 'bordered', label: 'כוכב', icon: <Star/>},
-                            ].map(opt => {
-                              const itemId = `shape-option-${opt.value}`;
-                              return (
-                                <div key={opt.value}>
-                                  <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
-                                  <Label
-                                    htmlFor={itemId}
-                                    className={cn(
-                                      "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
-                                      field.value === opt.value && "border-primary"
-                                    )}
-                                  >
-                                    {opt.icon}
-                                    <span className="text-xs font-normal">{opt.label}</span>
-                                  </Label>
-                                </div>
-                              );
-                            })}
-                          </RadioGroup>
-                        </FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          value={field.value}
+                          className="flex flex-wrap gap-2"
+                        >
+                          {[
+                            {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
+                            {value: 'rounded', label: 'אליפסה', icon: <CircleIcon/>},
+                            {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
+                            {value: 'bordered', label: 'כוכב', icon: <Star/>},
+                          ].map(opt => {
+                            const itemId = `shape-option-${opt.value}`;
+                            return (
+                              <div key={opt.value}>
+                                <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
+                                <Label
+                                  htmlFor={itemId}
+                                  className={cn(
+                                    "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
+                                    field.value === opt.value && "border-primary"
+                                  )}
+                                >
+                                  {opt.icon}
+                                  <span className="text-xs font-normal">{opt.label}</span>
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </RadioGroup>
                         <FormMessage />
                       </FormItem>
                     )}/>

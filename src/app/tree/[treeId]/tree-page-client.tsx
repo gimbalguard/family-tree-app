@@ -1076,7 +1076,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
       const relsQuery1 = query(relsRef, where('personAId', '==', personIdToDelete));
       const relsQuery2 = query(relsRef, where('personBId', '==', personIdToDelete));
-      const [rels1Snapshot, rels2Snapshot] = await Promise.all([ getDocs(relsQuery1), getDocs(rels2Snapshot) ]);
+      const [rels1Snapshot, rels2Snapshot] = await Promise.all([ getDocs(relsQuery1), getDocs(relsQuery2) ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
   
@@ -1254,16 +1254,15 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
     const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
     
-    // Optimistic UI update
     const oldTree = tree;
-    const updatedTree = prev => prev ? { ...prev, ...details } : null
-    setTree(updatedTree);
+    const newTreeData = { ...tree, ...details };
+    setTree(newTreeData);
 
     if ('treeName' in details) {
         setNameValue(details.treeName!);
     }
     if ('ownerPersonId' in details || 'creatorCardBacklightIntensity' in details || 'creatorCardBacklightDisabled' in details || 'creatorCardSize' in details || 'creatorCardShape' in details) {
-      deriveStateFromData(people, relationships, canvasPositions, updatedTree as FamilyTree);
+      deriveStateFromData(people, relationships, canvasPositions, newTreeData as FamilyTree);
     }
 
 
@@ -1271,7 +1270,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         await updateDoc(treeRef, { ...details, updatedAt: serverTimestamp() });
         toast({ title: "ההגדרות עודכנו" });
     } catch (error: any) {
-        // Revert UI on error
         setTree(oldTree);
         deriveStateFromData(people, relationships, canvasPositions, oldTree);
 
@@ -1675,7 +1673,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                           key={person.id}
                           variant="ghost"
                           className="w-full justify-start"
-                          onClick={() => handleUpdateTreeDetails({ ownerPersonId: person.id })}
+                          onClick={() => {
+                            handleUpdateTreeDetails({ ownerPersonId: person.id });
+                            setIsOwnerPopoverOpen(false);
+                          }}
                         >
                           {person.firstName} {person.lastName}
                         </Button>

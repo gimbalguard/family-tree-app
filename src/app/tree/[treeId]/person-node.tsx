@@ -99,9 +99,9 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     }
     if (!creatorCardBacklightDisabled) {
       const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
-      const blur = 4 + intensity * 20; // e.g., 4px to 24px
-      const spread = 1 + intensity * 5; // e.g., 1px to 6px
-      const alpha = 0.1 + intensity * 0.2; // e.g., 0.1 to 0.3
+      const blur = 5 + intensity * 25; // e.g., 5px to 30px
+      const spread = 2 + intensity * 8;   // e.g., 2px to 10px
+      const alpha = 0.15 + intensity * 0.25; // e.g., 0.15 to 0.4
       cardStyle.boxShadow = `0 0 ${blur}px ${spread}px hsla(var(--primary), ${alpha})`;
     }
   }
@@ -110,12 +110,12 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     <Card 
       style={cardStyle}
       className={cn(
-        "w-64 border-2 transition-all duration-200 relative", 
+        "w-64 transition-all duration-200 relative", 
         "data-[shape=default]:rounded-lg",
-        "data-[shape=rounded]:rounded-3xl",
+        "data-[shape=rounded]:rounded-full",
         "data-[shape=bordered]:border-4 data-[shape=bordered]:border-amber-400",
-        selected ? 'border-primary shadow-primary/20' : 'border-transparent',
-        isLocked && 'border-destructive',
+        selected ? 'border-primary shadow-lg' : 'border-border',
+        isLocked && 'border-destructive border-2',
       )}
       data-shape={isOwner ? creatorCardShape : 'default'}
     >
