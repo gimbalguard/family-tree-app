@@ -94,6 +94,8 @@ export function ImageExportModal({ isOpen, onClose, tree, onSave }: ImageExportM
       `;
       document.head.appendChild(exportStyle);
 
+      await new Promise(resolve => setTimeout(resolve, 300));
+
       const canvas = await html2canvas(mainView, {
         scale: options.quality,
         useCORS: true,
