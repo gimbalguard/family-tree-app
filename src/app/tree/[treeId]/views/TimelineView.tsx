@@ -52,7 +52,10 @@ const assignGenerations = (people: Person[], relationships: Relationship[]): Map
     const memo = new Map<string, number>();
 
     function findGeneration(personId: string, path: Set<string> = new Set()): number {
-        if (path.has(personId)) return 1; // Cycle detected
+        if (path.has(personId)) {
+          // Cycle detected, treat as a root to prevent infinite loop
+          return 1;
+        }
         if (memo.has(personId)) return memo.get(personId)!;
 
         const parents = parentMap.get(personId) || [];
@@ -76,6 +79,13 @@ const assignGenerations = (people: Person[], relationships: Relationship[]): Map
         }
     }
     
+    // Fallback for any unassigned (should not happen with cycle detection)
+    for (const person of people) {
+      if (!memo.has(person.id)) {
+        memo.set(person.id, 0);
+      }
+    }
+
     return memo;
 };
 
@@ -127,32 +137,29 @@ function TimelineViewContent({
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
     if (isCompact) {
-        // Compact mode now behaves like normal mode to match user request.
-        const lastOccupiedYinColumn = new Map<number, number>();
+        const lastOccupiedYinColumnCompact = new Map<number, number>();
         for (const gen of sortedGenerationKeys) {
             const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
             const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-            lastOccupiedYinColumn.set(gen, -Infinity);
+            lastOccupiedYinColumnCompact.set(gen, 0); // Start each column at the top
 
             for (const person of peopleInGen) {
-                if (person.birthYear === null) continue;
-                
-                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
-                const lastY = lastOccupiedYinColumn.get(gen)!;
-                const yPos = Math.max(idealY, lastY + MIN_VERTICAL_GAP);
-                
+                const lastY = lastOccupiedYinColumnCompact.get(gen)!;
+                const yPos = lastY; 
+
                 newNodes.push({
                     id: person.id,
                     type: 'timelinePerson',
                     position: { x: xPos, y: yPos },
                     data: person,
                 });
-                lastOccupiedYinColumn.set(gen, yPos + NODE_HEIGHT);
+                lastOccupiedYinColumnCompact.set(gen, yPos + NODE_HEIGHT + MIN_VERTICAL_GAP);
             }
         }
     } else {
         const lastOccupiedYinColumn = new Map<number, number>();
         for (const gen of sortedGenerationKeys) {
+            if (gen === 0) continue;
             const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
             const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
             lastOccupiedYinColumn.set(gen, -Infinity);
