@@ -91,6 +91,7 @@ import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
 import { AiChatPanel } from './ai-chat-panel';
 import { PdfExportModal } from './pdf-export-modal';
+import { PowerPointExportModal } from './powerpoint-export-modal';
 import { exportToExcel, parseAndValidateExcel, ParsedExcelData } from '@/lib/excel-handler';
 import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal';
 
@@ -244,6 +245,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isPowerPointModalOpen, setIsPowerPointModalOpen] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -970,7 +972,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
       const relsQuery1 = query(relsRef, where('personAId', '==', personToDelete.id));
       const relsQuery2 = query(relsRef, where('personBId', '==', personToDelete.id));
-  
       const [rels1Snapshot, rels2Snapshot] = await Promise.all([ getDocs(relsQuery1), getDocs(relsQuery2) ]);
       rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
       rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
@@ -993,6 +994,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       });
       fetchData();
     } catch (error: any) {
+        console.error("Error deleting person:", error);
         const permissionError = new FirestorePermissionError({
             path: `users/${user.uid}/familyTrees/${treeId}/people/${personToDelete.id}`,
             operation: 'delete',
@@ -1523,6 +1525,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onOpenAccount={() => setIsAccountModalOpen(true)}
           onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
           onOpenPdfModal={() => setIsPdfModalOpen(true)}
+          onOpenPowerPointModal={() => setIsPowerPointModalOpen(true)}
           onExportExcel={handleExportExcel}
           onImportClick={() => importFileInputRef.current?.click()}
         />
@@ -1639,6 +1642,16 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           isOpen={isPdfModalOpen}
           onClose={() => setIsPdfModalOpen(false)}
           tree={tree}
+        />
+      )}
+      
+       {tree && (
+        <PowerPointExportModal
+          isOpen={isPowerPointModalOpen}
+          onClose={() => setIsPowerPointModalOpen(false)}
+          tree={tree}
+          people={people}
+          relationships={relationships}
         />
       )}
       
