@@ -48,6 +48,10 @@ export type Person = {
   isOwner?: boolean;
   childrenCount?: number;
   siblingsCount?: number;
+  grandchildrenCount?: number;
+  greatGrandchildrenCount?: number;
+  gen4Count?: number;
+  gen5Count?: number;
 };
 
 export type Relationship = {

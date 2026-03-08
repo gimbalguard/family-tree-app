@@ -18,7 +18,7 @@ function getPlaceholderImage(gender: Person['gender']) {
 }
 
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, childrenCount, siblingsCount } = data;
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -63,25 +63,47 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
       </Avatar>
       <div className="flex-1 space-y-0.5 leading-tight">
         <h3 className="font-semibold text-sm">{`${firstName} ${lastName}`}</h3>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs font-semibold text-muted-foreground">
             {lifeYears || <>&nbsp;</>}
         </p>
-         {(childrenCount || 0) > 0 || (siblingsCount || 0) > 0 ? (
-            <div className="flex items-center gap-3 pt-1">
-                {(childrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
-                        <Baby className="h-3.5 w-3.5" />
-                        <span>{childrenCount}</span>
-                    </div>
-                )}
-                {(siblingsCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
-                        <Users className="h-3.5 w-3.5" />
-                        <span>{siblingsCount}</span>
-                    </div>
-                )}
-            </div>
-        ) : null}
+         <div className="flex flex-wrap items-center gap-x-2 gap-y-0 pt-1">
+            {(childrenCount || 0) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
+                    <Baby className="h-3 w-3" />
+                    <span className="font-medium">{childrenCount}</span>
+                </div>
+            )}
+            {(siblingsCount || 0) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
+                    <Users className="h-3 w-3" />
+                    <span className="font-medium">{siblingsCount}</span>
+                </div>
+            )}
+            {(grandchildrenCount || 0) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${grandchildrenCount} נכדים`}>
+                    <Users className="h-3 w-3 opacity-80" />
+                    <span className="font-medium">{grandchildrenCount}</span>
+                </div>
+            )}
+            {(greatGrandchildrenCount || 0) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${greatGrandchildrenCount} נינים`}>
+                    <Users className="h-3 w-3 opacity-70" />
+                    <span className="font-medium">{greatGrandchildrenCount}</span>
+                </div>
+            )}
+            {(gen4Count || 0) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${gen4Count} חִמֵּשׁ`}>
+                    <Users className="h-3 w-3 opacity-60" />
+                    <span className="font-medium">{gen4Count}</span>
+                </div>
+            )}
+            {(gen5Count || 0) > 0 && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${gen5Count} שִׁשַּׁשׁ`}>
+                    <Users className="h-3 w-3 opacity-50" />
+                    <span className="font-medium">{gen5Count}</span>
+                </div>
+            )}
+        </div>
       </div>
     </div>
   );

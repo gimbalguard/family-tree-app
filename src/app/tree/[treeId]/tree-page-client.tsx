@@ -288,47 +288,63 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const posData = posSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CanvasPosition));
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
 
-      const parentRelTypes = ['parent', 'adoptive_parent', 'step_parent'];
+      const allParentalRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
+      const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling'];
 
-      const childrenCountMap = new Map<string, number>();
+      const childrenMap = new Map<string, string[]>();
       relsData.forEach(rel => {
-          if (parentRelTypes.includes(rel.relationshipType)) {
-              childrenCountMap.set(rel.personAId, (childrenCountMap.get(rel.personAId) || 0) + 1);
-          }
-      });
-
-      const parentMap = new Map<string, string[]>(); 
-      relsData.forEach(rel => {
-          if (parentRelTypes.includes(rel.relationshipType)) {
-              if (!parentMap.has(rel.personBId)) {
-                  parentMap.set(rel.personBId, []);
-              }
-              parentMap.get(rel.personBId)!.push(rel.personAId);
+          if (allParentalRelTypes.includes(rel.relationshipType)) {
+              if (!childrenMap.has(rel.personAId)) childrenMap.set(rel.personAId, []);
+              childrenMap.get(rel.personAId)!.push(rel.personBId);
           }
       });
       
-      const enrichedPeopleData = peopleData.map(person => {
-          const parents = parentMap.get(person.id);
-          let siblingsCount = 0;
-          if (parents && parents.length > 0) {
-              const siblings = new Set<string>();
-              relsData.forEach(rel => {
-                  if (parentRelTypes.includes(rel.relationshipType) && parents.includes(rel.personAId)) {
-                      if (rel.personBId !== person.id) {
-                          siblings.add(rel.personBId);
-                      }
-                  }
-              });
-              siblingsCount = siblings.size;
-          }
-
-          return {
-              ...person,
-              childrenCount: childrenCountMap.get(person.id) || 0,
-              siblingsCount: siblingsCount
+      const parentMap = new Map<string, string[]>();
+      relsData.forEach(rel => {
+          if (allParentalRelTypes.includes(rel.relationshipType)) {
+              if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
+              parentMap.get(rel.personBId)!.push(rel.personAId);
           }
       });
 
+      const enrichedPeopleData = peopleData.map(person => {
+          const children = childrenMap.get(person.id) || [];
+          const childrenCount = children.length;
+
+          const parents = parentMap.get(person.id) || [];
+          const siblings = new Set<string>();
+          if (parents.length > 0) {
+              parents.forEach(parentId => {
+                  const childrenOfParent = childrenMap.get(parentId) || [];
+                  childrenOfParent.forEach(siblingId => {
+                      if (siblingId !== person.id) siblings.add(siblingId);
+                  });
+              });
+          }
+          relsData.forEach(rel => {
+              if (directSiblingRelTypes.includes(rel.relationshipType)) {
+                  if (rel.personAId === person.id) siblings.add(rel.personBId);
+                  if (rel.personBId === person.id) siblings.add(rel.personAId);
+              }
+          });
+          const siblingsCount = siblings.size;
+
+          const grandchildren = children.flatMap(childId => childrenMap.get(childId) || []);
+          const greatGrandchildren = grandchildren.flatMap(grandchildId => childrenMap.get(grandchildId) || []);
+          const gen4 = greatGrandchildren.flatMap(greatGrandchildId => childrenMap.get(greatGrandchildId) || []);
+          const gen5 = gen4.flatMap(gen4Id => childrenMap.get(gen4Id) || []);
+
+          return {
+              ...person,
+              childrenCount,
+              siblingsCount,
+              grandchildrenCount: new Set(grandchildren).size,
+              greatGrandchildrenCount: new Set(greatGrandchildren).size,
+              gen4Count: new Set(gen4).size,
+              gen5Count: new Set(gen5).size,
+          };
+      });
+      
       setTree(treeData);
       setPeople(enrichedPeopleData);
       setRelationships(relsData);

@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
 
 export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked, childrenCount, siblingsCount } = data;
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked, childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -27,7 +27,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
         return (
           <>
             {format(new Date(birthDate!), 'dd/MM/yyyy')}
-            <span className="font-semibold"> (גיל {age})</span>
+            <span className="font-bold"> (גיל {age})</span>
           </>
         );
       }
@@ -127,22 +127,44 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
                 {getStatusIcon()}
                 {getReligionIcon()}
             </div>
-             {(childrenCount || 0) > 0 || (siblingsCount || 0) > 0 ? (
-              <div className="flex items-center gap-4 pt-1.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
                 {(childrenCount || 0) > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
-                    <Baby className="h-4 w-4" />
-                    <span>{childrenCount}</span>
-                  </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
+                        <Baby className="h-4 w-4" />
+                        <span className="font-medium">{childrenCount}</span>
+                    </div>
                 )}
                 {(siblingsCount || 0) > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
-                    <Users className="h-4 w-4" />
-                    <span>{siblingsCount}</span>
-                  </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
+                        <Users className="h-4 w-4" />
+                        <span className="font-medium">{siblingsCount}</span>
+                    </div>
                 )}
-              </div>
-            ) : null}
+                {(grandchildrenCount || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${grandchildrenCount} נכדים`}>
+                        <Users className="h-4 w-4 opacity-80" />
+                        <span className="font-medium">{grandchildrenCount}</span>
+                    </div>
+                )}
+                {(greatGrandchildrenCount || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${greatGrandchildrenCount} נינים`}>
+                        <Users className="h-4 w-4 opacity-70" />
+                        <span className="font-medium">{greatGrandchildrenCount}</span>
+                    </div>
+                )}
+                {(gen4Count || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${gen4Count} חִמֵּשׁ`}>
+                        <Users className="h-4 w-4 opacity-60" />
+                        <span className="font-medium">{gen4Count}</span>
+                    </div>
+                )}
+                {(gen5Count || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${gen5Count} שִׁשַּׁשׁ`}>
+                        <Users className="h-4 w-4 opacity-50" />
+                        <span className="font-medium">{gen5Count}</span>
+                    </div>
+                )}
+            </div>
           </div>
         </div>
       </CardHeader>
