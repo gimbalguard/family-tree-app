@@ -145,7 +145,7 @@ export function DashboardClient() {
             updatedAt: serverTimestamp(),
             language: treeToDuplicate.language || 'he',
             privacy: 'private' as const,
-            ownerPersonId: treeToDuplicate.ownerPersonId,
+            ownerPersonId: treeToDuplicate.ownerPersonId || '',
         };
         batch.set(newTreeRef, newTreeData);
 
