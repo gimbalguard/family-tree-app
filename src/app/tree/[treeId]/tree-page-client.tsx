@@ -1435,7 +1435,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         title: 'שגיאה בשמירת הקובץ בענן',
         description: 'ודא שאתה מחובר לאינטרנט ושיש לך הרשאות.',
       });
-      throw error;
     }
   };
 
