@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1558,7 +1557,15 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           />
         );
       case 'timeline':
-        return <TimelineView people={people} relationships={relationships} edgeType={edgeType} isCompact={isTimelineCompact} />;
+        return (
+          <TimelineView
+            people={people}
+            relationships={relationships}
+            edgeType={edgeType}
+            isCompact={isTimelineCompact}
+            onNodeDoubleClick={handleNodeDoubleClick}
+          />
+        );
       case 'table':
         const isOwner = user?.uid === tree?.userId;
         return <TableView 

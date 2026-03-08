@@ -9,6 +9,7 @@ import ReactFlow, {
   useReactFlow,
   type Node,
   type Edge,
+  OnNodeDoubleClick,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -94,11 +95,13 @@ function TimelineViewContent({
   relationships,
   edgeType,
   isCompact,
+  onNodeDoubleClick,
 }: {
   people: Person[];
   relationships: Relationship[];
   edgeType: EdgeType;
   isCompact: boolean;
+  onNodeDoubleClick?: OnNodeDoubleClick;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -137,49 +140,51 @@ function TimelineViewContent({
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
     if (isCompact) {
-        const lastOccupiedYinColumnCompact = new Map<number, number>();
-        for (const gen of sortedGenerationKeys) {
-            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-            const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-            lastOccupiedYinColumnCompact.set(gen, 0); // Start each column at the top
+      // Shrunk / Compact View: Stack cards vertically in each column
+      for (const gen of sortedGenerationKeys) {
+        if (gen === 0) continue;
+        const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
+        const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
+        let currentY = 0; // Start each column at y=0
 
-            for (const person of peopleInGen) {
-                const lastY = lastOccupiedYinColumnCompact.get(gen)!;
-                const yPos = lastY; 
-
-                newNodes.push({
-                    id: person.id,
-                    type: 'timelinePerson',
-                    position: { x: xPos, y: yPos },
-                    data: person,
-                });
-                lastOccupiedYinColumnCompact.set(gen, yPos + NODE_HEIGHT + MIN_VERTICAL_GAP);
-            }
+        for (const person of peopleInGen) {
+          newNodes.push({
+            id: person.id,
+            type: 'timelinePerson',
+            position: { x: xPos, y: currentY },
+            data: person,
+          });
+          currentY += NODE_HEIGHT + MIN_VERTICAL_GAP;
         }
+      }
     } else {
-        const lastOccupiedYinColumn = new Map<number, number>();
-        for (const gen of sortedGenerationKeys) {
-            if (gen === 0) continue;
-            const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-            const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-            lastOccupiedYinColumn.set(gen, -Infinity);
+      // Normal View: Align to year axis with overlap avoidance
+      const lastOccupiedYinColumn = new Map<number, number>();
+      for (const gen of sortedGenerationKeys) {
+        if (gen === 0) continue;
+        const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
+        const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
+        lastOccupiedYinColumn.set(gen, -Infinity);
 
-            for (const person of peopleInGen) {
-                if (person.birthYear === null) continue;
-                
-                const idealY = (person.birthYear - minYear) * PIXELS_PER_YEAR;
-                const lastY = lastOccupiedYinColumn.get(gen)!;
-                const yPos = Math.max(idealY, lastY + MIN_VERTICAL_GAP);
-                
-                newNodes.push({
-                    id: person.id,
-                    type: 'timelinePerson',
-                    position: { x: xPos, y: yPos },
-                    data: person,
-                });
-                lastOccupiedYinColumn.set(gen, yPos + NODE_HEIGHT);
-            }
+        for (const person of peopleInGen) {
+          // If birth year is unknown, stack them at the top.
+          const idealY = person.birthYear !== null 
+            ? (person.birthYear - minYear) * PIXELS_PER_YEAR 
+            : lastOccupiedYinColumn.get(gen)! + NODE_HEIGHT + MIN_VERTICAL_GAP;
+          
+          const lastY = lastOccupiedYinColumn.get(gen)!;
+          // Only push down if it overlaps, otherwise use ideal position
+          const yPos = Math.max(idealY, lastY + NODE_HEIGHT + MIN_VERTICAL_GAP);
+          
+          newNodes.push({
+            id: person.id,
+            type: 'timelinePerson',
+            position: { x: xPos, y: yPos },
+            data: person,
+          });
+          lastOccupiedYinColumn.set(gen, yPos);
         }
+      }
     }
     
     setNodes(newNodes);
@@ -210,6 +215,7 @@ function TimelineViewContent({
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
         fitView={false}
         className="ml-20"
@@ -230,6 +236,7 @@ export function TimelineView(props: {
   relationships: Relationship[];
   edgeType: EdgeType;
   isCompact: boolean;
+  onNodeDoubleClick?: OnNodeDoubleClick;
 }) {
   return (
     <ReactFlowProvider>
