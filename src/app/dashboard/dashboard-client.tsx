@@ -20,8 +20,6 @@ import { ShareTreeDialog } from './share-tree-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, writeBatch, doc, addDoc, getDoc, updateDoc, where, collectionGroup, limit, serverTimestamp, deleteDoc } from 'firebase/firestore';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 import { v4 as uuidv4 } from 'uuid';
 
 export function DashboardClient() {
@@ -153,23 +151,24 @@ export function DashboardClient() {
         const oldPersonIdToNewPersonIdMap = new Map<string, string>();
         
         peopleSnap.forEach(d => {
-            const oldPersonData = d.data();
-            const { id, createdAt, updatedAt, ...restOfPerson } = oldPersonData as Person;
+            const oldPersonData = d.data() as Person;
+            const { id, createdAt, updatedAt, ...restOfPerson } = oldPersonData;
             const newPersonDocRef = doc(collection(newTreeRef, 'people'));
             oldPersonIdToNewPersonIdMap.set(d.id, newPersonDocRef.id);
             
             batch.set(newPersonDocRef, {
                 ...restOfPerson,
-                userId: user.uid,
+                id: newPersonDocRef.id,
                 treeId: newTreeId,
+                userId: user.uid,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
         });
         
         relsSnap.forEach(d => {
-            const oldRelData = d.data();
-            const { id, createdAt, updatedAt, personAId, personBId, ...restOfRel } = oldRelData as Relationship;
+            const oldRelData = d.data() as Relationship;
+            const { id, createdAt, updatedAt, personAId, personBId, ...restOfRel } = oldRelData;
             
             const newPersonAId = oldPersonIdToNewPersonIdMap.get(personAId);
             const newPersonBId = oldPersonIdToNewPersonIdMap.get(personBId);
@@ -178,8 +177,9 @@ export function DashboardClient() {
                 const newRelDocRef = doc(collection(newTreeRef, 'relationships'));
                 batch.set(newRelDocRef, {
                     ...restOfRel,
-                    userId: user.uid,
+                    id: newRelDocRef.id,
                     treeId: newTreeId,
+                    userId: user.uid,
                     personAId: newPersonAId,
                     personBId: newPersonBId,
                     createdAt: serverTimestamp(),
@@ -189,8 +189,8 @@ export function DashboardClient() {
         });
         
         posSnap.forEach(d => {
-            const oldPosData = d.data();
-            const { id, updatedAt, personId, ...restOfPos } = oldPosData as CanvasPosition;
+            const oldPosData = d.data() as CanvasPosition;
+            const { id, updatedAt, personId, ...restOfPos } = oldPosData;
 
             const newPersonId = oldPersonIdToNewPersonIdMap.get(personId);
 
@@ -198,8 +198,9 @@ export function DashboardClient() {
                 const newPosDocRef = doc(collection(newTreeRef, 'canvasPositions'));
                 batch.set(newPosDocRef, {
                     ...restOfPos,
-                    userId: user.uid,
+                    id: newPosDocRef.id,
                     treeId: newTreeId,
+                    userId: user.uid,
                     personId: newPersonId,
                     updatedAt: serverTimestamp(),
                 });
@@ -338,8 +339,8 @@ export function DashboardClient() {
         description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
       });
       
-      setMyTrees(prev => prev.filter(t => t.id !== treeToDelete.id));
-      setPublicTrees(prev => prev.filter(t => t.id !== treeToDelete.id));
+      // Instead of manipulating state directly, re-fetch for consistency
+      fetchTrees();
 
     } catch (error: any) {
       console.error("Error deleting tree:", error);
@@ -351,6 +352,7 @@ export function DashboardClient() {
     } finally {
       setIsDeleting(false);
       setTreeToDelete(null);
+      setIsAlertOpen(false); // Explicitly close the dialog
     }
   };
   
