@@ -127,3 +127,7 @@ body.pdf-export-mode .react-flow__minimap,
 body.pdf-export-mode [data-export-hide] {
   display: none !important;
 }
+
+body.pdf-export-mode .react-flow__edge-path {
+  stroke: #334155 !important;
+}
