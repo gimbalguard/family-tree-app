@@ -200,19 +200,12 @@ export function MyFilesClient() {
                             </p>
                         </div>
                         <div className="flex border-t">
-                            {file.downloadURL ? (
-                                <a href={file.downloadURL} target="_blank" rel="noopener noreferrer" className="flex-1">
-                                    <Button variant="ghost" className="w-full rounded-none rounded-br-md">
-                                        <FileDown className="ml-2 h-4 w-4" />
-                                        הורד
-                                    </Button>
-                                </a>
-                            ) : (
-                                <Button variant="ghost" className="w-full rounded-none rounded-br-md text-muted-foreground" disabled>
+                            <a href={file.downloadURL || '#'} target="_blank" rel="noopener noreferrer" className={!file.downloadURL ? 'pointer-events-none flex-1' : 'flex-1'}>
+                                <Button variant="ghost" className="w-full rounded-none rounded-br-md" disabled={!file.downloadURL}>
                                     <FileDown className="ml-2 h-4 w-4" />
-                                    הורדה מקומית בלבד
+                                    הורד
                                 </Button>
-                            )}
+                            </a>
                             <div className="border-l h-full my-auto h-6 self-center"/>
                              <Button variant="ghost" className="flex-1 rounded-none rounded-bl-md" onClick={() => handleDeleteClick(file)}>
                                 <Trash2 className="ml-2 h-4 w-4 text-destructive" />

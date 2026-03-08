@@ -1409,33 +1409,27 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     fileName: string,
     fileType: ExportedFile['fileType']
   ) => {
-    if (!user || !db || !tree) return;
+    if (!user || !storage || !db || !tree) return;
     try {
-      // Bypassing Firebase Storage due to CORS issues in the dev environment.
-      // Saving metadata only to Firestore.
+      const storagePath = `users/${user.uid}/trees/${treeId}/exports/${Date.now()}_${fileName}`;
+      const fileRef = ref(storage, storagePath);
+      const snapshot = await uploadBytes(fileRef, blob);
+      const downloadURL = await getDownloadURL(snapshot.ref);
       await addDoc(collection(db, 'exportedFiles'), {
         userId: user.uid,
         treeId: tree.id,
         treeName: tree.treeName,
         fileName,
         fileType,
-        storagePath: null, // No storage path
-        downloadURL: null, // No download URL
+        storagePath,
+        downloadURL,
         fileSizeBytes: blob.size,
         createdAt: serverTimestamp(),
       });
-      // The toast for successful local download happens in the calling function.
-      // We don't need another toast here.
     } catch (error) {
-      // This will only catch Firestore errors now, which are less likely.
-      console.error('saveExportedFile metadata error:', error);
-      toast({
-        variant: "destructive",
-        title: "שגיאת שמירת מטא-נתונים",
-        description: "הקובץ הורד, אך רישום שלו נכשל. בדוק את חיבור האינטרנט.",
-      });
+      console.error('saveExportedFile error:', error);
     }
-  }, [user, db, tree, toast]);
+  }, [user, storage, db, tree, treeId]);
 
   const handleExportExcel = useCallback(async () => {
     if (!tree || !user || !db) return;
