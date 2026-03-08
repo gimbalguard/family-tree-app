@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -86,7 +85,7 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
   const isBacklightDisabled = form.watch('creatorCardBacklightDisabled');
 
   useEffect(() => {
-    if (tree) {
+    if (tree && isOpen) {
       form.reset({
         treeName: tree.treeName,
         ownerPersonId: tree.ownerPersonId || '',
@@ -150,15 +149,15 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col">
-        <DialogHeader className="text-right shrink-0">
+      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="text-right shrink-0 p-6 pb-0">
           <DialogTitle>הגדרות עץ</DialogTitle>
           <DialogDescription>נהל את הגדרות העץ והפרטיות שלו.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSaveChanges)} className="flex-1 flex flex-col min-h-0">
-             <ScrollArea className="flex-1 -mx-6 px-6">
+          <form id="settings-form" onSubmit={form.handleSubmit(handleSaveChanges)} className="flex-1 flex flex-col min-h-0">
+             <ScrollArea className="flex-1 px-6">
                 <div className="space-y-6 py-4">
                   {/* Tree Details Section */}
                   <div className="space-y-4">
@@ -226,41 +225,47 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                         </FormControl>
                       </FormItem>
                     )}/>
-                    <FormField control={form.control} name="creatorCardShape" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>צורת כרטיס</FormLabel>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          className="flex flex-wrap gap-2"
-                        >
-                          {[
-                            {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
-                            {value: 'rounded', label: 'אליפסה', icon: <CircleIcon/>},
-                            {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
-                            {value: 'bordered', label: 'כוכב', icon: <Star/>},
-                          ].map(opt => {
-                            const itemId = `shape-option-${opt.value}`;
-                            return (
-                              <div key={opt.value}>
-                                <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
-                                <Label
-                                  htmlFor={itemId}
-                                  className={cn(
-                                    "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
-                                    field.value === opt.value && "border-primary"
-                                  )}
-                                >
-                                  {opt.icon}
-                                  <span className="text-xs font-normal">{opt.label}</span>
-                                </Label>
-                              </div>
-                            );
-                          })}
-                        </RadioGroup>
-                        <FormMessage />
-                      </FormItem>
-                    )}/>
+                     <FormField
+                      control={form.control}
+                      name="creatorCardShape"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>צורת כרטיס</FormLabel>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              className="flex flex-wrap gap-2"
+                            >
+                              {[
+                                {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
+                                {value: 'rounded', label: 'אליפסה', icon: <CircleIcon/>},
+                                {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
+                                {value: 'bordered', label: 'כוכב', icon: <Star/>},
+                              ].map(opt => {
+                                const itemId = `shape-option-${opt.value}`;
+                                return (
+                                  <div key={opt.value}>
+                                    <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
+                                    <Label
+                                      htmlFor={itemId}
+                                      className={cn(
+                                        "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
+                                        field.value === opt.value && "border-primary"
+                                      )}
+                                    >
+                                      {opt.icon}
+                                      <span className="text-xs font-normal">{opt.label}</span>
+                                    </Label>
+                                  </div>
+                                );
+                              })}
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
 
@@ -328,18 +333,17 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                   </div>
               </div>
             </ScrollArea>
-
-            <DialogFooter className="pt-4 border-t shrink-0">
-              <Button type="button" variant="outline" onClick={onClose}>
-                ביטול
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                שמור שינויים
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
+        <DialogFooter className="p-6 pt-4 border-t shrink-0">
+          <Button type="button" variant="outline" onClick={onClose}>
+            ביטול
+          </Button>
+          <Button type="submit" form="settings-form" disabled={isLoading}>
+            {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+            שמור שינויים
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
