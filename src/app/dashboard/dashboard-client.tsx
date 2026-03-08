@@ -277,6 +277,13 @@ export function DashboardClient() {
         const snapshot = await getDocs(subCollectionRef);
         snapshot.docs.forEach((d) => batch.delete(d.ref));
       }
+      
+      // Clean up sharedTrees collection for this tree
+      const sharedTreesQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeToDelete.id));
+      const sharedTreesSnapshot = await getDocs(sharedTreesQuery);
+      sharedTreesSnapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
 
       batch.delete(treeDocRef);
       if(treeToDelete.privacy === 'public') {
@@ -292,12 +299,13 @@ export function DashboardClient() {
       fetchTrees();
 
     } catch (error: any) {
-        const permissionError = new FirestorePermissionError({ path: `users/${user.uid}/familyTrees/${treeToDelete.id}`, operation: 'delete' });
-        errorEmitter.emit('permission-error', permissionError);
+        // Log the actual error for debugging and show a user-friendly message.
+        // This prevents the app from freezing.
+        console.error("Error deleting tree:", error);
         toast({
           variant: 'destructive',
-          title: 'שגיאה',
-          description: "Failed to delete tree and associated data.",
+          title: 'שגיאה במחיקת העץ',
+          description: "לא ניתן היה למחוק את העץ. נסה שוב.",
         });
     }
 
@@ -338,7 +346,9 @@ export function DashboardClient() {
       );
     }
 
-    if (myTrees.length === 0 && sharedTrees.length === 0) {
+    const uniqueMyTrees = Array.from(new Map(myTrees.map(t => [t.id, t])).values());
+
+    if (uniqueMyTrees.length === 0 && sharedTrees.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center mt-8">
           <h3 className="mt-4 text-lg font-semibold">לא נמצאו עצים</h3>
@@ -353,11 +363,11 @@ export function DashboardClient() {
 
     return (
       <div className="space-y-12 mt-8">
-        {myTrees.length > 0 && (
+        {uniqueMyTrees.length > 0 && (
           <section>
             <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Users className="text-primary"/>העצים שלי</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {myTrees.map((tree) => (
+              {uniqueMyTrees.map((tree) => (
                 <TreeCard
                   key={`my-${tree.id}`}
                   tree={tree}
@@ -476,3 +486,5 @@ export function DashboardClient() {
     </>
   );
 }
+
+    
