@@ -333,17 +333,17 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                   </div>
               </div>
             </ScrollArea>
+            <DialogFooter className="p-6 pt-4 border-t shrink-0">
+                <Button type="button" variant="outline" onClick={onClose}>
+                    ביטול
+                </Button>
+                <Button type="submit" form="settings-form" disabled={isLoading}>
+                    {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
+                    שמור שינויים
+                </Button>
+            </DialogFooter>
           </form>
         </Form>
-        <DialogFooter className="p-6 pt-4 border-t shrink-0">
-          <Button type="button" variant="outline" onClick={onClose}>
-            ביטול
-          </Button>
-          <Button type="submit" form="settings-form" disabled={isLoading}>
-            {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-            שמור שינויים
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
