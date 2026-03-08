@@ -29,9 +29,8 @@ const nodeTypes = { timelinePerson: TimelinePersonNode };
 
 /**
  * A robust function to assign a generation number to each person.
- * - Generation 1: People with no parents in the tree (roots).
- * - Subsequent generations are calculated based on their parents.
- * - Handles complex family structures and disconnected graphs.
+ * - Handles multiple disconnected family trees by finding all root nodes.
+ * - Uses memoization to prevent re-computation for the same person.
  */
 const assignGenerations = (
   people: Person[],
@@ -39,36 +38,46 @@ const assignGenerations = (
 ): Map<string, number> => {
   const generations = new Map<string, number>();
   const parentMap = new Map<string, string[]>();
-  people.forEach(p => parentMap.set(p.id, []));
-  
-  relationships.forEach(rel => {
-    if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
-      parentMap.get(rel.personBId)?.push(rel.personAId);
-    }
-  });
+  const personIds = new Set(people.map(p => p.id));
 
-  const getGeneration = (personId: string): number => {
-    // Memoization to avoid re-computation
-    if (generations.has(personId)) {
-      return generations.get(personId)!;
+  // Initialize parent map for all people
+  for (const person of people) {
+    parentMap.set(person.id, []);
+  }
+
+  // Populate parent map from relationships
+  for (const rel of relationships) {
+    if (PARENT_REL_TYPES.includes(rel.relationshipType) && personIds.has(rel.personAId) && personIds.has(rel.personBId)) {
+      parentMap.get(rel.personBId)!.push(rel.personAId);
     }
-    
-    const parents = parentMap.get(personId) || [];
-    if (parents.length === 0) {
-      generations.set(personId, 1);
+  }
+
+  // Memoization cache for the recursive function
+  const memo = new Map<string, number>();
+
+  function findGeneration(personId: string): number {
+    if (memo.has(personId)) {
+      return memo.get(personId)!;
+    }
+
+    const parents = parentMap.get(personId);
+    // A person with no parents in the tree is Generation 1.
+    if (!parents || parents.length === 0) {
+      memo.set(personId, 1);
       return 1;
     }
-    
+
     // A person's generation is 1 + the max generation of their parents.
-    const parentGens = parents.map(parentId => getGeneration(parentId));
-    const maxParentGen = Math.max(...parentGens);
-    const newGen = maxParentGen + 1;
-    generations.set(personId, newGen);
-    return newGen;
-  };
-  
-  // Trigger calculation for every person
-  people.forEach(p => getGeneration(p.id));
+    const parentGenerations = parents.map(findGeneration);
+    const generation = Math.max(...parentGenerations) + 1;
+    memo.set(personId, generation);
+    return generation;
+  }
+
+  // Calculate generation for every person
+  for (const person of people) {
+    generations.set(person.id, findGeneration(person.id));
+  }
 
   return generations;
 };
@@ -133,7 +142,7 @@ function TimelineViewContent({
       peopleByGeneration.get(gen)!.push(person);
     }
     
-    // 2. Create Nodes based on mode
+    // 2. Create Nodes
     const newNodes: Node<Person>[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort(
       (a, b) => a - b
@@ -148,42 +157,45 @@ function TimelineViewContent({
         (a.birthDate || '9999').localeCompare(b.birthDate || '9999')
       );
 
-      if (isCompact) {
-        // COMPACT MODE: Stack vertically, ignoring year axis for positioning.
-        let currentY = 0;
-        for (const person of sortedPeopleInGen) {
-          newNodes.push({
-            id: person.id,
-            type: 'timelinePerson',
-            position: { x: xPos, y: currentY },
-            data: person,
-          });
-          currentY += NODE_HEIGHT + MIN_VERTICAL_GAP;
-        }
-      } else {
-        // NORMAL MODE: Align to Y axis, then resolve overlaps.
-        const tempNodesInGen: Node<Person>[] = [];
-        for (const person of sortedPeopleInGen) {
+      let lastYInColumn = -Infinity;
+
+      for (const person of sortedPeopleInGen) {
+        let yPos;
+
+        if (isCompact) {
+          // COMPACT MODE: Stack vertically, ignore year axis for positioning.
+          if (lastYInColumn === -Infinity) {
+            // Start the first person at the top
+            lastYInColumn = 0;
+          } else {
+            // Stack below the previous person
+            lastYInColumn += NODE_HEIGHT + MIN_VERTICAL_GAP;
+          }
+          yPos = lastYInColumn;
+
+        } else {
+          // NORMAL MODE: Align to Y axis, then resolve overlaps within the column.
           const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
-          const yPos = birthYear ? (birthYear - minYear) * PIXELS_PER_YEAR : 0;
-          tempNodesInGen.push({
-            id: person.id,
-            type: 'timelinePerson',
-            position: { x: xPos, y: yPos },
-            data: person,
-          });
+          // Default to top if no birth year
+          const initialYPos = birthYear ? (birthYear - minYear) * PIXELS_PER_YEAR : 0;
+          
+          // Check against the last node's final position in this column
+          if (lastYInColumn !== -Infinity && initialYPos < lastYInColumn + NODE_HEIGHT + MIN_VERTICAL_GAP) {
+            // Push down to avoid overlap
+            yPos = lastYInColumn + NODE_HEIGHT + MIN_VERTICAL_GAP;
+          } else {
+            yPos = initialYPos;
+          }
+          // Update the last position for the next node in this column
+          lastYInColumn = yPos;
         }
         
-        // After initial placement, resolve overlaps within this column
-        for (let i = 1; i < tempNodesInGen.length; i++) {
-            const prevNode = tempNodesInGen[i - 1];
-            const currentNode = tempNodesInGen[i];
-            const requiredY = prevNode.position.y + NODE_HEIGHT + MIN_VERTICAL_GAP;
-            if (currentNode.position.y < requiredY) {
-                currentNode.position.y = requiredY;
-            }
-        }
-        newNodes.push(...tempNodesInGen);
+        newNodes.push({
+          id: person.id,
+          type: 'timelinePerson',
+          position: { x: xPos, y: yPos },
+          data: person,
+        });
       }
     }
     setNodes(newNodes);
