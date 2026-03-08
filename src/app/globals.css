@@ -94,7 +94,7 @@
 }
 
 .react-flow__edge.custom-edge.selected .react-flow__edge-path {
-    stroke: hsl(var(--accent));
+    stroke: hsl(var(--destructive));
     stroke-width: 2.5px;
 }
 
