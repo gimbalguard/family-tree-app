@@ -1201,41 +1201,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
   
   const isValidConnection = useCallback<IsValidConnection>((connection) => {
-    // Basic validation: prevent self-connections
+    // Prevent self-connections
     if (connection.source === connection.target) {
       return false;
     }
-    const sideHandles = [
-      'upper-left-source',
-      'upper-left-target',
-      'upper-right-source',
-      'upper-right-target',
-      'lower-left-source',
-      'lower-left-target',
-      'lower-right-source',
-      'lower-right-target',
-    ];
-
-    // Allow connections between any two side handles
-    if (
-      sideHandles.includes(connection.sourceHandle!) &&
-      sideHandles.includes(connection.targetHandle!)
-    ) {
-      return true;
-    }
-
-    // Allow default parent (bottom) to child (top) connections
-    if (connection.sourceHandle === 'bottom' && connection.targetHandle === 'top') {
-      return true;
-    }
-
-    // You might want to allow the reverse as well for user convenience
-    if (connection.sourceHandle === 'top' && connection.targetHandle === 'bottom') {
-      return true;
-    }
-
-    // Disallow all other connections (e.g., side to top/bottom)
-    return false;
+    // As per user request, allow any connection to be initiated.
+    // The relationship modal and final edge rendering will handle the logic.
+    return true;
   }, []);
 
   const handleUpdateTreeDetails = useCallback(async (details: Partial<FamilyTree>) => {
@@ -1704,6 +1676,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           handleRelModalClose();
           if (pendingDeleteId) setPendingDeleteId(null);
         }}
+        connection={newConnection}
         relationship={
           editingRelationship ||
           (pendingDeleteId
@@ -1820,14 +1793,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
-            <Button
-              variant="destructive"
+            <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={isDeleting}
             >
               {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
               מחק
-            </Button>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

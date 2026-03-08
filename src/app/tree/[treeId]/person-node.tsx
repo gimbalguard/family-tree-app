@@ -97,8 +97,8 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       )}
       {/* Each handle has a unique ID. Side handles are split into `source` and `target` to be unambiguous. */}
       
-      {/* Parent handle (target only) */}
-      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
+      {/* Parent handle (now also a source for flexible connections) */}
+      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
       
       {/* Child handle (source only) */}
       <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
