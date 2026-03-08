@@ -1409,32 +1409,35 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     fileName: string,
     fileType: ExportedFile['fileType']
   ) => {
-    if (!user || !db || !storage || !tree) return;
+    if (!user || !tree) return;
     try {
-      const storagePath = `exports/${user.uid}/${treeId}/${Date.now()}_${fileName}`;
-      const storageRef = ref(storage, storagePath);
-      await uploadBytes(storageRef, blob);
-      const downloadURL = await getDownloadURL(storageRef);
-
-      await addDoc(collection(db, 'exportedFiles'), {
+      const formData = new FormData();
+      formData.append('file', new File([blob], fileName, { type: blob.type }));
+      formData.append('metadata', JSON.stringify({
         userId: user.uid,
         treeId,
         treeName: tree.treeName,
         fileName,
-        fileType,
-        storagePath,
-        downloadURL,
-        fileSizeBytes: blob.size,
-        createdAt: serverTimestamp(),
+        fileType
+      }));
+      
+      fetch('/api/save-export', {
+        method: 'POST',
+        body: formData,
+      }).then(response => {
+        if (!response.ok) {
+           response.json().then(err => {
+              console.warn('Failed to save file to cloud:', err.error || 'Server error');
+           }).catch(() => {
+              console.warn('Failed to save file to cloud and could not parse error response.');
+           });
+        }
+      }).catch(err => {
+        console.warn('Could not save to My Files (network error):', err);
       });
-      toast({ title: 'הקובץ נשמר בהצלחה בענן' });
-    } catch (error) {
-      console.error("Failed to save exported file to cloud:", error);
-      toast({
-        variant: 'destructive',
-        title: 'שגיאה בשמירת הקובץ בענן',
-        description: 'ודא שאתה מחובר לאינטרנט ושיש לך הרשאות.',
-      });
+
+    } catch (err) {
+      console.warn('Could not save to My Files (client-side error):', err);
     }
   };
 
