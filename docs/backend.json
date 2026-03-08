@@ -26,6 +26,33 @@
         "createdAt"
       ]
     },
+    "UserEmail": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserEmail",
+      "type": "object",
+      "description": "A mapping from a user's email to their UID for sharing purposes.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID (from Firebase Auth)."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "createdAt"
+      ]
+    },
     "FamilyTree": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "FamilyTree",
@@ -55,18 +82,33 @@
           "format": "date-time"
         },
         "language": {
-            "type": "string",
-            "description": "The selected language for the tree.",
-            "enum": ["he", "en"]
+          "type": "string",
+          "description": "The selected language for the tree.",
+          "enum": [
+            "he",
+            "en"
+          ]
         },
         "privacy": {
-            "type": "string",
-            "description": "The privacy setting for the tree.",
-            "enum": ["private", "link", "public"]
+          "type": "string",
+          "description": "The privacy setting for the tree.",
+          "enum": [
+            "private",
+            "link",
+            "public"
+          ]
         },
         "shareToken": {
-            "type": "string",
-            "description": "A unique token for sharing the tree via a link."
+          "type": "string",
+          "description": "A unique token for sharing the tree via a link."
+        },
+        "personCount": {
+          "type": "number",
+          "description": "Denormalized count of people in the tree."
+        },
+        "relationshipCount": {
+          "type": "number",
+          "description": "Denormalized count of relationships in the tree."
         }
       },
       "required": [
@@ -402,18 +444,142 @@
       "type": "object",
       "description": "Metadata for a file exported by a user and saved to storage.",
       "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "treeId": { "type": "string" },
-        "treeName": { "type": "string" },
-        "fileName": { "type": "string" },
-        "fileType": { "type": "string", "enum": ["pdf", "xlsx", "pptx", "png", "html", "docx"] },
-        "storagePath": { "type": "string" },
-        "downloadURL": { "type": "string", "format": "uri" },
-        "fileSizeBytes": { "type": "number" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "treeId": {
+          "type": "string"
+        },
+        "treeName": {
+          "type": "string"
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "fileType": {
+          "type": "string",
+          "enum": [
+            "pdf",
+            "xlsx",
+            "pptx",
+            "png",
+            "html",
+            "docx"
+          ]
+        },
+        "storagePath": {
+          "type": "string"
+        },
+        "downloadURL": {
+          "type": "string",
+          "format": "uri"
+        },
+        "fileSizeBytes": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
       },
-      "required": ["userId", "treeId", "treeName", "fileName", "fileType", "storagePath", "downloadURL", "fileSizeBytes", "createdAt"]
+      "required": [
+        "userId",
+        "treeId",
+        "treeName",
+        "fileName",
+        "fileType",
+        "storagePath",
+        "downloadURL",
+        "fileSizeBytes",
+        "createdAt"
+      ]
+    },
+    "SharedTree": {
+      "title": "SharedTree",
+      "type": "object",
+      "description": "Represents a tree shared from one user to another.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ownerUserId": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "treeId": {
+          "type": "string"
+        },
+        "treeName": {
+          "type": "string"
+        },
+        "sharedWithEmail": {
+          "type": "string",
+          "format": "email"
+        },
+        "sharedWithUserId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "canEdit": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ownerUserId",
+        "ownerName",
+        "treeId",
+        "treeName",
+        "sharedWithEmail",
+        "sharedWithUserId",
+        "createdAt",
+        "canEdit"
+      ]
+    },
+    "PublicTree": {
+      "title": "PublicTree",
+      "type": "object",
+      "description": "A denormalized, public-facing representation of a family tree.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the original tree."
+        },
+        "ownerUserId": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "treeName": {
+          "type": "string"
+        },
+        "personCount": {
+          "type": "number"
+        },
+        "relationshipCount": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerUserId",
+        "ownerName",
+        "treeName",
+        "personCount",
+        "relationshipCount",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -432,6 +598,16 @@
             "$ref": "#/backend/entities/UserProfile"
           },
           "description": "Stores user profile data. Document ID matches Firebase Auth UID ({userId}). This is a top-level collection for user-specific data."
+        }
+      },
+      {
+        "path": "/userEmails/{email}",
+        "definition": {
+          "entityName": "UserEmail",
+          "schema": {
+            "$ref": "#/backend/entities/UserEmail"
+          },
+          "description": "Maps user emails to UIDs to allow sharing lookups without exposing all user data."
         }
       },
       {
@@ -586,6 +762,26 @@
             "$ref": "#/backend/entities/ExportedFile"
           },
           "description": "Stores metadata for user-exported files. Document ID is auto-generated. Access is restricted to the owner."
+        }
+      },
+      {
+        "path": "/sharedTrees/{shareId}",
+        "definition": {
+          "entityName": "SharedTree",
+          "schema": {
+            "$ref": "#/backend/entities/SharedTree"
+          },
+          "description": "Manages access for trees shared between users."
+        }
+      },
+      {
+        "path": "/publicTrees/{treeId}",
+        "definition": {
+          "entityName": "PublicTree",
+          "schema": {
+            "$ref": "#/backend/entities/PublicTree"
+          },
+          "description": "Denormalized collection for trees marked as public, allowing for public browsing."
         }
       }
     ],

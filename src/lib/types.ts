@@ -118,3 +118,28 @@ export type ExportedFile = {
   fileSizeBytes: number;
   createdAt: Timestamp;
 };
+
+export type SharedTree = {
+  id: string;
+  ownerUserId: string;
+  ownerName: string;
+  treeId: string;
+  treeName: string;
+  sharedWithEmail: string;
+  sharedWithUserId: string;
+  createdAt: Timestamp;
+  canEdit: boolean;
+  // Denormalized counts for display
+  personCount?: number;
+  relationshipCount?: number;
+};
+
+export type PublicTree = {
+  id: string; // Same as original treeId
+  ownerUserId: string;
+  ownerName: string;
+  treeName: string;
+  personCount: number;
+  relationshipCount: number;
+  createdAt: Timestamp;
+};

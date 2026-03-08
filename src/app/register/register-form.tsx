@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
 
 const formSchema = z.object({
   username: z.string().min(3, { message: 'שם משתמש חייב להכיל לפחות 3 תווים.' }),
@@ -52,13 +52,26 @@ export function RegisterForm() {
         const user = userCredential.user;
 
         await updateProfile(user, { displayName: values.username });
+        
+        const batch = writeBatch(db);
 
+        const userProfileRef = doc(db, 'users', user.uid);
         const userProfile = {
           id: user.uid,
           username: values.username,
           createdAt: serverTimestamp(),
         };
-        await setDoc(doc(db, 'users', user.uid), userProfile);
+        batch.set(userProfileRef, userProfile);
+
+        const userEmailRef = doc(db, 'userEmails', values.email);
+        const userEmail = {
+            uid: user.uid,
+            email: values.email,
+            createdAt: serverTimestamp(),
+        }
+        batch.set(userEmailRef, userEmail);
+
+        await batch.commit();
 
         // On success, redirect is handled by the auth state listener
       } catch (error: any) {
