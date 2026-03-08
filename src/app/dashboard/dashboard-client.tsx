@@ -8,18 +8,20 @@ import { NewTreeDialog } from './new-tree-dialog';
 import { TreeCard, TreeCardSkeleton } from './tree-card';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { ShareTreeDialog } from './share-tree-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, writeBatch, doc, addDoc, getDoc, updateDoc, where, collectionGroup, limit, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 import { v4 as uuidv4 } from 'uuid';
 
 export function DashboardClient() {
@@ -44,59 +46,50 @@ export function DashboardClient() {
 
   const isAnonymous = user?.isAnonymous ?? true;
 
-  const fetchTrees = useCallback(async () => {
-    if (!user || user.isAnonymous || !db) {
+  const fetchData = useCallback(async () => {
+    if (!user || !db) {
       if (!isUserLoading) setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
     try {
+      // Fetch My Trees
       const myTreesRef = collection(db, 'users', user.uid, 'familyTrees');
       const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
         const treeData = { id: treeDoc.id, ...treeDoc.data() } as FamilyTree;
-        
         const peopleRef = collection(treeDoc.ref, 'people');
         const relsRef = collection(treeDoc.ref, 'relationships');
-        
-        const [peopleSnap, relsSnap] = await Promise.all([
-            getDocs(query(peopleRef, limit(1000))),
-            getDocs(query(relsRef, limit(1000))),
-        ]);
-
-        treeData.personCount = peopleSnap.size;
-        treeData.relationshipCount = relsSnap.size;
+        try {
+            const [peopleSnap, relsSnap] = await Promise.all([
+                getDocs(query(peopleRef, limit(1))),
+                getDocs(query(relsRef, limit(1))),
+            ]);
+            // This is a rough count. For exact counts, a separate aggregation would be better
+            treeData.personCount = peopleSnap.size; 
+            treeData.relationshipCount = relsSnap.size;
+        } catch (e) {
+            console.warn(`Could not fetch counts for tree ${treeData.id}`, e);
+            treeData.personCount = 0;
+            treeData.relationshipCount = 0;
+        }
         return treeData;
       });
       const userTrees = await Promise.all(myTreesPromises);
       setMyTrees(userTrees);
 
+      // Fetch Shared Trees
       const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       const sharedSnapshot = await getDocs(sharedQuery);
-      const sharedTreesPromises = sharedSnapshot.docs.map(async (doc) => {
-        const sharedData = { id: doc.id, ...doc.data() } as SharedTree;
-        
-        try {
-          const treeRef = doc(db, 'users', sharedData.ownerUserId, 'familyTrees', sharedData.treeId);
-          const peopleRef = collection(treeRef, 'people');
-          const relsRef = collection(treeRef, 'relationships');
-          const [peopleSnap, relsSnap] = await Promise.all([
-              getDocs(query(peopleRef, limit(1000))),
-              getDocs(query(relsRef, limit(1000))),
-          ]);
-          sharedData.personCount = peopleSnap.size;
-          sharedData.relationshipCount = relsSnap.size;
-        } catch (e) {
-          sharedData.personCount = 0;
-          sharedData.relationshipCount = 0;
-        }
-
+      const sharedTreesPromises = sharedSnapshot.docs.map(async (docSnap) => {
+        const sharedData = { id: docSnap.id, ...docSnap.data() } as SharedTree;
         return sharedData;
       });
       const sharedTreesData = await Promise.all(sharedTreesPromises);
       setSharedTrees(sharedTreesData);
       
+      // Fetch Public Trees
       const publicQuery = query(collection(db, "publicTrees"), limit(20));
       const publicSnapshot = await getDocs(publicQuery);
       const publicTreesData = publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree));
@@ -109,14 +102,13 @@ export function DashboardClient() {
     setIsLoading(false);
   }, [user, db, toast, isUserLoading]);
 
-
   useEffect(() => {
     if (!isUserLoading && user) {
       fetchTrees();
     } else if (!isUserLoading && !user) {
       setIsLoading(false);
     }
-  }, [isUserLoading, user, fetchTrees]);
+  }, [isUserLoading, user, fetchData]);
 
   const onTreeCreated = (newTree: FamilyTree) => {
     router.push(`/tree/${newTree.id}`);
@@ -125,12 +117,10 @@ export function DashboardClient() {
   const handleDuplicateTree = async (treeToDuplicate: FamilyTree) => {
     if (!user || !db) return;
     toast({ title: 'משכפל עץ, אנא המתן...' });
-
     try {
         const newTreeRef = doc(collection(db, 'users', user.uid, 'familyTrees'));
         const newTreeId = newTreeRef.id;
         const batch = writeBatch(db);
-
         const newTreeData = {
             userId: user.uid,
             treeName: `${treeToDuplicate.treeName} - עותק`,
@@ -149,37 +139,32 @@ export function DashboardClient() {
         const [peopleSnap, relsSnap, posSnap] = await Promise.all([ getDocs(peopleRef), getDocs(relsRef), getDocs(posRef) ]);
         
         const oldPersonIdToNewPersonIdMap = new Map<string, string>();
-        
+
         peopleSnap.forEach(d => {
-            const oldPersonData = d.data() as Person;
-            const { id, createdAt, updatedAt, ...restOfPerson } = oldPersonData;
+            const oldPersonData = d.data();
+            const { id, createdAt, updatedAt, ...restOfPerson } = oldPersonData as Person;
             const newPersonDocRef = doc(collection(newTreeRef, 'people'));
             oldPersonIdToNewPersonIdMap.set(d.id, newPersonDocRef.id);
-            
             batch.set(newPersonDocRef, {
                 ...restOfPerson,
-                id: newPersonDocRef.id,
-                treeId: newTreeId,
                 userId: user.uid,
+                treeId: newTreeId,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
             });
         });
-        
+
         relsSnap.forEach(d => {
-            const oldRelData = d.data() as Relationship;
-            const { id, createdAt, updatedAt, personAId, personBId, ...restOfRel } = oldRelData;
-            
+            const oldRelData = d.data();
+            const { id, createdAt, updatedAt, personAId, personBId, ...restOfRel } = oldRelData as Relationship;
             const newPersonAId = oldPersonIdToNewPersonIdMap.get(personAId);
             const newPersonBId = oldPersonIdToNewPersonIdMap.get(personBId);
-
             if (newPersonAId && newPersonBId) {
                 const newRelDocRef = doc(collection(newTreeRef, 'relationships'));
                 batch.set(newRelDocRef, {
                     ...restOfRel,
-                    id: newRelDocRef.id,
-                    treeId: newTreeId,
                     userId: user.uid,
+                    treeId: newTreeId,
                     personAId: newPersonAId,
                     personBId: newPersonBId,
                     createdAt: serverTimestamp(),
@@ -187,36 +172,31 @@ export function DashboardClient() {
                 });
             }
         });
-        
+
         posSnap.forEach(d => {
-            const oldPosData = d.data() as CanvasPosition;
-            const { id, updatedAt, personId, ...restOfPos } = oldPosData;
-
+            const oldPosData = d.data();
+            const { id, updatedAt, personId, ...restOfPos } = oldPosData as CanvasPosition;
             const newPersonId = oldPersonIdToNewPersonIdMap.get(personId);
-
             if (newPersonId) {
-                const newPosDocRef = doc(collection(newTreeRef, 'canvasPositions'));
+                const newPosDocRef = doc(collection(newTreeRef, 'canvasPositions'), newPersonId);
                 batch.set(newPosDocRef, {
                     ...restOfPos,
-                    id: newPosDocRef.id,
-                    treeId: newTreeId,
                     userId: user.uid,
+                    treeId: newTreeId,
                     personId: newPersonId,
                     updatedAt: serverTimestamp(),
                 });
             }
         });
-
+        
         await batch.commit();
         toast({ title: 'העץ שוכפל בהצלחה!' });
-        fetchTrees();
-
+        fetchData();
     } catch (error) {
         console.error("Error duplicating tree:", error);
         toast({ variant: 'destructive', title: 'שגיאה בשכפול העץ', description: 'לא ניתן היה להשלים את הפעולה.' });
     }
   };
-
 
   const handleOpenShareDialog = (tree: FamilyTree) => {
     setTreeToShare(tree);
@@ -228,12 +208,10 @@ export function DashboardClient() {
     try {
       const emailQuery = query(collection(db, "userEmails"), where("email", "==", email), limit(1));
       const emailSnap = await getDocs(emailQuery);
-
       if (emailSnap.empty) {
         toast({ variant: 'destructive', title: 'משתמש לא נמצא', description: 'לא נמצא משתמש עם כתובת האימייל שהוזנה.' });
         return;
       }
-      
       const targetUser = emailSnap.docs[0].data();
       const sharedDocData = {
         ownerUserId: user.uid,
@@ -245,9 +223,7 @@ export function DashboardClient() {
         canEdit: true,
         createdAt: serverTimestamp(),
       };
-      
       await addDoc(collection(db, "sharedTrees"), sharedDocData);
-      
       toast({ title: 'העץ שותף בהצלחה', description: `העץ "${treeToShare.treeName}" שותף עם ${email}.` });
       setIsShareDialogOpen(false);
       setTreeToShare(null);
@@ -268,7 +244,7 @@ export function DashboardClient() {
       const link = `${window.location.origin}/view/${tree.id}?token=${token}`;
       navigator.clipboard.writeText(link);
       toast({ title: 'קישור שיתוף הועתק', description: 'כל מי עם הקישור יכול לצפות בעץ.' });
-      fetchTrees();
+      fetchData();
     } catch(e) {
       toast({ variant: 'destructive', title: 'שגיאה ביצירת קישור' });
     }
@@ -280,7 +256,6 @@ export function DashboardClient() {
       const batch = writeBatch(db);
       const treeRef = doc(db, 'users', user.uid, 'familyTrees', tree.id);
       batch.update(treeRef, { privacy: 'public' });
-      
       const publicTreeRef = doc(db, "publicTrees", tree.id);
       batch.set(publicTreeRef, {
         id: tree.id,
@@ -291,15 +266,13 @@ export function DashboardClient() {
         relationshipCount: tree.relationshipCount || 0,
         createdAt: tree.createdAt,
       });
-
       await batch.commit();
       toast({ title: 'העץ כעת ציבורי' });
-      fetchTrees();
+      fetchData();
     } catch (e) {
       toast({ variant: 'destructive', title: 'שגיאה בעדכון הגדרות' });
     }
   };
-
 
   const handleDeleteClick = (tree: FamilyTree) => {
     setTreeToDelete(tree);
@@ -309,11 +282,10 @@ export function DashboardClient() {
   const handleConfirmDelete = async () => {
     if (!treeToDelete || !user || !db) return;
     setIsDeleting(true);
-
     try {
       const batch = writeBatch(db);
       const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
-
+      
       const collectionsToDelete = ['people', 'relationships', 'canvasPositions', 'manualEvents'];
       for (const coll of collectionsToDelete) {
         const subCollectionRef = collection(treeDocRef, coll);
@@ -326,21 +298,22 @@ export function DashboardClient() {
       sharedTreesSnapshot.forEach((doc) => {
         batch.delete(doc.ref);
       });
-
+      
       batch.delete(treeDocRef);
+      
       if (treeToDelete.privacy === 'public') {
         batch.delete(doc(db, 'publicTrees', treeToDelete.id));
       }
-
-      await batch.commit();
       
+      await batch.commit();
+
       toast({
         title: 'עץ נמחק',
         description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
       });
-      
-      // Instead of manipulating state directly, re-fetch for consistency
-      fetchTrees();
+
+      // Per your request, forcing a page reload to fix the UI freeze.
+      window.location.reload();
 
     } catch (error: any) {
       console.error("Error deleting tree:", error);
@@ -349,10 +322,10 @@ export function DashboardClient() {
         title: 'שגיאה במחיקת העץ',
         description: "לא ניתן היה למחוק את העץ. נסה שוב.",
       });
-    } finally {
+      // Also reset state on error
       setIsDeleting(false);
+      setIsAlertOpen(false);
       setTreeToDelete(null);
-      setIsAlertOpen(false); // Explicitly close the dialog
     }
   };
   
@@ -514,12 +487,10 @@ export function DashboardClient() {
             <AlertDialogCancel disabled={isDeleting}>ביטול</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={handleConfirmDelete}
               disabled={isDeleting}
+              onClick={handleConfirmDelete}
             >
-              {isDeleting && (
-                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-              )}
+              {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
               מחק
             </AlertDialogAction>
           </AlertDialogFooter>
