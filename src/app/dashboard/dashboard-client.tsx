@@ -59,21 +59,17 @@ export function DashboardClient() {
       const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
         const treeData = { id: treeDoc.id, ...treeDoc.data() } as FamilyTree;
-        const peopleRef = collection(treeDoc.ref, 'people');
-        const relsRef = collection(treeDoc.ref, 'relationships');
-        try {
-            const [peopleSnap, relsSnap] = await Promise.all([
-                getDocs(query(peopleRef, limit(1))),
-                getDocs(query(relsRef, limit(1))),
-            ]);
-            // This is a rough count. For exact counts, a separate aggregation would be better
-            treeData.personCount = peopleSnap.size; 
-            treeData.relationshipCount = relsSnap.size;
-        } catch (e) {
-            console.warn(`Could not fetch counts for tree ${treeData.id}`, e);
-            treeData.personCount = 0;
-            treeData.relationshipCount = 0;
-        }
+        
+        // Fetch real counts
+        const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeDoc.id, 'people');
+        const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeDoc.id, 'relationships');
+        const [peopleSnap, relsSnap] = await Promise.all([
+          getDocs(query(peopleRef, limit(1000))), // Firestore count is in beta, so we fetch docs
+          getDocs(query(relsRef, limit(1000))),
+        ]);
+        treeData.personCount = peopleSnap.size; 
+        treeData.relationshipCount = relsSnap.size;
+
         return treeData;
       });
       const userTrees = await Promise.all(myTreesPromises);
@@ -82,18 +78,12 @@ export function DashboardClient() {
       // Fetch Shared Trees
       const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       const sharedSnapshot = await getDocs(sharedQuery);
-      const sharedTreesPromises = sharedSnapshot.docs.map(async (docSnap) => {
-        const sharedData = { id: docSnap.id, ...docSnap.data() } as SharedTree;
-        return sharedData;
-      });
-      const sharedTreesData = await Promise.all(sharedTreesPromises);
-      setSharedTrees(sharedTreesData);
+      setSharedTrees(sharedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SharedTree)));
       
       // Fetch Public Trees
       const publicQuery = query(collection(db, "publicTrees"), limit(20));
       const publicSnapshot = await getDocs(publicQuery);
-      const publicTreesData = publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree));
-      setPublicTrees(publicTreesData);
+      setPublicTrees(publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree)));
 
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -104,7 +94,7 @@ export function DashboardClient() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      fetchTrees();
+      fetchData();
     } else if (!isUserLoading && !user) {
       setIsLoading(false);
     }
