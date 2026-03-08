@@ -240,6 +240,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [edgeType, setEdgeType] = useState<EdgeType>('default');
+  const [isTimelineCompact, setIsTimelineCompact] = useState(false);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -1201,12 +1202,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
   
   const isValidConnection = useCallback<IsValidConnection>((connection) => {
-    // Prevent self-connections
     if (connection.source === connection.target) {
       return false;
     }
-    // As per user request, allow any connection to be initiated.
-    // The relationship modal and final edge rendering will handle the logic.
     return true;
   }, []);
 
@@ -1529,7 +1527,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           />
         );
       case 'timeline':
-        return <TimelineView people={people} relationships={relationships} edgeType={edgeType} />;
+        return <TimelineView people={people} relationships={relationships} edgeType={edgeType} isCompact={isTimelineCompact} />;
       case 'table':
         const isOwner = user?.uid === tree?.userId;
         return <TableView 
@@ -1601,6 +1599,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onExportExcel={handleExportExcel}
           onOpenImageExport={() => setIsImageExportModalOpen(true)}
           onImportClick={() => importFileInputRef.current?.click()}
+          isTimelineCompact={isTimelineCompact}
+          onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
         />
         <main className="flex-1 relative overflow-hidden" id="main-view-container">
         <input

@@ -33,6 +33,8 @@ import {
   Book,
   Link as LinkIcon,
   Upload,
+  Shrink,
+  Expand,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -103,6 +105,8 @@ type CanvasToolbarProps = {
   onOpenImageExport: () => void;
   onOpenPptExport: () => void;
   onImportClick: () => void;
+  isTimelineCompact: boolean;
+  onToggleTimelineCompact: () => void;
 };
 
 export function CanvasToolbar({
@@ -124,6 +128,8 @@ export function CanvasToolbar({
   onOpenImageExport,
   onOpenPptExport,
   onImportClick,
+  isTimelineCompact,
+  onToggleTimelineCompact,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
 
@@ -241,6 +247,28 @@ export function CanvasToolbar({
           </DropdownMenu>
         </div>
       )}
+      
+      {viewMode === 'timeline' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleTimelineCompact}
+            >
+              {isTimelineCompact ? (
+                <Expand className="h-5 w-5" />
+              ) : (
+                <Shrink className="h-5 w-5" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>{isTimelineCompact ? 'הרחב טיימליין' : 'צמצם טיימליין'}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
 
       <div className="flex-grow" />
 

@@ -30,12 +30,14 @@ type TimelineViewProps = {
   people: Person[];
   relationships: Relationship[];
   edgeType: EdgeType;
+  isCompact: boolean;
 };
 
 function TimelineViewContent({
   people,
   relationships,
   edgeType,
+  isCompact,
 }: TimelineViewProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -68,57 +70,75 @@ function TimelineViewContent({
         : new Date().getFullYear() - 50;
     const maxYear =
       datedPeople.length > 0
-        ? datedPeople[datedPeople.length - 1].birthYear!
+        ? Math.max(...datedPeople.map(p => p.deathDate ? new Date(p.deathDate).getFullYear() : p.birthYear!), new Date().getFullYear())
         : new Date().getFullYear();
     setYearRange({ min: minYear, max: maxYear });
 
     const newNodes: Node[] = [];
+    const MAX_COLUMNS = 5;
 
-    // 2. Layout dated people
-    const columns: number[] = []; // Stores the y-end of the last node in each column
-
-    datedPeople.forEach((person) => {
-      const yPos = (person.birthYear! - minYear) * PIXELS_PER_YEAR;
-      let placed = false;
-
-      for (let i = 0; i < columns.length; i++) {
-        if (yPos > columns[i] + VERTICAL_GAP) {
-          // Place in this column
-          newNodes.push({
-            id: person.id,
-            type: 'timelinePerson',
-            position: { x: 100 + i * COLUMN_WIDTH, y: yPos },
-            data: person,
-          });
-          columns[i] = yPos + NODE_HEIGHT;
-          placed = true;
-          break;
+    if (isCompact) {
+      // --- COMPACT LAYOUT LOGIC ---
+      const columns: number[] = Array(MAX_COLUMNS).fill(0);
+      datedPeople.forEach((person) => {
+        let targetColumnIndex = 0;
+        let minYEnd = columns[0];
+        for (let i = 1; i < columns.length; i++) {
+          if (columns[i] < minYEnd) {
+            minYEnd = columns[i];
+            targetColumnIndex = i;
+          }
         }
-      }
-
-      if (!placed) {
-        // Create a new column
-        const newColumnIndex = columns.length;
+        
+        const yPos = (minYEnd === 0 ? 0 : minYEnd + VERTICAL_GAP);
+        
         newNodes.push({
           id: person.id,
           type: 'timelinePerson',
-          position: { x: 100 + newColumnIndex * COLUMN_WIDTH, y: yPos },
+          position: { x: 100 + targetColumnIndex * COLUMN_WIDTH, y: yPos },
           data: person,
         });
-        columns.push(yPos + NODE_HEIGHT);
-      }
-    });
+        
+        columns[targetColumnIndex] = yPos + NODE_HEIGHT;
+      });
 
-    // 3. Layout undated people
-    let lastY;
-    if (datedPeople.length > 0) {
-      const maxY = Math.max(
-        ...newNodes.filter((n) => n.position).map((n) => n.position.y)
-      );
-      lastY = maxY + NODE_HEIGHT + VERTICAL_GAP * 3;
     } else {
-      lastY = 100; // If no dated people, start from top
+      // --- ORIGINAL LAYOUT LOGIC ---
+      const columns: number[] = []; // Stores the y-end of the last node in each column
+      datedPeople.forEach((person) => {
+        const yPos = (person.birthYear! - minYear) * PIXELS_PER_YEAR;
+        let placed = false;
+
+        for (let i = 0; i < columns.length; i++) {
+          if (yPos > columns[i] + VERTICAL_GAP) {
+            newNodes.push({
+              id: person.id,
+              type: 'timelinePerson',
+              position: { x: 100 + i * COLUMN_WIDTH, y: yPos },
+              data: person,
+            });
+            columns[i] = yPos + NODE_HEIGHT;
+            placed = true;
+            break;
+          }
+        }
+
+        if (!placed) {
+          const newColumnIndex = columns.length;
+          newNodes.push({
+            id: person.id,
+            type: 'timelinePerson',
+            position: { x: 100 + newColumnIndex * COLUMN_WIDTH, y: yPos },
+            data: person,
+          });
+          columns.push(yPos + NODE_HEIGHT);
+        }
+      });
     }
+
+    // Layout undated people (same logic for both modes)
+    let lastY = Math.max(0, ...newNodes.map((n) => n.position.y + NODE_HEIGHT));
+    lastY = isFinite(lastY) ? lastY + VERTICAL_GAP * 3 : 100;
 
     if (undatedPeople.length > 0) {
       newNodes.push({
@@ -152,7 +172,7 @@ function TimelineViewContent({
 
     setNodes(newNodes);
 
-    // 4. Create edges
+    // Create edges
     const newEdges: Edge[] = relationships.map((rel) => ({
       id: rel.id,
       source: rel.personAId,
@@ -167,7 +187,7 @@ function TimelineViewContent({
       () => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }),
       100
     );
-  }, [people, relationships, setViewport, edgeType]);
+  }, [people, relationships, setViewport, edgeType, isCompact]);
 
   return (
     <div className="h-full w-full relative bg-background">
@@ -182,8 +202,8 @@ function TimelineViewContent({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        fitView={false} // We are setting view manually
-        className="ml-20" // Offset for the axis
+        fitView={false}
+        className="ml-20"
         panOnDrag={true}
         zoomOnScroll={true}
         minZoom={0.05}
