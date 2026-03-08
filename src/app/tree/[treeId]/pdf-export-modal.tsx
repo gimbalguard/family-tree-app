@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useToast } from '@/hooks/use-toast';
+import { useReactFlow } from 'reactflow';
 import {
   Dialog,
   DialogContent,
@@ -37,7 +38,8 @@ type PdfExportModalProps = {
 
 export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
   const { toast } = useToast();
-  
+  const { getNodes, getViewport, setViewport, fitView } = useReactFlow();
+
   const defaultTitle = useMemo(() => tree?.treeName || 'My Family Tree', [tree]);
   
   const [options, setOptions] = useState<PdfExportOptions>({
@@ -58,65 +60,95 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
 
   const handleExport = async () => {
     setIsExporting(true);
-    document.body.classList.add('pdf-export-mode');
 
-    // Delay to allow UI to hide
-    await new Promise(resolve => setTimeout(resolve, 100));
+    const reactFlowElement = document.querySelector('.react-flow') as HTMLElement;
+    if (!reactFlowElement) {
+        toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'רכיב הקנבס לא נמצא.' });
+        setIsExporting(false);
+        return;
+    }
+    
+    // Create temporary header and footer for capture
+    const headerEl = document.createElement('div');
+    headerEl.style.position = 'absolute';
+    headerEl.style.top = '20px';
+    headerEl.style.left = '20px';
+    headerEl.style.right = '20px';
+    headerEl.style.zIndex = '20';
+    headerEl.style.direction = 'rtl';
+    headerEl.style.fontFamily = 'Rubik, sans-serif';
+    headerEl.style.pointerEvents = 'none';
+    headerEl.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: hsla(var(--background), 0.7); padding: 5px 10px; border-radius: 6px;">
+            <h1 style="font-size: 1.25rem; font-weight: 600; color: hsl(var(--foreground));">${options.title}</h1>
+            <p style="font-size: 0.8rem; color: hsl(var(--muted-foreground));">הופק בתאריך: ${new Date().toLocaleDateString('he-IL')}</p>
+        </div>
+    `;
+
+    const footerEl = document.createElement('div');
+    footerEl.style.position = 'absolute';
+    footerEl.style.bottom = '10px';
+    footerEl.style.left = '10px';
+    footerEl.style.fontSize = '0.7rem';
+    footerEl.style.color = 'hsl(var(--muted-foreground))';
+    footerEl.style.zIndex = '20';
+    footerEl.style.pointerEvents = 'none';
+    footerEl.innerHTML = 'נוצר באמצעות FamilyTree';
+
+    document.body.classList.add('pdf-export-mode');
+    reactFlowElement.appendChild(headerEl);
+    reactFlowElement.appendChild(footerEl);
+
+    const previousViewport = getViewport();
+
+    // Give DOM time to update before capture
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     try {
-      const element = document.querySelector('.react-flow') as HTMLElement;
-      if (!element) {
-        throw new Error('Canvas element not found.');
+      if (options.scope === 'full') {
+        const nodes = getNodes();
+        if (nodes.length > 0) {
+            await fitView({ padding: 0.1, duration: 0 });
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
       }
       
-      const canvas = await html2canvas(element, {
+      const canvas = await html2canvas(reactFlowElement, {
         scale: options.quality === 'max' ? 3 : options.quality === 'high' ? 2 : 1,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: '#f0f4f8',
+        backgroundColor: 'hsl(var(--background))',
         logging: false,
       });
 
       const orientation = options.orientation === 'landscape' ? 'l' : 'p';
       const pdf = new jsPDF(orientation, 'mm', 'a4');
       
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(16);
-      pdf.text(options.title, pdf.internal.pageSize.getWidth() / 2, 12, { align: 'center' });
-      pdf.setFontSize(9);
-      pdf.setTextColor(100);
-      pdf.text(`הופק בתאריך: ${new Date().toLocaleDateString('he-IL')}`, pdf.internal.pageSize.getWidth() - 10, 12, { align: 'right' });
-      
-      const imgData = canvas.toDataURL('image/jpeg', 0.92);
-      const imgProps= pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
       
-      const imgWidth = pdfWidth - 20;
-      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const imgProps = pdf.getImageProperties(imgData);
       
-      let heightLeft = imgHeight;
-      let position = 18;
+      const imgWidth = pdfWidth;
+      const imgHeight = (imgProps.height * imgWidth) / imgProps.width;
 
-      pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-      heightLeft -= (pdfHeight - position);
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
 
       while (heightLeft > 0) {
-        position -= (pdfHeight - 20); // Move image "up" on the new page, with margins
+        position -= pdfHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 10, position, imgWidth, imgHeight);
-        heightLeft -= (pdfHeight - 20);
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
       }
-      
-      pdf.setFontSize(8);
-      pdf.setTextColor(150);
-      pdf.text('נוצר באמצעות FamilyTree', 10, pdfHeight - 5);
       
       pdf.save(`${options.title.replace(/ /g, '_')}-${new Date().getFullYear()}.pdf`);
       
-      toast({
-        title: 'קובץ PDF הורד בהצלחה ✓',
-      });
+      toast({ title: 'קובץ PDF הורד בהצלחה ✓' });
 
     } catch (error) {
       console.error('PDF export failed:', error);
@@ -126,9 +158,14 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
         description: 'נסה שוב. אם הבעיה נמשכת, בדוק את הקונסול.',
       });
     } finally {
-      setIsExporting(false);
-      document.body.classList.remove('pdf-export-mode');
-      onClose();
+        if (options.scope === 'full') {
+            setViewport(previousViewport, { duration: 0 });
+        }
+        document.body.classList.remove('pdf-export-mode');
+        if (reactFlowElement.contains(headerEl)) reactFlowElement.removeChild(headerEl);
+        if (reactFlowElement.contains(footerEl)) reactFlowElement.removeChild(footerEl);
+        setIsExporting(false);
+        onClose();
     }
   };
 
@@ -185,7 +222,7 @@ export function PdfExportModal({ isOpen, onClose, tree }: PdfExportModalProps) {
               className="flex gap-4"
             >
               <div className="flex items-center gap-2"><RadioGroupItem value="current" id="s-current" /><Label htmlFor="s-current">תצוגה נוכחית</Label></div>
-              <div className="flex items-center gap-2"><RadioGroupItem value="full" id="s-full" disabled /><Label htmlFor="s-full" className="opacity-50">כל העץ (בקרוב)</Label></div>
+              <div className="flex items-center gap-2"><RadioGroupItem value="full" id="s-full" /><Label htmlFor="s-full">כל העץ</Label></div>
             </RadioGroup>
           </div>
 

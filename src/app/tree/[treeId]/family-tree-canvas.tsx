@@ -92,13 +92,14 @@ export function FamilyTreeCanvas({
         isValidConnection={isValidConnection}
         connectionMode={ConnectionMode.Loose}
         fitView
+        fitViewOptions={{ padding: 0.15 }}
         className="bg-background"
         panOnDrag={true}
         zoomOnScroll={true}
         selectionKeyCode="Control"
         multiSelectionKeyCode="Control"
         onSelectionChange={onSelectionChange}
-        minZoom={0.25}
+        minZoom={0.05}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />
