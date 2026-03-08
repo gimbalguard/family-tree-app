@@ -60,6 +60,7 @@ const FILE_ICONS: Record<ExportedFile['fileType'], { icon: React.FC<any>; color:
   xlsx: { icon: FileSpreadsheet, color: 'text-green-600' },
   pptx: { icon: Presentation, color: 'text-orange-500' },
   png: { icon: ImageIcon, color: 'text-blue-500' },
+  jpg: { icon: ImageIcon, color: 'text-blue-500' },
   html: { icon: Globe, color: 'text-purple-500' },
   docx: { icon: Book, color: 'text-teal-600' },
 };

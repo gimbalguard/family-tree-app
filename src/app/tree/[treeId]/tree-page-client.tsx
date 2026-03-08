@@ -93,6 +93,7 @@ import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
 import { AiChatPanel } from './ai-chat-panel';
 import { PdfExportModal } from './pdf-export-modal';
+import { ImageExportModal } from './image-export-modal';
 import { PowerPointExportModal } from './powerpoint-export-modal';
 import { exportToExcel, parseAndValidateExcel, ParsedExcelData } from '@/lib/excel-handler';
 import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal';
@@ -248,6 +249,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
   const [isPowerPointModalOpen, setIsPowerPointModalOpen] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
@@ -1413,8 +1415,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     try {
       const storagePath = `users/${user.uid}/trees/${treeId}/exports/${Date.now()}_${fileName}`;
       const fileRef = ref(storage, storagePath);
+      
+      console.log('Starting upload to:', storagePath);
       const snapshot = await uploadBytes(fileRef, blob);
+      console.log('Upload success:', snapshot.ref.fullPath);
+
       const downloadURL = await getDownloadURL(snapshot.ref);
+
       await addDoc(collection(db, 'exportedFiles'), {
         userId: user.uid,
         treeId: tree.id,
@@ -1474,13 +1481,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'לא ניתן היה להכין את הנתונים.' });
     }
   }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast, saveExportedFile]);
-
-  const handleOpenImageExport = () => {
-      toast({
-        title: 'בקרוב',
-        description: 'אפשרות ייצוא התמונה תהיה זמינה בעדכונים הבאים.',
-      });
-  };
 
   const renderCurrentView = () => {
     switch (viewMode) {
@@ -1574,10 +1574,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onOpenPdfModal={() => setIsPdfModalOpen(true)}
           onOpenPptExport={() => setIsPowerPointModalOpen(true)}
           onExportExcel={handleExportExcel}
-          onOpenImageExport={handleOpenImageExport}
+          onOpenImageExport={() => setIsImageExportModalOpen(true)}
           onImportClick={() => importFileInputRef.current?.click()}
         />
-        <main className="flex-1 relative overflow-hidden">
+        <main className="flex-1 relative overflow-hidden" id="main-view-container">
         <input
             type="file"
             ref={importFileInputRef}
@@ -1657,7 +1657,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
             ? relationships.find((r) => r.id === pendingDeleteId)
             : null)
         }
-        connection={newConnection}
         relationshipId={editingRelationship?.id || pendingDeleteId || undefined}
         people={people}
         onSave={handleSaveRelationship}
@@ -1691,6 +1690,15 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onClose={() => setIsPdfModalOpen(false)}
           tree={tree}
           onSave={(blob, fileName) => saveExportedFile(blob, fileName, 'pdf')}
+        />
+      )}
+      
+       {tree && (
+        <ImageExportModal
+          isOpen={isImageExportModalOpen}
+          onClose={() => setIsImageExportModalOpen(false)}
+          tree={tree}
+          onSave={saveExportedFile}
         />
       )}
       

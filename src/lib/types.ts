@@ -112,7 +112,7 @@ export type ExportedFile = {
   treeId: string;
   treeName: string;
   fileName: string;
-  fileType: 'pdf' | 'xlsx' | 'pptx' | 'png' | 'html' | 'docx';
+  fileType: 'pdf' | 'xlsx' | 'pptx' | 'png' | 'html' | 'docx' | 'jpg';
   storagePath: string | null;
   downloadURL: string | null;
   fileSizeBytes: number;
