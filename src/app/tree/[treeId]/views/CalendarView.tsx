@@ -12,6 +12,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
   format,
   addDays,
   addMonths,
@@ -505,7 +512,7 @@ function MultiDayView({
                       height: EVENT_BLOCK_HEIGHT,
                     }}
                     onClick={(e) => { e.stopPropagation(); onEventClick(ev, day); }}
-                    title={ev.title}
+                    title={event.title}
                   >
                     {ev.title}
                   </div>
@@ -525,6 +532,8 @@ function Toolbar({
   viewMode,
   setViewMode,
   currentDate,
+  setCurrentDate,
+  yearRange,
   onPrev,
   onNext,
   onToday,
@@ -535,6 +544,8 @@ function Toolbar({
   viewMode: ViewMode;
   setViewMode: (v: ViewMode) => void;
   currentDate: Date;
+  setCurrentDate: (date: Date) => void;
+  yearRange: { min: number, max: number };
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
@@ -559,6 +570,12 @@ function Toolbar({
     return `${format(start, 'd MMM', { locale: he })} – ${format(end, 'd MMM yyyy', { locale: he })}`;
   }, [viewMode, currentDate]);
 
+  const years = Array.from({ length: yearRange.max - yearRange.min + 1 }, (_, i) => yearRange.max - i);
+  const months = Array.from({ length: 12 }, (_, i) => ({
+      value: i,
+      label: format(new Date(2000, i, 1), 'MMMM', { locale: he }),
+  }));
+
   return (
     <div className="flex items-center justify-between gap-2 px-4 py-2 border-b flex-shrink-0 bg-card" dir="rtl">
       {/* Right side: today + nav + label */}
@@ -572,7 +589,48 @@ function Toolbar({
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
-        <h2 className="text-base font-bold whitespace-nowrap">{headerLabel}</h2>
+        {viewMode === 'month' ? (
+          <div className="flex items-center gap-1">
+            <Select
+              value={String(currentDate.getMonth())}
+              onValueChange={(m) => {
+                const newDate = new Date(currentDate);
+                newDate.setMonth(parseInt(m, 10));
+                setCurrentDate(newDate);
+              }}
+              dir="rtl"
+            >
+              <SelectTrigger className="h-8 min-w-[100px] font-semibold text-base border-none bg-transparent focus:ring-0 focus:ring-offset-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {months.map(m => (
+                  <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(currentDate.getFullYear())}
+              onValueChange={(y) => {
+                const newDate = new Date(currentDate);
+                newDate.setFullYear(parseInt(y, 10));
+                setCurrentDate(newDate);
+              }}
+              dir="rtl"
+            >
+              <SelectTrigger className="h-8 min-w-[80px] font-semibold text-base border-none bg-transparent focus:ring-0 focus:ring-offset-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : (
+          <h2 className="text-base font-bold whitespace-nowrap">{headerLabel}</h2>
+        )}
       </div>
 
       {/* Left side: view switcher + filter + add */}
@@ -670,6 +728,24 @@ export function CalendarView({
     [allEvents, visibleTypes],
   );
 
+  const yearRange = useMemo(() => {
+    const birthYears = people
+      .map(p => p.birthDate && getYear(parseISO(p.birthDate)))
+      .filter((y): y is number => !!y && !isNaN(y));
+    const eventYears = manualEvents
+        .map(e => getYear(parseISO(e.date)))
+        .filter(y => !isNaN(y));
+
+    const allYears = [...birthYears, ...eventYears];
+    if (allYears.length === 0) {
+      const currentYear = new Date().getFullYear();
+      return { min: currentYear - 50, max: currentYear + 5 };
+    }
+    const minYear = Math.min(...allYears);
+    const maxYear = Math.max(...allYears, new Date().getFullYear());
+    return { min: minYear - 5, max: maxYear + 5 };
+  }, [people, manualEvents]);
+
   // Navigation
   const handlePrev = useCallback(() => {
     if (viewMode === 'month') setCurrentDate((d) => subMonths(d, 1));
@@ -731,6 +807,8 @@ export function CalendarView({
         viewMode={viewMode}
         setViewMode={setViewMode}
         currentDate={currentDate}
+        setCurrentDate={setCurrentDate}
+        yearRange={yearRange}
         onPrev={handlePrev}
         onNext={handleNext}
         onToday={handleToday}
