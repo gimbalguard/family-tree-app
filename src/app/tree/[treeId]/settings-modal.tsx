@@ -35,14 +35,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Copy } from 'lucide-react';
+import { Loader2, Copy, Square, Circle as CircleIcon, Hexagon, Star } from 'lucide-react';
 import type { FamilyTree, Person } from '@/lib/types';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 const settingsSchema = z.object({
   treeName: z.string().min(1, 'שם העץ הוא שדה חובה.'),
   ownerPersonId: z.string().optional(),
   language: z.enum(['he', 'en']),
   privacy: z.enum(['private', 'link', 'public']),
+  creatorCardBacklightIntensity: z.number().min(0).max(100).optional(),
+  creatorCardBacklightDisabled: z.boolean().optional(),
+  creatorCardSize: z.number().min(50).max(200).optional(),
+  creatorCardShape: z.enum(['default', 'rounded', 'hexagon', 'bordered']).optional(),
 });
 
 type SettingsModalProps = {
@@ -65,10 +72,15 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
       ownerPersonId: '',
       language: 'he',
       privacy: 'private',
+      creatorCardBacklightIntensity: 50,
+      creatorCardBacklightDisabled: false,
+      creatorCardSize: 100,
+      creatorCardShape: 'default',
     },
   });
   
   const privacyValue = form.watch('privacy');
+  const isBacklightDisabled = form.watch('creatorCardBacklightDisabled');
 
   useEffect(() => {
     if (tree) {
@@ -77,9 +89,15 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
         ownerPersonId: tree.ownerPersonId || '',
         language: tree.language || 'he',
         privacy: tree.privacy || 'private',
+        creatorCardBacklightIntensity: tree.creatorCardBacklightIntensity ?? 50,
+        creatorCardBacklightDisabled: tree.creatorCardBacklightDisabled ?? false,
+        creatorCardSize: tree.creatorCardSize ?? 100,
+        creatorCardShape: tree.creatorCardShape ?? 'default',
       });
       if (tree.privacy === 'link' && tree.shareToken) {
         setShareLink(`${window.location.origin}/view/${tree.id}?token=${tree.shareToken}`);
+      } else {
+        setShareLink('');
       }
     }
   }, [tree, form, isOpen]);
@@ -173,6 +191,64 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                 )}
               />
             </div>
+
+            <Separator />
+            
+            {/* Creator Card Section */}
+            <div className="space-y-4">
+              <h3 className="font-semibold">כרטיס יוצר העץ</h3>
+              <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>עוצמת תאורה אחורית</FormLabel>
+                  <FormControl>
+                    <Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} />
+                  </FormControl>
+                </FormItem>
+              )}/>
+               <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
+                <FormItem className="flex flex-row-reverse items-center justify-end gap-2 space-y-0">
+                  <FormLabel>בטל הבלטת כרטיס</FormLabel>
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}/>
+              <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>גודל כרטיס יוצר העץ ({field.value || 100}%)</FormLabel>
+                  <FormControl>
+                    <Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} />
+                  </FormControl>
+                </FormItem>
+              )}/>
+              <FormField control={form.control} name="creatorCardShape" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>צורת כרטיס</FormLabel>
+                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2">
+                    {[
+                      {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
+                      {value: 'rounded', label: 'מעוגל', icon: <CircleIcon/>},
+                      {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
+                      {value: 'bordered', label: 'מסגרת', icon: <Star/>},
+                    ].map(opt => (
+                      <FormItem key={opt.value}>
+                        <FormControl>
+                            <RadioGroupItem value={opt.value} className="sr-only"/>
+                        </FormControl>
+                         <Label className={cn(
+                           "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
+                           field.value === opt.value && "border-primary"
+                         )}>
+                            {opt.icon}
+                            <span className="text-xs font-normal">{opt.label}</span>
+                         </Label>
+                      </FormItem>
+                    ))}
+                  </RadioGroup>
+                </FormItem>
+              )}/>
+            </div>
+
 
             <Separator />
 

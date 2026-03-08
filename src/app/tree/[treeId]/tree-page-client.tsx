@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -379,6 +380,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
     const newNodes = enrichedPeopleData.map(person => {
       const pos = positionsMap.get(person.id);
+      const isOwner = person.id === currentTree.ownerPersonId;
       return {
         id: person.id,
         type: 'personNode',
@@ -387,7 +389,13 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           ...person,
           isLocked: pos?.isLocked ?? false,
           groupId: pos?.groupId ?? null,
-          isOwner: person.id === currentTree.ownerPersonId,
+          isOwner,
+          ...(isOwner && {
+            creatorCardBacklightIntensity: currentTree.creatorCardBacklightIntensity,
+            creatorCardBacklightDisabled: currentTree.creatorCardBacklightDisabled,
+            creatorCardSize: currentTree.creatorCardSize,
+            creatorCardShape: currentTree.creatorCardShape,
+          }),
         },
         draggable: !(pos?.isLocked ?? false),
       };
@@ -1248,16 +1256,16 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     
     // Optimistic UI update
     const oldTree = tree;
-    setTree(prev => prev ? { ...prev, ...details } : null);
+    const updatedTree = prev => prev ? { ...prev, ...details } : null
+    setTree(updatedTree);
 
     if ('treeName' in details) {
         setNameValue(details.treeName!);
     }
-     if ('ownerPersonId' in details) {
-        setNodes((nds) =>
-          nds.map((n) => ({ ...n, data: { ...n.data, isOwner: n.id === details.ownerPersonId } }))
-        );
+    if ('ownerPersonId' in details || 'creatorCardBacklightIntensity' in details || 'creatorCardBacklightDisabled' in details || 'creatorCardSize' in details || 'creatorCardShape' in details) {
+      deriveStateFromData(people, relationships, canvasPositions, updatedTree as FamilyTree);
     }
+
 
     try {
         await updateDoc(treeRef, { ...details, updatedAt: serverTimestamp() });
@@ -1265,12 +1273,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     } catch (error: any) {
         // Revert UI on error
         setTree(oldTree);
-        if ('treeName' in details) setNameValue(oldTree.treeName);
-        if ('ownerPersonId' in details) {
-           setNodes((nds) =>
-            nds.map((n) => ({ ...n, data: { ...n.data, isOwner: n.id === oldTree.ownerPersonId } }))
-           );
-        }
+        deriveStateFromData(people, relationships, canvasPositions, oldTree);
 
         toast({ variant: "destructive", title: "שגיאת עדכון", description: "לא ניתן היה לשמור את הגדרות העץ." });
         const permissionError = new FirestorePermissionError({
@@ -1280,7 +1283,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-  }, [user, db, tree, treeId, toast, setNodes]);
+  }, [user, db, tree, treeId, toast, people, relationships, canvasPositions, deriveStateFromData]);
 
   const handleEditPerson = useCallback((personId: string) => {
     const personToEdit = people.find(p => p.id === personId);

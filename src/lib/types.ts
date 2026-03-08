@@ -18,6 +18,10 @@ export type FamilyTree = {
   language?: 'he' | 'en';
   privacy?: 'private' | 'link' | 'public';
   shareToken?: string;
+  creatorCardBacklightIntensity?: number;
+  creatorCardBacklightDisabled?: boolean;
+  creatorCardSize?: number;
+  creatorCardShape?: 'default' | 'rounded' | 'hexagon' | 'bordered';
 };
 
 export type Person = {
@@ -52,6 +56,11 @@ export type Person = {
   greatGrandchildrenCount?: number;
   gen4Count?: number;
   gen5Count?: number;
+  // Creator card settings applied to the owner node
+  creatorCardBacklightIntensity?: number;
+  creatorCardBacklightDisabled?: boolean;
+  creatorCardSize?: number;
+  creatorCardShape?: 'default' | 'rounded' | 'hexagon' | 'bordered';
 };
 
 export type Relationship = {

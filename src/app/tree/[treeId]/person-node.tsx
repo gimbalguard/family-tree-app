@@ -1,3 +1,4 @@
+
 'use client';
 import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
@@ -15,7 +16,16 @@ import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
 
 export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, isOwner, isLocked, childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count } = data;
+  const { 
+    firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, 
+    isOwner, isLocked, childrenCount, siblingsCount, grandchildrenCount, 
+    greatGrandchildrenCount, gen4Count, gen5Count,
+    // Creator settings
+    creatorCardBacklightIntensity,
+    creatorCardBacklightDisabled,
+    creatorCardSize,
+    creatorCardShape
+  } = data;
 
   const getLifeYearsDisplay = () => {
     try {
@@ -76,20 +86,45 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     }
   }
 
-
   const handleStyle = {
     width: 10,
     height: 10,
     background: 'hsl(var(--primary))',
   };
 
+  const cardStyle: React.CSSProperties = {};
+  if (isOwner) {
+    if (creatorCardSize) {
+      cardStyle.transform = `scale(${creatorCardSize / 100})`;
+    }
+    if (!creatorCardBacklightDisabled) {
+      const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
+      const blur = 4 + intensity * 20; // e.g., 4px to 24px
+      const spread = 1 + intensity * 5; // e.g., 1px to 6px
+      const alpha = 0.1 + intensity * 0.2; // e.g., 0.1 to 0.3
+      cardStyle.boxShadow = `0 0 ${blur}px ${spread}px hsla(var(--primary), ${alpha})`;
+    }
+  }
+
   return (
-    <Card className={cn(
-        "w-64 shadow-lg border-2 transition-colors duration-200 relative", 
+    <Card 
+      style={cardStyle}
+      className={cn(
+        "w-64 border-2 transition-all duration-200 relative", 
+        "data-[shape=default]:rounded-lg",
+        "data-[shape=rounded]:rounded-3xl",
+        "data-[shape=bordered]:border-4 data-[shape=bordered]:border-amber-400",
         selected ? 'border-primary shadow-primary/20' : 'border-transparent',
-        isOwner ? 'ring-2 ring-primary/50 shadow-xl shadow-primary/20' : '',
-        isLocked && 'border-destructive'
-    )}>
+        isLocked && 'border-destructive',
+      )}
+      data-shape={isOwner ? creatorCardShape : 'default'}
+    >
+      {isOwner && creatorCardShape === 'hexagon' && (
+        <div 
+          className="absolute inset-0 bg-primary -z-10"
+          style={{clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'}} 
+        />
+      )}
       {isLocked && (
         <div className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 z-10">
           <Lock className="h-3 w-3" />
