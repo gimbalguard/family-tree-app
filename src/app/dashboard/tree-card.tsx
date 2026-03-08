@@ -88,7 +88,8 @@ export function TreeCard({
     : 'לא זמין';
 
   const treeId = 'treeId' in tree ? tree.treeId : tree.id;
-  const linkHref = `/tree/${treeId}`;
+  const linkHref = type === 'public' ? `/view/${treeId}` : `/tree/${treeId}`;
+
 
   return (
     <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-1">

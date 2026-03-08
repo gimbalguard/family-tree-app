@@ -9,6 +9,9 @@ import {
   serverTimestamp,
   writeBatch,
   doc,
+  query,
+  getDocs,
+  limit,
 } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +23,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, Paperclip, Send, Loader2, ArrowLeft, Bot, StopCircle, X } from 'lucide-react';
+import { Mic, Paperclip, Send, Loader2, ArrowLeft, Bot, StopCircle, X, Globe } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { generateTreeFromStory } from '@/ai/flows/ai-tree-generation-flow';
@@ -30,6 +33,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
 import * as XLSX from 'xlsx';
+import type { PublicTree } from '@/lib/types';
+import { TreeCard } from './dashboard/tree-card';
+
 
 function SeparatorWithText({ text }: { text: string }) {
   return (
@@ -89,6 +95,9 @@ export function AiBuildClient() {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [publicTrees, setPublicTrees] = useState<PublicTree[]>([]);
+  const [isLoadingPublicTrees, setIsLoadingPublicTrees] = useState(true);
+
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
@@ -97,6 +106,33 @@ export function AiBuildClient() {
       });
     }
   }, [chatHistory]);
+
+  useEffect(() => {
+    const fetchPublicTrees = async () => {
+      if (!db) {
+        setIsLoadingPublicTrees(false);
+        return
+      };
+      setIsLoadingPublicTrees(true);
+      try {
+        const publicTreesQuery = query(collection(db, "publicTrees"), limit(20));
+        const publicSnapshot = await getDocs(publicTreesQuery);
+        setPublicTrees(publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree)));
+      } catch (error) {
+        console.error("Error fetching public trees:", error);
+        toast({
+          variant: 'destructive',
+          title: 'שגיאה',
+          description: 'לא ניתן היה לטעון עצים ציבוריים.',
+        });
+      } finally {
+        setIsLoadingPublicTrees(false);
+      }
+    };
+
+    fetchPublicTrees();
+  }, [db, toast]);
+
 
   const handleManualCreate = async () => {
     setIsCreatingManually(true);
@@ -655,6 +691,39 @@ export function AiBuildClient() {
           התחל יצירה באופן ידני
         </Button>
       </div>
+
+        <div className="mt-20">
+            <div className="relative mb-12">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center">
+                    <span className="bg-background px-4 text-xl font-medium text-muted-foreground flex items-center gap-3">
+                        <Globe className="h-6 w-6"/>
+                        עצים ציבוריים
+                    </span>
+                </div>
+            </div>
+
+            {isLoadingPublicTrees ? (
+                <div className="flex justify-center py-10">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                </div>
+            ) : publicTrees.length === 0 ? (
+                <p className="text-center text-muted-foreground py-10">אין עדיין עצים ציבוריים.</p>
+            ) : (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {publicTrees.map((tree) => (
+                        <TreeCard
+                            key={`public-${tree.id}`}
+                            tree={tree}
+                            type="public"
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+
     </div>
   );
 }
