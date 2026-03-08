@@ -218,7 +218,7 @@ service cloud.firestore {
     }
     
     match /userEmails/{email} {
-      allow get: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
     }
     
@@ -232,7 +232,8 @@ service cloud.firestore {
     }
 
     match /sharedTrees/{shareId} {
-      allow get, list: if isSignedIn() && request.auth.uid == resource.data.sharedWithUserId;
+      allow get: if isSignedIn() && (request.auth.uid == resource.data.ownerUserId || request.auth.uid == resource.data.sharedWithUserId);
+      allow list: if isSignedIn(); // relies on client query with where() clause
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerUserId;
       allow delete: if isSignedIn() && (request.auth.uid == resource.data.ownerUserId || request.auth.uid == resource.data.sharedWithUserId);
     }
