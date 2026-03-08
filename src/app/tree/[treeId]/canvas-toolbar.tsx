@@ -25,8 +25,8 @@ import {
   Spline,
   Download,
   FileText,
-  FileSpreadsheet,
   Presentation,
+  FileSpreadsheet,
   Image as ImageIcon,
   Globe,
   Printer,
@@ -97,6 +97,7 @@ type CanvasToolbarProps = {
   onOpenSettings: () => void;
   onOpenAccount: () => void;
   onToggleChat: () => void;
+  onOpenPdfModal: () => void;
 };
 
 export function CanvasToolbar({
@@ -113,20 +114,21 @@ export function CanvasToolbar({
   onOpenSettings,
   onOpenAccount,
   onToggleChat,
+  onOpenPdfModal,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
   const currentView =
     viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
 
   const exportOptions = [
-    { label: 'PDF', icon: <FileText /> },
-    { label: 'אקסל', icon: <FileSpreadsheet /> },
-    { label: 'פאוורפוינט', icon: <Presentation /> },
-    { label: 'תמונה', icon: <ImageIcon /> },
-    { label: 'HTML אינטראקטיבי', icon: <Globe /> },
-    { label: 'הדפסה', icon: <Printer /> },
-    { label: 'עבודת שורשים', icon: <Book /> },
-    { label: 'שיתוף קישור', icon: <LinkIcon /> },
+    { label: 'PDF', icon: <FileText />, onClick: onOpenPdfModal },
+    { label: 'אקסל', icon: <FileSpreadsheet />, onClick: () => handleComingSoonClick() },
+    { label: 'פאוורפוינט', icon: <Presentation />, onClick: () => handleComingSoonClick() },
+    { label: 'תמונה', icon: <ImageIcon />, onClick: () => handleComingSoonClick() },
+    { label: 'HTML אינטראקטיבי', icon: <Globe />, onClick: () => handleComingSoonClick() },
+    { label: 'הדפסה', icon: <Printer />, onClick: () => handleComingSoonClick() },
+    { label: 'עבודת שורשים', icon: <Book />, onClick: () => handleComingSoonClick() },
+    { label: 'שיתוף קישור', icon: <LinkIcon />, onClick: () => handleComingSoonClick() },
   ];
 
   const handleComingSoonClick = () => {
@@ -137,7 +139,7 @@ export function CanvasToolbar({
   };
 
   return (
-    <aside className="flex flex-col items-center gap-4 border-l bg-card p-4">
+    <aside className="flex flex-col items-center gap-4 border-l bg-card p-4" data-export-hide>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" asChild>
@@ -311,7 +313,7 @@ export function CanvasToolbar({
                   key={option.label}
                   variant="ghost"
                   className="flex h-auto flex-col items-center justify-center gap-1.5 p-3"
-                  onClick={handleComingSoonClick}
+                  onClick={option.onClick}
                 >
                   {React.cloneElement(option.icon, { className: 'h-7 w-7' })}
                   <span className="text-xs text-center">{option.label}</span>

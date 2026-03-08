@@ -90,6 +90,7 @@ import { StatisticsView } from './views/StatisticsView';
 import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
 import { AiChatPanel } from './ai-chat-panel';
+import { PdfExportModal } from './pdf-export-modal';
 
 type TreePageClientProps = {
   treeId: string;
@@ -232,6 +233,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1005,11 +1007,6 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         operation: 'delete',
       });
       errorEmitter.emit('permission-error', permissionError);
-      toast({
-        variant: 'destructive',
-        title: 'שגיאת מחיקה',
-        description: 'Failed to delete person and their relationships.',
-      });
     } finally {
       setIsDeleting(false);
       setIsDeleteAlertOpen(false);
@@ -1385,10 +1382,11 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onOpenAccount={() => setIsAccountModalOpen(true)}
           onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
+          onOpenPdfModal={() => setIsPdfModalOpen(true)}
         />
         <main className="flex-1 relative overflow-hidden">
           {viewMode === 'tree' && (
-            <div className="absolute top-4 right-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2">
+            <div className="absolute top-4 right-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2" data-export-hide>
               <h1 className="text-lg font-semibold">{tree?.treeName}</h1>
               <Popover
                 open={isOwnerPopoverOpen}
@@ -1486,6 +1484,14 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         isOpen={isAccountModalOpen}
         onClose={() => setIsAccountModalOpen(false)}
       />
+      
+      {tree && (
+        <PdfExportModal
+          isOpen={isPdfModalOpen}
+          onClose={() => setIsPdfModalOpen(false)}
+          tree={tree}
+        />
+      )}
 
       {tree && <SettingsModal
         isOpen={isSettingsModalOpen}
