@@ -41,6 +41,8 @@ import type { FamilyTree, Person } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 const settingsSchema = z.object({
   treeName: z.string().min(1, 'שם העץ הוא שדה חובה.'),
@@ -148,173 +150,188 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="max-w-2xl">
-        <DialogHeader className="text-right">
+      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col">
+        <DialogHeader className="text-right shrink-0">
           <DialogTitle>הגדרות עץ</DialogTitle>
           <DialogDescription>נהל את הגדרות העץ והפרטיות שלו.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSaveChanges)} className="space-y-6 py-4">
-            {/* Tree Details Section */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">פרטי העץ</h3>
-              <FormField
-                control={form.control}
-                name="treeName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>שם העץ</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="ownerPersonId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>מי אני בעץ?</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                        <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
-                        <SelectContent>
-                            <SelectItem value="--none--">- ללא -</SelectItem>
-                            {people.map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+          <form onSubmit={form.handleSubmit(handleSaveChanges)} className="flex-1 flex flex-col min-h-0">
+             <ScrollArea className="flex-1 -mx-6 px-6">
+                <div className="space-y-6 py-4">
+                  {/* Tree Details Section */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">פרטי העץ</h3>
+                    <FormField
+                      control={form.control}
+                      name="treeName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>שם העץ</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="ownerPersonId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>מי אני בעץ?</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value} dir="rtl">
+                              <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                  <SelectItem value="--none--">- ללא -</SelectItem>
+                                  {people.map(p => (
+                                      <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-            <Separator />
-            
-            {/* Creator Card Section */}
-            <div className="space-y-4">
-              <h3 className="font-semibold">כרטיס יוצר העץ</h3>
-              <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>עוצמת תאורה אחורית</FormLabel>
-                  <FormControl>
-                    <Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} />
-                  </FormControl>
-                </FormItem>
-              )}/>
-               <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
-                <FormItem className="flex flex-row-reverse items-center justify-end gap-2 space-y-0">
-                  <FormLabel>בטל הבלטת כרטיס</FormLabel>
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>גודל כרטיס יוצר העץ ({field.value || 100}%)</FormLabel>
-                  <FormControl>
-                    <Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} />
-                  </FormControl>
-                </FormItem>
-              )}/>
-              <FormField control={form.control} name="creatorCardShape" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>צורת כרטיס</FormLabel>
-                  <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-2">
-                    {[
-                      {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
-                      {value: 'rounded', label: 'מעוגל', icon: <CircleIcon/>},
-                      {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
-                      {value: 'bordered', label: 'מסגרת', icon: <Star/>},
-                    ].map(opt => (
-                      <FormItem key={opt.value}>
+                  <Separator />
+                  
+                  {/* Creator Card Section */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">כרטיס יוצר העץ</h3>
+                    <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>עוצמת תאורה אחורית</FormLabel>
                         <FormControl>
-                            <RadioGroupItem value={opt.value} className="sr-only"/>
+                          <Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} />
                         </FormControl>
-                         <Label className={cn(
-                           "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
-                           field.value === opt.value && "border-primary"
-                         )}>
-                            {opt.icon}
-                            <span className="text-xs font-normal">{opt.label}</span>
-                         </Label>
                       </FormItem>
-                    ))}
-                  </RadioGroup>
-                </FormItem>
-              )}/>
-            </div>
-
-
-            <Separator />
-
-            {/* Language Section */}
-             <div className="space-y-4">
-                <h3 className="font-semibold">שפה</h3>
-                 <FormField
-                    control={form.control}
-                    name="language"
-                    render={({ field }) => (
-                    <FormItem>
-                        <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="he">עברית</SelectItem>
-                                <SelectItem value="en">English</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-            </div>
-            
-            <Separator />
-
-            {/* Privacy Section */}
-            <div className="space-y-4">
-                <h3 className="font-semibold">פרטיות</h3>
-                 <FormField
-                    control={form.control}
-                    name="privacy"
-                    render={({ field }) => (
-                    <FormItem className="space-y-3">
+                    )}/>
+                    <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
+                      <FormItem className="flex flex-row-reverse items-center justify-end gap-2 space-y-0">
+                        <FormLabel>בטל הבלטת כרטיס</FormLabel>
                         <FormControl>
-                        <RadioGroup onValueChange={field.onChange} value={field.value} className="space-y-2">
-                            <FormItem className="flex items-center space-x-3 space-x-reverse">
-                                <FormControl><RadioGroupItem value="private" /></FormControl>
-                                <FormLabel className="font-normal">פרטי (רק אני יכול לראות)</FormLabel>
-                            </FormItem>
-                            <FormItem className="flex items-center space-x-3 space-x-reverse">
-                                <FormControl><RadioGroupItem value="link" /></FormControl>
-                                <FormLabel className="font-normal">קישור בלבד (כל מי עם הקישור יכול לראות)</FormLabel>
-                            </FormItem>
-                             <FormItem className="flex items-center space-x-3 space-x-reverse">
-                                <FormControl><RadioGroupItem value="public" /></FormControl>
-                                <FormLabel className="font-normal">ציבורי (גלוי לכל משתמשי הפלטפורמה)</FormLabel>
-                            </FormItem>
-                        </RadioGroup>
+                          <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>גודל כרטיס יוצר העץ ({field.value || 100}%)</FormLabel>
+                        <FormControl>
+                          <Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} />
+                        </FormControl>
+                      </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="creatorCardShape" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>צורת כרטיס</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="flex flex-wrap gap-2"
+                          >
+                            {[
+                              {value: 'default', label: 'ברירת מחדל', icon: <Square/>},
+                              {value: 'rounded', label: 'מעוגל', icon: <CircleIcon/>},
+                              {value: 'hexagon', label: 'משושה', icon: <Hexagon/>},
+                              {value: 'bordered', label: 'כוכב', icon: <Star/>},
+                            ].map(opt => {
+                              const itemId = `shape-option-${opt.value}`;
+                              return (
+                                <div key={opt.value}>
+                                  <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
+                                  <Label
+                                    htmlFor={itemId}
+                                    className={cn(
+                                      "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground cursor-pointer w-24 h-24",
+                                      field.value === opt.value && "border-primary"
+                                    )}
+                                  >
+                                    {opt.icon}
+                                    <span className="text-xs font-normal">{opt.label}</span>
+                                  </Label>
+                                </div>
+                              );
+                            })}
+                          </RadioGroup>
                         </FormControl>
                         <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                {privacyValue === 'link' && (
-                    <div className="flex items-center space-x-2 space-x-reverse">
-                        <Input value={shareLink} readOnly />
-                        <Button type="button" size="icon" onClick={copyShareLink} disabled={!shareLink}>
-                            <Copy className="h-4 w-4" />
-                        </Button>
-                    </div>
-                )}
-            </div>
+                      </FormItem>
+                    )}/>
+                  </div>
 
-            <DialogFooter className="pt-6 border-t">
+
+                  <Separator />
+
+                  {/* Language Section */}
+                  <div className="space-y-4">
+                      <h3 className="font-semibold">שפה</h3>
+                      <FormField
+                          control={form.control}
+                          name="language"
+                          render={({ field }) => (
+                          <FormItem>
+                              <Select onValueChange={field.onChange} value={field.value} dir="rtl">
+                                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                  <SelectContent>
+                                      <SelectItem value="he">עברית</SelectItem>
+                                      <SelectItem value="en">English</SelectItem>
+                                  </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                  </div>
+                  
+                  <Separator />
+
+                  {/* Privacy Section */}
+                  <div className="space-y-4">
+                      <h3 className="font-semibold">פרטיות</h3>
+                      <FormField
+                          control={form.control}
+                          name="privacy"
+                          render={({ field }) => (
+                          <FormItem className="space-y-3">
+                              <FormControl>
+                              <RadioGroup onValueChange={field.onChange} value={field.value} className="space-y-2">
+                                  <FormItem className="flex items-center space-x-3 space-x-reverse">
+                                      <FormControl><RadioGroupItem value="private" /></FormControl>
+                                      <FormLabel className="font-normal">פרטי (רק אני יכול לראות)</FormLabel>
+                                  </FormItem>
+                                  <FormItem className="flex items-center space-x-3 space-x-reverse">
+                                      <FormControl><RadioGroupItem value="link" /></FormControl>
+                                      <FormLabel className="font-normal">קישור בלבד (כל מי עם הקישור יכול לראות)</FormLabel>
+                                  </FormItem>
+                                  <FormItem className="flex items-center space-x-3 space-x-reverse">
+                                      <FormControl><RadioGroupItem value="public" /></FormControl>
+                                      <FormLabel className="font-normal">ציבורי (גלוי לכל משתמשי הפלטפורמה)</FormLabel>
+                                  </FormItem>
+                              </RadioGroup>
+                              </FormControl>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      {privacyValue === 'link' && (
+                          <div className="flex items-center space-x-2 space-x-reverse">
+                              <Input value={shareLink} readOnly />
+                              <Button type="button" size="icon" onClick={copyShareLink} disabled={!shareLink}>
+                                  <Copy className="h-4 w-4" />
+                              </Button>
+                          </div>
+                      )}
+                  </div>
+              </div>
+            </ScrollArea>
+
+            <DialogFooter className="pt-4 border-t shrink-0">
               <Button type="button" variant="outline" onClick={onClose}>
                 ביטול
               </Button>
