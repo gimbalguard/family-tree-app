@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -22,6 +23,15 @@ import {
   User,
   HelpCircle,
   Spline,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FilePresentation,
+  Image as ImageIcon,
+  Globe,
+  Printer,
+  Book,
+  Link as LinkIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -32,6 +42,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import type { ViewMode } from './tree-page-client';
 import { Separator } from '@/components/ui/separator';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { useToast } from '@/hooks/use-toast';
 
 const viewOptions: {
   value: ViewMode;
@@ -75,10 +91,8 @@ type CanvasToolbarProps = {
   canRedo: boolean;
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
-  edgeType: 'smoothstep' | 'step' | 'default' | 'straight';
-  setEdgeType: (
-    type: 'smoothstep' | 'step' | 'default' | 'straight'
-  ) => void;
+  edgeType: 'default' | 'step' | 'straight';
+  setEdgeType: (type: 'default' | 'step' | 'straight') => void;
   treeId: string;
   onOpenSettings: () => void;
   onOpenAccount: () => void;
@@ -100,8 +114,27 @@ export function CanvasToolbar({
   onOpenAccount,
   onToggleChat,
 }: CanvasToolbarProps) {
+  const { toast } = useToast();
   const currentView =
     viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
+
+  const exportOptions = [
+    { label: 'PDF', icon: <FileText /> },
+    { label: 'אקסל', icon: <FileSpreadsheet /> },
+    { label: 'פאוורפוינט', icon: <FilePresentation /> },
+    { label: 'תמונה', icon: <ImageIcon /> },
+    { label: 'HTML אינטראקטיבי', icon: <Globe /> },
+    { label: 'הדפסה', icon: <Printer /> },
+    { label: 'עבודת שורשים', icon: <Book /> },
+    { label: 'שיתוף קישור', icon: <LinkIcon /> },
+  ];
+
+  const handleComingSoonClick = () => {
+    toast({
+      title: 'בקרוב',
+      description: 'אפשרות זו תהיה זמינה בעדכונים הבאים.',
+    });
+  };
 
   return (
     <aside className="flex flex-col items-center gap-4 border-l bg-card p-4">
@@ -228,37 +261,65 @@ export function CanvasToolbar({
 
       <Separator className="my-2 w-full" />
 
-      <div className="flex gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
+      <div className="flex w-full flex-col items-center gap-2">
+        <div className="flex gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onUndo}
+                disabled={!canUndo}
+              >
+                <Undo2 className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>בטל</p>
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRedo}
+                disabled={!canRedo}
+              >
+                <Redo2 className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>בצע שוב</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <Popover>
+          <PopoverTrigger asChild>
             <Button
-              variant="ghost"
-              size="icon"
-              onClick={onUndo}
-              disabled={!canUndo}
+              className="w-full h-auto py-2 flex-col"
+              style={{ backgroundColor: '#2563eb' }}
             >
-              <Undo2 className="h-5 w-5" />
+              <Download className="mb-1 h-5 w-5" />
+              <span className="text-xs">ייצוא / הדפסה</span>
             </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>בטל</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onRedo}
-              disabled={!canRedo}
-            >
-              <Redo2 className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>בצע שוב</p>
-          </TooltipContent>
-        </Tooltip>
+          </PopoverTrigger>
+          <PopoverContent side="right" align="center" className="w-80 z-[1003]">
+            <div className="grid grid-cols-3 gap-2" dir="rtl">
+              {exportOptions.map((option) => (
+                <Button
+                  key={option.label}
+                  variant="ghost"
+                  className="flex h-auto flex-col items-center justify-center gap-1.5 p-3"
+                  onClick={handleComingSoonClick}
+                >
+                  {React.cloneElement(option.icon, { className: 'h-7 w-7' })}
+                  <span className="text-xs text-center">{option.label}</span>
+                </Button>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
     </aside>
   );
