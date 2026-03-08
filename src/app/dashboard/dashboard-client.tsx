@@ -31,7 +31,7 @@ export function DashboardClient() {
   const { toast } = useToast();
   
   const [myTrees, setMyTrees] = useState<FamilyTree[]>([]);
-  const [sharedTrees, setSharedTrees] = useState<(SharedTree & { ownerUsername?: string })[]>([]);
+  const [sharedTrees, setSharedTrees] = useState<SharedTree[]>([]);
   const [publicTrees, setPublicTrees] = useState<PublicTree[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +47,10 @@ export function DashboardClient() {
   const isAnonymous = user?.isAnonymous ?? true;
 
   const fetchTrees = useCallback(async () => {
-    if (!user || user.isAnonymous || !db) return;
+    if (!user || user.isAnonymous || !db) {
+      if (!isUserLoading) setIsLoading(false);
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -59,7 +62,7 @@ export function DashboardClient() {
         const peopleRef = collection(treeDoc.ref, 'people');
         const relsRef = collection(treeDoc.ref, 'relationships');
         const [peopleSnap, relsSnap] = await Promise.all([
-            getDocs(query(peopleRef, limit(1000))), // Assuming max 1000 people for count
+            getDocs(query(peopleRef, limit(1000))),
             getDocs(query(relsRef, limit(1000))),
         ]);
         treeData.personCount = peopleSnap.size;
@@ -72,35 +75,30 @@ export function DashboardClient() {
       // Fetch Shared Trees
       const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       const sharedSnapshot = await getDocs(sharedQuery);
-      const sharedTreesDataPromises = sharedSnapshot.docs.map(async (doc) => {
-        const share = doc.data() as SharedTree;
-        const ownerSnap = await getDoc(collection(db, 'users', share.ownerUserId));
-        return { ...share, ownerUsername: ownerSnap.exists() ? ownerSnap.data().username : 'Unknown Owner' };
-      });
-      const sharedTreesData = await Promise.all(sharedTreesDataPromises);
+      const sharedTreesData = sharedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SharedTree));
       setSharedTrees(sharedTreesData);
       
       // Fetch Public Trees
       const publicQuery = query(collection(db, "publicTrees"), limit(20));
       const publicSnapshot = await getDocs(publicQuery);
-      const publicTreesData = publicSnapshot.docs.map(d => d.data() as PublicTree);
+      const publicTreesData = publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree));
       setPublicTrees(publicTreesData);
 
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
-      toast({ variant: 'destructive', title: 'שגיאה בטעינת נתונים' });
+      toast({ variant: 'destructive', title: 'שגיאה בטעינת נתונים', description: 'ייתכן שחסרות לך הרשאות לצפייה במידע.' });
     }
     setIsLoading(false);
-  }, [user, db, toast]);
+  }, [user, db, toast, isUserLoading]);
 
 
   useEffect(() => {
-    if (!isUserLoading && !isAnonymous) {
+    if (!isUserLoading && user) {
       fetchTrees();
-    } else if (!isUserLoading && isAnonymous) {
+    } else if (!isUserLoading && !user) {
       setIsLoading(false);
     }
-  }, [isUserLoading, isAnonymous, fetchTrees]);
+  }, [isUserLoading, user, fetchTrees]);
 
   const onTreeCreated = (newTree: FamilyTree) => {
     router.push(`/tree/${newTree.id}`);
@@ -212,6 +210,7 @@ export function DashboardClient() {
       
       const publicTreeRef = doc(db, "publicTrees", tree.id);
       batch.set(publicTreeRef, {
+        id: tree.id,
         ownerUserId: user.uid,
         ownerName: user.displayName || 'Unknown',
         treeName: tree.treeName,
@@ -326,7 +325,7 @@ export function DashboardClient() {
       <div className="space-y-12 mt-8">
         {myTrees.length > 0 && (
           <section>
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 mb-4"><Users className="text-primary"/>העצים שלי</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Users className="text-primary"/>העצים שלי</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {myTrees.map((tree) => (
                 <TreeCard
@@ -345,7 +344,7 @@ export function DashboardClient() {
         )}
         {sharedTrees.length > 0 && (
            <section>
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 mb-4"><Share2 className="text-primary"/>עצים ששותפו איתי</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Share2 className="text-primary"/>עצים ששותפו איתי</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {sharedTrees.map((tree) => (
                 <TreeCard
@@ -359,7 +358,7 @@ export function DashboardClient() {
         )}
          {publicTrees.length > 0 && (
            <section>
-            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2 mb-4"><Globe className="text-primary"/>עצים ציבוריים</h2>
+            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Globe className="text-primary"/>עצים ציבוריים</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {publicTrees.map((tree) => (
                 <TreeCard
@@ -377,12 +376,12 @@ export function DashboardClient() {
 
   return (
     <>
-      <div className="relative isolate overflow-hidden bg-gradient-to-b from-primary/10 via-background to-background">
-        <div className="container mx-auto px-4 py-16 text-center">
-            <h1 className="text-4xl font-extrabold tracking-tight text-primary-foreground sm:text-5xl lg:text-6xl text-foreground">
+      <div className="relative isolate overflow-hidden bg-slate-900">
+        <div className="container mx-auto px-4 py-16 sm:py-24 lg:py-32 text-center">
+            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">
                 ברוכים השבים, {user?.displayName || 'אורח'}
             </h1>
-            <p className="mt-6 text-lg max-w-2xl mx-auto text-muted-foreground">
+            <p className="mt-6 text-lg max-w-2xl mx-auto text-slate-300">
                 נהל את עצי המשפחה שלך, שתף עם קרובים, וגלה את הסיפורים המסתתרים בין הענפים.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
@@ -390,13 +389,13 @@ export function DashboardClient() {
                     <PlusCircle className="ml-2 h-5 w-5" />
                     צור עץ חדש
                 </Button>
-                <Button size="lg" variant="ghost" onClick={() => router.push('/')}>
+                <Button size="lg" variant="secondary" onClick={() => router.push('/')}>
                     בנה עם AI <span aria-hidden="true">→</span>
                 </Button>
             </div>
         </div>
-        <div className="absolute left-1/2 top-0 -z-10 -translate-x-1/2 blur-3xl xl:-top-6" aria-hidden="true">
-            <div className="aspect-[1155/678] w-[72.1875rem] bg-gradient-to-tr from-[#80ff89] to-[#26a69a] opacity-20" style={{ clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)' }}></div>
+        <div className="absolute inset-x-0 top-[calc(100%-13rem)] -z-10 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]" aria-hidden="true">
+          <div className="relative left-[calc(50%+3rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 bg-gradient-to-tr from-[#16a34a] to-[#26a69a] opacity-30 sm:left-[calc(50%+36rem)] sm:w-[72.1875rem]" style={{clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)'}}></div>
         </div>
       </div>
 

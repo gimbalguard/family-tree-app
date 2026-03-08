@@ -87,11 +87,11 @@ export function TreeCard({
     ? format(tree.createdAt.toDate(), 'd MMM, yyyy', { locale: he })
     : 'לא זמין';
 
-  const treeId = type === 'shared' ? (tree as SharedTree).treeId : tree.id;
+  const treeId = 'treeId' in tree ? tree.treeId : tree.id;
   const linkHref = `/tree/${treeId}`;
 
   return (
-    <Card className="flex flex-col transition-all hover:shadow-xl hover:-translate-y-1 duration-300 ease-in-out">
+    <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-1">
       <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2">
         <div className="flex-1 space-y-1">
           <CardTitle className="hover:text-primary transition-colors text-lg">
@@ -112,8 +112,6 @@ export function TreeCard({
                   בעלים:{' '}
                   {'ownerName' in tree
                     ? tree.ownerName
-                    : 'ownerUsername' in tree
-                    ? tree.ownerUsername
                     : 'Unknown'}
                 </>
               )}
@@ -152,7 +150,7 @@ export function TreeCard({
         )}
       </CardHeader>
       <CardContent className="flex-grow space-y-2">
-         {type === 'owned' && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
+         {type === 'owned' && 'privacy' in tree && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
         <div className="space-y-1 text-sm text-muted-foreground pt-2">
           <div className="flex items-center">
             <Users className="ml-2 h-4 w-4" />

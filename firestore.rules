@@ -138,7 +138,7 @@ service cloud.firestore {
        * @principle Enforces document ownership for all operations based on the top-level `{userId}` path segment.
        */
       match /familyTrees/{treeId} {
-        allow get: if isOwner(userId);
+        allow get: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
         allow list: if isOwner(userId);
         allow create: if isOwner(userId) && hasValidCreateData_FamilyTree(userId);
         allow update: if isExistingOwner(userId) && isImmutable_FamilyTree();
@@ -153,8 +153,7 @@ service cloud.firestore {
          * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /people/{personId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
+          allow get, list: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
@@ -168,8 +167,7 @@ service cloud.firestore {
            * @principle Enforces deep ownership and relational integrity for deeply nested subcollections.
            */
           match /socialLinks/{socialLinkId} {
-            allow get: if isOwner(userId);
-            allow list: if isOwner(userId);
+            allow read: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
             allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId && request.resource.data.personId == personId;
             allow update: if isExistingOwner(userId) && isImmutable_SocialLink();
             allow delete: if isExistingOwner(userId);
@@ -185,8 +183,7 @@ service cloud.firestore {
          * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /relationships/{relationshipId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
+          allow get, list: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
@@ -201,8 +198,7 @@ service cloud.firestore {
          * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /canvasPositions/{positionId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
+          allow read: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
@@ -213,13 +209,17 @@ service cloud.firestore {
          * @path /users/{userId}/familyTrees/{treeId}/manualEvents/{eventId}
          */
         match /manualEvents/{eventId} {
-          allow get: if isOwner(userId);
-          allow list: if isOwner(userId);
+          allow read: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
           allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
           allow delete: if isExistingOwner(userId);
         }
       }
+    }
+    
+    match /userEmails/{email} {
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
     }
     
     /**
@@ -229,6 +229,18 @@ service cloud.firestore {
     match /exportedFiles/{fileId} {
         allow read, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
         allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+    }
+
+    match /sharedTrees/{shareId} {
+      allow get, list: if isSignedIn() && request.auth.uid == resource.data.sharedWithUserId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerUserId;
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.ownerUserId || request.auth.uid == resource.data.sharedWithUserId);
+    }
+
+    match /publicTrees/{treeId} {
+      allow get, list: if true;
+      allow create, update: if isSignedIn() && request.resource.data.ownerUserId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.ownerUserId == request.auth.uid;
     }
   }
 }
