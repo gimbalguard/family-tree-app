@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1164,23 +1163,22 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   };
 
-const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db || readOnly) return;
 
     setIsDeleting(true);
-    // Keep dialog open while processing
+    setIsDeleteAlertOpen(false);
 
-    try {
+    setTimeout(async () => {
+      try {
         const personIdToDelete = personToDelete.id;
         const personNameToDelete = `${personToDelete.firstName} ${personToDelete.lastName}`;
 
         const batch = writeBatch(db);
 
-        // Robustly query for all dependencies to ensure atomicity
         const relationshipsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
         const queryA = query(relationshipsRef, where('personAId', '==', personIdToDelete));
         const queryB = query(relationshipsRef, where('personBId', '==', personIdToDelete));
-        
         const [snapshotA, snapshotB] = await Promise.all([getDocs(queryA), getDocs(queryB)]);
         snapshotA.forEach(doc => batch.delete(doc.ref));
         snapshotB.forEach(doc => batch.delete(doc.ref));
@@ -1197,42 +1195,27 @@ const handleConfirmDelete = async () => {
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
         batch.delete(personRef);
         
-        // Commit the comprehensive batch operation
         await batch.commit();
-
-        // --- SUCCESS ---
-        // Now that the data is confirmed deleted on the server, update the local UI state.
-        const newPeople = people.filter((p) => p.id !== personIdToDelete);
-        const newRelationships = relationships.filter(
-          (r) => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
-        );
-        const newCanvasPositions = canvasPositions.filter(
-          (c) => c.personId !== personIdToDelete
-        );
-        
-        setPeople(newPeople);
-        setRelationships(newRelationships);
-        setCanvasPositions(newCanvasPositions);
-        deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
 
         toast({
             title: 'אדם נמחק',
             description: `${personNameToDelete} נמחק מהעץ.`,
         });
 
-    } catch (error: any) {
-        console.error('Error deleting person:', error);
-        toast({
-            variant: 'destructive',
-            title: 'שגיאת מחיקה',
-            description: 'לא ניתן היה למחוק את האדם. אנא רענן ונסה שוב.',
-        });
-    } finally {
-        // Close the dialog and reset state regardless of outcome
-        setIsDeleting(false);
-        setIsDeleteAlertOpen(false);
-        setPersonToDelete(null);
-    }
+        await fetchData();
+
+      } catch (error: any) {
+          console.error('Error deleting person:', error);
+          toast({
+              variant: 'destructive',
+              title: 'שגיאת מחיקה',
+              description: 'לא ניתן היה למחוק את האדם. אנא רענן ונסה שוב.',
+          });
+      } finally {
+          setIsDeleting(false);
+          setPersonToDelete(null);
+      }
+    }, 100);
   };
   
   const handleConnect: OnConnect = useCallback((params) => {
@@ -1960,6 +1943,7 @@ const handleConfirmDelete = async () => {
       <AlertDialog
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
+        onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
@@ -1982,7 +1966,7 @@ const handleConfirmDelete = async () => {
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); }}>
+        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) { document.activeElement.blur(); } }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1998,6 +1982,7 @@ const handleConfirmDelete = async () => {
             <AlertDialogAction
               onClick={handleConfirmDelete}
               disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
               מחק

@@ -105,7 +105,7 @@ export function FamilyTreeCanvas({
         <Controls />
         {isMinimapVisible && <MiniMap nodeStrokeWidth={3} zoomable pannable />}
       </ReactFlow>
-      <div className="absolute bottom-4 right-4 z-10">
+      <div className="absolute bottom-4 right-4 z-10" data-export-hide>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
