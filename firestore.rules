@@ -239,7 +239,7 @@ service cloud.firestore {
     }
 
     match /publicTrees/{treeId} {
-      allow get, list: if true;
+      allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.resource.data.ownerUserId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.ownerUserId == request.auth.uid;
     }
