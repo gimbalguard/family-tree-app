@@ -92,12 +92,12 @@ service cloud.firestore {
 
     /**
      * isImmutable_SubTreeItem
-     * Ensures the denormalized `userId` and `treeId` fields are immutable.
+     * Ensures the denormalized `userId` and `treeId` fields are immutable during an update.
      */
     function isImmutable_SubTreeItem() {
-      // The `userId` and `treeId` of a sub-document must not change after creation.
-      // This rule enforces that the values for these fields in the document *after* the update
-      // are the same as the values *before* the update. This allows other fields to be modified.
+      // This rule ensures that an update operation cannot change the 'userId' or 'treeId' fields.
+      // It compares the value in the existing document (resource.data) with the value in the
+      // document as it would be after the update (request.resource.data).
       return request.resource.data.userId == resource.data.userId &&
              request.resource.data.treeId == resource.data.treeId;
     }

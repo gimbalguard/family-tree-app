@@ -669,8 +669,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!isUserLoading && user && !hasInitiallyLoaded.current) {
-      hasInitiallyLoaded.current = true;
+    if (!isUserLoading && user) {
       fetchData();
     }
   }, [isUserLoading, user]);
@@ -1059,8 +1058,12 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleUpdatePerson = async (personData: Person) => {
     if (!user || !db || !tree) return;
-    const oldPerson = people.find(p => p.id === personData.id);
-    const birthDateChanged = oldPerson?.birthDate !== personData.birthDate;
+    
+    const oldPeople = people;
+    const oldRels = relationships;
+    const oldPositions = canvasPositions;
+
+    const birthDateChanged = oldPeople.find(p => p.id === personData.id)?.birthDate !== personData.birthDate;
 
     // Optimistic update
     const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
@@ -1071,7 +1074,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
       const { 
-        id, createdAt, updatedAt, 
+        id, createdAt, updatedAt, userId, treeId: personTreeId,
         isLocked, groupId, isOwner, 
         childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count,
         creatorCardBacklightIntensity, creatorCardBacklightDisabled, creatorCardSize, creatorCardDesign,
@@ -1095,7 +1098,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             });
             setRelationships(updatedRels);
             deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
-            // Persist to Firestore
             const sibBatch = writeBatch(db);
             siblingChanges.relationshipsToAdd.forEach(r => {
                 sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r);
@@ -1114,8 +1116,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       handleEditorClose();
     } catch (error: any) {
       // Revert on error
-      setPeople(people);
-      deriveStateFromData(people, relationships, canvasPositions, tree);
+      setPeople(oldPeople);
+      deriveStateFromData(oldPeople, oldRels, oldPositions, tree);
 
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people/${personData.id}`,
@@ -1155,19 +1157,19 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         await updateDoc(personRef, { [field]: value, updatedAt: serverTimestamp() });
         
         if (birthDateChanged) {
-            const siblingChanges = await runSiblingDetection([personId], newPeople, relationships);
-            if (siblingChanges.relationshipsToAdd.length > 0 || siblingChanges.relationshipsToUpdate.length > 0) {
-                let updatedRels = [...relationships, ...siblingChanges.relationshipsToAdd];
-                siblingChanges.relationshipsToUpdate.forEach(u => {
-                    updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
-                });
-                setRelationships(updatedRels);
-                deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
-                const sibBatch = writeBatch(db);
-                siblingChanges.relationshipsToAdd.forEach(r => sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r));
-                siblingChanges.relationshipsToUpdate.forEach(r => sibBatch.update(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!), r));
-                await sibBatch.commit();
-            }
+          const siblingChanges = await runSiblingDetection([personId], newPeople, relationships);
+          if (siblingChanges.relationshipsToAdd.length > 0 || siblingChanges.relationshipsToUpdate.length > 0) {
+              let updatedRels = [...relationships, ...siblingChanges.relationshipsToAdd];
+              siblingChanges.relationshipsToUpdate.forEach(u => {
+                  updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
+              });
+              setRelationships(updatedRels);
+              deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
+              const sibBatch = writeBatch(db);
+              siblingChanges.relationshipsToAdd.forEach(r => sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r));
+              siblingChanges.relationshipsToUpdate.forEach(r => sibBatch.update(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!), r));
+              await sibBatch.commit();
+          }
         }
         
         toast({ title: 'השדה עודכן', duration: 2000 });
@@ -1226,6 +1228,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     );
     const newPositions = prevCanvasPositions.filter(p => p.personId !== personIdToDelete);
     
+    // Close dialog FIRST before heavy UI updates
+    setIsDeleteAlertOpen(false);
+
     setPeople(newPeople);
     setRelationships(newRelationships);
     setCanvasPositions(newPositions);
@@ -1281,7 +1286,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } finally {
       setIsDeleting(false);
       setPersonToDelete(null);
-      setIsDeleteAlertOpen(false);
     }
   };
   
@@ -2019,13 +2023,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          requestAnimationFrame(() => {
-            const canvas = document.querySelector('.react-flow') as HTMLElement;
-            if (canvas) canvas.focus();
-          });
-        }}>
+        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2046,7 +2044,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
