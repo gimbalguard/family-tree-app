@@ -57,13 +57,11 @@ export function DashboardClient() {
 
   const returnFocusToPage = useCallback(() => {
     setTimeout(() => {
-      // Blurring the active element and focusing the body is a generic way
-      // to ensure focus isn't trapped in a closed, unmounted modal.
+      // Don't try to focus a specific element, just blur the active one
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
       }
-      document.body.focus();
-    }, 50);
+    }, 100);
   }, []);
 
   const fetchData = useCallback(async () => {
