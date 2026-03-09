@@ -165,6 +165,19 @@ export function CanvasToolbar({
         </TooltipContent>
       </Tooltip>
 
+      {!readOnly && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="default" size="icon" className="w-12 h-12" onClick={onAddPerson}>
+              <UserPlus className="h-6 w-6" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>הוסף אדם חדש</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+
       <div className="grid grid-cols-2 gap-2">
          {viewOptions.map((option) => (
            <Tooltip key={option.value}>
@@ -287,6 +300,7 @@ export function CanvasToolbar({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-8 w-8"
                   onClick={onUndo}
                   disabled={!canUndo}
                 >
@@ -302,6 +316,7 @@ export function CanvasToolbar({
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-8 w-8"
                   onClick={onRedo}
                   disabled={!canRedo}
                 >
@@ -318,11 +333,11 @@ export function CanvasToolbar({
           <Popover>
             <PopoverTrigger asChild>
               <Button
-                className="w-full h-auto py-2 flex-col"
+                className="w-full"
                 style={{ backgroundColor: '#2563eb' }}
               >
-                <Download className="mb-1 h-5 w-5" />
-                <span className="text-xs">ייצוא / הדפסה</span>
+                <Download className="h-5 w-5" />
+                <span className="text-sm">ייצוא / הדפסה</span>
               </Button>
             </PopoverTrigger>
             <PopoverContent side="right" align="center" className="w-80 z-[1003] p-2">
