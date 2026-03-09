@@ -86,7 +86,8 @@ export function DashboardClient() {
         return treeData;
       });
       const userTrees = await Promise.all(myTreesPromises);
-      setMyTrees(userTrees);
+      const filteredTrees = userTrees.filter(t => t.treeName !== 'משפחת אבידר');
+      setMyTrees(filteredTrees);
 
       // Fetch Shared Trees
       const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
