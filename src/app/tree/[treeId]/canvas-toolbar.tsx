@@ -107,6 +107,7 @@ type CanvasToolbarProps = {
   onImportClick: () => void;
   isTimelineCompact: boolean;
   onToggleTimelineCompact: () => void;
+  readOnly: boolean;
 };
 
 export function CanvasToolbar({
@@ -130,6 +131,7 @@ export function CanvasToolbar({
   onImportClick,
   isTimelineCompact,
   onToggleTimelineCompact,
+  readOnly,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
 
@@ -144,8 +146,11 @@ export function CanvasToolbar({
     { label: 'HTML אינטראקטיבי', icon: <Globe />, onClick: () => handleComingSoonClick() },
     { label: 'הדפסה', icon: <Printer />, onClick: () => handleComingSoonClick() },
     { label: 'עבודת שורשים', icon: <Book />, onClick: () => handleComingSoonClick() },
-    { label: 'שיתוף קישור', icon: <LinkIcon />, onClick: () => handleComingSoonClick() },
   ];
+
+   if (!readOnly) {
+    exportOptions.push({ label: 'שיתוף קישור', icon: <LinkIcon />, onClick: () => handleComingSoonClick() });
+  }
 
   const handleComingSoonClick = () => {
     toast({
@@ -198,27 +203,31 @@ export function CanvasToolbar({
         </DropdownMenu>
       </div>
 
-      <Button
-        variant="outline"
-        onClick={onAddPerson}
-        className="h-auto w-full flex-col p-3"
-      >
-        <UserPlus className="mb-1 h-6 w-6" />
-        <span className="text-xs">הוסף אדם חדש</span>
-      </Button>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onToggleChat}>
-            <MessageSquare className="h-5 w-5" />
+      {!readOnly && (
+        <>
+        <Button
+            variant="outline"
+            onClick={onAddPerson}
+            className="h-auto w-full flex-col p-3"
+          >
+            <UserPlus className="mb-1 h-6 w-6" />
+            <span className="text-xs">הוסף אדם חדש</span>
           </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          <p>עריכה עם AI</p>
-        </TooltipContent>
-      </Tooltip>
 
-      {(viewMode === 'tree' || viewMode === 'timeline') && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={onToggleChat}>
+                <MessageSquare className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>עריכה עם AI</p>
+            </TooltipContent>
+          </Tooltip>
+        </>
+      )}
+
+      {(viewMode === 'tree' || viewMode === 'timeline') && !readOnly && (
         <div className="w-full">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -272,68 +281,72 @@ export function CanvasToolbar({
 
       <div className="flex-grow" />
 
-      <div className="flex w-full flex-col gap-1">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 px-2"
-          onClick={onOpenSettings}
-        >
-          <Settings className="h-5 w-5" />
-          <span>הגדרות</span>
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 px-2"
-          onClick={onOpenAccount}
-        >
-          <User className="h-5 w-5" />
-          <span>חשבון</span>
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 px-2"
-          onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
-        >
-          <HelpCircle className="h-5 w-5" />
-          <span>עזרה</span>
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex w-full flex-col gap-1">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 px-2"
+            onClick={onOpenSettings}
+          >
+            <Settings className="h-5 w-5" />
+            <span>הגדרות</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 px-2"
+            onClick={onOpenAccount}
+          >
+            <User className="h-5 w-5" />
+            <span>חשבון</span>
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 px-2"
+            onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
+          >
+            <HelpCircle className="h-5 w-5" />
+            <span>עזרה</span>
+          </Button>
+        </div>
+      )}
 
       <Separator className="my-2 w-full" />
 
       <div className="flex w-full flex-col items-center gap-2">
-        <div className="flex gap-2">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onUndo}
-                disabled={!canUndo}
-              >
-                <Undo2 className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>בטל</p>
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRedo}
-                disabled={!canRedo}
-              >
-                <Redo2 className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>בצע שוב</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+        {!readOnly && (
+          <div className="flex gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                >
+                  <Undo2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>בטל</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onRedo}
+                  disabled={!canRedo}
+                >
+                  <Redo2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>בצע שוב</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -358,15 +371,19 @@ export function CanvasToolbar({
                 </Button>
               ))}
             </div>
-            <Separator className="my-2"/>
-            <Button
-              variant="ghost"
-              className="flex w-full h-auto flex-col items-center justify-center gap-1.5 p-3"
-              onClick={onImportClick}
-            >
-              <Upload className="h-7 w-7" />
-              <span className="text-xs text-center">ייבוא מקובץ Excel</span>
-            </Button>
+            {!readOnly && (
+                <>
+                <Separator className="my-2"/>
+                <Button
+                  variant="ghost"
+                  className="flex w-full h-auto flex-col items-center justify-center gap-1.5 p-3"
+                  onClick={onImportClick}
+                >
+                  <Upload className="h-7 w-7" />
+                  <span className="text-xs text-center">ייבוא מקובץ Excel</span>
+                </Button>
+                </>
+            )}
           </PopoverContent>
         </Popover>
       </div>

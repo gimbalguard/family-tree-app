@@ -7,5 +7,6 @@ type ViewPageProps = {
 };
 
 export default function ViewPage({ params }: ViewPageProps) {
+  // The server component simply passes the treeId to the client component.
   return <ViewPageClient treeId={params.treeId} />;
 }
