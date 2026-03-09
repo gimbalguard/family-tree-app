@@ -96,6 +96,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   };
   
   const design = cardDesign || 'default';
+  const applyCreatorStyles = creatorCardSize !== undefined || creatorCardBacklightIntensity !== undefined;
 
   const cardStyle: React.CSSProperties = {};
 
@@ -105,13 +106,13 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     cardStyle.borderWidth = cardBorderWidth ? `${cardBorderWidth}px` : undefined;
   }
   
-  if (isOwner) {
+  if (applyCreatorStyles) {
     if (creatorCardSize) {
       cardStyle.transform = `scale(${creatorCardSize / 100})`;
     }
 
-    if (!creatorCardBacklightDisabled) {
-      const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
+    if (!creatorCardBacklightDisabled && creatorCardBacklightIntensity) {
+      const intensity = creatorCardBacklightIntensity / 100;
       const shadowColor = `rgba(255, 193, 7, ${intensity * 0.7})`; // Amber
       cardStyle.boxShadow = `0 0 ${8 * intensity}px ${shadowColor}, 0 0 ${20 * intensity}px ${shadowColor}, 0 0 ${45 * intensity}px ${shadowColor}`;
       const existingTransform = cardStyle.transform || '';

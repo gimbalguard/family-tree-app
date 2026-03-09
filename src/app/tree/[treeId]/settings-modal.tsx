@@ -31,9 +31,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Copy, Heart, Baby, Users } from 'lucide-react';
 import type { FamilyTree, Person } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel"
+import { Badge } from '@/components/ui/badge';
 
 const settingsSchema = z.object({
   treeName: z.string().min(1, 'שם העץ הוא שדה חובה.'),
@@ -101,24 +101,38 @@ const CardPreview = ({
     const photo = owner?.photoURL || getPlaceholderImage(owner?.gender || 'other');
 
     return (
-      <div className="w-full h-full p-2 aspect-[16/9] flex items-center justify-center">
+      <div className="w-full h-full p-4 flex items-center justify-center bg-muted/20 rounded-md">
         <div
-            className={cn("w-48 h-[6.5rem] border rounded-lg shadow-sm relative p-2 flex items-center gap-2", designClasses)}
+            className={cn("w-64 h-[116px] border rounded-lg shadow-sm relative p-4 flex items-center gap-4", designClasses)}
             style={cardStyles}
         >
             <div className={cn('avatar-frame rounded-full')}>
-              <Avatar className={cn("h-10 w-10 border")}>
+              <Avatar className={cn("h-16 w-16 border")}>
                 <AvatarImage src={photo || ''} className="object-cover"/>
                 <AvatarFallback>
                   {ownerName.charAt(0)}
                 </AvatarFallback>
               </Avatar>
             </div>
-            <div className="flex-1 space-y-1 overflow-hidden">
-                <div className={cn("truncate text-sm font-bold text-main")}>
+            <div className="flex-1 space-y-1 overflow-hidden text-right">
+                <div className={cn("truncate text-lg font-bold text-main")}>
                     {ownerName}
                 </div>
-                <div className={cn("w-10/12 h-2 rounded-sm text-sub", designClasses ? '' : 'bg-muted/50')} />
+                 <p className={cn("text-xs text-muted-foreground text-sub")}>1975 - 2024</p>
+                 <div className='flex items-center justify-end gap-2 pt-1'>
+                    <Badge variant="outline" className="border-blue-500 text-blue-500">זכר</Badge>
+                    <Heart className="h-4 w-4 text-green-500 fill-green-500" />
+                </div>
+                <div className="flex items-center justify-end gap-x-3 gap-y-1 pt-1.5 text-sub">
+                    <div className="flex items-center gap-1 text-xs" title={`2 ילדים`}>
+                        <Baby className="h-4 w-4" />
+                        <span className="font-medium">2</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs" title={`3 אחים`}>
+                        <Users className="h-4 w-4" />
+                        <span className="font-medium">3</span>
+                    </div>
+                </div>
             </div>
         </div>
       </div>
@@ -155,19 +169,21 @@ function DesignCarousel({
             <CarouselContent>
                 {designOptions.map((opt) => (
                     <CarouselItem key={opt.value} onClick={() => field.onChange(opt.value)}>
-                        <CardPreview
-                            design={opt.value}
-                            owner={owner}
-                            bgColor={formValues.cardBackgroundColor}
-                            borderColor={formValues.cardBorderColor}
-                            borderWidth={formValues.cardBorderWidth}
-                        />
-                        <p className={cn(
-                            "text-center text-sm font-medium mt-1",
-                            field.value === opt.value ? "text-primary" : "text-muted-foreground"
-                        )}>
-                            {opt.label}
-                        </p>
+                         <div className="cursor-pointer">
+                            <CardPreview
+                                design={opt.value}
+                                owner={owner}
+                                bgColor={formValues.cardBackgroundColor}
+                                borderColor={formValues.cardBorderColor}
+                                borderWidth={formValues.cardBorderWidth}
+                            />
+                            <p className={cn(
+                                "text-center text-sm font-medium mt-1",
+                                field.value === opt.value ? "text-primary" : "text-muted-foreground"
+                            )}>
+                                {opt.label}
+                            </p>
+                        </div>
                     </CarouselItem>
                 ))}
             </CarouselContent>
@@ -207,9 +223,10 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
   const formValues = form.watch();
   
   const ownerPerson = useMemo(() => {
-    if (!tree?.ownerPersonId) return undefined;
-    return people.find(p => p.id === tree.ownerPersonId);
-  }, [tree, people]);
+    const ownerId = form.watch('ownerPersonId');
+    if (!ownerId) return undefined;
+    return people.find(p => p.id === ownerId);
+  }, [form.watch('ownerPersonId'), people]);
 
 
   useEffect(() => {
@@ -292,10 +309,10 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
         <Form {...form}>
           <form id="settings-form" onSubmit={form.handleSubmit(handleSaveChanges)} className="flex-1 flex flex-col min-h-0">
             <Tabs defaultValue="general" className="flex-1 min-h-0 flex flex-col">
-              <TabsList className="shrink-0 mx-6 mt-4">
-                <TabsTrigger value="general">כללי</TabsTrigger>
-                <TabsTrigger value="global-design">עיצוב כללי</TabsTrigger>
+              <TabsList className="shrink-0 mx-6 mt-4 justify-end">
                 <TabsTrigger value="creator-card">כרטיס היוצר</TabsTrigger>
+                <TabsTrigger value="global-design">עיצוב כללי</TabsTrigger>
+                <TabsTrigger value="general">כללי</TabsTrigger>
               </TabsList>
               
               <div className="flex-1 min-h-0">
@@ -332,10 +349,10 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                             <FormField control={form.control} name="privacy" render={({ field }) => (
                                 <FormItem className="space-y-3 text-right"><FormLabel className='text-xs'>פרטיות</FormLabel>
                                     <FormControl>
-                                    <div className="space-y-2">
-                                        <Button type="button" onClick={() => field.onChange('private')} variant={field.value === 'private' ? 'secondary' : 'outline'} className="w-full justify-start h-auto py-2">פרטי (רק אני יכול לראות)</Button>
-                                        <Button type="button" onClick={() => field.onChange('link')} variant={field.value === 'link' ? 'secondary' : 'outline'} className="w-full justify-start h-auto py-2">קישור בלבד (כל מי עם הקישור יכול לראות)</Button>
-                                        <Button type="button" onClick={() => field.onChange('public')} variant={field.value === 'public' ? 'secondary' : 'outline'} className="w-full justify-start h-auto py-2">ציבורי (גלוי לכל משתמשי הפלטפורמה)</Button>
+                                    <div className="space-y-2 flex flex-col items-end">
+                                        <Button type="button" onClick={() => field.onChange('private')} variant={field.value === 'private' ? 'secondary' : 'outline'} className="w-full justify-end h-auto py-2 text-right">פרטי (רק אני יכול לראות)</Button>
+                                        <Button type="button" onClick={() => field.onChange('link')} variant={field.value === 'link' ? 'secondary' : 'outline'} className="w-full justify-end h-auto py-2 text-right">קישור בלבד (כל מי עם הקישור יכול לראות)</Button>
+                                        <Button type="button" onClick={() => field.onChange('public')} variant={field.value === 'public' ? 'secondary' : 'outline'} className="w-full justify-end h-auto py-2 text-right">ציבורי (גלוי לכל משתמשי הפלטפורמה)</Button>
                                     </div>
                                     </FormControl>
                                     <FormMessage />
