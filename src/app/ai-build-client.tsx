@@ -67,7 +67,7 @@ const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File 
 
 export function AiBuildClient() {
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
 
@@ -109,10 +109,10 @@ export function AiBuildClient() {
 
   useEffect(() => {
     const fetchPublicTrees = async () => {
-      if (!db) {
-        setIsLoadingPublicTrees(false);
-        return
-      };
+      // Don't fetch until auth state is resolved and db is available.
+      if (isUserLoading || !db) {
+        return;
+      }
       setIsLoadingPublicTrees(true);
       try {
         const publicTreesQuery = query(collection(db, "publicTrees"), limit(20));
@@ -131,7 +131,7 @@ export function AiBuildClient() {
     };
 
     fetchPublicTrees();
-  }, [db, toast]);
+  }, [db, toast, isUserLoading]);
 
 
   const handleManualCreate = async () => {
