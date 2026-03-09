@@ -1052,7 +1052,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
       // Sanitize the data to remove read-only Timestamps before sending to Firestore
-      const { createdAt, updatedAt, id, ...dataForFirestore } = personData;
+      const { createdAt, updatedAt, id, ...dataForFirestore } = personData as any;
       const dataToUpdate = { 
         ...dataForFirestore, 
         updatedAt: serverTimestamp() 
@@ -1148,44 +1148,55 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db || readOnly) return;
-    
+  
     recordHistory();
     setIsDeleting(true);
-
+  
     const personIdToDelete = personToDelete.id;
     const originalState = { people, relationships, canvasPositions };
-
+  
     // Optimistic Update
-    const newPeople = people.filter(p => p.id !== personIdToDelete);
-    const newRelationships = relationships.filter(r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete);
-    const newCanvasPositions = canvasPositions.filter(c => c.personId !== personIdToDelete);
+    const newPeople = people.filter((p) => p.id !== personIdToDelete);
+    const newRelationships = relationships.filter(
+      (r) => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
+    );
+    const newCanvasPositions = canvasPositions.filter(
+      (c) => c.personId !== personIdToDelete
+    );
     setPeople(newPeople);
     setRelationships(newRelationships);
     setCanvasPositions(newCanvasPositions);
     deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
-
+  
     try {
       const batch = writeBatch(db);
+  
+      // 1. Delete the Person document
       const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
       batch.delete(personRef);
   
-      const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-      const relsQuery1 = query(relsRef, where('personAId', '==', personIdToDelete));
-      const relsQuery2 = query(relsRef, where('personBId', '==', personIdToDelete));
-      const [rels1Snapshot, rels2Snapshot] = await Promise.all([ getDocs(relsQuery1), getDocs(relsQuery2) ]);
-      rels1Snapshot.forEach((doc) => batch.delete(doc.ref));
-      rels2Snapshot.forEach((doc) => batch.delete(doc.ref));
+      // 2. Delete related relationships using local state
+      const relationshipsToDelete = originalState.relationships.filter(
+        (r) => r.personAId === personIdToDelete || r.personBId === personIdToDelete
+      );
+      relationshipsToDelete.forEach((rel) => {
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', rel.id);
+        batch.delete(relRef);
+      });
   
+      // 3. Delete related canvas position using local state
+      const positionToDelete = originalState.canvasPositions.find(
+        (p) => p.personId === personIdToDelete
+      );
+      if (positionToDelete) {
+        const posRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions', positionToDelete.id);
+        batch.delete(posRef);
+      }
+  
+      // 4. Delete social links subcollection (query is necessary here)
       const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
       const socialLinksSnapshot = await getDocs(socialLinksRef);
       socialLinksSnapshot.forEach((doc) => batch.delete(doc.ref));
-
-      const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-      const posQuery = query( posRef, where('personId', '==', personIdToDelete), limit(1) );
-      const posSnapshot = await getDocs(posQuery);
-      if (!posSnapshot.empty) {
-        batch.delete(posSnapshot.docs[0].ref);
-      }
   
       await batch.commit();
       toast({
@@ -1193,23 +1204,28 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`,
       });
     } catch (error: any) {
-        // Revert UI on error
-        setPeople(originalState.people);
-        setRelationships(originalState.relationships);
-        setCanvasPositions(originalState.canvasPositions);
-        deriveStateFromData(originalState.people, originalState.relationships, originalState.canvasPositions, tree!);
-
-        console.error("Error deleting person:", error);
-        const permissionError = new FirestorePermissionError({
-            path: `users/${user.uid}/familyTrees/${treeId}/people/${personIdToDelete}`,
-            operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        toast({
-            variant: 'destructive',
-            title: 'שגיאת מחיקה',
-            description: error.message || "An unexpected error occurred while deleting.",
-        });
+      // Revert UI on error
+      setPeople(originalState.people);
+      setRelationships(originalState.relationships);
+      setCanvasPositions(originalState.canvasPositions);
+      deriveStateFromData(
+        originalState.people,
+        originalState.relationships,
+        originalState.canvasPositions,
+        tree!
+      );
+  
+      console.error('Error deleting person:', error);
+      const permissionError = new FirestorePermissionError({
+        path: `users/${user.uid}/familyTrees/${treeId}/people/${personIdToDelete}`,
+        operation: 'delete',
+      });
+      errorEmitter.emit('permission-error', permissionError);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאת מחיקה',
+        description: error.message || 'An unexpected error occurred while deleting.',
+      });
     } finally {
       setIsDeleting(false);
       setIsDeleteAlertOpen(false);
