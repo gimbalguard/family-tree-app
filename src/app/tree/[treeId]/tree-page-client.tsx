@@ -338,6 +338,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     });
     
     const parentMap = new Map<string, string[]>();
+    for (const person of peopleData) {
+        parentMap.set(person.id, []);
+    }
     relsData.forEach(rel => {
       if (allParentalRelTypes.includes(rel.relationshipType)) {
         if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
@@ -499,13 +502,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         if (publicDocSnap.exists()) {
           ownerId = publicDocSnap.data().ownerUserId;
         } else {
-            // It might be a tree shared directly with the user.
             const sharedQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeId), where("sharedWithUserId", "==", user!.uid), limit(1));
             const sharedSnap = await getDocs(sharedQuery);
             if (!sharedSnap.empty) {
                 ownerId = sharedSnap.docs[0].data().ownerUserId;
             } else {
-                 // Final fallback: maybe I am the owner, just accessing my own tree via a view link.
                  const myTreeRef = doc(db, 'users', user!.uid, 'familyTrees', treeId);
                  const myTreeSnap = await getDoc(myTreeRef);
                  if (myTreeSnap.exists()) {
@@ -668,7 +669,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!isUserLoading && user) {
       fetchData();
     }
@@ -1069,13 +1069,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
-      // Sanitize data: remove UI-only fields before sending to Firestore
       const { 
         id, createdAt, updatedAt, 
         isLocked, groupId, isOwner, 
         childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count,
         creatorCardBacklightIntensity, creatorCardBacklightDisabled, creatorCardSize, creatorCardDesign,
         cardBackgroundColor, cardBorderColor, cardBorderWidth, cardDesign,
+        userId, treeId: personTreeId, // Explicitly remove immutable fields
         ...dataForFirestore 
       } = personData as any;
 
@@ -1124,7 +1124,12 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const birthDateChanged = field === 'birthDate';
 
     const oldPeople = people;
+    const oldRels = relationships;
+    const oldPositions = canvasPositions;
+
     const newPeople = people.map(p => p.id === personId ? { ...p, [field]: value } : p);
+    
+    // Optimistic local update before async operations
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree!);
 
@@ -1141,7 +1146,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } catch (error: any) {
         // Revert
         setPeople(oldPeople);
-        deriveStateFromData(oldPeople, relationships, canvasPositions, tree!);
+        setRelationships(oldRels);
+        setCanvasPositions(oldPositions);
+        deriveStateFromData(oldPeople, oldRels, oldPositions, tree!);
 
         const permissionError = new FirestorePermissionError({
             path: `users/${user.uid}/familyTrees/${treeId}/people/${personId}`,
@@ -1186,6 +1193,23 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     // Close dialog FIRST so Radix finishes its cleanup before we update React state
     setIsDeleteAlertOpen(false);
   
+    // Optimistic UI update
+    const newPeople = prevPeople.filter(p => p.id !== personIdToDelete);
+    const newRelationships = prevRelationships.filter(
+      r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
+    );
+    const newPositions = prevCanvasPositions.filter(p => p.personId !== personIdToDelete);
+    
+    setPeople(newPeople);
+    setRelationships(newRelationships);
+    setCanvasPositions(newPositions);
+    deriveStateFromData(newPeople, newRelationships, newPositions, tree);
+
+    requestAnimationFrame(() => {
+        const canvas = document.querySelector('.react-flow') as HTMLElement;
+        if (canvas) canvas.focus();
+    });
+  
     try {
       const batch = writeBatch(db);
       const basePath = `users/${user.uid}/familyTrees/${treeId}`;
@@ -1201,10 +1225,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         getDocs(posQuery),
       ]);
   
-      // Handle social links separately
+      // Social links: fetch separately so failure here doesn't revert the whole deletion
       try {
-        const socialLinksQuery = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
-        const socialLinksSnap = await getDocs(socialLinksQuery);
+        const socialLinksRef = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
+        const socialLinksSnap = await getDocs(socialLinksRef);
         socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
       } catch (e) {
         console.warn('Could not fetch social links for deletion, skipping:', e);
@@ -1215,18 +1239,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       batch.delete(personRef);
   
       await batch.commit();
-
-      // Optimistic UI update
-      const newPeople = people.filter(p => p.id !== personIdToDelete);
-      const newRelationships = relationships.filter(
-        r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
-      );
-      const newPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
-      
-      setPeople(newPeople);
-      setRelationships(newRelationships);
-      setCanvasPositions(newPositions);
-      deriveStateFromData(newPeople, newRelationships, newPositions, tree);
   
       toast({
         title: 'אדם נמחק',
@@ -1575,7 +1587,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                 router.push(`/tree/${newTreeId}`);
 
             } else if (mode === 'merge') {
-                // Fetch existing to check for duplicates
                 const existingPeopleSnap = await getDocs(collection(db, 'users', user.uid, 'familyTrees', treeId, 'people'));
                 const existingPeople = existingPeopleSnap.docs.map(d => d.data());
                 
@@ -1591,8 +1602,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                 });
 
                 await batch.commit();
-                toast({ title: 'המיזוג הושלם', description: `${peopleToAdd.length} אנשים חדשים נוספו.` });
                 fetchData();
+                toast({ title: 'המיזוג הושלם', description: `${peopleToAdd.length} אנשים חדשים נוספו.` });
 
             } else if (mode === 'replace') {
                 const deleteBatch = writeBatch(db);
@@ -1603,8 +1614,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                 }
                 await deleteBatch.commit();
                 // ... implementation would be similar to 'new' but using `treeId` instead of `newTreeId`
-                toast({ title: 'ההחלפה הושלמה', description: `העץ יובא מחדש.` });
                 fetchData();
+                toast({ title: 'ההחלפה הושלמה', description: `העץ יובא מחדש.` });
             }
         } catch (error: any) {
             console.error("Import error:", error);
