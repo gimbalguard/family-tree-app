@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { FamilyTree, PublicTree, SharedTree } from '@/lib/types';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -29,6 +30,8 @@ import {
   Link as LinkIcon,
   User,
   Lock,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -44,6 +47,8 @@ type TreeCardProps = {
   onDuplicate?: () => void;
   onShare?: () => void;
   onSetPublic?: () => void;
+  onSetPrivate?: () => void;
+  onUploadCover?: () => void;
   onCreateShareLink?: () => void;
 };
 
@@ -80,6 +85,8 @@ export function TreeCard({
   onDuplicate,
   onShare,
   onSetPublic,
+  onSetPrivate,
+  onUploadCover,
   onCreateShareLink,
 }: TreeCardProps) {
   
@@ -89,19 +96,35 @@ export function TreeCard({
 
   const treeId = 'treeId' in tree ? tree.treeId : tree.id;
   const linkHref = type === 'public' ? `/view/${treeId}` : `/tree/${treeId}`;
-
+  const coverPhotoURL = (tree as FamilyTree).coverPhotoURL;
 
   return (
-    <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-1">
-      <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2">
+    <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-1 overflow-hidden">
+      <div className="relative h-32 bg-muted">
+        {coverPhotoURL ? (
+          <Image
+            src={coverPhotoURL}
+            alt={tree.treeName}
+            layout="fill"
+            objectFit="cover"
+          />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <ImageIcon className="h-12 w-12 text-muted-foreground/30" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+      </div>
+
+      <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2 p-4 relative -mt-12 z-10">
         <div className="flex-1 space-y-1">
-          <CardTitle className="hover:text-primary transition-colors text-lg">
+          <CardTitle className="hover:text-primary transition-colors text-lg text-white [text-shadow:_0_1px_3px_var(--tw-shadow-color)]">
             <Link href={linkHref} className="stretched-link">
               {tree.treeName}
             </Link>
           </CardTitle>
           <CardDescription>
-            <div className="flex items-center text-xs text-muted-foreground">
+            <div className="flex items-center text-xs text-slate-200 [text-shadow:_0_1px_2px_var(--tw-shadow-color)]">
               {type === 'owned' ? (
                 <>
                   <Calendar className="ml-1 h-3 w-3" />
@@ -120,10 +143,10 @@ export function TreeCard({
           </CardDescription>
         </div>
         {type === 'owned' && (
-          <div className="relative z-10">
+          <div className="relative z-20">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8 -mt-2 -mr-2 text-white hover:bg-white/20 hover:text-white">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -134,13 +157,24 @@ export function TreeCard({
                  <DropdownMenuItem onClick={onShare}>
                     <Share2 className="ml-2 h-4 w-4" /> שתף עם משתמש
                  </DropdownMenuItem>
+                 <DropdownMenuItem onClick={onUploadCover}>
+                    <Upload className="ml-2 h-4 w-4" /> העלאת תמונת נושא
+                 </DropdownMenuItem>
                  <DropdownMenuSeparator/>
                  <DropdownMenuItem onClick={onCreateShareLink}>
                     <LinkIcon className="ml-2 h-4 w-4" /> צור קישור שיתוף
                  </DropdownMenuItem>
-                 <DropdownMenuItem onClick={onSetPublic}>
-                    <Globe className="ml-2 h-4 w-4" /> הגדר כציבורי
-                 </DropdownMenuItem>
+
+                {(tree as FamilyTree).privacy === 'public' ? (
+                   <DropdownMenuItem onClick={onSetPrivate}>
+                     <Lock className="ml-2 h-4 w-4" /> הגדר כפרטי
+                   </DropdownMenuItem>
+                 ) : (
+                   <DropdownMenuItem onClick={onSetPublic}>
+                     <Globe className="ml-2 h-4 w-4" /> הגדר כציבורי
+                   </DropdownMenuItem>
+                 )}
+
                  <DropdownMenuSeparator/>
                 <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                   <Trash2 className="ml-2 h-4 w-4" /> מחק
@@ -150,7 +184,7 @@ export function TreeCard({
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-grow space-y-2">
+      <CardContent className="flex-grow space-y-2 p-4">
          {type === 'owned' && 'privacy' in tree && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
         <div className="space-y-1 text-sm text-muted-foreground pt-2">
           <div className="flex items-center">
@@ -163,7 +197,7 @@ export function TreeCard({
           </div>
         </div>
       </CardContent>
-      <CardFooter>
+      <CardFooter className="p-4">
         <Button asChild variant="secondary" className="w-full">
           <Link href={linkHref}>פתח עץ</Link>
         </Button>

@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useState, useCallback } from 'react';
-import { useUser, useFirestore } from '@/firebase';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { useUser, useFirestore, useStorage } from '@/firebase';
 import type { FamilyTree, SharedTree, PublicTree, Person, Relationship, CanvasPosition } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Users, LogIn, Share2, Globe, Copy, Link as LinkIcon, Edit } from 'lucide-react';
+import { Loader2, PlusCircle, Users, LogIn, Share2, Globe, Copy, Link as LinkIcon, Edit, Upload } from 'lucide-react';
 import { NewTreeDialog } from './new-tree-dialog';
 import { TreeCard, TreeCardSkeleton } from './tree-card';
 import {
@@ -20,6 +20,7 @@ import { ShareTreeDialog } from './share-tree-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, writeBatch, doc, addDoc, getDoc, updateDoc, where, collectionGroup, limit, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,6 +28,7 @@ import { v4 as uuidv4 } from 'uuid';
 export function DashboardClient() {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
+  const storage = useStorage();
   const router = useRouter();
   const { toast } = useToast();
   
@@ -43,14 +45,25 @@ export function DashboardClient() {
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [treeToDelete, setTreeToDelete] = useState<FamilyTree | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  const [treeToUploadCover, setTreeToUploadCover] = useState<FamilyTree | null>(null);
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
 
   const isAnonymous = user?.isAnonymous ?? true;
 
   const fetchData = useCallback(async () => {
-    if (!user || !db) {
+    // Wait until user is determined and not anonymous, or if db is not ready
+    if (isUserLoading || !db) {
       if (!isUserLoading) setIsLoading(false);
       return;
     }
+    if (!user) {
+        setIsLoading(false);
+        // Maybe fetch public trees here for anonymous view if needed
+        return;
+    }
+
 
     setIsLoading(true);
     try {
@@ -264,6 +277,59 @@ export function DashboardClient() {
     }
   };
 
+  const handleSetPrivate = async (tree: FamilyTree) => {
+    if (!user || !db) return;
+    try {
+      const batch = writeBatch(db);
+      const treeRef = doc(db, 'users', user.uid, 'familyTrees', tree.id);
+      batch.update(treeRef, { privacy: 'private' });
+      
+      const publicTreeRef = doc(db, "publicTrees", tree.id);
+      batch.delete(publicTreeRef);
+
+      await batch.commit();
+      toast({ title: 'העץ כעת פרטי' });
+      fetchData();
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'שגיאה בעדכון הגדרות' });
+    }
+  };
+
+  const handleUploadCoverClick = (tree: FamilyTree) => {
+    setTreeToUploadCover(tree);
+    coverFileInputRef.current?.click();
+  };
+
+  const handleCoverFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !treeToUploadCover || !user || !storage || !db) return;
+
+    setIsUploadingCover(true);
+    toast({ title: 'מעלה תמונת נושא...' });
+
+    try {
+      const storagePath = `users/${user.uid}/trees/${treeToUploadCover.id}/cover-${file.name}`;
+      const fileRef = ref(storage, storagePath);
+      const snapshot = await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeToUploadCover.id);
+      await updateDoc(treeRef, { coverPhotoURL: downloadURL });
+
+      toast({ title: 'תמונת הנושא עודכנה!' });
+      fetchData();
+    } catch (error) {
+      console.error("Cover photo upload error:", error);
+      toast({ variant: 'destructive', title: 'שגיאה בהעלאת התמונה' });
+    } finally {
+      setIsUploadingCover(false);
+      setTreeToUploadCover(null);
+      if (coverFileInputRef.current) {
+        coverFileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleDeleteClick = (tree: FamilyTree) => {
     setTreeToDelete(tree);
     setIsAlertOpen(true);
@@ -302,7 +368,6 @@ export function DashboardClient() {
         description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
       });
 
-      // Per your request, forcing a page reload to fix the UI freeze.
       window.location.reload();
 
     } catch (error: any) {
@@ -312,7 +377,6 @@ export function DashboardClient() {
         title: 'שגיאה במחיקת העץ',
         description: "לא ניתן היה למחוק את העץ. נסה שוב.",
       });
-      // Also reset state on error
       setIsDeleting(false);
       setIsAlertOpen(false);
       setTreeToDelete(null);
@@ -381,6 +445,8 @@ export function DashboardClient() {
                   onDuplicate={() => handleDuplicateTree(tree)}
                   onShare={() => handleOpenShareDialog(tree)}
                   onSetPublic={() => handleSetPublic(tree)}
+                  onSetPrivate={() => handleSetPrivate(tree)}
+                  onUploadCover={() => handleUploadCoverClick(tree)}
                   onCreateShareLink={() => handleCreateShareLink(tree)}
                 />
               ))}
@@ -421,6 +487,14 @@ export function DashboardClient() {
 
   return (
     <>
+      <input
+        type="file"
+        ref={coverFileInputRef}
+        className="hidden"
+        accept="image/*"
+        onChange={handleCoverFileSelected}
+        disabled={isUploadingCover}
+      />
       <div className="relative isolate overflow-hidden bg-slate-900">
         <div className="container mx-auto px-4 py-16 sm:py-24 lg:py-32 text-center">
             <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl">

@@ -109,6 +109,11 @@
         "relationshipCount": {
           "type": "number",
           "description": "Denormalized count of relationships in the tree."
+        },
+        "coverPhotoURL": {
+          "type": "string",
+          "description": "A URL to the tree's cover photo. Must be a valid HTTPS URL.",
+          "format": "uri"
         }
       },
       "required": [

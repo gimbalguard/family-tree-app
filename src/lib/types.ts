@@ -18,6 +18,7 @@ export type FamilyTree = {
   language?: 'he' | 'en';
   privacy?: 'private' | 'link' | 'public';
   shareToken?: string;
+  coverPhotoURL?: string;
   creatorCardBacklightIntensity?: number;
   creatorCardBacklightDisabled?: boolean;
   creatorCardSize?: number;
