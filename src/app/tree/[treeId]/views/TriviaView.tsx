@@ -300,14 +300,19 @@ export function TriviaView({ people, relationships, setViewMode }: TriviaViewPro
                 <CardHeader><CardTitle>סיכום שאלות</CardTitle></CardHeader>
                 <CardContent className="space-y-3">
                     {questions.map((q, i) => (
-                        <div key={i} className="border p-3 rounded-md">
-                            <p className="font-semibold">{i+1}. {q.question}</p>
-                            <p className={cn(
-                                "text-sm mt-1",
-                                userAnswers[i] === q.correctIndex ? "text-green-600" : "text-red-600"
-                            )}>
-                                {userAnswers[i] === q.correctIndex ? '✔ תשובה נכונה' : `✖ תשובה שגויה. הנכונה: ${q.options[q.correctIndex]}`}
-                            </p>
+                        <div key={i} className="flex items-center justify-between gap-4 border p-3 rounded-md text-sm">
+                            <p className="font-semibold flex-1">{i + 1}. {q.question}</p>
+                            {userAnswers[i] === q.correctIndex ? (
+                                <div className="flex items-center gap-2 text-green-600 shrink-0">
+                                    <CheckCircle2 className="h-5 w-5" />
+                                    <span>נכון</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-red-600 shrink-0">
+                                    <XCircle className="h-5 w-5" />
+                                    <span className="text-muted-foreground">התשובה: {q.options[q.correctIndex]}</span>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </CardContent>
@@ -322,7 +327,10 @@ export function TriviaView({ people, relationships, setViewMode }: TriviaViewPro
   };
   
   return (
-    <div className="h-full w-full bg-muted/30 flex items-center justify-center p-4 sm:p-8" dir="rtl">
+    <div className={cn(
+        "h-full w-full bg-muted/30 p-4 sm:p-8",
+        gameState === 'results' ? 'block overflow-y-auto' : 'flex items-center justify-center'
+      )} dir="rtl">
         {gameState === 'setup' && renderSetup()}
         {gameState === 'loading' && renderLoading()}
         {gameState === 'playing' && renderPlaying()}
