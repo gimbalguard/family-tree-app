@@ -36,7 +36,7 @@ function ViewCanvasContainer({ treeId }: { treeId: string }) {
   const [tree, setTree] = useState<FamilyTree | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { setViewport } = useReactFlow();
+  const { fitView } = useReactFlow();
 
   const deriveStateFromData = useCallback((
     peopleData: Person[], 
@@ -76,16 +76,10 @@ function ViewCanvasContainer({ treeId }: { treeId: string }) {
 
     if (newNodes.length > 0) {
       setTimeout(() => {
-        // use fitView instead of setViewport for better initial view
-        const reactFlowInstance = (window as any).reactFlowInstance;
-        if (reactFlowInstance) {
-          reactFlowInstance.fitView({ padding: 0.1, duration: 800 });
-        } else {
-           setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 })
-        }
+        fitView({ padding: 0.1, duration: 800 });
       }, 100);
     }
-  }, [setViewport]);
+  }, [fitView]);
 
   const fetchData = useCallback(async () => {
     if (!db) return;
