@@ -53,6 +53,7 @@ export type Person = {
   description?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  socialLinks?: SocialLink[];
   // UI-specific properties, not from DB schema directly but merged at runtime
   isLocked?: boolean;
   groupId?: string | null;

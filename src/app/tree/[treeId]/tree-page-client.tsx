@@ -1135,7 +1135,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const nonDbFields: (keyof Person)[] = [
       'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
       'isLocked', 'groupId', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
-      'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize'
+      'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize', 'socialLinks'
     ];
     if (nonDbFields.includes(field)) {
       console.warn(`Attempted to update non-db field "${field}". Operation blocked.`);
