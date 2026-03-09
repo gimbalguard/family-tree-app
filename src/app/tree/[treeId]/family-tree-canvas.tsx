@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState } from 'react';
 import ReactFlow, {
@@ -35,7 +36,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-// Moved to module level to prevent re-creation on every render.
+// Moved to module level to prevent re-creation on every render. This is critical for performance and stability.
 const nodeTypes: NodeTypes = { personNode: PersonNode };
 
 type FamilyTreeCanvasProps = {

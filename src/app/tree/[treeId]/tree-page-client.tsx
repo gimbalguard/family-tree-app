@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1294,9 +1295,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     
     const siblingChanges = await runSiblingDetection([relData.personBId], newPeople, newRelationships);
-    if(siblingChanges.relationshipsToAdd) newRelationships.push(...siblingChanges.relationshipsToAdd);
+    if(siblingChanges.relationshipsToAdd){
+        newRelationships.push(...(siblingChanges.relationshipsToAdd || []));
+    }
     if(siblingChanges.relationshipsToUpdate) {
-      siblingChanges.relationshipsToUpdate.forEach(updatedRel => {
+      (siblingChanges.relationshipsToUpdate || []).forEach(updatedRel => {
         newRelationships = newRelationships.map(r => r.id === updatedRel.id ? {...r, ...updatedRel} : r);
       });
     }
@@ -1322,13 +1325,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       }
       
       if(siblingChanges.relationshipsToAdd){
-        siblingChanges.relationshipsToAdd.forEach(r => {
+        (siblingChanges.relationshipsToAdd || []).forEach(r => {
           const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id);
           batch.set(relRef, r);
         });
       }
       if(siblingChanges.relationshipsToUpdate){
-        siblingChanges.relationshipsToUpdate.forEach(r => {
+        (siblingChanges.relationshipsToUpdate || []).forEach(r => {
           const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!);
           batch.update(relRef, r);
         });

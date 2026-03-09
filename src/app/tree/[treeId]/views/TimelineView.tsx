@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import ReactFlow, {
@@ -28,6 +29,7 @@ const NODE_HEIGHT = 76;
 const MIN_VERTICAL_GAP = 16;
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
 
+// Moved to module level to prevent re-creation on every render. This is critical for performance and stability.
 const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
 
 /**
