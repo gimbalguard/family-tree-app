@@ -203,9 +203,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const returnFocusToCanvas = useCallback(() => {
     setTimeout(() => {
-      const canvasEl = document.querySelector('.react-flow') as HTMLElement;
-      if (canvasEl) canvasEl.focus();
-    }, 50);
+      // Don't try to focus the canvas directly - just blur whatever has focus
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    }, 100);
   }, []);
 
   const onNodesChange: OnNodesChange = useCallback(
@@ -1164,69 +1166,71 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsDeleting(true);
   
     const personIdToDelete = personToDelete.id;
-    const originalState = { people, relationships, canvasPositions };
-  
-    // Optimistic Update
-    const newPeople = people.filter((p) => p.id !== personIdToDelete);
-    const newRelationships = relationships.filter(
-      (r) => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
-    );
-    const newCanvasPositions = canvasPositions.filter(
-      (c) => c.personId !== personIdToDelete
-    );
-    setPeople(newPeople);
-    setRelationships(newRelationships);
-    setCanvasPositions(newCanvasPositions);
-    deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
   
     try {
+      // First fetch social links BEFORE committing anything
+      const socialLinksRef = collection(
+        db, 'users', user.uid, 'familyTrees', treeId, 
+        'people', personIdToDelete, 'socialLinks'
+      );
+      const socialLinksSnapshot = await getDocs(socialLinksRef);
+  
       const batch = writeBatch(db);
   
-      // 1. Delete the Person document
-      const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
+      // Delete the Person document
+      const personRef = doc(
+        db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete
+      );
       batch.delete(personRef);
   
-      // 2. Delete related relationships using local state
-      const relationshipsToDelete = originalState.relationships.filter(
+      // Delete related relationships
+      const relationshipsToDelete = relationships.filter(
         (r) => r.personAId === personIdToDelete || r.personBId === personIdToDelete
       );
       relationshipsToDelete.forEach((rel) => {
-        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', rel.id);
+        const relRef = doc(
+          db, 'users', user.uid, 'familyTrees', treeId, 'relationships', rel.id
+        );
         batch.delete(relRef);
       });
   
-      // 3. Delete related canvas position using local state
-      const positionToDelete = originalState.canvasPositions.find(
+      // Delete canvas position
+      const positionToDelete = canvasPositions.find(
         (p) => p.personId === personIdToDelete
       );
       if (positionToDelete) {
-        const posRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions', positionToDelete.id);
+        const posRef = doc(
+          db, 'users', user.uid, 'familyTrees', treeId, 
+          'canvasPositions', positionToDelete.id
+        );
         batch.delete(posRef);
       }
   
-      // 4. Delete social links subcollection (query is necessary here)
-      const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
-      const socialLinksSnapshot = await getDocs(socialLinksRef);
-      socialLinksSnapshot.forEach((doc) => batch.delete(doc.ref));
+      // Delete social links (already fetched above)
+      socialLinksSnapshot.forEach((d) => batch.delete(d.ref));
   
       await batch.commit();
+  
+      // Only update UI AFTER successful Firestore commit
+      const newPeople = people.filter((p) => p.id !== personIdToDelete);
+      const newRelationships = relationships.filter(
+        (r) => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
+      );
+      const newCanvasPositions = canvasPositions.filter(
+        (c) => c.personId !== personIdToDelete
+      );
+      setPeople(newPeople);
+      setRelationships(newRelationships);
+      setCanvasPositions(newCanvasPositions);
+      deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
+  
       toast({
         title: 'אדם נמחק',
         description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`,
       });
     } catch (error: any) {
-      // Revert UI on error
-      setPeople(originalState.people);
-      setRelationships(originalState.relationships);
-      setCanvasPositions(originalState.canvasPositions);
-      deriveStateFromData(
-        originalState.people,
-        originalState.relationships,
-        originalState.canvasPositions,
-        tree!
-      );
-  
       console.error('Error deleting person:', error);
+      // State was never changed optimistically, so no revert needed
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people/${personIdToDelete}`,
         operation: 'delete',
