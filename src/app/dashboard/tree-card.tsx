@@ -155,7 +155,7 @@ export function TreeCard({
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
                  <DropdownMenuItem onClick={onDuplicate}>
                     <Copy className="ml-2 h-4 w-4" /> שכפל עץ
                  </DropdownMenuItem>
