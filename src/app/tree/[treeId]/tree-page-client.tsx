@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1247,7 +1248,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
       const [relsSnapA, relsSnapB, posSnap] = await Promise.all([
         getDocs(relsQueryA),
-        getDocs(relsQueryB),
+        getDocs(relsSnapB),
         getDocs(posQuery),
       ]);
   
