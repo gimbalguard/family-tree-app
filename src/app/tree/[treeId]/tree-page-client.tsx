@@ -41,7 +41,7 @@ import { PersonEditor } from './person-editor';
 import { RelationshipModal, relationshipOptions } from './relationship-modal';
 import { NodeContextMenu } from './node-context-menu';
 import { CanvasToolbar } from './canvas-toolbar';
-import { Loader2, User } from 'lucide-react';
+import { Loader2, User, ArrowLeft } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -54,7 +54,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   collection,
   query,
@@ -95,6 +95,7 @@ import { PowerPointExportModal } from './powerpoint-export-modal';
 import { exportToExcel, parseAndValidateExcel, ParsedExcelData } from '@/lib/excel-handler';
 import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 type TreePageClientProps = {
   treeId: string;
@@ -495,7 +496,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           ownerId = publicDocSnap.data().ownerUserId;
         } else {
             // It might be a tree shared directly with the user.
-            // Our rules allow this query even for anonymous users, it will just return empty if they are not the target.
             const sharedQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeId), where("sharedWithUserId", "==", user!.uid), limit(1));
             const sharedSnap = await getDocs(sharedQuery);
             if (!sharedSnap.empty) {
@@ -1050,7 +1050,14 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
-      const dataToUpdate = { ...personData, updatedAt: serverTimestamp() };
+      
+      // Sanitize the data to remove read-only Timestamps before sending to Firestore
+      const { createdAt, updatedAt, id, ...dataForFirestore } = personData;
+      const dataToUpdate = { 
+        ...dataForFirestore, 
+        updatedAt: serverTimestamp() 
+      };
+
       await updateDoc(docRef, dataToUpdate);
 
       if (birthDateChanged) {
@@ -1630,6 +1637,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   }, [tree, people, relationships, manualEvents, canvasPositions, user, db, treeId, toast, saveExportedFile]);
 
+  const handleBackToDashboard = useCallback(() => {
+    router.push('/dashboard');
+  }, [router]);
+
+
   const renderCurrentView = () => {
     switch (viewMode) {
       case 'tree':
@@ -1734,6 +1746,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           isTimelineCompact={isTimelineCompact}
           onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
           readOnly={readOnly}
+          onBack={handleBackToDashboard}
         />
         <main className="flex-1 relative overflow-hidden" id="main-view-container" style={{ backgroundColor: canvasBg }}>
         <input

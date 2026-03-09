@@ -1,6 +1,6 @@
 'use client';
-import React from 'react';
-import { Button } from '@/components/ui/button';
+import React, { useCallback } from 'react';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -51,6 +51,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
 const viewOptions: {
   value: ViewMode;
@@ -108,6 +110,7 @@ type CanvasToolbarProps = {
   isTimelineCompact: boolean;
   onToggleTimelineCompact: () => void;
   readOnly: boolean;
+  onBack: () => void;
 };
 
 export function CanvasToolbar({
@@ -132,6 +135,7 @@ export function CanvasToolbar({
   isTimelineCompact,
   onToggleTimelineCompact,
   readOnly,
+  onBack,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
 
@@ -163,10 +167,8 @@ export function CanvasToolbar({
     <aside className="flex flex-col items-center gap-4 border-l bg-card p-4" data-export-hide>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-5 w-5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">
