@@ -172,7 +172,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
       source: sourceId,
       target: targetId,
       sourceHandle: 'lower-right-source',
-      targetHandle: 'lower-left-source',
+      targetHandle: 'lower-right-source',
     };
   }
 
@@ -1239,7 +1239,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     deriveStateFromData(newPeople, newRelationships, newPositions, tree);
 
     requestAnimationFrame(() => {
-        const canvas = document.querySelector('.react-flow') as HTMLElement;
+        const canvas = document.getElementById('main-view-container');
         if (canvas) canvas.focus();
     });
   
@@ -1868,7 +1868,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           readOnly={readOnly}
           onBack={handleBackToDashboard}
         />
-        <main className="flex-1 relative overflow-hidden" id="main-view-container" style={{ backgroundColor: canvasBg }}>
+        <main tabIndex={-1} className="flex-1 relative overflow-hidden" id="main-view-container" style={{ backgroundColor: canvasBg }}>
         <input
             type="file"
             ref={importFileInputRef}
@@ -2028,7 +2028,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         <AlertDialogContent onCloseAutoFocus={(e) => {
           e.preventDefault();
           requestAnimationFrame(() => {
-            const canvas = document.querySelector('.react-flow') as HTMLElement;
+            const canvas = document.getElementById('main-view-container');
             if (canvas) canvas.focus();
           });
         }}>
@@ -2055,7 +2055,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => {
           e.preventDefault();
           requestAnimationFrame(() => {
-            const canvas = document.querySelector('.react-flow') as HTMLElement;
+            const canvas = document.getElementById('main-view-container');
             if (canvas) canvas.focus();
           });
         }}>
