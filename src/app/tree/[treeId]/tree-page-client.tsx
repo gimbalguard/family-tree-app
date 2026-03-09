@@ -662,11 +662,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   }, [tree]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!isUserLoading && user && !hasInitiallyLoaded.current) {
       hasInitiallyLoaded.current = true;
       fetchData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchData, isUserLoading, user]);
 
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
@@ -1069,20 +1069,20 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const dataToUpdate = {
         firstName: personData.firstName,
         lastName: personData.lastName,
-        middleName: personData.middleName || null,
-        previousFirstName: personData.previousFirstName || null,
-        maidenName: personData.maidenName || null,
-        nickname: personData.nickname || null,
+        middleName: personData.middleName,
+        previousFirstName: personData.previousFirstName,
+        maidenName: personData.maidenName,
+        nickname: personData.nickname,
         gender: personData.gender,
-        birthDate: personData.birthDate || null,
-        deathDate: personData.deathDate || null,
-        birthPlace: personData.birthPlace || null,
+        birthDate: personData.birthDate,
+        birthPlace: personData.birthPlace,
+        deathDate: personData.deathDate,
+        cityOfResidence: personData.cityOfResidence,
+        countryOfResidence: personData.countryOfResidence,
+        religion: personData.religion,
         status: personData.status,
-        religion: personData.religion || null,
-        countryOfResidence: personData.countryOfResidence || null,
-        cityOfResidence: personData.cityOfResidence || null,
-        photoURL: personData.photoURL || null,
-        description: personData.description || null,
+        description: personData.description,
+        photoURL: personData.photoURL,
         updatedAt: serverTimestamp(),
       };
 
@@ -2056,7 +2056,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => {
           e.preventDefault();
           requestAnimationFrame(() => {
-            const canvas = document.getElementById('main-view-container');
+            const canvas = document.getElementById('main-view-container') as HTMLElement;
             if (canvas) (canvas as HTMLElement).focus();
           });
         }}>
