@@ -24,7 +24,11 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     creatorCardBacklightIntensity,
     creatorCardBacklightDisabled,
     creatorCardSize,
-    creatorCardShape
+    creatorCardDesign,
+    // Global styles
+    cardBackgroundColor,
+    cardBorderColor,
+    cardBorderWidth,
   } = data;
 
   const getLifeYearsDisplay = () => {
@@ -92,7 +96,11 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     background: 'hsl(var(--primary))',
   };
   
-  const cardStyle: React.CSSProperties = {};
+  const cardStyle: React.CSSProperties = {
+    backgroundColor: cardBackgroundColor,
+    borderColor: cardBorderColor,
+    borderWidth: cardBorderWidth ? `${cardBorderWidth}px` : undefined,
+  };
   
   if (isOwner) {
     if (creatorCardSize) {
@@ -101,12 +109,10 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
     if (!creatorCardBacklightDisabled) {
       const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
+      const glowColor = `rgba(255, 193, 7, ${intensity * 0.7})`;
+      const shadowColor = `rgba(255, 87, 34, ${intensity * 0.5})`;
+      cardStyle.boxShadow = `0 0 ${15 * intensity}px ${glowColor}, 0 2px ${25 * intensity}px ${shadowColor}`;
       
-      const color1 = `rgba(255, 193, 7, ${intensity * 0.5})`; // Gold
-      const color2 = `rgba(255, 87, 34, ${intensity * 0.3})`; // Deep Orange
-      
-      cardStyle.boxShadow = `0 0 20px 0px ${color1}, 0 0 40px 10px ${color2}`;
-
       const existingTransform = cardStyle.transform || '';
       cardStyle.transform = `${existingTransform} translateY(-2px)`;
     }
@@ -117,18 +123,13 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       style={cardStyle}
       className={cn(
         "w-64 transition-all duration-200 relative", 
-        "data-[shape=default]:rounded-lg",
-        "data-[shape=rounded]:rounded-full",
-        "data-[shape=hexagon]:[clip-path:polygon(50%_0%,_100%_25%,_100%_75%,_50%_100%,_0%_75%,_0%_25%)]",
-        "data-[shape=bordered]:border-4 data-[shape=bordered]:border-amber-400",
-        selected ? 'border-primary shadow-lg' : 'border-border',
-        isLocked && 'border-destructive border-2',
+        selected && 'ring-2 ring-primary ring-offset-2',
       )}
-      data-shape={isOwner ? creatorCardShape : 'default'}
+      data-design={isOwner ? creatorCardDesign : 'default'}
     >
       {isLocked && (
-        <div className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 z-10">
-          <Lock className="h-3 w-3" />
+        <div className="absolute -top-1.5 -right-1.5 bg-background text-muted-foreground rounded-full p-0.5 z-10 border">
+          <Lock className="h-2.5 w-2.5" />
         </div>
       )}
       {/* Each handle has a unique ID. Side handles are split into `source` and `target` to be unambiguous. */}

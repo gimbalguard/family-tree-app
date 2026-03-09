@@ -21,7 +21,11 @@ export type FamilyTree = {
   creatorCardBacklightIntensity?: number;
   creatorCardBacklightDisabled?: boolean;
   creatorCardSize?: number;
-  creatorCardShape?: 'default' | 'rounded' | 'hexagon' | 'bordered';
+  creatorCardDesign?: 'default' | 'modern' | 'elegant' | 'minimalist';
+  cardBackgroundColor?: string;
+  cardBorderColor?: string;
+  cardBorderWidth?: number;
+  canvasBackgroundColor?: string;
 };
 
 export type Person = {
@@ -60,7 +64,11 @@ export type Person = {
   creatorCardBacklightIntensity?: number;
   creatorCardBacklightDisabled?: boolean;
   creatorCardSize?: number;
-  creatorCardShape?: 'default' | 'rounded' | 'hexagon' | 'bordered';
+  creatorCardDesign?: 'default' | 'modern' | 'elegant' | 'minimalist';
+  // Global styles passed down
+  cardBackgroundColor?: string;
+  cardBorderColor?: string;
+  cardBorderWidth?: number;
 };
 
 export type Relationship = {

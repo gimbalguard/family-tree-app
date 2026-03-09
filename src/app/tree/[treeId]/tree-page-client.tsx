@@ -266,6 +266,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     isGroupDrag: boolean;
     initialNodePositions: Map<string, XYPosition>;
   } | null>(null);
+  
+  const [canvasBg, setCanvasBg] = useState<string | undefined>(undefined);
 
   const recordHistory = useCallback(() => {
     const currentPast = historyRef.current.past;
@@ -389,12 +391,15 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           ...person,
           isLocked: pos?.isLocked ?? false,
           groupId: pos?.groupId ?? null,
+          cardBackgroundColor: currentTree.cardBackgroundColor,
+          cardBorderColor: currentTree.cardBorderColor,
+          cardBorderWidth: currentTree.cardBorderWidth,
           isOwner,
           ...(isOwner && {
             creatorCardBacklightIntensity: currentTree.creatorCardBacklightIntensity,
             creatorCardBacklightDisabled: currentTree.creatorCardBacklightDisabled,
             creatorCardSize: currentTree.creatorCardSize,
-            creatorCardShape: currentTree.creatorCardShape,
+            creatorCardDesign: currentTree.creatorCardDesign,
           }),
         },
         draggable: !(pos?.isLocked ?? false),
@@ -465,6 +470,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
       
       setTree(treeData);
+      setCanvasBg(treeData.canvasBackgroundColor);
       setCanvasPositions(posData);
       setManualEvents(manualEventsData);
       deriveStateFromData(peopleData, relsData, posData, treeData);
@@ -572,7 +578,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     if (tree) {
       setNameValue(tree.treeName);
     }
-  }, [tree?.treeName]);
+  }, [tree]);
 
   useEffect(() => {
     if (!isUserLoading && (!user || user.isAnonymous)) {
@@ -1258,13 +1264,14 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     const newTreeData = { ...tree, ...details };
     setTree(newTreeData);
 
-    if ('treeName' in details) {
-        setNameValue(details.treeName!);
+    if ('treeName' in details && details.treeName) {
+        setNameValue(details.treeName);
     }
-    if ('ownerPersonId' in details || 'creatorCardBacklightIntensity' in details || 'creatorCardBacklightDisabled' in details || 'creatorCardSize' in details || 'creatorCardShape' in details) {
-      deriveStateFromData(people, relationships, canvasPositions, newTreeData as FamilyTree);
+    if (details.canvasBackgroundColor) {
+      setCanvasBg(details.canvasBackgroundColor);
     }
-
+    
+    deriveStateFromData(people, relationships, canvasPositions, newTreeData as FamilyTree);
 
     try {
         await updateDoc(treeRef, { ...details, updatedAt: serverTimestamp() });
@@ -1641,7 +1648,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           isTimelineCompact={isTimelineCompact}
           onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
         />
-        <main className="flex-1 relative overflow-hidden" id="main-view-container">
+        <main className="flex-1 relative overflow-hidden" id="main-view-container" style={{ backgroundColor: canvasBg }}>
         <input
             type="file"
             ref={importFileInputRef}
