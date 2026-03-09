@@ -35,14 +35,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Copy } from 'lucide-react';
+import { Loader2, Copy, Star } from 'lucide-react';
 import type { FamilyTree, Person } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PersonNode } from './person-node';
 
 
 const settingsSchema = z.object({
@@ -53,7 +52,7 @@ const settingsSchema = z.object({
   creatorCardBacklightIntensity: z.number().min(0).max(100).optional(),
   creatorCardBacklightDisabled: z.boolean().optional(),
   creatorCardSize: z.number().min(50).max(200).optional(),
-  creatorCardDesign: z.enum(['default', 'modern', 'elegant', 'minimalist']).optional(),
+  creatorCardDesign: z.enum(['default', 'modern', 'elegant', 'star']).optional(),
   cardBackgroundColor: z.string().optional(),
   cardBorderColor: z.string().optional(),
   cardBorderWidth: z.number().min(0).max(10).optional(),
@@ -68,7 +67,7 @@ type SettingsModalProps = {
   onUpdate: (details: Partial<FamilyTree>) => Promise<void>;
 };
 
-const CardPreview = ({ design, bgColor, borderColor, borderWidth }: { design: string, bgColor?: string, borderColor?: string, borderWidth?: number }) => {
+const CardPreview = ({ design, bgColor, borderColor, borderWidth }: { design?: string, bgColor?: string, borderColor?: string, borderWidth?: number }) => {
     const style: React.CSSProperties = {
         backgroundColor: bgColor || 'hsl(var(--card))',
         borderColor: borderColor || 'hsl(var(--border))',
@@ -77,13 +76,25 @@ const CardPreview = ({ design, bgColor, borderColor, borderWidth }: { design: st
 
     return (
         <div 
-            className="w-full h-full bg-card border rounded-md shadow-sm"
+            className="w-full h-full bg-card border rounded-md shadow-sm relative"
             style={style}
-            data-design={design}
         >
-          {design === 'modern' && <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary/20 border-2 border-primary" />}
-          {design === 'elegant' && <div className="p-1 h-full flex flex-col"><div className="font-serif text-[5px] text-stone-300">שם</div><div className="flex-1 border-t border-stone-600 mt-0.5" /></div>}
-          {design === 'minimalist' && <div className="flex items-center p-1 h-full"><div className="w-3 h-3 rounded-full bg-muted"/><div className="flex-1 h-2 bg-muted ml-1 rounded-sm"/></div>}
+          <div className="p-1 h-full flex flex-col items-center justify-center gap-1">
+            <div className="w-4 h-4 rounded-full bg-muted"/>
+            <div className="w-10 h-1.5 bg-muted rounded-sm"/>
+            <div className="w-8 h-1 bg-muted/50 rounded-sm"/>
+          </div>
+
+          {design === 'modern' && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary/20 border border-primary" />}
+          {design === 'elegant' && (
+            <>
+              <div className="absolute top-1 left-1 w-2 h-px bg-muted-foreground/50"/>
+              <div className="absolute top-1 right-1 w-2 h-px bg-muted-foreground/50"/>
+              <div className="absolute bottom-1 left-1 w-2 h-px bg-muted-foreground/50"/>
+              <div className="absolute bottom-1 right-1 w-2 h-px bg-muted-foreground/50"/>
+            </>
+          )}
+          {design === 'star' && <div className="absolute -top-1 -right-1.5"><Star className="w-3 h-3 text-amber-400 fill-amber-300" /></div>}
         </div>
     )
 }
@@ -92,7 +103,7 @@ const designOptions: {value: NonNullable<FamilyTree['creatorCardDesign']>, label
     { value: 'default', label: 'ברירת מחדל' },
     { value: 'modern', label: 'מודרני' },
     { value: 'elegant', label: 'אלגנטי' },
-    { value: 'minimalist', label: 'מינימליסטי' },
+    { value: 'star', label: 'כוכב' },
 ];
 
 export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: SettingsModalProps) {
@@ -206,114 +217,112 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                 <TabsTrigger value="creator-card">כרטיס היוצר</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="general" className="flex-1 min-h-0 mt-0">
+              <div className="flex-1 min-h-0">
                   <ScrollArea className="h-full">
-                    <div className="space-y-6 px-6 py-4">
-                        <FormField control={form.control} name="treeName" render={({ field }) => (
-                            <FormItem><FormLabel>שם העץ</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="ownerPersonId" render={({ field }) => (
-                            <FormItem><FormLabel>מי אני בעץ?</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                                <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="--none--">- ללא -</SelectItem>
-                                    {people.map(p => (
-                                        <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select><FormMessage /></FormItem>
-                        )}/>
-                        <Separator/>
-                        <FormField control={form.control} name="language" render={({ field }) => (
-                            <FormItem><FormLabel>שפה</FormLabel>
+                    <TabsContent value="general" className="mt-0">
+                        <div className="space-y-6 px-6 py-4">
+                            <FormField control={form.control} name="treeName" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>שם העץ</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="ownerPersonId" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>מי אני בעץ?</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
                                     <SelectContent>
-                                        <SelectItem value="he">עברית</SelectItem>
-                                        <SelectItem value="en">English</SelectItem>
+                                        <SelectItem value="--none--">- ללא -</SelectItem>
+                                        {people.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.firstName} {p.lastName}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select><FormMessage /></FormItem>
-                        )}/>
-                        <Separator/>
-                        <FormField control={form.control} name="privacy" render={({ field }) => (
-                            <FormItem className="space-y-3"><FormLabel>פרטיות</FormLabel>
-                                <FormControl>
-                                <RadioGroup onValueChange={field.onChange} value={field.value} className="space-y-2">
-                                    <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="private" /></FormControl><FormLabel className="font-normal">פרטי (רק אני יכול לראות)</FormLabel></FormItem>
-                                    <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="link" /></FormControl><FormLabel className="font-normal">קישור בלבד (כל מי עם הקישור יכול לראות)</FormLabel></FormItem>
-                                    <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="public" /></FormControl><FormLabel className="font-normal">ציבורי (גלוי לכל משתמשי הפלטפורמה)</FormLabel></FormItem>
-                                </RadioGroup>
-                                </FormControl>
-                                <FormMessage />
-                                {privacyValue === 'link' && (
-                                    <div className="flex items-center space-x-2 space-x-reverse pt-2">
-                                        <Input value={shareLink} readOnly /><Button type="button" size="icon" onClick={copyShareLink} disabled={!shareLink}><Copy className="h-4 w-4" /></Button>
-                                    </div>
-                                )}
-                            </FormItem>
-                        )}/>
-                    </div>
-                  </ScrollArea>
-              </TabsContent>
-               <TabsContent value="global-design" className="flex-1 min-h-0 mt-0">
-                  <ScrollArea className="h-full">
-                     <div className="space-y-6 px-6 py-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="canvasBackgroundColor" render={({ field }) => (
-                                <FormItem><FormLabel>צבע רקע קנבס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
                             )}/>
-                            <FormField control={form.control} name="cardBackgroundColor" render={({ field }) => (
-                                <FormItem><FormLabel>צבע רקע כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                            <Separator/>
+                            <FormField control={form.control} name="language" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>שפה</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} dir="rtl">
+                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="he">עברית</SelectItem>
+                                            <SelectItem value="en">English</SelectItem>
+                                        </SelectContent>
+                                    </Select><FormMessage /></FormItem>
                             )}/>
-                             <FormField control={form.control} name="cardBorderColor" render={({ field }) => (
-                                <FormItem><FormLabel>צבע גבול כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                            <Separator/>
+                            <FormField control={form.control} name="privacy" render={({ field }) => (
+                                <FormItem className="space-y-3 text-right"><FormLabel>פרטיות</FormLabel>
+                                    <FormControl>
+                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="space-y-2">
+                                        <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="private" /></FormControl><FormLabel className="font-normal">פרטי (רק אני יכול לראות)</FormLabel></FormItem>
+                                        <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="link" /></FormControl><FormLabel className="font-normal">קישור בלבד (כל מי עם הקישור יכול לראות)</FormLabel></FormItem>
+                                        <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="public" /></FormControl><FormLabel className="font-normal">ציבורי (גלוי לכל משתמשי הפלטפורמה)</FormLabel></FormItem>
+                                    </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                    {privacyValue === 'link' && (
+                                        <div className="flex items-center space-x-2 space-x-reverse pt-2">
+                                            <Input value={shareLink} readOnly /><Button type="button" size="icon" onClick={copyShareLink} disabled={!shareLink}><Copy className="h-4 w-4" /></Button>
+                                        </div>
+                                    )}
+                                </FormItem>
                             )}/>
                         </div>
-                         <FormField control={form.control} name="cardBorderWidth" render={({ field }) => (
-                            <FormItem><FormLabel>עובי גבול ({field.value}px)</FormLabel><FormControl><Slider value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={10} step={1} /></FormControl></FormItem>
-                        )}/>
-                     </div>
+                    </TabsContent>
+                    <TabsContent value="global-design" className="mt-0">
+                        <div className="space-y-6 px-6 py-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField control={form.control} name="canvasBackgroundColor" render={({ field }) => (
+                                    <FormItem className='text-right'><FormLabel>צבע רקע קנבס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="cardBackgroundColor" render={({ field }) => (
+                                    <FormItem className='text-right'><FormLabel>צבע רקע כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="cardBorderColor" render={({ field }) => (
+                                    <FormItem className='text-right'><FormLabel>צבע גבול כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                                )}/>
+                            </div>
+                            <FormField control={form.control} name="cardBorderWidth" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>עובי גבול ({field.value}px)</FormLabel><FormControl><Slider value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={10} step={1} /></FormControl></FormItem>
+                            )}/>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="creator-card" className="mt-0">
+                        <div className="space-y-6 px-6 py-4">
+                            <FormField control={form.control} name="creatorCardDesign" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>עיצוב כרטיס יוצר</FormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
+                                            {designOptions.map(opt => {
+                                                const itemId = `design-option-${opt.value}`;
+                                                return (
+                                                    <div key={opt.value}>
+                                                        <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
+                                                        <Label htmlFor={itemId} className={cn("flex flex-col items-center justify-between gap-2 rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer h-24", field.value === opt.value && "border-primary")}>
+                                                            <div className="w-full h-full flex items-center justify-center"><div className="w-16 h-10 relative">
+                                                            <CardPreview design={opt.value} bgColor={formValues.cardBackgroundColor} borderColor={formValues.cardBorderColor} borderWidth={formValues.cardBorderWidth} />
+                                                            </div></div>
+                                                            <span className="text-xs font-normal text-center">{opt.label}</span>
+                                                        </Label>
+                                                    </div>
+                                                );
+                                            })}
+                                        </RadioGroup>
+                                    </FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>גודל כרטיס יוצר ({field.value || 100}%)</FormLabel><FormControl><Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} /></FormControl></FormItem>
+                            )}/>
+                            <Separator/>
+                            <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
+                                <FormItem className='text-right'><FormLabel>עוצמת תאורה אחורית ({field.value || 0}%)</FormLabel>
+                                <FormControl><Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} /></FormControl></FormItem>
+                            )}/>
+                            <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
+                                <FormItem className="flex items-center justify-end gap-2 text-right"><FormLabel className="!mt-0">בטל הבלטת כרטיס</FormLabel><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>
+                            )}/>
+                        </div>
+                    </TabsContent>
                   </ScrollArea>
-              </TabsContent>
-              <TabsContent value="creator-card" className="flex-1 min-h-0 mt-0">
-                  <ScrollArea className="h-full">
-                     <div className="space-y-6 px-6 py-4">
-                        <FormField control={form.control} name="creatorCardDesign" render={({ field }) => (
-                            <FormItem><FormLabel>עיצוב כרטיס יוצר</FormLabel>
-                                <FormControl>
-                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-                                        {designOptions.map(opt => {
-                                            const itemId = `design-option-${opt.value}`;
-                                            return (
-                                                <div key={opt.value}>
-                                                    <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
-                                                    <Label htmlFor={itemId} className={cn("flex flex-col items-center justify-between gap-2 rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer h-24", field.value === opt.value && "border-primary")}>
-                                                        <div className="w-full h-full flex items-center justify-center"><div className="w-16 h-10 relative">
-                                                          <CardPreview design={opt.value} bgColor={formValues.cardBackgroundColor} borderColor={formValues.cardBorderColor} borderWidth={formValues.cardBorderWidth} />
-                                                        </div></div>
-                                                        <span className="text-xs font-normal text-center">{opt.label}</span>
-                                                    </Label>
-                                                </div>
-                                            );
-                                        })}
-                                    </RadioGroup>
-                                </FormControl><FormMessage /></FormItem>
-                        )}/>
-                         <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
-                            <FormItem><FormLabel>גודל כרטיס יוצר ({field.value || 100}%)</FormLabel><FormControl><Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} /></FormControl></FormItem>
-                        )}/>
-                        <Separator/>
-                        <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
-                            <FormItem><FormLabel>עוצמת תאורה אחורית ({field.value || 0}%)</FormLabel>
-                            <FormControl><Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} /></FormControl></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
-                            <FormItem className="flex items-center gap-2"><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl><FormLabel className="!mt-0">בטל הבלטת כרטיס</FormLabel></FormItem>
-                        )}/>
-                     </div>
-                  </ScrollArea>
-              </TabsContent>
+              </div>
             </Tabs>
             <DialogFooter className="p-6 border-t shrink-0">
                 <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
