@@ -355,7 +355,11 @@ export function DashboardClient() {
         snapshot.docs.forEach((d) => batch.delete(d.ref));
       }
       
-      const sharedTreesQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeToDelete.id));
+      const sharedTreesQuery = query(
+        collection(db, "sharedTrees"), 
+        where("treeId", "==", treeToDelete.id),
+        where("ownerUserId", "==", user.uid)
+      );
       const sharedTreesSnapshot = await getDocs(sharedTreesQuery);
       sharedTreesSnapshot.forEach((doc) => {
         batch.delete(doc.ref);
@@ -374,7 +378,10 @@ export function DashboardClient() {
         description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
       });
 
-      window.location.reload();
+      setMyTrees(prev => prev.filter(tree => tree.id !== treeToDelete.id));
+      if (treeToDelete.privacy === 'public') {
+        setPublicTrees(prev => prev.filter(tree => tree.id !== treeToDelete.id));
+      }
 
     } catch (error: any) {
       console.error("Error deleting tree:", error);
@@ -383,6 +390,7 @@ export function DashboardClient() {
         title: 'שגיאה במחיקת העץ',
         description: "לא ניתן היה למחוק את העץ. נסה שוב.",
       });
+    } finally {
       setIsDeleting(false);
       setIsAlertOpen(false);
       setTreeToDelete(null);
