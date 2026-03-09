@@ -159,7 +159,7 @@ export function TreeCard({
                  <DropdownMenuItem onClick={onDuplicate}>
                     <Copy className="ml-2 h-4 w-4" /> שכפל עץ
                  </DropdownMenuItem>
-                 <DropdownMenuItem onSelect={(e) => { e.preventDefault(); onShare?.(); }}>
+                 <DropdownMenuItem onClick={onShare}>
                     <Share2 className="ml-2 h-4 w-4" /> שתף עם משתמש
                  </DropdownMenuItem>
                  <DropdownMenuItem onClick={onUploadCover}>

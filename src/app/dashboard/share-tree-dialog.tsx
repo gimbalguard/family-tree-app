@@ -64,7 +64,7 @@ export function ShareTreeDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[425px]" onCloseAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>שתף את העץ "{treeName}"</DialogTitle>
