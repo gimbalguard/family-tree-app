@@ -1,3 +1,4 @@
+
 /**
  * Core Philosophy: This ruleset enforces a strict user-ownership model. All data is considered private and is
  * exclusively accessible to the user who created it. Access control is based on the user's authenticated UID.
@@ -93,11 +94,10 @@ service cloud.firestore {
     /**
      * isImmutable_SubTreeItem
      * Ensures the denormalized `userId` and `treeId` fields are immutable during an update.
+     * This version correctly handles partial updates by comparing the final state
+     * (`request.resource.data`) with the pre-update state (`resource.data`).
      */
     function isImmutable_SubTreeItem() {
-      // This rule ensures that an update operation cannot change the 'userId' or 'treeId' fields.
-      // It compares the value in the existing document (resource.data) with the value in the
-      // document as it would be after the update (request.resource.data).
       return request.resource.data.userId == resource.data.userId &&
              request.resource.data.treeId == resource.data.treeId;
     }
@@ -107,8 +107,8 @@ service cloud.firestore {
      * Ensures the denormalized relational IDs on a SocialLink are immutable.
      */
     function isImmutable_SocialLink() {
-      let data = request.resource.data;
-      return isImmutable_SubTreeItem() && data.personId == resource.data.personId;
+      return isImmutable_SubTreeItem() &&
+             request.resource.data.personId == resource.data.personId;
     }
 
     //-------------------------------------------------------------------------

@@ -662,16 +662,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   }, [tree]);
 
   useEffect(() => {
-    if (!isUserLoading && !readOnly && (!user || user.isAnonymous)) {
-      router.replace('/login');
-    }
-  }, [user, isUserLoading, router, readOnly]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!isUserLoading && user) {
+    if (!isUserLoading && user && !hasInitiallyLoaded.current) {
+      hasInitiallyLoaded.current = true;
       fetchData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isUserLoading, user]);
 
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
@@ -1073,18 +1068,24 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
-      const { 
-        id, createdAt, updatedAt, userId, treeId: personTreeId,
-        isLocked, groupId, isOwner, 
-        childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count,
-        creatorCardBacklightIntensity, creatorCardBacklightDisabled, creatorCardSize, creatorCardDesign,
-        cardBackgroundColor, cardBorderColor, cardBorderWidth, cardDesign,
-        ...dataForFirestore 
-      } = personData as any;
-
-      const dataToUpdate = { 
-        ...dataForFirestore, 
-        updatedAt: serverTimestamp() 
+      const dataToUpdate = {
+          firstName: personData.firstName,
+          lastName: personData.lastName,
+          middleName: personData.middleName || null,
+          previousFirstName: personData.previousFirstName || null,
+          maidenName: personData.maidenName || null,
+          nickname: personData.nickname || null,
+          gender: personData.gender,
+          birthDate: personData.birthDate || null,
+          deathDate: personData.deathDate || null,
+          birthPlace: personData.birthPlace || null,
+          status: personData.status,
+          religion: personData.religion || null,
+          countryOfResidence: personData.countryOfResidence || null,
+          cityOfResidence: personData.cityOfResidence || null,
+          photoURL: personData.photoURL || null,
+          description: personData.description || null,
+          updatedAt: serverTimestamp(),
       };
 
       await updateDoc(docRef, dataToUpdate);
@@ -1235,6 +1236,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setRelationships(newRelationships);
     setCanvasPositions(newPositions);
     deriveStateFromData(newPeople, newRelationships, newPositions, tree);
+
+    requestAnimationFrame(() => {
+        const canvas = document.querySelector('.react-flow') as HTMLElement;
+        if (canvas) canvas.focus();
+    });
   
     try {
       const batch = writeBatch(db);
