@@ -1170,43 +1170,56 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsDeleting(true);
     setIsDeleteAlertOpen(false);
   
+    const personIdToDelete = personToDelete.id;
+  
+    // Optimistic UI update FIRST — remove from local state immediately
+    const newPeople = people.filter(p => p.id !== personIdToDelete);
+    const newRelationships = relationships.filter(
+      r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
+    );
+    const newPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
+  
+    setPeople(newPeople);
+    setRelationships(newRelationships);
+    setCanvasPositions(newPositions);
+    deriveStateFromData(newPeople, newRelationships, newPositions, tree);
+  
     try {
-      const personIdToDelete = personToDelete.id;
-      
       const batch = writeBatch(db);
-      
       const basePath = `users/${user.uid}/familyTrees/${treeId}`;
       const personRef = doc(db, basePath, 'people', personIdToDelete);
-      
+  
       const relsQueryA = query(collection(db, basePath, 'relationships'), where('personAId', '==', personIdToDelete));
       const relsQueryB = query(collection(db, basePath, 'relationships'), where('personBId', '==', personIdToDelete));
       const posQuery = query(collection(db, basePath, 'canvasPositions'), where('personId', '==', personIdToDelete));
       const socialLinksQuery = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
-      
+  
       const [relsSnapA, relsSnapB, posSnap, socialLinksSnap] = await Promise.all([
         getDocs(relsQueryA),
         getDocs(relsQueryB),
         getDocs(posQuery),
         getDocs(socialLinksQuery),
       ]);
-      
+  
       [...relsSnapA.docs, ...relsSnapB.docs].forEach(d => batch.delete(d.ref));
       posSnap.docs.forEach(d => batch.delete(d.ref));
       socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
-      
       batch.delete(personRef);
-      
+  
       await batch.commit();
-      
+  
       toast({
         title: 'אדם נמחק',
         description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
       });
   
-      await fetchData();
-  
     } catch (error: any) {
+      // Revert on failure
       console.error("Error deleting person:", error);
+      setPeople(people);
+      setRelationships(relationships);
+      setCanvasPositions(canvasPositions);
+      deriveStateFromData(people, relationships, canvasPositions, tree);
       toast({
         variant: 'destructive',
         title: 'שגיאת מחיקה',
