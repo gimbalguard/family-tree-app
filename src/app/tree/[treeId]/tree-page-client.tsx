@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1165,57 +1166,54 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db || readOnly) return;
-  
+
     recordHistory();
     setIsDeleting(true);
-  
+
     const personIdToDelete = personToDelete.id;
-  
+    const personNameToDelete = `${personToDelete.firstName} ${personToDelete.lastName}`;
+
+    // Immediately start closing the dialog.
+    setIsDeleteAlertOpen(false);
+
+    // This delay allows the dialog's closing animation and focus management to complete
+    // before we mutate the DOM by removing the ReactFlow node. This prevents the race condition.
+    await new Promise(resolve => setTimeout(resolve, 200));
+
     try {
-      // First fetch social links BEFORE committing anything
-      const socialLinksRef = collection(
-        db, 'users', user.uid, 'familyTrees', treeId, 
-        'people', personIdToDelete, 'socialLinks'
-      );
-      const socialLinksSnapshot = await getDocs(socialLinksRef);
-  
+      // Now that the UI is stable, perform the database operations.
       const batch = writeBatch(db);
-  
+
+      // Fetch social links to include them in the atomic batch delete.
+      const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
+      const socialLinksSnapshot = await getDocs(socialLinksRef);
+      socialLinksSnapshot.forEach((doc) => batch.delete(doc.ref));
+
       // Delete the Person document
-      const personRef = doc(
-        db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete
-      );
+      const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
       batch.delete(personRef);
-  
+
       // Delete related relationships
       const relationshipsToDelete = relationships.filter(
         (r) => r.personAId === personIdToDelete || r.personBId === personIdToDelete
       );
       relationshipsToDelete.forEach((rel) => {
-        const relRef = doc(
-          db, 'users', user.uid, 'familyTrees', treeId, 'relationships', rel.id
-        );
+        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', rel.id);
         batch.delete(relRef);
       });
-  
+
       // Delete canvas position
       const positionToDelete = canvasPositions.find(
         (p) => p.personId === personIdToDelete
       );
       if (positionToDelete) {
-        const posRef = doc(
-          db, 'users', user.uid, 'familyTrees', treeId, 
-          'canvasPositions', positionToDelete.id
-        );
+        const posRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions', positionToDelete.id);
         batch.delete(posRef);
       }
-  
-      // Delete social links (already fetched above)
-      socialLinksSnapshot.forEach((d) => batch.delete(d.ref));
-  
+
       await batch.commit();
-  
-      // Only update UI AFTER successful Firestore commit
+
+      // UI state update AFTER successful deletion
       const newPeople = people.filter((p) => p.id !== personIdToDelete);
       const newRelationships = relationships.filter(
         (r) => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
@@ -1223,31 +1221,26 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const newCanvasPositions = canvasPositions.filter(
         (c) => c.personId !== personIdToDelete
       );
+      
       setPeople(newPeople);
       setRelationships(newRelationships);
       setCanvasPositions(newCanvasPositions);
       deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
-  
+
       toast({
         title: 'אדם נמחק',
-        description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק מהעץ.`,
+        description: `${personNameToDelete} נמחק מהעץ.`,
       });
     } catch (error: any) {
       console.error('Error deleting person:', error);
-      // State was never changed optimistically, so no revert needed
-      const permissionError = new FirestorePermissionError({
-        path: `users/${user.uid}/familyTrees/${treeId}/people/${personIdToDelete}`,
-        operation: 'delete',
-      });
-      errorEmitter.emit('permission-error', permissionError);
       toast({
         variant: 'destructive',
         title: 'שגיאת מחיקה',
-        description: error.message || 'An unexpected error occurred while deleting.',
+        description: 'לא ניתן היה למחוק את האדם. אנא רענן ונסה שוב.',
       });
     } finally {
+      // The dialog is already closed. Clean up the state.
       setIsDeleting(false);
-      setIsDeleteAlertOpen(false);
       setPersonToDelete(null);
     }
   };
@@ -1979,7 +1972,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
+        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2000,7 +1993,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
+        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
