@@ -93,7 +93,6 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   };
   
   const cardStyle: React.CSSProperties = {};
-  const glowStyle: React.CSSProperties = {};
   
   if (isOwner) {
     if (creatorCardSize) {
@@ -102,12 +101,14 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
     if (!creatorCardBacklightDisabled) {
       const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
-      glowStyle['--backlight-intensity' as any] = intensity;
+      
+      const color1 = `rgba(255, 193, 7, ${intensity * 0.5})`; // Gold
+      const color2 = `rgba(255, 87, 34, ${intensity * 0.3})`; // Deep Orange
+      
+      cardStyle.boxShadow = `0 0 20px 0px ${color1}, 0 0 40px 10px ${color2}`;
 
-      if (intensity > 0) {
-        cardStyle.transform = `${cardStyle.transform || ''} translateY(-2px)`;
-        cardStyle.boxShadow = `0 4px 15px rgba(0, 0, 0, 0.1)`;
-      }
+      const existingTransform = cardStyle.transform || '';
+      cardStyle.transform = `${existingTransform} translateY(-2px)`;
     }
   }
 
@@ -125,12 +126,6 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       )}
       data-shape={isOwner ? creatorCardShape : 'default'}
     >
-      {isOwner && !creatorCardBacklightDisabled && (
-        <div
-          className="creator-glow"
-          style={glowStyle}
-        />
-      )}
       {isLocked && (
         <div className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 z-10">
           <Lock className="h-3 w-3" />

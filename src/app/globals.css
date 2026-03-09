@@ -138,34 +138,3 @@ body.pdf-export-mode .react-flow__edge-path,
 body.pdf-export-mode .react-flow__edge.custom-edge .react-flow__edge-path {
   stroke: #26a69a !important;
 }
-
-/* Creator Card Glow Effect */
-@keyframes breathe {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: var(--backlight-intensity, 0.5);
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: calc(var(--backlight-intensity, 0.5) * 0.75);
-  }
-}
-
-.creator-glow {
-  content: '';
-  position: absolute;
-  inset: -25px;
-  z-index: -1;
-  border-radius: inherit; /* Follows the parent's border-radius */
-  background: radial-gradient(
-    ellipse at center,
-    rgba(255, 160, 50, 0.6) 0%, /* Golden amber */
-    rgba(255, 100, 20, 0.3) 40%, /* Deeper orange */
-    transparent 70%
-  );
-  filter: blur(30px);
-  animation: breathe 5s ease-in-out infinite;
-  opacity: var(--backlight-intensity, 0); /* Controlled by slider */
-  transition: opacity 0.3s ease-in-out;
-}
