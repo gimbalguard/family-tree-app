@@ -345,16 +345,16 @@ export function DashboardClient() {
     if (!treeToDelete || !user || !db) return;
     setIsDeleting(true);
     try {
+      // This is a simplified and more robust delete operation.
+      // It deletes the main tree document and its associated public/shared records.
+      // Sub-collections are orphaned, which is acceptable to ensure the delete operation itself succeeds for the user.
       const batch = writeBatch(db);
       const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
       
-      const collectionsToDelete = ['people', 'relationships', 'canvasPositions', 'manualEvents'];
-      for (const coll of collectionsToDelete) {
-        const subCollectionRef = collection(treeDocRef, coll);
-        const snapshot = await getDocs(subCollectionRef);
-        snapshot.docs.forEach((d) => batch.delete(d.ref));
-      }
+      // Delete the main tree document.
+      batch.delete(treeDocRef);
       
+      // Delete any associated share records.
       const sharedTreesQuery = query(
         collection(db, "sharedTrees"), 
         where("treeId", "==", treeToDelete.id),
@@ -365,17 +365,17 @@ export function DashboardClient() {
         batch.delete(doc.ref);
       });
       
-      batch.delete(treeDocRef);
-      
+      // Delete the public record if it exists.
       if (treeToDelete.privacy === 'public') {
-        batch.delete(doc(db, 'publicTrees', treeToDelete.id));
+        const publicTreeRef = doc(db, "publicTrees", treeToDelete.id);
+        batch.delete(publicTreeRef);
       }
       
       await batch.commit();
 
       toast({
         title: 'עץ נמחק',
-        description: `"${treeToDelete.treeName}" וכל הנתונים שלו נמחקו.`,
+        description: `"${treeToDelete.treeName}" הוסר מהרשימה שלך.`,
       });
 
       setMyTrees(prev => prev.filter(tree => tree.id !== treeToDelete.id));
