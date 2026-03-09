@@ -37,6 +37,8 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type CardTree = FamilyTree | (SharedTree & { ownerUsername?: string }) | PublicTree;
 
@@ -50,6 +52,7 @@ type TreeCardProps = {
   onSetPrivate?: () => void;
   onUploadCover?: () => void;
   onCreateShareLink?: () => void;
+  sharedWith?: string[];
 };
 
 const PrivacyBadge = ({ privacy }: { privacy?: FamilyTree['privacy'] }) => {
@@ -88,6 +91,7 @@ export function TreeCard({
   onSetPrivate,
   onUploadCover,
   onCreateShareLink,
+  sharedWith,
 }: TreeCardProps) {
   
   const creationDate = tree.createdAt?.toDate
@@ -186,6 +190,41 @@ export function TreeCard({
       </CardHeader>
       <CardContent className="flex-grow space-y-2 p-4">
          {type === 'owned' && 'privacy' in tree && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
+        
+        {sharedWith && sharedWith.length > 0 && (
+          <div className="pt-2">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">שותף עם:</p>
+            <TooltipProvider>
+              <div className="flex items-center space-x-2 space-x-reverse">
+                {sharedWith.slice(0, 5).map((email, index) => (
+                  <Tooltip key={index}>
+                    <TooltipTrigger>
+                      <Avatar className="h-6 w-6 border-2 border-white">
+                        <AvatarFallback>{email.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{email}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {sharedWith.length > 5 && (
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <Avatar className="h-6 w-6 border-2 border-white">
+                        <AvatarFallback>+{sharedWith.length - 5}</AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>ועוד {sharedWith.length - 5}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </TooltipProvider>
+          </div>
+        )}
+
         <div className="space-y-1 text-sm text-muted-foreground pt-2">
           <div className="flex items-center">
             <Users className="ml-2 h-4 w-4" />

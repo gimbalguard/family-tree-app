@@ -1,9 +1,9 @@
 'use client';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser, useFirestore, useStorage } from '@/firebase';
-import type { FamilyTree, SharedTree, PublicTree, Person, Relationship, CanvasPosition } from '@/lib/types';
+import type { FamilyTree, SharedTree } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Users, LogIn, Share2, Globe, Copy, Link as LinkIcon, Edit, Upload, Lock } from 'lucide-react';
+import { Loader2, PlusCircle, LogIn, Share2, Globe, Copy, Link as LinkIcon, Edit, Upload, Lock, Users } from 'lucide-react';
 import { NewTreeDialog } from './new-tree-dialog';
 import { TreeCard, TreeCardSkeleton } from './tree-card';
 import {
@@ -24,6 +24,8 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { v4 as uuidv4 } from 'uuid';
+import type { Person, Relationship, CanvasPosition } from '@/lib/types';
+
 
 export function DashboardClient() {
   const { user, isUserLoading } = useUser();
@@ -33,8 +35,8 @@ export function DashboardClient() {
   const { toast } = useToast();
   
   const [myTrees, setMyTrees] = useState<FamilyTree[]>([]);
-  const [sharedTrees, setSharedTrees] = useState<SharedTree[]>([]);
-  const [publicTrees, setPublicTrees] = useState<PublicTree[]>([]);
+  const [incomingSharedTrees, setIncomingSharedTrees] = useState<SharedTree[]>([]);
+  const [outgoingShares, setOutgoingShares] = useState<Map<string, string[]>>(new Map());
 
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -53,21 +55,19 @@ export function DashboardClient() {
   const isAnonymous = user?.isAnonymous ?? true;
 
   const fetchData = useCallback(async () => {
-    // Wait until user is determined and not anonymous, or if db is not ready
-    if (isUserLoading || !db) {
+    if (isUserLoading || !db || !user) {
       if (!isUserLoading) setIsLoading(false);
       return;
     }
-    if (!user) {
+    if (user.isAnonymous) {
         setIsLoading(false);
-        // Maybe fetch public trees here for anonymous view if needed
         return;
     }
 
 
     setIsLoading(true);
     try {
-      // Fetch My Trees
+      // 1. Fetch My Trees
       const myTreesRef = collection(db, 'users', user.uid, 'familyTrees');
       const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
@@ -88,15 +88,27 @@ export function DashboardClient() {
       const userTrees = await Promise.all(myTreesPromises);
       setMyTrees(userTrees);
 
-      // Fetch Shared Trees
-      const sharedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
-      const sharedSnapshot = await getDocs(sharedQuery);
-      setSharedTrees(sharedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SharedTree)));
+      // 2. Fetch all shares related to the user
+      const sharesOwnedQuery = query(collection(db, "sharedTrees"), where("ownerUserId", "==", user.uid));
+      const sharesReceivedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       
-      // Fetch Public Trees
-      const publicQuery = query(collection(db, "publicTrees"), limit(20));
-      const publicSnapshot = await getDocs(publicQuery);
-      setPublicTrees(publicSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as PublicTree)));
+      const [sharesOwnedSnapshot, sharesReceivedSnapshot] = await Promise.all([
+          getDocs(sharesOwnedQuery),
+          getDocs(sharesReceivedQuery)
+      ]);
+
+      // 3. Process outgoing shares (trees I own and shared with others)
+      const outgoingMap = new Map<string, string[]>();
+      sharesOwnedSnapshot.forEach(doc => {
+          const share = doc.data() as SharedTree;
+          const emails = outgoingMap.get(share.treeId) || [];
+          emails.push(share.sharedWithEmail);
+          outgoingMap.set(share.treeId, emails);
+      });
+      setOutgoingShares(outgoingMap);
+
+      // 4. Process incoming shares (trees others shared with me)
+      setIncomingSharedTrees(sharesReceivedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SharedTree)));
 
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -230,6 +242,7 @@ export function DashboardClient() {
       toast({ title: 'העץ שותף בהצלחה', description: `העץ "${treeToShare.treeName}" שותף עם ${email}.` });
       setIsShareDialogOpen(false);
       setTreeToShare(null);
+      fetchData(); // Refetch to show new shared status
     } catch (error) {
         console.error("Error sharing tree:", error);
         toast({ variant: 'destructive', title: 'שגיאה בשיתוף' });
@@ -350,6 +363,7 @@ export function DashboardClient() {
       
       batch.delete(treeDocRef);
       
+      // Also delete any shares related to this tree where I am the owner
       const sharedTreesQuery = query(
         collection(db, "sharedTrees"), 
         where("treeId", "==", treeToDelete.id),
@@ -372,10 +386,7 @@ export function DashboardClient() {
         description: `"${treeToDelete.treeName}" הוסר מהרשימה שלך.`,
       });
 
-      setMyTrees(prev => prev.filter(tree => tree.id !== treeToDelete.id));
-      if (treeToDelete.privacy === 'public') {
-        setPublicTrees(prev => prev.filter(tree => tree.id !== treeToDelete.id));
-      }
+      fetchData();
 
     } catch (error: any) {
       console.error("Error deleting tree:", error);
@@ -423,10 +434,7 @@ export function DashboardClient() {
       );
     }
 
-    const myPublicTrees = myTrees.filter(t => t.privacy === 'public');
-    const myPrivateTrees = myTrees.filter(t => t.privacy !== 'public');
-
-    if (myPublicTrees.length === 0 && myPrivateTrees.length === 0 && sharedTrees.length === 0) {
+    if (myTrees.length === 0 && incomingSharedTrees.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 py-24 text-center mt-8">
           <h3 className="mt-4 text-lg font-semibold">לא נמצאו עצים</h3>
@@ -441,15 +449,16 @@ export function DashboardClient() {
 
     return (
       <div className="space-y-12 mt-8">
-        {myPublicTrees.length > 0 && (
+        {myTrees.length > 0 && (
           <section>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Globe className="text-primary"/>העצים הציבוריים שלי</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4">העצים שלי</h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {myPublicTrees.map((tree) => (
+              {myTrees.map((tree) => (
                 <TreeCard
-                  key={`my-public-${tree.id}`}
+                  key={`my-tree-${tree.id}`}
                   tree={tree}
                   type="owned"
+                  sharedWith={outgoingShares.get(tree.id)}
                   onDelete={() => handleDeleteClick(tree)}
                   onDuplicate={() => handleDuplicateTree(tree)}
                   onShare={() => handleOpenShareDialog(tree)}
@@ -462,50 +471,18 @@ export function DashboardClient() {
             </div>
           </section>
         )}
-        {myPrivateTrees.length > 0 && (
+        {incomingSharedTrees.length > 0 && (
           <section>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Lock className="text-primary"/>העצים הפרטיים שלי</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4 flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary"/>
+              עצים ששותפו איתי
+            </h2>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {myPrivateTrees.map((tree) => (
-                <TreeCard
-                  key={`my-private-${tree.id}`}
-                  tree={tree}
-                  type="owned"
-                  onDelete={() => handleDeleteClick(tree)}
-                  onDuplicate={() => handleDuplicateTree(tree)}
-                  onShare={() => handleOpenShareDialog(tree)}
-                  onSetPublic={() => handleSetPublic(tree)}
-                  onSetPrivate={() => handleSetPrivate(tree)}
-                  onUploadCover={() => handleUploadCoverClick(tree)}
-                  onCreateShareLink={() => handleCreateShareLink(tree)}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-        {sharedTrees.length > 0 && (
-          <section>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Share2 className="text-primary"/>עצים ששותפו איתי</h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {sharedTrees.map((tree) => (
+              {incomingSharedTrees.map((tree) => (
                 <TreeCard
                   key={`shared-${tree.id}`}
                   tree={tree}
                   type="shared"
-                />
-              ))}
-            </div>
-          </section>
-        )}
-        {publicTrees.length > 0 && !isAnonymous && (
-          <section>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-800 flex items-center gap-2 mb-4"><Globe className="text-primary"/>עצים ציבוריים מהקהילה</h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {publicTrees.map((tree) => (
-                <TreeCard
-                  key={`public-${tree.id}`}
-                  tree={tree}
-                  type="public"
                 />
               ))}
             </div>
