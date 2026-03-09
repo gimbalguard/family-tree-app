@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { v4 as uuidv4 } from 'uuid';
-
 import {
   Dialog,
   DialogContent,
@@ -35,14 +34,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Copy, Star } from 'lucide-react';
+import { Loader2, Copy } from 'lucide-react';
 import type { FamilyTree, Person } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getPlaceholderImage } from '@/lib/placeholder-images';
 
 const settingsSchema = z.object({
   treeName: z.string().min(1, 'שם העץ הוא שדה חובה.'),
@@ -52,7 +52,7 @@ const settingsSchema = z.object({
   creatorCardBacklightIntensity: z.number().min(0).max(100).optional(),
   creatorCardBacklightDisabled: z.boolean().optional(),
   creatorCardSize: z.number().min(50).max(200).optional(),
-  creatorCardDesign: z.enum(['default', 'modern', 'elegant', 'star']).optional(),
+  creatorCardDesign: z.enum(['default', 'tech', 'natural', 'elegant']).optional(),
   cardBackgroundColor: z.string().optional(),
   cardBorderColor: z.string().optional(),
   cardBorderWidth: z.number().min(0).max(10).optional(),
@@ -67,43 +67,65 @@ type SettingsModalProps = {
   onUpdate: (details: Partial<FamilyTree>) => Promise<void>;
 };
 
-const CardPreview = ({ design, bgColor, borderColor, borderWidth }: { design?: string, bgColor?: string, borderColor?: string, borderWidth?: number }) => {
-    const style: React.CSSProperties = {
-        backgroundColor: bgColor || 'hsl(var(--card))',
-        borderColor: borderColor || 'hsl(var(--border))',
-        borderWidth: borderWidth ? `${borderWidth}px` : '1px',
-    };
+const CardPreview = ({
+  design,
+  bgColor,
+  borderColor,
+  borderWidth,
+  owner,
+}: {
+  design: 'default' | 'tech' | 'natural' | 'elegant',
+  bgColor?: string,
+  borderColor?: string,
+  borderWidth?: number,
+  owner?: Person,
+}) => {
+    const cardStyles: React.CSSProperties = {};
+    let designClasses = '';
+
+    if (design === 'default') {
+        cardStyles.backgroundColor = bgColor || 'hsl(var(--card))';
+        cardStyles.borderColor = borderColor || 'hsl(var(--border))';
+        cardStyles.borderWidth = borderWidth ? `${borderWidth}px` : '1px';
+    } else if (design === 'tech') {
+        designClasses = 'card-design-tech';
+    } else if (design === 'natural') {
+        designClasses = 'card-design-natural';
+    } else if (design === 'elegant') {
+        designClasses = 'card-design-elegant';
+    }
+
+    const ownerName = owner ? `${owner.firstName} ${owner.lastName}` : "שם האדם";
+    const photo = owner?.photoURL || getPlaceholderImage(owner?.gender || 'other');
 
     return (
         <div
-            className="w-full h-full bg-card border rounded-md shadow-sm relative p-1 flex items-center gap-1"
-            style={style}
+            className={cn("w-full h-full border rounded-lg shadow-sm relative p-2 flex items-center gap-2", designClasses)}
+            style={cardStyles}
         >
-            <div className="w-5 h-5 rounded-full bg-muted shrink-0"/>
-            <div className="flex-1 space-y-1">
-                <div className="w-10 h-1.5 bg-muted rounded-sm"/>
-                <div className="w-8 h-1 bg-muted/50 rounded-sm"/>
+            <div className={cn("rounded-full avatar-frame")}>
+              <Avatar className={cn("h-10 w-10 border")}>
+                <AvatarImage src={photo || ''} className="object-cover"/>
+                <AvatarFallback>
+                  {ownerName.charAt(0)}
+                </AvatarFallback>
+              </Avatar>
             </div>
-
-            {design === 'modern' && <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-primary/50 border border-primary" />}
-            {design === 'elegant' && (
-                <>
-                    <div className="absolute top-1 left-1 w-2 h-px bg-muted-foreground/50"/>
-                    <div className="absolute top-1 right-1 w-2 h-px bg-muted-foreground/50"/>
-                    <div className="absolute bottom-1 left-1 w-2 h-px bg-muted-foreground/50"/>
-                    <div className="absolute bottom-1 right-1 w-2 h-px bg-muted-foreground/50"/>
-                </>
-            )}
-            {design === 'star' && <div className="absolute top-0 right-0"><Star className="w-2.5 h-2.5 text-amber-400 fill-amber-300" /></div>}
+            <div className="flex-1 space-y-1 overflow-hidden">
+                <div className={cn("truncate text-sm font-bold text-main")}>
+                    {ownerName}
+                </div>
+                <div className={cn("w-10/12 h-2 rounded-sm text-sub", designClasses ? '' : 'bg-muted/50')} />
+            </div>
         </div>
     )
 }
 
 const designOptions: {value: NonNullable<FamilyTree['creatorCardDesign']>, label: string}[] = [
-    { value: 'default', label: 'ברירת מחדל' },
-    { value: 'modern', label: 'נקודת ציון' },
-    { value: 'elegant', label: 'מסגרת קלאסית' },
-    { value: 'star', label: 'כוכב העץ' },
+    { value: 'default', label: 'רגיל' },
+    { value: 'tech', label: 'טכנולוגי' },
+    { value: 'natural', label: 'טבעי' },
+    { value: 'elegant', label: 'אלגנטי' },
 ];
 
 export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: SettingsModalProps) {
@@ -132,6 +154,12 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
   const privacyValue = form.watch('privacy');
   const isBacklightDisabled = form.watch('creatorCardBacklightDisabled');
   const formValues = form.watch();
+  
+  const ownerPerson = useMemo(() => {
+    if (!tree?.ownerPersonId) return undefined;
+    return people.find(p => p.id === tree.ownerPersonId);
+  }, [tree, people]);
+
 
   useEffect(() => {
     if (tree && isOpen) {
@@ -286,9 +314,13 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                         </div>
                     </TabsContent>
                     <TabsContent value="creator-card" className="mt-0">
-                        <div className="space-y-6 px-6 py-4">
-                            <FormField control={form.control} name="creatorCardDesign" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>עיצוב כרטיס יוצר</FormLabel>
+                       <div className="space-y-6 px-6 py-4">
+                            <FormField
+                                control={form.control}
+                                name="creatorCardDesign"
+                                render={({ field }) => (
+                                    <FormItem className='text-right'>
+                                    <FormLabel>עיצוב כרטיס יוצר</FormLabel>
                                     <FormControl>
                                         <RadioGroup
                                             onValueChange={field.onChange}
@@ -298,8 +330,10 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                                             {designOptions.map((opt) => {
                                                 const itemId = `design-option-${opt.value}`;
                                                 return (
-                                                    <div key={opt.value}>
-                                                        <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
+                                                    <FormItem key={opt.value} className="space-y-0">
+                                                        <FormControl>
+                                                            <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
+                                                        </FormControl>
                                                         <Label
                                                             htmlFor={itemId}
                                                             className={cn(
@@ -307,9 +341,10 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                                                                 field.value === opt.value && "border-primary"
                                                             )}
                                                         >
-                                                            <div className="w-24 h-16 relative">
+                                                            <div className="w-full flex-1 relative">
                                                                 <CardPreview
                                                                     design={opt.value}
+                                                                    owner={ownerPerson}
                                                                     bgColor={formValues.cardBackgroundColor}
                                                                     borderColor={formValues.cardBorderColor}
                                                                     borderWidth={formValues.cardBorderWidth}
@@ -317,12 +352,15 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                                                             </div>
                                                             <span className="text-xs font-normal text-center">{opt.label}</span>
                                                         </Label>
-                                                    </div>
+                                                    </FormItem>
                                                 );
                                             })}
                                         </RadioGroup>
-                                    </FormControl><FormMessage /></FormItem>
-                            )}/>
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                             <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
                                 <FormItem className='text-right'><FormLabel>גודל כרטיס יוצר ({field.value || 100}%)</FormLabel><FormControl><Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} /></FormControl></FormItem>
                             )}/>

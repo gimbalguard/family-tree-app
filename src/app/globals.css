@@ -4,25 +4,25 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
+    --background: 250 15% 95%;
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 217 91% 60%;
+    --primary: 220 70% 55%;
     --primary-foreground: 0 0% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 220 70% 55%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 217 91% 60%;
+    --ring: 220 70% 55%;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -136,5 +136,60 @@ body.pdf-export-mode [data-export-hide] {
 
 body.pdf-export-mode .react-flow__edge-path,
 body.pdf-export-mode .react-flow__edge.custom-edge .react-flow__edge-path {
-  stroke: #26a69a !important;
+  stroke: hsl(var(--primary)) !important;
+}
+
+/* Card Designs */
+.card-design-tech {
+  background-color: #374151 !important;
+  color: #f3f4f6 !important;
+  border: 1px solid #4b5563 !important;
+  background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.card-design-tech .avatar-frame {
+  border-color: #9ca3af !important;
+}
+.card-design-tech .text-main, .card-design-tech .text-main * {
+  color: #f9fafb !important;
+}
+.card-design-tech .text-sub, .card-design-tech .text-sub * {
+  color: #d1d5db !important;
+}
+
+.card-design-natural {
+  background-color: #fdf6e3 !important;
+  color: #5c4813 !important;
+  border: 2px solid #C9A227 !important;
+}
+.card-design-natural .avatar-frame {
+  border: 3px solid #c9a227 !important;
+  padding: 2px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+.card-design-natural .text-main, .card-design-natural .text-main * {
+  color: #5c4813 !important;
+}
+.card-design-natural .text-sub, .card-design-natural .text-sub * {
+  color: #78716c !important;
+}
+
+.card-design-elegant {
+  background-color: #111827 !important;
+  color: #f3f4f6 !important;
+  border: 1px solid #d4af37 !important;
+  box-shadow: 0 0 0 1px #d4af37;
+}
+.card-design-elegant .avatar-frame {
+  border: 2px solid #d4af37 !important;
+}
+.card-design-elegant .text-main, .card-design-elegant .text-main * {
+  font-family: serif;
+  font-weight: bold;
+  color: #f3f4f6 !important;
+}
+.card-design-elegant .text-sub, .card-design-elegant .text-sub * {
+  color: #d1d5db !important;
 }

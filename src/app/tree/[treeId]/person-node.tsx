@@ -1,4 +1,3 @@
-
 'use client';
 import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
@@ -96,6 +95,8 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     background: 'hsl(var(--primary))',
   };
   
+  const design = isOwner ? creatorCardDesign : 'default';
+
   const cardStyle: React.CSSProperties = {
     backgroundColor: cardBackgroundColor,
     borderColor: cardBorderColor,
@@ -109,14 +110,20 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
     if (!creatorCardBacklightDisabled) {
       const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
-      const glowColor = `rgba(255, 193, 7, ${intensity * 0.7})`;
-      const shadowColor = `rgba(255, 87, 34, ${intensity * 0.5})`;
-      cardStyle.boxShadow = `0 0 ${15 * intensity}px ${glowColor}, 0 2px ${25 * intensity}px ${shadowColor}`;
+      const glowColor1 = `rgba(255, 193, 7, ${intensity * 0.7})`; // Amber
+      const glowColor2 = `rgba(255, 87, 34, ${intensity * 0.5})`; // Orange/Red
+      cardStyle.boxShadow = `0 0 ${15 * intensity}px ${glowColor1}, 0 0 ${45 * intensity}px ${glowColor2}`;
       
       const existingTransform = cardStyle.transform || '';
       cardStyle.transform = `${existingTransform} translateY(-2px)`;
     }
   }
+
+  const designClasses =
+    design === 'tech' ? 'card-design-tech' :
+    design === 'natural' ? 'card-design-natural' :
+    design === 'elegant' ? 'card-design-elegant' : '';
+
 
   return (
     <Card 
@@ -124,80 +131,75 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       className={cn(
         "w-64 transition-all duration-200 relative", 
         selected && 'ring-2 ring-primary ring-offset-2',
+        isOwner && designClasses
       )}
-      data-design={isOwner ? creatorCardDesign : 'default'}
     >
       {isLocked && (
-        <div className="absolute -top-1.5 -right-1.5 bg-background text-muted-foreground rounded-full p-0.5 z-10 border">
-          <Lock className="h-2.5 w-2.5" />
+        <div className="absolute -top-1 -right-1 bg-background text-muted-foreground rounded-full p-0.5 z-10 border shadow">
+          <Lock className="h-2 w-2" />
         </div>
       )}
-      {/* Each handle has a unique ID. Side handles are split into `source` and `target` to be unambiguous. */}
       
-      {/* Parent handle (now also a source for flexible connections) */}
+      {/* Handles */}
       <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
-      
-      {/* Child handle (source only) */}
       <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
-
-      {/* Spouse/Partner handles (upper) */}
       <Handle type="source" position={Position.Left} id="upper-left-source" style={{ ...handleStyle, top: '33%' }} />
       <Handle type="source" position={Position.Right} id="upper-right-source" style={{ ...handleStyle, top: '33%' }} />
-
-      {/* Sibling handles (lower) */}
       <Handle type="source" position={Position.Left} id="lower-left-source" style={{ ...handleStyle, top: '66%' }} />
       <Handle type="source" position={Position.Right} id="lower-right-source" style={{ ...handleStyle, top: '66%' }} />
       
       <CardHeader className="p-4">
         <div className="flex items-center gap-4">
-          <Avatar className="h-16 w-16 border">
-            <AvatarImage src={photoURL || ''} data-ai-hint="person photo" />
-            <AvatarFallback>
-                <img src={getPlaceholderImage(gender)} alt={`${firstName} ${lastName}`} />
-            </AvatarFallback>
-          </Avatar>
+          <div className={cn('avatar-frame rounded-full')}>
+            <Avatar className="h-16 w-16 border">
+              <AvatarImage src={photoURL || ''} data-ai-hint="person photo" />
+              <AvatarFallback>
+                  <img src={getPlaceholderImage(gender)} alt={`${firstName} ${lastName}`} />
+              </AvatarFallback>
+            </Avatar>
+          </div>
           <div className="flex-1 space-y-1">
-            <h3 className="font-bold text-lg leading-tight">{`${firstName} ${lastName}`}</h3>
-            {lifeYears && <p className="text-sm text-muted-foreground">{lifeYears}</p>}
+            <h3 className={cn("font-bold text-lg leading-tight text-main")}>{`${firstName} ${lastName}`}</h3>
+            {lifeYears && <p className={cn("text-sm text-muted-foreground text-sub")}>{lifeYears}</p>}
             <div className='flex items-center gap-2 pt-1'>
                 {getGenderBadge()}
                 {getStatusIcon()}
                 {getReligionIcon()}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 text-sub">
                 {(childrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
+                    <div className="flex items-center gap-1 text-xs" title={`${childrenCount} ילדים`}>
                         <Baby className="h-4 w-4" />
                         <span className="font-medium">{childrenCount}</span>
                     </div>
                 )}
                 {(siblingsCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
+                    <div className="flex items-center gap-1 text-xs" title={`${siblingsCount} אחים`}>
                         <Users className="h-4 w-4" />
                         <span className="font-medium">{siblingsCount}</span>
                     </div>
                 )}
                 {(grandchildrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${grandchildrenCount} נכדים`}>
-                        <Users className="h-4 w-4 opacity-80" />
+                    <div className="flex items-center gap-1 text-xs opacity-80" title={`${grandchildrenCount} נכדים`}>
+                        <Users className="h-4 w-4" />
                         <span className="font-medium">{grandchildrenCount}</span>
                     </div>
                 )}
                 {(greatGrandchildrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${greatGrandchildrenCount} נינים`}>
-                        <Users className="h-4 w-4 opacity-70" />
+                    <div className="flex items-center gap-1 text-xs opacity-70" title={`${greatGrandchildrenCount} נינים`}>
+                        <Users className="h-4 w-4" />
                         <span className="font-medium">{greatGrandchildrenCount}</span>
                     </div>
                 )}
                 {(gen4Count || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${gen4Count} חִמֵּשׁ`}>
-                        <Users className="h-4 w-4 opacity-60" />
+                    <div className="flex items-center gap-1 text-xs opacity-60" title={`${gen4Count} חִמֵּשׁ`}>
+                        <Users className="h-4 w-4" />
                         <span className="font-medium">{gen4Count}</span>
                     </div>
                 )}
                 {(gen5Count || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${gen5Count} שִׁשַּׁשׁ`}>
-                        <Users className="h-4 w-4 opacity-50" />
+                    <div className="flex items-center gap-1 text-xs opacity-50" title={`${gen5Count} שִׁשַּׁשׁ`}>
+                        <Users className="h-4 w-4" />
                         <span className="font-medium">{gen5Count}</span>
                     </div>
                 )}
