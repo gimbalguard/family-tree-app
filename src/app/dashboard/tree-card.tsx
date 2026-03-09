@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import type { FamilyTree, PublicTree, SharedTree } from '@/lib/types';
 import Image from 'next/image';
@@ -104,7 +105,7 @@ export function TreeCard({
 
   return (
     <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-1 overflow-hidden">
-      <div className="relative h-32 bg-muted">
+      <div className="relative h-28 bg-muted">
         {coverPhotoURL ? (
           <Image
             src={coverPhotoURL}
@@ -120,7 +121,7 @@ export function TreeCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
       </div>
 
-      <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2 p-4 relative -mt-12 z-10">
+      <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2 p-4 relative -mt-10 z-10">
         <div className="flex-1 space-y-1">
           <CardTitle className="hover:text-primary transition-colors text-lg text-white [text-shadow:_0_1px_3px_var(--tw-shadow-color)]">
             <Link href={linkHref} className="stretched-link">
@@ -128,7 +129,7 @@ export function TreeCard({
             </Link>
           </CardTitle>
           <CardDescription>
-            <div className="flex items-center text-xs text-slate-200 [text-shadow:_0_1px_2px_var(--tw-shadow-color)]">
+            <div className="flex items-center text-xs text-slate-300 [text-shadow:_0_1px_2px_var(--tw-shadow-color)]">
               {type === 'owned' ? (
                 <>
                   <Calendar className="ml-1 h-3 w-3" />
@@ -188,12 +189,12 @@ export function TreeCard({
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-grow space-y-2 p-4">
+      <CardContent className="flex-grow space-y-2 p-3">
          {type === 'owned' && 'privacy' in tree && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
         
         {sharedWith && sharedWith.length > 0 && (
           <div className="pt-2">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">שותף עם:</p>
+            <p className="text-xs font-semibold text-slate-600 mb-2">שותף עם:</p>
             <TooltipProvider>
               <div className="flex items-center space-x-2 space-x-reverse">
                 {sharedWith.slice(0, 5).map((email, index) => (
@@ -225,7 +226,7 @@ export function TreeCard({
           </div>
         )}
 
-        <div className="space-y-1 text-sm text-muted-foreground pt-2">
+        <div className="space-y-1 text-sm text-slate-600 pt-2">
           <div className="flex items-center">
             <Users className="ml-2 h-4 w-4" />
             <span>{tree.personCount ?? 0} אנשים</span>
@@ -236,7 +237,7 @@ export function TreeCard({
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-4">
+      <CardFooter className="p-3">
         <Button asChild variant="secondary" className="w-full">
           <Link href={linkHref}>פתח עץ</Link>
         </Button>
