@@ -1,7 +1,6 @@
-
 'use client';
 import React, { useCallback } from 'react';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Tooltip,
   TooltipContent,
@@ -130,6 +129,7 @@ export function CanvasToolbar({
   onBack,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
+  const router = useRouter();
 
   const exportOptions = [
     { label: 'PDF', icon: <FileText />, onClick: onOpenPdfModal },
@@ -177,6 +177,8 @@ export function CanvasToolbar({
           </TooltipContent>
         </Tooltip>
       )}
+
+      <Separator className="w-full my-1" />
 
       <div className="grid grid-cols-2 gap-2">
          {viewOptions.map((option) => (
@@ -262,31 +264,33 @@ export function CanvasToolbar({
       <div className="flex-grow" />
 
       {!readOnly && (
-        <div className="flex w-full flex-col gap-1">
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 px-2 border border-black"
-            onClick={onOpenSettings}
-          >
-            <Settings className="h-5 w-5" />
-            <span>הגדרות</span>
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 px-2 border border-black"
-            onClick={onOpenAccount}
-          >
-            <User className="h-5 w-5" />
-            <span>חשבון</span>
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start gap-2 px-2 border border-black"
-            onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
-          >
-            <HelpCircle className="h-5 w-5" />
-            <span>עזרה</span>
-          </Button>
+        <div className="flex w-full flex-col items-center gap-2">
+           <div className="flex gap-2">
+            <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={onOpenSettings} className="border border-black">
+                      <Settings className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>הגדרות</p></TooltipContent>
+            </Tooltip>
+             <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={onOpenAccount} className="border border-black">
+                      <User className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>חשבון</p></TooltipContent>
+            </Tooltip>
+             <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={() => router.push(`/tree/${treeId}/help`)} className="border border-black">
+                      <HelpCircle className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>עזרה</p></TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       )}
 
@@ -333,10 +337,11 @@ export function CanvasToolbar({
           <Popover>
             <PopoverTrigger asChild>
               <Button
+                variant="default"
+                size="sm"
                 className="w-full"
-                style={{ backgroundColor: '#2563eb' }}
               >
-                <Download className="h-5 w-5" />
+                <Download className="h-4 w-4 ml-2" />
                 <span className="text-sm">ייצוא / הדפסה</span>
               </Button>
             </PopoverTrigger>
