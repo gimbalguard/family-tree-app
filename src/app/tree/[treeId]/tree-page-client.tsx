@@ -668,11 +668,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    if (!isUserLoading && user && !hasInitiallyLoaded.current) {
-      hasInitiallyLoaded.current = true;
+    if (!isUserLoading && user) {
       fetchData();
     }
-  }, [isUserLoading, user, fetchData]);
+  }, [isUserLoading, user]);
 
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
     (event, node) => {
@@ -1185,12 +1184,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
     // Close dialog FIRST so Radix finishes its cleanup before we update React state
     setIsDeleteAlertOpen(false);
-  
-    // Safety net: ensure canvas gets focus after dialog unmounts and state settles
-    requestAnimationFrame(() => {
-      const canvas = document.querySelector('.react-flow') as HTMLElement;
-      if (canvas) canvas.focus();
-    });
   
     try {
       const batch = writeBatch(db);
