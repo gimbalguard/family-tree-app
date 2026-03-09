@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -99,6 +98,7 @@ import { cn } from '@/lib/utils';
 
 type TreePageClientProps = {
   treeId: string;
+  readOnly?: boolean;
 };
 
 export type ViewMode =
@@ -181,7 +181,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
   };
 };
 
-function TreeCanvasContainer({ treeId }: TreePageClientProps) {
+function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
   const db = useFirestore();
   const storage = useStorage();
@@ -270,6 +270,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   const [canvasBg, setCanvasBg] = useState<string | undefined>(undefined);
 
   const recordHistory = useCallback(() => {
+    if (readOnly) return;
     const currentPast = historyRef.current.past;
     if (currentPast.length > 0) {
       const lastState = currentPast[currentPast.length - 1];
@@ -284,7 +285,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     historyRef.current = { past: newPast, future: [] };
     setCanUndo(true);
     setCanRedo(false);
-  }, [nodes, edges]);
+  }, [nodes, edges, readOnly]);
 
   const handleUndo = useCallback(() => {
     if (historyRef.current.past.length === 0) return;
@@ -429,7 +430,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
             creatorCardSize: currentTree.creatorCardSize,
           }),
         },
-        draggable: !(pos?.isLocked ?? false),
+        draggable: !(pos?.isLocked ?? false) && !readOnly,
       };
     });
     setNodes(newNodes);
@@ -465,18 +466,65 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
       };
     });
     setEdges(newEdges);
-  }, [edgeType]);
+  }, [edgeType, readOnly]);
 
   const fetchData = useCallback(async () => {
-    if (!user || user.isAnonymous || !db) return;
+    if (isUserLoading || !db) return; // Wait for user state to be known
+    
+    // For writeable views, a non-anonymous user is required.
+    if (!readOnly && (!user || user.isAnonymous)) {
+        router.replace('/login');
+        return;
+    }
+    
+    // For read-only views, an anonymous user is fine.
+    if (readOnly && !user) {
+        // This should be brief as anonymous sign-in is quick.
+        return; 
+    }
+
     setIsLoading(true);
     setError(null);
     try {
-      const treeDetailsRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
-      const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
-      const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-      const posRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-      const manualEventsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'manualEvents');
+      let ownerId;
+      if (readOnly) {
+        // For read-only views, we need to discover the owner's ID
+        const publicDocRef = doc(db, 'publicTrees', treeId);
+        const publicDocSnap = await getDoc(publicDocRef);
+        if (publicDocSnap.exists()) {
+          ownerId = publicDocSnap.data().ownerUserId;
+        } else {
+            // It might be a tree shared directly with the user.
+            // Our rules allow this query even for anonymous users, it will just return empty if they are not the target.
+            const sharedQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeId), where("sharedWithUserId", "==", user!.uid), limit(1));
+            const sharedSnap = await getDocs(sharedQuery);
+            if (!sharedSnap.empty) {
+                ownerId = sharedSnap.docs[0].data().ownerUserId;
+            } else {
+                 // Final fallback: maybe I am the owner, just accessing my own tree via a view link.
+                 const myTreeRef = doc(db, 'users', user!.uid, 'familyTrees', treeId);
+                 const myTreeSnap = await getDoc(myTreeRef);
+                 if (myTreeSnap.exists()) {
+                     ownerId = user!.uid;
+                 } else {
+                     throw new Error('This tree is not public and has not been shared with you.');
+                 }
+            }
+        }
+      } else {
+        // For editable views, the current user must be the owner.
+        ownerId = user!.uid;
+      }
+      
+      if (!ownerId) {
+        throw new Error('Could not determine the owner of the tree.');
+      }
+      
+      const treeDetailsRef = doc(db, 'users', ownerId, 'familyTrees', treeId);
+      const peopleRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'people');
+      const relsRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'relationships');
+      const posRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'canvasPositions');
+      const manualEventsRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'manualEvents');
 
       const treeSnap = await getDoc(treeDetailsRef);
       if (!treeSnap.exists()) {
@@ -508,13 +556,14 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [treeId, user, db, deriveStateFromData]);
+  }, [treeId, user, db, deriveStateFromData, readOnly, isUserLoading, router]);
   
   const runSiblingDetection = useCallback((
     personIdsForCheck: string[], 
     currentPeople: Person[], 
     currentRels: Relationship[]
   ) => {
+    if (readOnly) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
     const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
     const siblingTypes = ['sibling', 'twin'];
     
@@ -575,7 +624,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         }
     }
     return { relationshipsToAdd, relationshipsToUpdate };
-  }, [treeId, user]);
+  }, [treeId, user, readOnly]);
 
   useEffect(() => {
     setEdges((eds) => eds.map((e) => ({ ...e, type: edgeType })));
@@ -608,19 +657,20 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   }, [tree]);
 
   useEffect(() => {
-    if (!isUserLoading && (!user || user.isAnonymous)) {
+    if (!isUserLoading && !readOnly && (!user || user.isAnonymous)) {
       router.replace('/login');
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, readOnly]);
 
   useEffect(() => {
-    if (!isUserLoading && user && !user.isAnonymous) {
+    if (!isUserLoading && user) {
       fetchData();
     }
   }, [fetchData, isUserLoading, user]);
 
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
     (event, node) => {
+      if (readOnly) return;
       event.preventDefault();
       setContextMenu(null); // Close any existing menu
 
@@ -648,7 +698,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
       }
     },
-    [getNodes, setNodes]
+    [getNodes, setNodes, readOnly]
   );
   
   const handlePaneClick: OnPaneClick = useCallback(() => {
@@ -666,6 +716,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const onNodeDragStart: OnNodeDragStart = useCallback(
     (_, node) => {
+      if (readOnly) return;
       recordHistory();
       const allNodes = getNodes();
       const isGroupDrag =
@@ -677,12 +728,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         initialNodePositions: new Map(allNodes.map((n) => [n.id, n.position])),
       };
     },
-    [getNodes, recordHistory]
+    [getNodes, recordHistory, readOnly]
   );
 
   const onNodeDrag: OnNodeDrag = useCallback(
     (_, draggedNode) => {
-      if (!dragRef.current) return;
+      if (!dragRef.current || readOnly) return;
       const { nodeId, isGroupDrag, initialNodePositions } = dragRef.current;
       if (draggedNode.data.isLocked) return;
 
@@ -717,12 +768,12 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         })
       );
     },
-    [setNodes]
+    [setNodes, readOnly]
   );
 
   const onNodeDragStop: OnNodeDragStop = useCallback(
     async (_, draggedNode) => {
-      if (!user || !db || !dragRef.current) return;
+      if (!user || !db || !dragRef.current || readOnly) return;
 
       const { isGroupDrag } = dragRef.current;
       const nodesToUpdate = isGroupDrag
@@ -770,7 +821,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
       dragRef.current = null;
     },
-    [user, db, treeId, getNodes]
+    [user, db, treeId, getNodes, readOnly]
   );
 
   const handleGroup = async () => {
@@ -883,19 +934,21 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
   const handleEdgeDoubleClick: OnEdgeDoubleClick = useCallback(
     (_, edge) => {
+      if (readOnly) return;
       const rel = relationships.find((r) => r.id === edge.id);
       if (rel) {
         setEditingRelationship(rel);
         setIsRelModalOpen(true);
       }
     },
-    [relationships]
+    [relationships, readOnly]
   );
 
   const handleNodeDoubleClick: OnNodeDoubleClick = useCallback((_, node) => {
+    if (readOnly) return;
     setSelectedPerson(node.data);
     setIsEditorOpen(true);
-  }, []);
+  }, [readOnly]);
   
   const handleEditorClose = () => {
     setIsEditorOpen(false);
@@ -903,6 +956,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleOpenEditorForNew = () => {
+    if (readOnly) return;
     setSelectedPerson(null);
     setIsEditorOpen(true);
   };
@@ -955,6 +1009,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleSavePerson = async (personData: any) => {
+    if (readOnly) return;
     recordHistory();
     if (selectedPerson) {
       await handleUpdatePerson(personData as Person);
@@ -1030,8 +1085,8 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
-    if (!user || !db) {
-        toast({ variant: 'destructive', title: 'שגיאת אימות' });
+    if (!user || !db || readOnly) {
+        if (!readOnly) toast({ variant: 'destructive', title: 'שגיאת אימות' });
         return false;
     }
     
@@ -1072,9 +1127,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
         return false;
     }
-  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, fetchData, recordHistory]);
+  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, fetchData, recordHistory, readOnly]);
 
   const handleDeleteRequest = (personId: string) => {
+    if (readOnly) return;
     const person = people.find((p) => p.id === personId);
     if (person) {
       setPersonToDelete(person);
@@ -1084,7 +1140,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleConfirmDelete = async () => {
-    if (!personToDelete || !user || !db) return;
+    if (!personToDelete || !user || !db || readOnly) return;
     
     recordHistory();
     setIsDeleting(true);
@@ -1155,9 +1211,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleConnect: OnConnect = useCallback((params) => {
+    if (readOnly) return;
     setNewConnection(params);
     setIsRelModalOpen(true);
-  }, []);
+  }, [readOnly]);
 
   const handleRelModalClose = () => {
     setIsRelModalOpen(false);
@@ -1169,7 +1226,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     relData: any;
     genderUpdate?: { personId: string; gender: 'male' | 'female' | 'other' };
   }) => {
-    if (!user || !db || !tree) return;
+    if (!user || !db || !tree || readOnly) return;
 
     recordHistory();
     const { relData, genderUpdate } = payload;
@@ -1245,7 +1302,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
   const handleDeleteRelationship = async (relationshipId: string) => {
-    if (!user || !db) return;
+    if (!user || !db || readOnly) return;
     
     recordHistory();
     const oldRelationships = relationships;
@@ -1273,15 +1330,16 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
   
   const isValidConnection = useCallback<IsValidConnection>((connection) => {
+    if (readOnly) return false;
     if (connection.source === connection.target) {
       return false;
     }
     return true;
-  }, []);
+  }, [readOnly]);
 
   const handleUpdateTreeDetails = useCallback(async (details: Partial<FamilyTree>) => {
-    if (!user || !db || !tree) {
-        toast({ variant: "destructive", title: "שגיאה", description: "לא ניתן לשמור את השינויים." });
+    if (!user || !db || !tree || readOnly) {
+        if (!readOnly) toast({ variant: "destructive", title: "שגיאה", description: "לא ניתן לשמור את השינויים." });
         return;
     }
 
@@ -1315,23 +1373,25 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-  }, [user, db, tree, treeId, toast, people, relationships, canvasPositions, deriveStateFromData]);
+  }, [user, db, tree, treeId, toast, people, relationships, canvasPositions, deriveStateFromData, readOnly]);
 
   const handleEditPerson = useCallback((personId: string) => {
+    if (readOnly) return;
     const personToEdit = people.find(p => p.id === personId);
     if (personToEdit) {
       setSelectedPerson(personToEdit);
       setIsEditorOpen(true);
     }
-  }, [people]);
+  }, [people, readOnly]);
 
   const handleOpenManualEventEditor = (event: Partial<ManualEvent> | null) => {
+    if (readOnly) return;
     setEditingManualEvent(event);
     setIsManualEventEditorOpen(true);
   };
   
   const handleSaveManualEvent = async (eventData: Omit<ManualEvent, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'treeId'> & { id?: string }) => {
-      if (!user || !db) return;
+      if (!user || !db || readOnly) return;
   
       const isEditing = 'id' in eventData;
   
@@ -1366,7 +1426,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
   
   const handleDeleteManualEvent = async (eventId: string) => {
-      if (!user || !db) return;
+      if (!user || !db || readOnly) return;
   
       try {
           const eventRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'manualEvents', eventId);
@@ -1386,7 +1446,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
 
     const handleFileSelectedForImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file) return;
+        if (!file || readOnly) return;
 
         setIsImporting(true);
         try {
@@ -1403,7 +1463,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     };
     
     const handleConfirmImport = async (mode: ImportMode) => {
-        if (!parsedExcelData || !user || !db || !tree) return;
+        if (!parsedExcelData || !user || !db || !tree || readOnly) return;
     
         setIsImporting(true);
         setIsImportModalOpen(false);
@@ -1499,7 +1559,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     fileName: string,
     fileType: ExportedFile['fileType']
   ) => {
-    if (!user || !storage || !db || !tree) return;
+    if (!user || !storage || !db || !tree || readOnly) return;
     try {
       const storagePath = `users/${user.uid}/trees/${treeId}/exports/${Date.now()}_${fileName}`;
       const fileRef = ref(storage, storagePath);
@@ -1524,7 +1584,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     } catch (error) {
       console.error('saveExportedFile error:', error);
     }
-  }, [user, storage, db, tree, treeId]);
+  }, [user, storage, db, tree, treeId, readOnly]);
 
   const handleExportExcel = useCallback(async () => {
     if (!tree || !user || !db) return;
@@ -1602,10 +1662,9 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           />
         );
       case 'table':
-        const isOwner = user?.uid === tree?.userId;
         return <TableView 
-            data={people} 
-            isOwner={isOwner}
+            data={people}
+            readOnly={readOnly}
             treeId={treeId}
             updatePersonData={updatePersonData}
             onAddPerson={handleOpenEditorForNew}
@@ -1629,7 +1688,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   };
 
 
-  if (isUserLoading || (isLoading && !error)) {
+  if (isLoading) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-background">
         <Logo className="h-12 w-12 text-primary" />
@@ -1674,6 +1733,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           onImportClick={() => importFileInputRef.current?.click()}
           isTimelineCompact={isTimelineCompact}
           onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
+          readOnly={readOnly}
         />
         <main className="flex-1 relative overflow-hidden" id="main-view-container" style={{ backgroundColor: canvasBg }}>
         <input
@@ -1691,7 +1751,7 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
                 onOpenChange={setIsOwnerPopoverOpen}
               >
                 <PopoverTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" disabled={readOnly}>
                     <User className="h-4 w-4" />
                     <span className="sr-only">בחר אותי</span>
                   </Button>
@@ -1883,10 +1943,10 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
   );
 }
 
-export function TreePageClient({ treeId }: TreePageClientProps) {
+export function TreePageClient({ treeId, readOnly = false }: TreePageClientProps) {
   return (
     <ReactFlowProvider>
-      <TreeCanvasContainer treeId={treeId} />
+      <TreeCanvasContainer treeId={treeId} readOnly={readOnly} />
     </ReactFlowProvider>
   );
 }

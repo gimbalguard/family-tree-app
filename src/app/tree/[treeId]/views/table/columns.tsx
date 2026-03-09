@@ -51,7 +51,7 @@ const EditableCell = <T,>({
   const [isLoading, setIsLoading] = useState(false);
   
   const meta = table.options.meta as any;
-  const isOwner = meta?.isOwner ?? false;
+  const readOnly = meta?.readOnly ?? true;
 
   const inputRef = useRef<HTMLInputElement>(null);
   
@@ -91,7 +91,7 @@ const EditableCell = <T,>({
     }
   };
 
-  if (!isOwner) {
+  if (readOnly) {
     return <div className="px-2 py-1">{value || '–'}</div>;
   }
 
@@ -128,7 +128,7 @@ const EditableSelectCell = <T,>({
 }: CellContext<Person, T> & { options: { value: string; label: string }[] }) => {
   const initialValue = getValue() as string | undefined;
   const meta = table.options.meta as any;
-  const isOwner = meta?.isOwner ?? false;
+  const readOnly = meta?.readOnly ?? true;
   
   const onSelect = async (newValue: string) => {
     const valueToSave = newValue === '--clear--' ? '' : newValue;
@@ -137,7 +137,7 @@ const EditableSelectCell = <T,>({
     }
   };
 
-  if (!isOwner) {
+  if (readOnly) {
      const displayLabel = options.find(o => o.value === initialValue)?.label;
      if (!initialValue) return <div className="px-2 py-1 whitespace-nowrap">{'–'}</div>;
      return <div className="px-2 py-1 whitespace-nowrap">{displayLabel || initialValue}</div>;
@@ -170,7 +170,7 @@ const EditableDateCell = <T,>({
   const [value, setValue] = useState(initialValue);
   const [isEditing, setIsEditing] = useState(false);
   const meta = table.options.meta as any;
-  const isOwner = meta?.isOwner ?? false;
+  const readOnly = meta?.readOnly ?? true;
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -188,7 +188,7 @@ const EditableDateCell = <T,>({
     }
   };
   
-  if (!isOwner) {
+  if (readOnly) {
     const date = initialValue ? new Date(initialValue) : null;
     const displayValue = date && !isNaN(date.getTime()) ? format(date, 'dd/MM/yyyy') : '–';
     return <div className="px-2 py-1 whitespace-nowrap">{displayValue}</div>;
