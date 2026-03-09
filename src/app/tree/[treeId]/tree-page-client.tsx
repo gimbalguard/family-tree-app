@@ -1164,20 +1164,17 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   };
 
   const handleConfirmDelete = async () => {
-    if (!personToDelete || !user || !db || readOnly) return;
+    if (!personToDelete || !user || !db || !tree || readOnly) return;
 
     setIsDeleting(true);
     setIsDeleteAlertOpen(false);
     
-    // UI remains unchanged for now, we wait for DB confirmation.
-    
-    // Use a short delay to ensure the dialog closing animation completes
-    // before we start the potentially disruptive state updates.
-    setTimeout(async () => {
-      try {
-        const personIdToDelete = personToDelete.id;
-        
-        // Step 1: Query all dependent documents first
+    const personIdToDelete = personToDelete.id;
+
+    try {
+        const batch = writeBatch(db);
+
+        // Query for all dependencies to build the batch
         const relsQueryA = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'), where('personAId', '==', personIdToDelete));
         const relsQueryB = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'), where('personBId', '==', personIdToDelete));
         const posQuery = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions'), where('personId', '==', personIdToDelete));
@@ -1187,21 +1184,17 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             getDocs(relsQueryA),
             getDocs(relsQueryB),
             getDocs(posQuery),
-            getDocs(socialLinksQuery)
+            getDocs(socialLinksSnap)
         ]);
 
-        // Step 2: Create a single batch write
-        const batch = writeBatch(db);
-        
-        relsSnapA.forEach(doc => batch.delete(doc.ref));
-        relsSnapB.forEach(doc => batch.delete(doc.ref));
+        const relsToDelete = [...relsSnapA.docs, ...relsSnapB.docs];
+        relsToDelete.forEach(doc => batch.delete(doc.ref));
         posSnap.forEach(doc => batch.delete(doc.ref));
         socialLinksSnap.forEach(doc => batch.delete(doc.ref));
         
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
         batch.delete(personRef);
 
-        // Step 3: Commit the batch
         await batch.commit();
 
         toast({
@@ -1209,21 +1202,29 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
         });
 
-        // Step 4: Only after successful commit, refetch data to update UI
-        await fetchData();
+        // After successful commit, update local state for a clean UI update
+        const updatedPeople = people.filter(p => p.id !== personIdToDelete);
+        const relIdsToDelete = new Set(relsToDelete.map(d => d.id));
+        const updatedRelationships = relationships.filter(r => !relIdsToDelete.has(r.id));
+        const updatedCanvasPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
 
-      } catch (error: any) {
+        setPeople(updatedPeople);
+        setRelationships(updatedRelationships);
+        setCanvasPositions(updatedCanvasPositions);
+        
+        deriveStateFromData(updatedPeople, updatedRelationships, updatedCanvasPositions, tree);
+        
+    } catch (error: any) {
         console.error("Error deleting person:", error);
         toast({
-          variant: 'destructive',
-          title: 'שגיאת מחיקה',
-          description: 'לא ניתן היה למחוק את האדם. נסה שוב.',
+            variant: 'destructive',
+            title: 'שגיאת מחיקה',
+            description: 'לא ניתן היה למחוק את האדם. נסה שוב.',
         });
-      } finally {
+    } finally {
         setIsDeleting(false);
         setPersonToDelete(null);
-      }
-    }, 200); // 200ms delay
+    }
   };
   
   const handleConnect: OnConnect = useCallback((params) => {
@@ -1973,7 +1974,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) { document.activeElement.blur(); } }}>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) { document.activeElement.blur(); } }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>

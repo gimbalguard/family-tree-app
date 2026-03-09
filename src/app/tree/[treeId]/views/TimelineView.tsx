@@ -37,15 +37,23 @@ const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
  */
 const assignGenerations = (people: Person[], relationships: Relationship[]): Map<string, number> => {
     const generations = new Map<string, number>();
-    const parentMap = new Map<string, string[]>();
-    const personIds = new Set(people.map(p => p.id));
+    if (people.length === 0) return { peopleByGeneration: new Map(), totalGenerations: 0 };
 
+    const childrenMap = new Map<string, string[]>();
+    relationships.forEach(rel => {
+        if (['parent', 'adoptive_parent', 'step_parent'].includes(rel.relationshipType)) {
+            if (!childrenMap.has(rel.personAId)) childrenMap.set(rel.personAId, []);
+            childrenMap.get(rel.personAId)!.push(rel.personBId);
+        }
+    });
+
+    const parentMap = new Map<string, string[]>();
     for (const person of people) {
         parentMap.set(person.id, []);
     }
 
     for (const rel of relationships) {
-        if (PARENT_REL_TYPES.includes(rel.relationshipType) && personIds.has(rel.personAId) && personIds.has(rel.personBId)) {
+        if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
             const currentParents = parentMap.get(rel.personBId) || [];
             parentMap.set(rel.personBId, [...currentParents, rel.personAId]);
         }
