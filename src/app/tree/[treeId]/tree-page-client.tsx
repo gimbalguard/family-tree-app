@@ -408,9 +408,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             gen5Count: new Set(gen5).size,
         };
     });
-    setPeople(enrichedPeopleData);
-    setRelationships(relsData);
-    
+
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
     const newNodes = enrichedPeopleData.map(person => {
       const pos = positionsMap.get(person.id);
@@ -550,9 +548,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
       
       setTree(treeData);
-      setCanvasBg(treeData.canvasBackgroundColor);
+      setPeople(peopleData);
+      setRelationships(relsData);
       setCanvasPositions(posData);
       setManualEvents(manualEventsData);
+      setCanvasBg(treeData.canvasBackgroundColor);
       deriveStateFromData(peopleData, relsData, posData, treeData);
       
     } catch (err: any) {
@@ -667,7 +667,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       fetchData();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isUserLoading, user]);
+  }, [fetchData, isUserLoading, user]);
 
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
     (event, node) => {
@@ -987,7 +987,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       updatedAt: new Date(),
     } as Person;
     
-    // Optimistic UI update
     setPeople(ps => [...ps, newPersonData]);
     deriveStateFromData([...people, newPersonData], relationships, canvasPositions, tree!);
 
@@ -999,7 +998,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         description: `${newPersonData.firstName} ${newPersonData.lastName} נוסף.`,
       });
     } catch (error: any) {
-      // Revert UI on error
       setPeople(ps => ps.filter(p => p.id !== newPersonId));
       deriveStateFromData(people.filter(p => p.id !== newPersonId), relationships, canvasPositions, tree!);
       const permissionError = new FirestorePermissionError({
@@ -1054,13 +1052,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleUpdatePerson = async (personData: Person) => {
     if (!user || !db || !tree) return;
     
+    recordHistory();
     const oldPeople = people;
     const oldRels = relationships;
     const oldPositions = canvasPositions;
 
     const birthDateChanged = oldPeople.find(p => p.id === personData.id)?.birthDate !== personData.birthDate;
 
-    // Optimistic update
     const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree);
@@ -1116,7 +1114,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
       handleEditorClose();
     } catch (error: any) {
-      // Revert on error
       setPeople(oldPeople);
       deriveStateFromData(oldPeople, oldRels, oldPositions, tree);
 
@@ -1135,6 +1132,16 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   };
 
   const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
+    const nonDbFields: (keyof Person)[] = [
+      'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
+      'isLocked', 'groupId', 'cardDesign', 'isOwner', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
+      'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize'
+    ];
+    if (nonDbFields.includes(field)) {
+      console.warn(`Attempted to update non-db field "${field}". Operation blocked.`);
+      return false;
+    }
+    
     if (!user || !db || readOnly || !tree) {
         if (!readOnly) toast({ variant: 'destructive', title: 'שגיאת אימות' });
         return false;
@@ -1149,7 +1156,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     const newPeople = people.map(p => p.id === personId ? { ...p, [field]: value } : p);
     
-    // Optimistic local update before async operations
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree);
 
@@ -1176,10 +1182,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         toast({ title: 'השדה עודכן', duration: 2000 });
         return true;
     } catch (error: any) {
-        // Revert
         setPeople(oldPeople);
-        setRelationships(oldRels);
-        setCanvasPositions(oldPositions);
         deriveStateFromData(oldPeople, oldRels, oldPositions, tree);
 
         const permissionError = new FirestorePermissionError({
@@ -1195,7 +1198,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         });
         return false;
     }
-  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, recordHistory, readOnly]);
+  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, recordHistory, readOnly, setPeople]);
 
   const handleDeleteRequest = (personId: string) => {
     if (readOnly) return;
@@ -1222,14 +1225,12 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const prevRelationships = relationships;
     const prevCanvasPositions = canvasPositions;
   
-    // Optimistic UI update
     const newPeople = prevPeople.filter(p => p.id !== personIdToDelete);
     const newRelationships = prevRelationships.filter(
       r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
     );
     const newPositions = prevCanvasPositions.filter(p => p.personId !== personIdToDelete);
     
-    // Close dialog FIRST before heavy UI updates
     setIsDeleteAlertOpen(false);
 
     setPeople(newPeople);
@@ -1319,8 +1320,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     recordHistory();
     const { relData, genderUpdate } = payload;
     const isEditing = !!relData.id;
-    const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
-    const isParental = parentTypes.includes(relData.relationshipType);
 
     const oldState = { people, relationships };
     let newRelationship: Relationship;
@@ -1348,7 +1347,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
     }
 
-    // Optimistic update
     setPeople(newPeople);
     setRelationships(newRelationships);
     deriveStateFromData(newPeople, newRelationships, canvasPositions, tree);
@@ -1385,7 +1383,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       toast({ title: isEditing ? 'קשר עודכן' : 'קשר נוסף' });
       handleRelModalClose();
     } catch (error: any) {
-      // Revert UI on error
       setPeople(oldState.people);
       setRelationships(oldState.relationships);
       deriveStateFromData(oldState.people, oldState.relationships, canvasPositions, tree);
@@ -1411,7 +1408,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       await deleteDoc(relRef);
       toast({ title: 'קשר נמחק' });
     } catch (error: any) {
-      // Revert UI on error
       setRelationships(oldRelationships);
       deriveStateFromData(people, oldRelationships, canvasPositions, tree!);
       console.error('Error deleting relationship:', error);
@@ -2029,7 +2025,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+        <AlertDialogContent onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          requestAnimationFrame(() => {
+            const canvas = document.querySelector('.react-flow') as HTMLElement;
+            if (canvas) canvas.focus();
+          });
+        }}>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2050,7 +2052,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          requestAnimationFrame(() => {
+            const canvas = document.querySelector('.react-flow') as HTMLElement;
+            if (canvas) canvas.focus();
+          });
+        }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>

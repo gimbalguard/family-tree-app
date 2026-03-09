@@ -98,8 +98,8 @@ service cloud.firestore {
      * (`request.resource.data`) with the pre-update state (`resource.data`).
      */
     function isImmutable_SubTreeItem() {
-      return request.resource.data.userId == resource.data.userId &&
-             request.resource.data.treeId == resource.data.treeId;
+      return (!('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId) &&
+             (!('treeId' in request.resource.data) || request.resource.data.treeId == resource.data.treeId);
     }
 
     /**
@@ -108,7 +108,7 @@ service cloud.firestore {
      */
     function isImmutable_SocialLink() {
       return isImmutable_SubTreeItem() &&
-             request.resource.data.personId == resource.data.personId;
+             (!('personId' in request.resource.data) || request.resource.data.personId == resource.data.personId);
     }
 
     //-------------------------------------------------------------------------
