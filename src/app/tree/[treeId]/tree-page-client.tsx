@@ -672,7 +672,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       hasInitiallyLoaded.current = true;
       fetchData();
     }
-  }, [isUserLoading, user]);
+  }, [isUserLoading, user, fetchData]);
 
   const onNodeContextMenu: OnNodeContextMenu = useCallback(
     (event, node) => {
@@ -1087,24 +1087,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       await updateDoc(docRef, dataToUpdate);
 
       if (birthDateChanged) {
-        const siblingChanges = await runSiblingDetection([personData.id], newPeople, relationships);
-        if (siblingChanges.relationshipsToAdd.length > 0 || siblingChanges.relationshipsToUpdate.length > 0) {
-            let updatedRels = [...relationships, ...siblingChanges.relationshipsToAdd];
-            siblingChanges.relationshipsToUpdate.forEach(u => {
-                updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
-            });
-            setRelationships(updatedRels);
-            deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
-            // Persist to Firestore
-            const sibBatch = writeBatch(db);
-            siblingChanges.relationshipsToAdd.forEach(r => {
-                sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r);
-            });
-            siblingChanges.relationshipsToUpdate.forEach(r => {
-                sibBatch.update(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!), r);
-            });
-            await sibBatch.commit();
-        }
+        fetchData(); // Refetch to get new sibling relations
       }
 
       toast({
@@ -1150,24 +1133,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         await updateDoc(personRef, { [field]: value, updatedAt: serverTimestamp() });
         
         if (birthDateChanged) {
-          const siblingChanges = await runSiblingDetection([personId], newPeople, relationships);
-          if (siblingChanges.relationshipsToAdd.length > 0 || siblingChanges.relationshipsToUpdate.length > 0) {
-              let updatedRels = [...relationships, ...siblingChanges.relationshipsToAdd];
-              siblingChanges.relationshipsToUpdate.forEach(u => {
-                  updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
-              });
-              setRelationships(updatedRels);
-              deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
-              // Persist to Firestore
-              const sibBatch = writeBatch(db);
-              siblingChanges.relationshipsToAdd.forEach(r => {
-                  sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r);
-              });
-              siblingChanges.relationshipsToUpdate.forEach(r => {
-                  sibBatch.update(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!), r);
-              });
-              await sibBatch.commit();
-          }
+          fetchData(); // Refetch to update sibling relations
         }
         
         toast({ title: 'השדה עודכן', duration: 2000 });
@@ -1190,7 +1156,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         });
         return false;
     }
-  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, recordHistory, readOnly]);
+  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, fetchData, recordHistory, readOnly]);
 
   const handleDeleteRequest = (personId: string) => {
     if (readOnly) return;
@@ -1217,20 +1183,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const prevRelationships = relationships;
     const prevCanvasPositions = canvasPositions;
   
-    const newPeople = people.filter(p => p.id !== personIdToDelete);
-    const newRelationships = relationships.filter(
-      r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
-    );
-    const newPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
-    
     // Close dialog FIRST so Radix finishes its cleanup before we update React state
     setIsDeleteAlertOpen(false);
-  
-    // Optimistic UI update
-    setPeople(newPeople);
-    setRelationships(newRelationships);
-    setCanvasPositions(newPositions);
-    deriveStateFromData(newPeople, newRelationships, newPositions, tree);
   
     // Safety net: ensure canvas gets focus after dialog unmounts and state settles
     requestAnimationFrame(() => {
@@ -1253,20 +1207,32 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         getDocs(posQuery),
       ]);
   
-      [...relsSnapA.docs, ...relsSnapB.docs].forEach(d => batch.delete(d.ref));
-      posSnap.docs.forEach(d => batch.delete(d.ref));
-      batch.delete(personRef);
-  
-      // Handle social links separately — they may not exist and should not block deletion
+      // Handle social links separately
       try {
         const socialLinksQuery = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
         const socialLinksSnap = await getDocs(socialLinksQuery);
         socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
-      } catch (socialLinksError) {
-        console.warn('Could not fetch social links for deletion (non-critical):', socialLinksError);
+      } catch (e) {
+        console.warn('Could not fetch social links for deletion, skipping:', e);
       }
   
+      [...relsSnapA.docs, ...relsSnapB.docs].forEach(d => batch.delete(d.ref));
+      posSnap.docs.forEach(d => batch.delete(d.ref));
+      batch.delete(personRef);
+  
       await batch.commit();
+
+      // Optimistic UI update
+      const newPeople = people.filter(p => p.id !== personIdToDelete);
+      const newRelationships = relationships.filter(
+        r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
+      );
+      const newPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
+      
+      setPeople(newPeople);
+      setRelationships(newRelationships);
+      setCanvasPositions(newPositions);
+      deriveStateFromData(newPeople, newRelationships, newPositions, tree);
   
       toast({
         title: 'אדם נמחק',
@@ -1335,10 +1301,12 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     
     const siblingChanges = await runSiblingDetection([relData.personBId], newPeople, newRelationships);
-    newRelationships.push(...(siblingChanges.relationshipsToAdd || []));
-    (siblingChanges.relationshipsToUpdate || []).forEach(updatedRel => {
-      newRelationships = newRelationships.map(r => r.id === updatedRel.id ? {...r, ...updatedRel} : r);
-    });
+    if(siblingChanges.relationshipsToAdd) newRelationships.push(...siblingChanges.relationshipsToAdd);
+    if(siblingChanges.relationshipsToUpdate) {
+      siblingChanges.relationshipsToUpdate.forEach(updatedRel => {
+        newRelationships = newRelationships.map(r => r.id === updatedRel.id ? {...r, ...updatedRel} : r);
+      });
+    }
 
     // Optimistic update
     setPeople(newPeople);
@@ -1360,14 +1328,18 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         batch.update(personRef, { gender: genderUpdate.gender });
       }
       
-      (siblingChanges.relationshipsToAdd || []).forEach(r => {
-        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id);
-        batch.set(relRef, r);
-      });
-      (siblingChanges.relationshipsToUpdate || []).forEach(r => {
-        const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!);
-        batch.update(relRef, r);
-      });
+      if(siblingChanges.relationshipsToAdd){
+        siblingChanges.relationshipsToAdd.forEach(r => {
+          const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id);
+          batch.set(relRef, r);
+        });
+      }
+      if(siblingChanges.relationshipsToUpdate){
+        siblingChanges.relationshipsToUpdate.forEach(r => {
+          const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!);
+          batch.update(relRef, r);
+        });
+      }
 
       await batch.commit();
       toast({ title: isEditing ? 'קשר עודכן' : 'קשר נוסף' });
