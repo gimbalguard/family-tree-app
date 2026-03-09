@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import ReactFlow, {
@@ -37,7 +38,7 @@ const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
  */
 const assignGenerations = (people: Person[], relationships: Relationship[]): Map<string, number> => {
     const generations = new Map<string, number>();
-    if (people.length === 0) return { peopleByGeneration: new Map(), totalGenerations: 0 };
+    if (people.length === 0) return new Map();
 
     const childrenMap = new Map<string, string[]>();
     relationships.forEach(rel => {

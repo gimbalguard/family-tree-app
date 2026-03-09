@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1165,65 +1166,64 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db || !tree || readOnly) return;
-
+  
     setIsDeleting(true);
     setIsDeleteAlertOpen(false);
-    
-    const personIdToDelete = personToDelete.id;
-
+  
     try {
-        const batch = writeBatch(db);
-
-        // Query for all dependencies to build the batch
-        const relsQueryA = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'), where('personAId', '==', personIdToDelete));
-        const relsQueryB = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'), where('personBId', '==', personIdToDelete));
-        const posQuery = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions'), where('personId', '==', personIdToDelete));
-        const socialLinksQuery = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
-        
-        const [relsSnapA, relsSnapB, posSnap, socialLinksSnap] = await Promise.all([
-            getDocs(relsQueryA),
-            getDocs(relsQueryB),
-            getDocs(posQuery),
-            getDocs(socialLinksSnap)
-        ]);
-
-        const relsToDelete = [...relsSnapA.docs, ...relsSnapB.docs];
-        relsToDelete.forEach(doc => batch.delete(doc.ref));
-        posSnap.forEach(doc => batch.delete(doc.ref));
-        socialLinksSnap.forEach(doc => batch.delete(doc.ref));
-        
-        const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
-        batch.delete(personRef);
-
-        await batch.commit();
-
-        toast({
-            title: 'אדם נמחק',
-            description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
-        });
-
-        // After successful commit, update local state for a clean UI update
-        const updatedPeople = people.filter(p => p.id !== personIdToDelete);
-        const relIdsToDelete = new Set(relsToDelete.map(d => d.id));
-        const updatedRelationships = relationships.filter(r => !relIdsToDelete.has(r.id));
-        const updatedCanvasPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
-
-        setPeople(updatedPeople);
-        setRelationships(updatedRelationships);
-        setCanvasPositions(updatedCanvasPositions);
-        
-        deriveStateFromData(updatedPeople, updatedRelationships, updatedCanvasPositions, tree);
-        
+      const personIdToDelete = personToDelete.id;
+      const batch = writeBatch(db);
+  
+      // Define paths to all dependencies
+      const basePath = `users/${user.uid}/familyTrees/${treeId}`;
+      const personRef = doc(db, basePath, 'people', personIdToDelete);
+      const relsQueryA = query(collection(db, basePath, 'relationships'), where('personAId', '==', personIdToDelete));
+      const relsQueryB = query(collection(db, basePath, 'relationships'), where('personBId', '==', personIdToDelete));
+      const posQuery = query(collection(db, basePath, 'canvasPositions'), where('personId', '==', personIdToDelete));
+      const socialLinksQuery = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
+  
+      // Correctly await all snapshot fetches
+      const [
+        relsSnapA,
+        relsSnapB,
+        posSnap,
+        socialLinksSnap
+      ] = await Promise.all([
+        getDocs(relsQueryA),
+        getDocs(relsQueryB),
+        getDocs(posQuery),
+        getDocs(socialLinksQuery),
+      ]);
+  
+      // Add all found documents to the delete batch
+      [...relsSnapA.docs, ...relsSnapB.docs].forEach(d => batch.delete(d.ref));
+      posSnap.docs.forEach(d => batch.delete(d.ref));
+      socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
+      
+      // Finally, add the person document itself to the batch
+      batch.delete(personRef);
+  
+      // Commit the atomic delete operation
+      await batch.commit();
+  
+      toast({
+        title: 'אדם נמחק',
+        description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
+      });
+  
+      // Instead of optimistic UI update, refetch the data to guarantee consistency
+      await fetchData();
+  
     } catch (error: any) {
-        console.error("Error deleting person:", error);
-        toast({
-            variant: 'destructive',
-            title: 'שגיאת מחיקה',
-            description: 'לא ניתן היה למחוק את האדם. נסה שוב.',
-        });
+      console.error("Error deleting person:", error);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאת מחיקה',
+        description: 'לא ניתן היה למחוק את האדם. נסה שוב.',
+      });
     } finally {
-        setIsDeleting(false);
-        setPersonToDelete(null);
+      setIsDeleting(false);
+      setPersonToDelete(null);
     }
   };
   
