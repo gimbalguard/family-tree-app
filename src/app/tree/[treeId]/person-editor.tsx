@@ -281,7 +281,7 @@ export function PersonEditor({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh] z-[1002]" dir="rtl" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh] z-[1002]" dir="rtl" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
         <DialogHeader className="text-right">
           <DialogTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</DialogTitle>
           <DialogDescription>

@@ -116,7 +116,7 @@ export function ManualEventEditor({ isOpen, onClose, event, onSave, onDelete }: 
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="sm:max-w-[480px]" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent dir="rtl" className="sm:max-w-[480px]" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
         <DialogHeader className="text-right">
           <DialogTitle>{isEditing ? 'עריכת אירוע' : 'הוספת אירוע חדש'}</DialogTitle>
           <DialogDescription>

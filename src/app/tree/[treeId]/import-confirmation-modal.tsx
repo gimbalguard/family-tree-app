@@ -46,7 +46,7 @@ export function ImportConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent dir="rtl" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
         <DialogHeader className="text-right">
           <DialogTitle>אישור ייבוא</DialogTitle>
           <DialogDescription>

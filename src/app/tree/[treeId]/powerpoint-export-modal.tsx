@@ -108,7 +108,7 @@ export function PowerPointExportModal({ isOpen, onClose, tree, people, relations
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="sm:max-w-lg" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent dir="rtl" className="sm:max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
         {isExporting && (
           <div className="absolute inset-0 bg-background/80 flex flex-col items-center justify-center z-10 rounded-lg">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />

@@ -301,7 +301,7 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
         <DialogHeader className="text-right shrink-0 p-6 border-b">
           <DialogTitle>הגדרות עץ</DialogTitle>
           <DialogDescription>נהל את הגדרות העץ והפרטיות שלו.</DialogDescription>

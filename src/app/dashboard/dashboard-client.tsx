@@ -217,7 +217,10 @@ export function DashboardClient() {
 
   const handleOpenShareDialog = (tree: FamilyTree) => {
     setTreeToShare(tree);
-    setIsShareDialogOpen(true);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsShareDialogOpen(true));
   };
   
   const handleShareSubmit = async (email: string) => {
@@ -355,7 +358,10 @@ export function DashboardClient() {
 
   const handleDeleteClick = (tree: FamilyTree) => {
     setTreeToDelete(tree);
-    setIsAlertOpen(true);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsAlertOpen(true));
   };
 
   const handleConfirmDelete = async () => {
@@ -403,7 +409,10 @@ export function DashboardClient() {
     if (isAnonymous) {
       router.push('/login');
     } else {
-      setIsDialogOpen(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      requestAnimationFrame(() => setIsDialogOpen(true));
     }
   }
 
@@ -538,7 +547,7 @@ export function DashboardClient() {
       />
 
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
-        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח לחלוטין?</AlertDialogTitle>
             <AlertDialogDescription>
