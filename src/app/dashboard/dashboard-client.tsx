@@ -1,3 +1,4 @@
+
 'use client';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser, useFirestore, useStorage } from '@/firebase';
@@ -85,9 +86,7 @@ export function DashboardClient() {
 
         return treeData;
       });
-      const userTrees = (await Promise.all(myTreesPromises)).filter(
-        (tree) => tree.treeName !== 'משפחת אבידר'
-      );
+      const userTrees = (await Promise.all(myTreesPromises));
       setMyTrees(userTrees);
 
       // 2. Fetch all shares related to the user
@@ -365,10 +364,10 @@ export function DashboardClient() {
       const batch = writeBatch(db);
       const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
       
-      // Simply delete the main tree document. Let subcollections be orphaned or cleaned up later.
+      // Directly delete the main tree document.
       batch.delete(treeDocRef);
       
-      // Also delete any shares related to this tree where I am the owner
+      // Delete any shares related to this tree where the current user is the owner
       const sharedTreesQuery = query(
         collection(db, "sharedTrees"), 
         where("treeId", "==", treeToDelete.id),
@@ -451,21 +450,16 @@ export function DashboardClient() {
         </div>
       );
     }
-    
-    const myPublicTrees = myTrees.filter(t => t.privacy === 'public');
-    const myPrivateTrees = myTrees.filter(t => t.privacy !== 'public');
 
     return (
       <div className="space-y-12 mt-8">
-        <section>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4">העצים שיצרתי</h2>
-          {myPublicTrees.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-slate-700 mb-3">עצים ציבוריים</h3>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {myPublicTrees.map((tree) => (
-                  <TreeCard
-                    key={`my-public-${tree.id}`}
+        {myTrees.length > 0 && (
+            <section>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4">העצים שיצרתי</h2>
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {myTrees.map((tree) => (
+                <TreeCard
+                    key={`my-tree-${tree.id}`}
                     tree={tree}
                     type="owned"
                     sharedWith={outgoingShares.get(tree.id)}
@@ -476,34 +470,11 @@ export function DashboardClient() {
                     onSetPrivate={() => handleSetPrivate(tree)}
                     onUploadCover={() => handleUploadCoverClick(tree)}
                     onCreateShareLink={() => handleCreateShareLink(tree)}
-                  />
+                />
                 ))}
-              </div>
             </div>
-          )}
-           {myPrivateTrees.length > 0 && (
-            <div>
-              <h3 className="text-lg font-semibold text-slate-700 mb-3">עצים פרטיים</h3>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {myPrivateTrees.map((tree) => (
-                  <TreeCard
-                    key={`my-private-${tree.id}`}
-                    tree={tree}
-                    type="owned"
-                    sharedWith={outgoingShares.get(tree.id)}
-                    onDelete={() => handleDeleteClick(tree)}
-                    onDuplicate={() => handleDuplicateTree(tree)}
-                    onShare={() => handleOpenShareDialog(tree)}
-                    onSetPublic={() => handleSetPublic(tree)}
-                    onSetPrivate={() => handleSetPrivate(tree)}
-                    onUploadCover={() => handleUploadCoverClick(tree)}
-                    onCreateShareLink={() => handleCreateShareLink(tree)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
+            </section>
+        )}
         
         {incomingSharedTrees.length > 0 && (
           <section>
