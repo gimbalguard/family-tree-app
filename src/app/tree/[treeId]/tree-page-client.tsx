@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1240,7 +1241,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setIsDeleting(false);
       setIsDeleteAlertOpen(false);
       setPersonToDelete(null);
-      returnFocusToCanvas();
     }
   };
 
