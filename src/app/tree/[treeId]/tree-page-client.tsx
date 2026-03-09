@@ -41,7 +41,7 @@ import { PersonEditor } from './person-editor';
 import { RelationshipModal, relationshipOptions } from './relationship-modal';
 import { NodeContextMenu } from './node-context-menu';
 import { CanvasToolbar } from './canvas-toolbar';
-import { Loader2, User, ArrowLeft } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Trophy } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -86,6 +86,7 @@ import { MapView } from './views/MapView';
 import { CalendarView } from './views/CalendarView';
 import { ManualEventEditor } from './views/ManualEventEditor';
 import { StatisticsView } from './views/StatisticsView';
+import { TriviaView } from './views/TriviaView';
 import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
 import { AiChatPanel } from './ai-chat-panel';
@@ -108,7 +109,8 @@ export type ViewMode =
   | 'table'
   | 'map'
   | 'calendar'
-  | 'statistics';
+  | 'statistics'
+  | 'trivia';
 
 export type EdgeType = 'default' | 'step' | 'straight';
 
@@ -1710,6 +1712,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         />;
       case 'statistics':
         return <StatisticsView people={people} relationships={relationships} onEditPerson={handleEditPerson} />;
+      case 'trivia':
+        return <TriviaView people={people} relationships={relationships} setViewMode={setViewMode} />;
       default:
         return null;
     }

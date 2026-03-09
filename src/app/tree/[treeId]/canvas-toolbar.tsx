@@ -35,6 +35,7 @@ import {
   Upload,
   Shrink,
   Expand,
+  Trophy,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -58,25 +59,15 @@ const viewOptions: {
   value: ViewMode;
   label: string;
   icon: React.ReactNode;
+  color: string;
 }[] = [
-  { value: 'tree', label: 'עץ', icon: <Network className="h-4 w-4" /> },
-  {
-    value: 'timeline',
-    label: 'ציר זמן',
-    icon: <GanttChart className="h-4 w-4" />,
-  },
-  { value: 'table', label: 'טבלה', icon: <TableIcon className="h-4 w-4" /> },
-  { value: 'map', label: 'מפה', icon: <MapIcon className="h-4 w-4" /> },
-  {
-    value: 'calendar',
-    label: 'לוח שנה',
-    icon: <CalendarIcon className="h-4 w-4" />,
-  },
-  {
-    value: 'statistics',
-    label: 'סטטיסטיקות',
-    icon: <BarChart className="h-4 w-4" />,
-  },
+  { value: 'tree', label: 'עץ', icon: <Network />, color: '#26a69a' },
+  { value: 'timeline', label: 'ציר זמן', icon: <GanttChart />, color: '#7c3aed' },
+  { value: 'table', label: 'טבלה', icon: <TableIcon />, color: '#2563eb' },
+  { value: 'map', label: 'מפה', icon: <MapIcon />, color: '#16a34a' },
+  { value: 'calendar', label: 'לוח שנה', icon: <CalendarIcon />, color: '#ea580c' },
+  { value: 'statistics', label: 'סטטיסטיקות', icon: <BarChart />, color: '#db2777' },
+  { value: 'trivia', label: 'טריוויה', icon: <Trophy />, color: '#d97706' },
 ];
 
 const edgeStyleOptions: {
@@ -139,9 +130,6 @@ export function CanvasToolbar({
 }: CanvasToolbarProps) {
   const { toast } = useToast();
 
-  const currentView =
-    viewOptions.find((opt) => opt.value === viewMode) || viewOptions[0];
-
   const exportOptions = [
     { label: 'PDF', icon: <FileText />, onClick: onOpenPdfModal },
     { label: 'אקסל', icon: <FileSpreadsheet />, onClick: onExportExcel },
@@ -176,57 +164,40 @@ export function CanvasToolbar({
         </TooltipContent>
       </Tooltip>
 
-      <div className="w-full">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              <div className="flex items-center gap-2">
-                {currentView.icon}
-                <span className="text-sm">{currentView.label}</span>
-              </div>
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            side="right"
-            className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
-          >
-            {viewOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
-                onClick={() => setViewMode(option.value)}
-                className="gap-2"
-              >
-                {option.icon}
-                <span>{option.label}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+      <div className="flex-grow space-y-2 flex flex-col items-center">
+         {viewOptions.map((option) => (
+           <Tooltip key={option.value}>
+             <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setViewMode(option.value)}
+                  style={viewMode === option.value ? { backgroundColor: option.color } : {}}
+                  className={cn(
+                    "transition-all duration-200",
+                    viewMode === option.value ? 'text-white' : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {React.cloneElement(option.icon as React.ReactElement, { className: "h-5 w-5" })}
+                </Button>
+             </TooltipTrigger>
+             <TooltipContent side="right"><p>{option.label}</p></TooltipContent>
+           </Tooltip>
+         ))}
       </div>
 
-      {!readOnly && (
-        <>
-        <Button
-            variant="outline"
-            onClick={onAddPerson}
-            className="h-auto w-full flex-col p-3"
-          >
-            <UserPlus className="mb-1 h-6 w-6" />
-            <span className="text-xs">הוסף אדם חדש</span>
-          </Button>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" onClick={onToggleChat}>
-                <MessageSquare className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>עריכה עם AI</p>
-            </TooltipContent>
-          </Tooltip>
-        </>
+      {!readOnly && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onToggleChat}>
+              <MessageSquare className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>עריכה עם AI</p>
+          </TooltipContent>
+        </Tooltip>
       )}
 
       {(viewMode === 'tree' || viewMode === 'timeline') && !readOnly && (
@@ -315,7 +286,7 @@ export function CanvasToolbar({
       <Separator className="my-2 w-full" />
 
       <div className="flex w-full flex-col items-center gap-2">
-        {!readOnly && (
+        {!readOnly && viewMode !== 'trivia' && (
           <div className="flex gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -349,45 +320,47 @@ export function CanvasToolbar({
             </Tooltip>
           </div>
         )}
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              className="w-full h-auto py-2 flex-col"
-              style={{ backgroundColor: '#2563eb' }}
-            >
-              <Download className="mb-1 h-5 w-5" />
-              <span className="text-xs">ייצוא / הדפסה</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent side="right" align="center" className="w-80 z-[1003] p-2">
-            <div className="grid grid-cols-3 gap-1" dir="rtl">
-              {exportOptions.map((option) => (
-                <Button
-                  key={option.label}
-                  variant="ghost"
-                  className="flex h-auto flex-col items-center justify-center gap-1.5 p-3"
-                  onClick={option.onClick}
-                >
-                  {React.cloneElement(option.icon, { className: 'h-7 w-7' })}
-                  <span className="text-xs text-center">{option.label}</span>
-                </Button>
-              ))}
-            </div>
-            {!readOnly && (
-                <>
-                <Separator className="my-2"/>
-                <Button
-                  variant="ghost"
-                  className="flex w-full h-auto flex-col items-center justify-center gap-1.5 p-3"
-                  onClick={onImportClick}
-                >
-                  <Upload className="h-7 w-7" />
-                  <span className="text-xs text-center">ייבוא מקובץ Excel</span>
-                </Button>
-                </>
-            )}
-          </PopoverContent>
-        </Popover>
+        {viewMode !== 'trivia' && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                className="w-full h-auto py-2 flex-col"
+                style={{ backgroundColor: '#2563eb' }}
+              >
+                <Download className="mb-1 h-5 w-5" />
+                <span className="text-xs">ייצוא / הדפסה</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent side="right" align="center" className="w-80 z-[1003] p-2">
+              <div className="grid grid-cols-3 gap-1" dir="rtl">
+                {exportOptions.map((option) => (
+                  <Button
+                    key={option.label}
+                    variant="ghost"
+                    className="flex h-auto flex-col items-center justify-center gap-1.5 p-3"
+                    onClick={option.onClick}
+                  >
+                    {React.cloneElement(option.icon, { className: 'h-7 w-7' })}
+                    <span className="text-xs text-center">{option.label}</span>
+                  </Button>
+                ))}
+              </div>
+              {!readOnly && (
+                  <>
+                  <Separator className="my-2"/>
+                  <Button
+                    variant="ghost"
+                    className="flex w-full h-auto flex-col items-center justify-center gap-1.5 p-3"
+                    onClick={onImportClick}
+                  >
+                    <Upload className="h-7 w-7" />
+                    <span className="text-xs text-center">ייבוא מקובץ Excel</span>
+                  </Button>
+                  </>
+              )}
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
     </aside>
   );
