@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1065,25 +1066,23 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
-      const { socialLinks, ...personDataForUpdate } = personData as any;
-
       const dataToUpdate = {
-        firstName: personDataForUpdate.firstName,
-        lastName: personDataForUpdate.lastName,
-        middleName: personDataForUpdate.middleName,
-        previousFirstName: personDataForUpdate.previousFirstName,
-        maidenName: personDataForUpdate.maidenName,
-        nickname: personDataForUpdate.nickname,
-        gender: personDataForUpdate.gender,
-        birthDate: personDataForUpdate.birthDate,
-        birthPlace: personDataForUpdate.birthPlace,
-        deathDate: personDataForUpdate.deathDate,
-        cityOfResidence: personDataForUpdate.cityOfResidence,
-        countryOfResidence: personDataForUpdate.countryOfResidence,
-        religion: personDataForUpdate.religion,
-        status: personDataForUpdate.status,
-        description: personDataForUpdate.description,
-        photoURL: personDataForUpdate.photoURL,
+        firstName: personData.firstName,
+        lastName: personData.lastName,
+        middleName: personData.middleName || '',
+        previousFirstName: personData.previousFirstName || '',
+        maidenName: personData.maidenName || '',
+        nickname: personData.nickname || '',
+        gender: personData.gender,
+        birthDate: personData.birthDate || '',
+        birthPlace: personData.birthPlace || '',
+        deathDate: personData.deathDate || '',
+        cityOfResidence: personData.cityOfResidence || '',
+        countryOfResidence: personData.countryOfResidence || '',
+        religion: personData.religion || '',
+        status: personData.status,
+        description: personData.description || '',
+        photoURL: personData.photoURL || '',
         updatedAt: serverTimestamp(),
       };
 
