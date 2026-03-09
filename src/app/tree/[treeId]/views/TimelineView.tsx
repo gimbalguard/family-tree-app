@@ -10,6 +10,7 @@ import ReactFlow, {
   type Node,
   type Edge,
   OnNodeDoubleClick,
+  NodeTypes,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -27,7 +28,7 @@ const NODE_HEIGHT = 76;
 const MIN_VERTICAL_GAP = 16;
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
 
-const nodeTypes = { timelinePerson: TimelinePersonNode };
+const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
 
 /**
  * A robust function to assign a generation number to each person.

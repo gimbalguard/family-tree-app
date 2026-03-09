@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1166,29 +1165,28 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db || readOnly) return;
-    
+  
     setIsDeleting(true);
-    // This will start closing the dialog immediately. This is important to prevent focus issues.
     setIsDeleteAlertOpen(false);
-
-    // This setTimeout ensures that the state update that removes the node happens
-    // *after* the dialog has had time to close and unmount, preventing the race condition.
+  
+    // This brief timeout allows the dialog to fully close and the browser to settle,
+    // preventing the race condition that causes the UI to freeze.
     setTimeout(async () => {
       recordHistory();
       const personIdToDelete = personToDelete.id;
       const personNameToDelete = `${personToDelete.firstName} ${personToDelete.lastName}`;
-
+  
       try {
         const batch = writeBatch(db);
-
+  
         // Fetch social links to include them in the atomic batch delete.
         const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
         const socialLinksSnapshot = await getDocs(socialLinksRef);
         socialLinksSnapshot.forEach((doc) => batch.delete(doc.ref));
-
+  
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
         batch.delete(personRef);
-
+  
         const relationshipsToDelete = relationships.filter(
           (r) => r.personAId === personIdToDelete || r.personBId === personIdToDelete
         );
@@ -1196,7 +1194,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', rel.id);
           batch.delete(relRef);
         });
-
+  
         const positionToDelete = canvasPositions.find(
           (p) => p.personId === personIdToDelete
         );
@@ -1204,9 +1202,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           const posRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions', positionToDelete.id);
           batch.delete(posRef);
         }
-
+  
         await batch.commit();
-
+  
         // UI state update AFTER successful deletion
         const newPeople = people.filter((p) => p.id !== personIdToDelete);
         const newRelationships = relationships.filter(
@@ -1220,7 +1218,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         setRelationships(newRelationships);
         setCanvasPositions(newCanvasPositions);
         deriveStateFromData(newPeople, newRelationships, newCanvasPositions, tree!);
-
+  
         toast({
           title: 'אדם נמחק',
           description: `${personNameToDelete} נמחק מהעץ.`,
@@ -1233,11 +1231,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           description: 'לא ניתן היה למחוק את האדם. אנא רענן ונסה שוב.',
         });
       } finally {
-        // The dialog is already closed. Clean up the state.
         setIsDeleting(false);
         setPersonToDelete(null);
       }
-    }, 200);
+    }, 200); // 200ms delay to ensure UI stability
   };
 
   const handleConnect: OnConnect = useCallback((params) => {
