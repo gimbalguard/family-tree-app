@@ -93,10 +93,17 @@ service cloud.firestore {
     /**
      * isImmutable_SubTreeItem
      * Ensures the denormalized `userId` and `treeId` fields are immutable.
+     * An update is allowed if these fields are not present in the request,
+     * or if they are present and match the existing values.
      */
     function isImmutable_SubTreeItem() {
       let data = request.resource.data;
-      return data.userId == resource.data.userId && data.treeId == resource.data.treeId;
+      let existing = resource.data;
+      
+      let isUserIdOk = !('userId' in data) || data.userId == existing.userId;
+      let isTreeIdOk = !('treeId' in data) || data.treeId == existing.treeId;
+      
+      return isUserIdOk && isTreeIdOk;
     }
 
     /**

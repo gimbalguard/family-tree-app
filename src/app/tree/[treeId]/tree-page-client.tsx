@@ -665,6 +665,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   }, [user, isUserLoading, router, readOnly]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     if (!isUserLoading && user && !hasInitiallyLoaded.current) {
@@ -1068,8 +1069,16 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
-      // Sanitize the data to remove read-only Timestamps before sending to Firestore
-      const { createdAt, updatedAt, id, ...dataForFirestore } = personData as any;
+      // Sanitize data: remove UI-only fields before sending to Firestore
+      const { 
+        id, createdAt, updatedAt, 
+        isLocked, groupId, isOwner, 
+        childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count,
+        creatorCardBacklightIntensity, creatorCardBacklightDisabled, creatorCardSize, creatorCardDesign,
+        cardBackgroundColor, cardBorderColor, cardBorderWidth, cardDesign,
+        ...dataForFirestore 
+      } = personData as any;
+
       const dataToUpdate = { 
         ...dataForFirestore, 
         updatedAt: serverTimestamp() 
@@ -1198,75 +1207,75 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleConfirmDelete = async () => {
     if (!personToDelete || !user || !db || !tree || readOnly) return;
-
+  
     setIsDeleting(true);
-
     const personIdToDelete = personToDelete.id;
-
+    const deletedPerson = personToDelete; // capture before clearing
+  
     // Snapshot current state for revert
     const prevPeople = people;
     const prevRelationships = relationships;
     const prevCanvasPositions = canvasPositions;
-
+  
     const newPeople = people.filter(p => p.id !== personIdToDelete);
     const newRelationships = relationships.filter(
       r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
     );
     const newPositions = canvasPositions.filter(p => p.personId !== personIdToDelete);
-
+    
     // Close dialog FIRST so Radix finishes its cleanup before we update React state
     setIsDeleteAlertOpen(false);
-
+  
     // Optimistic UI update
     setPeople(newPeople);
     setRelationships(newRelationships);
     setCanvasPositions(newPositions);
     deriveStateFromData(newPeople, newRelationships, newPositions, tree);
-
+  
     // Safety net: ensure canvas gets focus after dialog unmounts and state settles
     requestAnimationFrame(() => {
       const canvas = document.querySelector('.react-flow') as HTMLElement;
       if (canvas) canvas.focus();
     });
-
+  
     try {
       const batch = writeBatch(db);
       const basePath = `users/${user.uid}/familyTrees/${treeId}`;
       const personRef = doc(db, basePath, 'people', personIdToDelete);
-
+  
       const relsQueryA = query(collection(db, basePath, 'relationships'), where('personAId', '==', personIdToDelete));
       const relsQueryB = query(collection(db, basePath, 'relationships'), where('personBId', '==', personIdToDelete));
       const posQuery = query(collection(db, basePath, 'canvasPositions'), where('personId', '==', personIdToDelete));
-
+  
       const [relsSnapA, relsSnapB, posSnap] = await Promise.all([
         getDocs(relsQueryA),
         getDocs(relsQueryB),
         getDocs(posQuery),
       ]);
-
+  
       [...relsSnapA.docs, ...relsSnapB.docs].forEach(d => batch.delete(d.ref));
       posSnap.docs.forEach(d => batch.delete(d.ref));
       batch.delete(personRef);
-      
-      // Social links: fetch separately so failure here doesn't revert the whole deletion
+  
+      // Handle social links separately — they may not exist and should not block deletion
       try {
-          const socialLinksRef = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
-          const socialLinksSnap = await getDocs(socialLinksRef);
-          socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
-      } catch (e) {
-          console.warn('Could not fetch social links for deletion, skipping:', e);
+        const socialLinksQuery = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
+        const socialLinksSnap = await getDocs(socialLinksQuery);
+        socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
+      } catch (socialLinksError) {
+        console.warn('Could not fetch social links for deletion (non-critical):', socialLinksError);
       }
-
+  
       await batch.commit();
-
+  
       toast({
         title: 'אדם נמחק',
-        description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
+        description: `${deletedPerson.firstName} ${deletedPerson.lastName} נמחק בהצלחה.`,
       });
-
+  
     } catch (error: any) {
-      // Revert on failure
       console.error("Error deleting person:", error);
+      // Revert on failure
       setPeople(prevPeople);
       setRelationships(prevRelationships);
       setCanvasPositions(prevCanvasPositions);
