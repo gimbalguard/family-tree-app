@@ -1232,17 +1232,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     );
     const newPositions = prevCanvasPositions.filter(p => p.personId !== personIdToDelete);
     
-    setIsDeleteAlertOpen(false);
-    
     setPeople(newPeople);
     setRelationships(newRelationships);
     setCanvasPositions(newPositions);
     deriveStateFromData(newPeople, newRelationships, newPositions, tree);
-
-    requestAnimationFrame(() => {
-        const canvas = document.getElementById('main-view-container');
-        if (canvas) canvas.focus();
-    });
   
     try {
       const batch = writeBatch(db);
@@ -1294,6 +1287,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } finally {
       setIsDeleting(false);
       setPersonToDelete(null);
+      setIsDeleteAlertOpen(false);
+      requestAnimationFrame(() => {
+        const canvas = document.getElementById('main-view-container');
+        if (canvas) canvas.focus();
+      });
     }
   };
   
@@ -2026,13 +2024,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          requestAnimationFrame(() => {
-            const canvas = document.getElementById('main-view-container');
-            if (canvas) canvas.focus();
-          });
-        }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2053,13 +2045,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          requestAnimationFrame(() => {
-            const canvas = document.getElementById('main-view-container') as HTMLElement;
-            if (canvas) (canvas as HTMLElement).focus();
-          });
-        }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2094,5 +2080,3 @@ export function TreePageClient({ treeId, readOnly = false }: TreePageClientProps
     </ReactFlowProvider>
   );
 }
-
-    
