@@ -144,7 +144,7 @@ export function DataTable<TData, TValue>({
         <div>
             מציג {table.getRowModel().rows.length} מתוך {data.length}
         </div>
-        <Button onClick={onAddPerson} disabled={meta.readOnly}>
+        <Button onClick={onAddPerson} disabled={!meta.isOwner}>
             <PlusCircle className="ml-2 h-4 w-4" />
             הוסף אדם
         </Button>

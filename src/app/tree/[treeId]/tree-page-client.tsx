@@ -1169,53 +1169,49 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsDeleting(true);
     setIsDeleteAlertOpen(false);
 
-    setTimeout(async () => {
-      try {
-        const personIdToDelete = personToDelete.id;
-        const personNameToDelete = `${personToDelete.firstName} ${personToDelete.lastName}`;
+    try {
+      const personIdToDelete = personToDelete.id;
+      const batch = writeBatch(db);
 
-        const batch = writeBatch(db);
+      const relationshipsQuery = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'), 
+          where('personAId', '==', personIdToDelete));
+      const relationshipsQuery2 = query(collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships'),
+          where('personBId', '==', personIdToDelete));
 
-        const relationshipsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'relationships');
-        const queryA = query(relationshipsRef, where('personAId', '==', personIdToDelete));
-        const queryB = query(relationshipsRef, where('personBId', '==', personIdToDelete));
-        const [snapshotA, snapshotB] = await Promise.all([getDocs(queryA), getDocs(queryB)]);
-        snapshotA.forEach(doc => batch.delete(doc.ref));
-        snapshotB.forEach(doc => batch.delete(doc.ref));
+      const [snapshotA, snapshotB] = await Promise.all([getDocs(relationshipsQuery), getDocs(relationshipsQuery2)]);
+      snapshotA.forEach(doc => batch.delete(doc.ref));
+      snapshotB.forEach(doc => batch.delete(doc.ref));
+      
+      const positionsRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions', personIdToDelete);
+      batch.delete(positionsRef);
 
-        const positionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-        const posQuery = query(positionsRef, where('personId', '==', personIdToDelete));
-        const posSnapshot = await getDocs(posQuery);
-        posSnapshot.forEach(doc => batch.delete(doc.ref));
+      const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
+      const socialLinksSnapshot = await getDocs(socialLinksRef);
+      socialLinksSnapshot.forEach(doc => batch.delete(doc.ref));
 
-        const socialLinksRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete, 'socialLinks');
-        const socialLinksSnapshot = await getDocs(socialLinksRef);
-        socialLinksSnapshot.forEach(doc => batch.delete(doc.ref));
+      const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
+      batch.delete(personRef);
 
-        const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personIdToDelete);
-        batch.delete(personRef);
-        
-        await batch.commit();
+      await batch.commit();
 
-        toast({
-            title: 'אדם נמחק',
-            description: `${personNameToDelete} נמחק מהעץ.`,
-        });
+      toast({
+          title: 'אדם נמחק',
+          description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
+      });
 
-        await fetchData();
+      await fetchData();
 
-      } catch (error: any) {
-          console.error('Error deleting person:', error);
-          toast({
-              variant: 'destructive',
-              title: 'שגיאת מחיקה',
-              description: 'לא ניתן היה למחוק את האדם. אנא רענן ונסה שוב.',
-          });
-      } finally {
-          setIsDeleting(false);
-          setPersonToDelete(null);
-      }
-    }, 100);
+    } catch (error: any) {
+      console.error("Error deleting person:", error);
+      toast({
+        variant: 'destructive',
+        title: 'שגיאת מחיקה',
+        description: 'לא ניתן היה למחוק את האדם. נסה שוב.',
+      });
+    } finally {
+      setIsDeleting(false);
+      setPersonToDelete(null);
+    }
   };
   
   const handleConnect: OnConnect = useCallback((params) => {
@@ -1688,7 +1684,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       case 'table':
         return <TableView 
             data={people}
-            readOnly={readOnly}
+            isOwner={!readOnly}
             treeId={treeId}
             updatePersonData={updatePersonData}
             onAddPerson={handleOpenEditorForNew}
