@@ -268,6 +268,7 @@ export function DashboardClient() {
         personCount: tree.personCount || 0,
         relationshipCount: tree.relationshipCount || 0,
         createdAt: tree.createdAt,
+        coverPhotoURL: tree.coverPhotoURL || '',
       });
       await batch.commit();
       toast({ title: 'העץ כעת ציבורי' });
@@ -315,6 +316,11 @@ export function DashboardClient() {
 
       const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeToUploadCover.id);
       await updateDoc(treeRef, { coverPhotoURL: downloadURL });
+      
+      if (treeToUploadCover.privacy === 'public') {
+          const publicTreeRef = doc(db, 'publicTrees', treeToUploadCover.id);
+          await updateDoc(publicTreeRef, { coverPhotoURL: downloadURL });
+      }
 
       toast({ title: 'תמונת הנושא עודכנה!' });
       fetchData();

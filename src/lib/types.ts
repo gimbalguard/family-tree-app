@@ -169,4 +169,5 @@ export type PublicTree = {
   personCount: number;
   relationshipCount: number;
   createdAt: Timestamp;
+  coverPhotoURL?: string;
 };

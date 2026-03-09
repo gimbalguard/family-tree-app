@@ -575,6 +575,11 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "coverPhotoURL": {
+          "type": "string",
+          "description": "A URL to the tree's cover photo. Must be a valid HTTPS URL.",
+          "format": "uri"
         }
       },
       "required": [
