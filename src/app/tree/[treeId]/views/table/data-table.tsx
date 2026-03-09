@@ -30,6 +30,7 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   meta: any;
+  onAddPerson: () => void;
 }
 
 const getInitialVisibility = (treeId: string): VisibilityState => {
@@ -47,6 +48,7 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   meta,
+  onAddPerson,
 }: DataTableProps<TData, TValue>) {
   const treeId = meta?.treeId || '';
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -142,7 +144,7 @@ export function DataTable<TData, TValue>({
         <div>
             מציג {table.getRowModel().rows.length} מתוך {data.length}
         </div>
-        <Button onClick={() => meta.onAddPerson()} disabled={!meta.isOwner}>
+        <Button onClick={onAddPerson} disabled={meta.readOnly}>
             <PlusCircle className="ml-2 h-4 w-4" />
             הוסף אדם
         </Button>

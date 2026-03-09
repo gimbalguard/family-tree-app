@@ -29,7 +29,7 @@ export function TableView({ data, readOnly, treeId, updatePersonData, onAddPerso
 
   return (
     <div className="h-full flex flex-col p-4 sm:p-6 lg:p-8 gap-4">
-        <DataTable columns={columns} data={tableData} meta={meta} />
+      <DataTable columns={columns} data={tableData} meta={meta} onAddPerson={onAddPerson} />
     </div>
   );
 }
