@@ -1134,14 +1134,14 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
     const nonDbFields: (keyof Person)[] = [
       'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
-      'isLocked', 'groupId', 'cardDesign', 'isOwner', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
+      'isLocked', 'groupId', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
       'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize'
     ];
     if (nonDbFields.includes(field)) {
       console.warn(`Attempted to update non-db field "${field}". Operation blocked.`);
       return false;
     }
-    
+
     if (!user || !db || readOnly || !tree) {
         if (!readOnly) toast({ variant: 'destructive', title: 'שגיאת אימות' });
         return false;
@@ -1217,7 +1217,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     if (!personToDelete || !user || !db || !tree || readOnly) return;
   
     setIsDeleting(true);
-    setIsDeleteAlertOpen(false);
   
     const personIdToDelete = personToDelete.id;
     const deletedPerson = personToDelete; // capture before clearing
@@ -1232,6 +1231,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       r => r.personAId !== personIdToDelete && r.personBId !== personIdToDelete
     );
     const newPositions = prevCanvasPositions.filter(p => p.personId !== personIdToDelete);
+    
+    setIsDeleteAlertOpen(false);
     
     setPeople(newPeople);
     setRelationships(newRelationships);
@@ -2056,7 +2057,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           e.preventDefault();
           requestAnimationFrame(() => {
             const canvas = document.getElementById('main-view-container');
-            if (canvas) canvas.focus();
+            if (canvas) (canvas as HTMLElement).focus();
           });
         }}>
           <AlertDialogHeader>
