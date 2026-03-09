@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -2023,7 +2022,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2044,7 +2043,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
