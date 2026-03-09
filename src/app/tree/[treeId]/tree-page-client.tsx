@@ -1067,23 +1067,23 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
       const dataToUpdate = {
-          firstName: personData.firstName,
-          lastName: personData.lastName,
-          middleName: personData.middleName || null,
-          previousFirstName: personData.previousFirstName || null,
-          maidenName: personData.maidenName || null,
-          nickname: personData.nickname || null,
-          gender: personData.gender,
-          birthDate: personData.birthDate || null,
-          deathDate: personData.deathDate || null,
-          birthPlace: personData.birthPlace || null,
-          status: personData.status,
-          religion: personData.religion || null,
-          countryOfResidence: personData.countryOfResidence || null,
-          cityOfResidence: personData.cityOfResidence || null,
-          photoURL: personData.photoURL || null,
-          description: personData.description || null,
-          updatedAt: serverTimestamp(),
+        firstName: personData.firstName,
+        lastName: personData.lastName,
+        middleName: personData.middleName || null,
+        previousFirstName: personData.previousFirstName || null,
+        maidenName: personData.maidenName || null,
+        nickname: personData.nickname || null,
+        gender: personData.gender,
+        birthDate: personData.birthDate || null,
+        deathDate: personData.deathDate || null,
+        birthPlace: personData.birthPlace || null,
+        status: personData.status,
+        religion: personData.religion || null,
+        countryOfResidence: personData.countryOfResidence || null,
+        cityOfResidence: personData.cityOfResidence || null,
+        photoURL: personData.photoURL || null,
+        description: personData.description || null,
+        updatedAt: serverTimestamp(),
       };
 
       await updateDoc(docRef, dataToUpdate);
@@ -1217,6 +1217,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     if (!personToDelete || !user || !db || !tree || readOnly) return;
   
     setIsDeleting(true);
+    setIsDeleteAlertOpen(false);
+  
     const personIdToDelete = personToDelete.id;
     const deletedPerson = personToDelete; // capture before clearing
   
@@ -1231,8 +1233,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     );
     const newPositions = prevCanvasPositions.filter(p => p.personId !== personIdToDelete);
     
-    setIsDeleteAlertOpen(false);
-
     setPeople(newPeople);
     setRelationships(newRelationships);
     setCanvasPositions(newPositions);
