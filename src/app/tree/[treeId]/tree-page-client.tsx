@@ -1133,9 +1133,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
     const nonDbFields: (keyof Person)[] = [
-      'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
-      'isLocked', 'groupId', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
-      'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize', 'socialLinks'
+        'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
+        'isLocked', 'groupId', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
+        'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize', 'socialLinks'
     ];
     if (nonDbFields.includes(field)) {
       console.warn(`Attempted to update non-db field "${field}". Operation blocked.`);
@@ -1286,7 +1286,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
     } finally {
       setIsDeleting(false);
-      setPersonToDelete(null);
       setIsDeleteAlertOpen(false);
       requestAnimationFrame(() => {
         const canvas = document.getElementById('main-view-container');
@@ -2024,7 +2023,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2045,7 +2044,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
