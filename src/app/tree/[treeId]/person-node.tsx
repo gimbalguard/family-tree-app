@@ -23,8 +23,8 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     creatorCardBacklightIntensity,
     creatorCardBacklightDisabled,
     creatorCardSize,
-    creatorCardDesign,
-    // Global styles
+    // Card styles
+    cardDesign,
     cardBackgroundColor,
     cardBorderColor,
     cardBorderWidth,
@@ -95,13 +95,15 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     background: 'hsl(var(--primary))',
   };
   
-  const design = isOwner ? creatorCardDesign : 'default';
+  const design = cardDesign || 'default';
 
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: cardBackgroundColor,
-    borderColor: cardBorderColor,
-    borderWidth: cardBorderWidth ? `${cardBorderWidth}px` : undefined,
-  };
+  const cardStyle: React.CSSProperties = {};
+
+  if (design === 'default') {
+    cardStyle.backgroundColor = cardBackgroundColor;
+    cardStyle.borderColor = cardBorderColor;
+    cardStyle.borderWidth = cardBorderWidth ? `${cardBorderWidth}px` : undefined;
+  }
   
   if (isOwner) {
     if (creatorCardSize) {
@@ -110,10 +112,8 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
 
     if (!creatorCardBacklightDisabled) {
       const intensity = (creatorCardBacklightIntensity ?? 50) / 100;
-      const glowColor1 = `rgba(255, 193, 7, ${intensity * 0.7})`; // Amber
-      const glowColor2 = `rgba(255, 87, 34, ${intensity * 0.5})`; // Orange/Red
-      cardStyle.boxShadow = `0 0 ${15 * intensity}px ${glowColor1}, 0 0 ${45 * intensity}px ${glowColor2}`;
-      
+      const shadowColor = `rgba(255, 193, 7, ${intensity * 0.7})`; // Amber
+      cardStyle.boxShadow = `0 0 ${8 * intensity}px ${shadowColor}, 0 0 ${20 * intensity}px ${shadowColor}, 0 0 ${45 * intensity}px ${shadowColor}`;
       const existingTransform = cardStyle.transform || '';
       cardStyle.transform = `${existingTransform} translateY(-2px)`;
     }
@@ -131,7 +131,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       className={cn(
         "w-64 transition-all duration-200 relative", 
         selected && 'ring-2 ring-primary ring-offset-2',
-        isOwner && designClasses
+        designClasses
       )}
     >
       {isLocked && (

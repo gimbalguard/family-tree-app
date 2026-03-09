@@ -338,6 +338,29 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
         parentMap.get(rel.personBId)!.push(rel.personAId);
       }
     });
+    
+    let twinIds = new Set<string>();
+    if (currentTree.applyCreatorSettingsToTwins && currentTree.ownerPersonId) {
+      const owner = peopleData.find(p => p.id === currentTree.ownerPersonId);
+      if (owner && owner.birthDate) {
+        const ownerParents = parentMap.get(owner.id) || [];
+        if (ownerParents.length > 0) {
+          const potentialSiblings = new Set<string>();
+          ownerParents.forEach(parentId => {
+            (childrenMap.get(parentId) || []).forEach(childId => {
+              if (childId !== owner.id) potentialSiblings.add(childId);
+            });
+          });
+          potentialSiblings.forEach(siblingId => {
+            const sibling = peopleData.find(p => p.id === siblingId);
+            if (sibling && sibling.birthDate === owner.birthDate) {
+              twinIds.add(siblingId);
+            }
+          });
+        }
+      }
+    }
+
 
     const enrichedPeopleData = peopleData.map(person => {
         const children = childrenMap.get(person.id) || [];
@@ -382,7 +405,11 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
     const newNodes = enrichedPeopleData.map(person => {
       const pos = positionsMap.get(person.id);
+      
       const isOwner = person.id === currentTree.ownerPersonId;
+      const isTwin = twinIds.has(person.id);
+      const applyCreatorStyles = isOwner || isTwin;
+      
       return {
         id: person.id,
         type: 'personNode',
@@ -391,15 +418,15 @@ function TreeCanvasContainer({ treeId }: TreePageClientProps) {
           ...person,
           isLocked: pos?.isLocked ?? false,
           groupId: pos?.groupId ?? null,
+          cardDesign: applyCreatorStyles ? currentTree.creatorCardDesign : currentTree.cardDesign,
+          isOwner,
           cardBackgroundColor: currentTree.cardBackgroundColor,
           cardBorderColor: currentTree.cardBorderColor,
           cardBorderWidth: currentTree.cardBorderWidth,
-          isOwner,
-          ...(isOwner && {
+          ...(applyCreatorStyles && {
             creatorCardBacklightIntensity: currentTree.creatorCardBacklightIntensity,
             creatorCardBacklightDisabled: currentTree.creatorCardBacklightDisabled,
             creatorCardSize: currentTree.creatorCardSize,
-            creatorCardDesign: currentTree.creatorCardDesign,
           }),
         },
         draggable: !(pos?.isLocked ?? false),

@@ -26,6 +26,8 @@ export type FamilyTree = {
   cardBorderColor?: string;
   cardBorderWidth?: number;
   canvasBackgroundColor?: string;
+  cardDesign?: 'default' | 'tech' | 'natural' | 'elegant';
+  applyCreatorSettingsToTwins?: boolean;
 };
 
 export type Person = {
@@ -69,6 +71,7 @@ export type Person = {
   cardBackgroundColor?: string;
   cardBorderColor?: string;
   cardBorderWidth?: number;
+  cardDesign?: 'default' | 'tech' | 'natural' | 'elegant';
 };
 
 export type Relationship = {

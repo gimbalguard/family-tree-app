@@ -33,8 +33,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Copy } from 'lucide-react';
+import { Loader2, Copy, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { FamilyTree, Person } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,16 +42,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel"
 
 const settingsSchema = z.object({
   treeName: z.string().min(1, 'שם העץ הוא שדה חובה.'),
   ownerPersonId: z.string().optional(),
   language: z.enum(['he', 'en']),
   privacy: z.enum(['private', 'link', 'public']),
+  cardDesign: z.enum(['default', 'tech', 'natural', 'elegant']).optional(),
+  creatorCardDesign: z.enum(['default', 'tech', 'natural', 'elegant']).optional(),
   creatorCardBacklightIntensity: z.number().min(0).max(100).optional(),
   creatorCardBacklightDisabled: z.boolean().optional(),
+  applyCreatorSettingsToTwins: z.boolean().optional(),
   creatorCardSize: z.number().min(50).max(200).optional(),
-  creatorCardDesign: z.enum(['default', 'tech', 'natural', 'elegant']).optional(),
   cardBackgroundColor: z.string().optional(),
   cardBorderColor: z.string().optional(),
   cardBorderWidth: z.number().min(0).max(10).optional(),
@@ -99,11 +101,12 @@ const CardPreview = ({
     const photo = owner?.photoURL || getPlaceholderImage(owner?.gender || 'other');
 
     return (
+      <div className="w-full h-full p-2 aspect-[16/9] flex items-center justify-center">
         <div
-            className={cn("w-full h-full border rounded-lg shadow-sm relative p-2 flex items-center gap-2", designClasses)}
+            className={cn("w-48 h-[6.5rem] border rounded-lg shadow-sm relative p-2 flex items-center gap-2", designClasses)}
             style={cardStyles}
         >
-            <div className={cn("rounded-full avatar-frame")}>
+            <div className={cn('avatar-frame rounded-full')}>
               <Avatar className={cn("h-10 w-10 border")}>
                 <AvatarImage src={photo || ''} className="object-cover"/>
                 <AvatarFallback>
@@ -118,6 +121,7 @@ const CardPreview = ({
                 <div className={cn("w-10/12 h-2 rounded-sm text-sub", designClasses ? '' : 'bg-muted/50')} />
             </div>
         </div>
+      </div>
     )
 }
 
@@ -127,6 +131,51 @@ const designOptions: {value: NonNullable<FamilyTree['creatorCardDesign']>, label
     { value: 'natural', label: 'טבעי' },
     { value: 'elegant', label: 'אלגנטי' },
 ];
+
+function DesignCarousel({
+    field,
+    owner,
+    formValues,
+}: {
+    field: any;
+    owner?: Person;
+    formValues: any;
+}) {
+    const [api, setApi] = useState<CarouselApi>()
+    const selectedIndex = designOptions.findIndex(o => o.value === field.value);
+
+    useEffect(() => {
+        if (api && selectedIndex !== -1 && api.selectedScrollSnap() !== selectedIndex) {
+            api.scrollTo(selectedIndex)
+        }
+    }, [api, selectedIndex])
+
+    return (
+        <Carousel setApi={setApi} className="w-full max-w-sm mx-auto">
+            <CarouselContent>
+                {designOptions.map((opt) => (
+                    <CarouselItem key={opt.value} onClick={() => field.onChange(opt.value)}>
+                        <CardPreview
+                            design={opt.value}
+                            owner={owner}
+                            bgColor={formValues.cardBackgroundColor}
+                            borderColor={formValues.cardBorderColor}
+                            borderWidth={formValues.cardBorderWidth}
+                        />
+                        <p className={cn(
+                            "text-center text-sm font-medium mt-1",
+                            field.value === opt.value ? "text-primary" : "text-muted-foreground"
+                        )}>
+                            {opt.label}
+                        </p>
+                    </CarouselItem>
+                ))}
+            </CarouselContent>
+            <CarouselPrevious />
+            <CarouselNext />
+        </Carousel>
+    );
+}
 
 export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: SettingsModalProps) {
   const { toast } = useToast();
@@ -140,10 +189,12 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
       ownerPersonId: '',
       language: 'he',
       privacy: 'private',
+      cardDesign: 'default',
+      creatorCardDesign: 'default',
       creatorCardBacklightIntensity: 50,
       creatorCardBacklightDisabled: false,
+      applyCreatorSettingsToTwins: false,
       creatorCardSize: 100,
-      creatorCardDesign: 'default',
       cardBackgroundColor: '#ffffff',
       cardBorderColor: '#e5e7eb',
       cardBorderWidth: 1,
@@ -168,10 +219,12 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
         ownerPersonId: tree.ownerPersonId || '',
         language: tree.language || 'he',
         privacy: tree.privacy || 'private',
+        cardDesign: tree.cardDesign ?? 'default',
+        creatorCardDesign: tree.creatorCardDesign ?? 'default',
         creatorCardBacklightIntensity: tree.creatorCardBacklightIntensity ?? 50,
         creatorCardBacklightDisabled: tree.creatorCardBacklightDisabled ?? false,
+        applyCreatorSettingsToTwins: tree.applyCreatorSettingsToTwins ?? false,
         creatorCardSize: tree.creatorCardSize ?? 100,
-        creatorCardDesign: tree.creatorCardDesign ?? 'default',
         cardBackgroundColor: tree.cardBackgroundColor || '#ffffff',
         cardBorderColor: tree.cardBorderColor || '#e5e7eb',
         cardBorderWidth: tree.cardBorderWidth ?? 1,
@@ -248,14 +301,14 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
               <div className="flex-1 min-h-0">
                   <ScrollArea className="h-full">
                     <TabsContent value="general" className="mt-0">
-                        <div className="space-y-6 px-6 py-4">
+                        <div className="space-y-4 px-6 py-4">
                             <FormField control={form.control} name="treeName" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>שם העץ</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem className='text-right'><FormLabel className='text-xs'>שם העץ</FormLabel><FormControl><Input {...field} className="h-9" /></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name="ownerPersonId" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>מי אני בעץ?</FormLabel>
+                                <FormItem className='text-right'><FormLabel className='text-xs'>מי אני בעץ?</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                                    <FormControl><SelectTrigger><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
+                                    <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="בחר..." /></SelectTrigger></FormControl>
                                     <SelectContent>
                                         <SelectItem value="--none--">- ללא -</SelectItem>
                                         {people.map(p => (
@@ -266,9 +319,9 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                             )}/>
                             <Separator/>
                             <FormField control={form.control} name="language" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>שפה</FormLabel>
+                                <FormItem className='text-right'><FormLabel className='text-xs'>שפה</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value} dir="rtl">
-                                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger className="h-9"><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             <SelectItem value="he">עברית</SelectItem>
                                             <SelectItem value="en">English</SelectItem>
@@ -277,18 +330,18 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                             )}/>
                             <Separator/>
                             <FormField control={form.control} name="privacy" render={({ field }) => (
-                                <FormItem className="space-y-3 text-right"><FormLabel>פרטיות</FormLabel>
+                                <FormItem className="space-y-3 text-right"><FormLabel className='text-xs'>פרטיות</FormLabel>
                                     <FormControl>
-                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="space-y-2">
-                                        <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="private" /></FormControl><FormLabel className="font-normal">פרטי (רק אני יכול לראות)</FormLabel></FormItem>
-                                        <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="link" /></FormControl><FormLabel className="font-normal">קישור בלבד (כל מי עם הקישור יכול לראות)</FormLabel></FormItem>
-                                        <FormItem className="flex items-center gap-2"><FormControl><RadioGroupItem value="public" /></FormControl><FormLabel className="font-normal">ציבורי (גלוי לכל משתמשי הפלטפורמה)</FormLabel></FormItem>
-                                    </RadioGroup>
+                                    <div className="space-y-2">
+                                        <Button type="button" onClick={() => field.onChange('private')} variant={field.value === 'private' ? 'secondary' : 'outline'} className="w-full justify-start h-auto py-2">פרטי (רק אני יכול לראות)</Button>
+                                        <Button type="button" onClick={() => field.onChange('link')} variant={field.value === 'link' ? 'secondary' : 'outline'} className="w-full justify-start h-auto py-2">קישור בלבד (כל מי עם הקישור יכול לראות)</Button>
+                                        <Button type="button" onClick={() => field.onChange('public')} variant={field.value === 'public' ? 'secondary' : 'outline'} className="w-full justify-start h-auto py-2">ציבורי (גלוי לכל משתמשי הפלטפורמה)</Button>
+                                    </div>
                                     </FormControl>
                                     <FormMessage />
                                     {privacyValue === 'link' && (
                                         <div className="flex items-center space-x-2 space-x-reverse pt-2">
-                                            <Input value={shareLink} readOnly /><Button type="button" size="icon" onClick={copyShareLink} disabled={!shareLink}><Copy className="h-4 w-4" /></Button>
+                                            <Input value={shareLink} readOnly className="h-9" /><Button type="button" size="icon" onClick={copyShareLink} disabled={!shareLink} className="h-9 w-9"><Copy className="h-4 w-4" /></Button>
                                         </div>
                                     )}
                                 </FormItem>
@@ -296,88 +349,63 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                         </div>
                     </TabsContent>
                     <TabsContent value="global-design" className="mt-0">
-                        <div className="space-y-6 px-6 py-4">
-                            <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-6 px-6 py-4">
+                            <FormField control={form.control} name="cardDesign" render={({ field }) => (
+                                <FormItem className='text-right'>
+                                <FormLabel>עיצוב כרטיס</FormLabel>
+                                <FormControl><DesignCarousel field={field} owner={ownerPerson} formValues={formValues}/></FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}/>
+                             <Separator/>
+                             <div className="space-y-4">
                                 <FormField control={form.control} name="canvasBackgroundColor" render={({ field }) => (
-                                    <FormItem className='text-right'><FormLabel>צבע רקע קנבס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                                    <FormItem className='text-right'><FormLabel>צבע רקע קנבס</FormLabel><FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl></FormItem>
                                 )}/>
                                 <FormField control={form.control} name="cardBackgroundColor" render={({ field }) => (
-                                    <FormItem className='text-right'><FormLabel>צבע רקע כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                                    <FormItem className='text-right'><FormLabel>צבע רקע כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl></FormItem>
                                 )}/>
                                 <FormField control={form.control} name="cardBorderColor" render={({ field }) => (
-                                    <FormItem className='text-right'><FormLabel>צבע גבול כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-12"/></FormControl></FormItem>
+                                    <FormItem className='text-right'><FormLabel>צבע גבול כרטיס</FormLabel><FormControl><Input type="color" {...field} className="h-10 p-1"/></FormControl></FormItem>
                                 )}/>
-                            </div>
-                            <FormField control={form.control} name="cardBorderWidth" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>עובי גבול ({field.value}px)</FormLabel><FormControl><Slider value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={10} step={1} /></FormControl></FormItem>
-                            )}/>
+                                <FormField control={form.control} name="cardBorderWidth" render={({ field }) => (
+                                    <FormItem className='text-right'><FormLabel>עובי גבול ({field.value}px)</FormLabel><FormControl><Slider value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={10} step={1} /></FormControl></FormItem>
+                                )}/>
+                             </div>
                         </div>
                     </TabsContent>
                     <TabsContent value="creator-card" className="mt-0">
                        <div className="space-y-6 px-6 py-4">
-                            <FormField
-                                control={form.control}
-                                name="creatorCardDesign"
-                                render={({ field }) => (
-                                    <FormItem className='text-right'>
-                                    <FormLabel>עיצוב כרטיס יוצר</FormLabel>
-                                    <FormControl>
-                                        <RadioGroup
-                                            onValueChange={field.onChange}
-                                            value={field.value}
-                                            className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2"
-                                        >
-                                            {designOptions.map((opt) => {
-                                                const itemId = `design-option-${opt.value}`;
-                                                return (
-                                                    <FormItem key={opt.value} className="space-y-0">
-                                                        <FormControl>
-                                                            <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
-                                                        </FormControl>
-                                                        <Label
-                                                            htmlFor={itemId}
-                                                            className={cn(
-                                                                "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer h-28 w-full",
-                                                                field.value === opt.value && "border-primary"
-                                                            )}
-                                                        >
-                                                            <div className="w-full flex-1 relative">
-                                                                <CardPreview
-                                                                    design={opt.value}
-                                                                    owner={ownerPerson}
-                                                                    bgColor={formValues.cardBackgroundColor}
-                                                                    borderColor={formValues.cardBorderColor}
-                                                                    borderWidth={formValues.cardBorderWidth}
-                                                                />
-                                                            </div>
-                                                            <span className="text-xs font-normal text-center">{opt.label}</span>
-                                                        </Label>
-                                                    </FormItem>
-                                                );
-                                            })}
-                                        </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>גודל כרטיס יוצר ({field.value || 100}%)</FormLabel><FormControl><Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} /></FormControl></FormItem>
+                            <FormField control={form.control} name="creatorCardDesign" render={({ field }) => (
+                                <FormItem className='text-right'>
+                                <FormLabel>עיצוב כרטיס יוצר</FormLabel>
+                                <FormControl><DesignCarousel field={field} owner={ownerPerson} formValues={formValues}/></FormControl>
+                                <FormMessage />
+                                </FormItem>
                             )}/>
-                            <Separator/>
-                            <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
-                                <FormItem className='text-right'><FormLabel>עוצמת תאורה אחורית ({field.value || 0}%)</FormLabel>
-                                <FormControl><Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} /></FormControl></FormItem>
-                            )}/>
-                            <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
-                                <FormItem className="flex items-center justify-end gap-2 text-right"><FormLabel className="!mt-0">בטל הבלטת כרטיס</FormLabel><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>
-                            )}/>
+                            <div className="space-y-2">
+                                <FormField control={form.control} name="creatorCardSize" render={({ field }) => (
+                                    <FormItem className='text-right'><FormLabel className='text-xs'>גודל כרטיס יוצר ({field.value || 100}%)</FormLabel><FormControl><Slider value={[field.value || 100]} onValueChange={(vals) => field.onChange(vals[0])} min={50} max={200} step={10} /></FormControl></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="creatorCardBacklightIntensity" render={({ field }) => (
+                                    <FormItem className='text-right'><FormLabel className='text-xs'>עוצמת תאורה אחורית ({field.value || 0}%)</FormLabel>
+                                    <FormControl><Slider disabled={isBacklightDisabled} value={[field.value || 0]} onValueChange={(vals) => field.onChange(vals[0])} max={100} step={1} /></FormControl></FormItem>
+                                )}/>
+                            </div>
+                            <div className="flex items-center justify-end gap-6 text-right">
+                                <FormField control={form.control} name="applyCreatorSettingsToTwins" render={({ field }) => (
+                                    <FormItem className="flex items-center gap-2"><FormLabel className="!mt-0 text-xs">החל על תאומים</FormLabel><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>
+                                )}/>
+                                <FormField control={form.control} name="creatorCardBacklightDisabled" render={({ field }) => (
+                                    <FormItem className="flex items-center gap-2"><FormLabel className="!mt-0 text-xs">בטל הבלטה</FormLabel><FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl></FormItem>
+                                )}/>
+                            </div>
                         </div>
                     </TabsContent>
                   </ScrollArea>
               </div>
             </Tabs>
-            <DialogFooter className="p-6 border-t shrink-0">
+            <DialogFooter className="p-4 border-t shrink-0">
                 <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
                 <Button type="submit" form="settings-form" disabled={isLoading}>
                     {isLoading && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
