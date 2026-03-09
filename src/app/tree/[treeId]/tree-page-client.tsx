@@ -1172,46 +1172,37 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
     try {
       const personIdToDelete = personToDelete.id;
+      
       const batch = writeBatch(db);
-  
-      // Define paths to all dependencies
+      
       const basePath = `users/${user.uid}/familyTrees/${treeId}`;
       const personRef = doc(db, basePath, 'people', personIdToDelete);
+      
       const relsQueryA = query(collection(db, basePath, 'relationships'), where('personAId', '==', personIdToDelete));
       const relsQueryB = query(collection(db, basePath, 'relationships'), where('personBId', '==', personIdToDelete));
       const posQuery = query(collection(db, basePath, 'canvasPositions'), where('personId', '==', personIdToDelete));
       const socialLinksQuery = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
-  
-      // Correctly await all snapshot fetches
-      const [
-        relsSnapA,
-        relsSnapB,
-        posSnap,
-        socialLinksSnap
-      ] = await Promise.all([
+      
+      const [relsSnapA, relsSnapB, posSnap, socialLinksSnap] = await Promise.all([
         getDocs(relsQueryA),
         getDocs(relsQueryB),
         getDocs(posQuery),
         getDocs(socialLinksQuery),
       ]);
-  
-      // Add all found documents to the delete batch
+      
       [...relsSnapA.docs, ...relsSnapB.docs].forEach(d => batch.delete(d.ref));
       posSnap.docs.forEach(d => batch.delete(d.ref));
       socialLinksSnap.docs.forEach(d => batch.delete(d.ref));
       
-      // Finally, add the person document itself to the batch
       batch.delete(personRef);
-  
-      // Commit the atomic delete operation
+      
       await batch.commit();
-  
+      
       toast({
         title: 'אדם נמחק',
         description: `${personToDelete.firstName} ${personToDelete.lastName} נמחק בהצלחה.`,
       });
   
-      // Instead of optimistic UI update, refetch the data to guarantee consistency
       await fetchData();
   
     } catch (error: any) {
