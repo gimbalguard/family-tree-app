@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useCallback } from 'react';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -152,7 +153,7 @@ export function CanvasToolbar({
   };
 
   return (
-    <aside className="flex flex-col items-center gap-4 border-l bg-card p-4" data-export-hide>
+    <aside className="flex flex-col items-center gap-4 border-l bg-card p-2" data-export-hide>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" onClick={onBack}>
@@ -164,7 +165,7 @@ export function CanvasToolbar({
         </TooltipContent>
       </Tooltip>
 
-      <div className="flex-grow space-y-2 flex flex-col items-center">
+      <div className="grid grid-cols-2 gap-2">
          {viewOptions.map((option) => (
            <Tooltip key={option.value}>
              <TooltipTrigger asChild>
@@ -174,11 +175,11 @@ export function CanvasToolbar({
                   onClick={() => setViewMode(option.value)}
                   style={viewMode === option.value ? { backgroundColor: option.color } : {}}
                   className={cn(
-                    "transition-all duration-200",
+                    "transition-all duration-200 w-12 h-12",
                     viewMode === option.value ? 'text-white' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {React.cloneElement(option.icon as React.ReactElement, { className: "h-5 w-5" })}
+                  {React.cloneElement(option.icon as React.ReactElement, { className: "h-6 w-6" })}
                 </Button>
              </TooltipTrigger>
              <TooltipContent side="right"><p>{option.label}</p></TooltipContent>
@@ -188,45 +189,38 @@ export function CanvasToolbar({
 
 
       {!readOnly && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onToggleChat}>
-              <MessageSquare className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>עריכה עם AI</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+        <div className="w-full flex flex-col items-center gap-1">
+          <Separator className="my-1 w-full" />
+          <Button variant="ghost" size="sm" className="w-full" onClick={onToggleChat}>
+            <MessageSquare className="ml-2 h-4 w-4" />
+            <span>AI Chat</span>
+          </Button>
 
-      {(viewMode === 'tree' || viewMode === 'timeline') && !readOnly && (
-        <div className="w-full">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full justify-between">
-                <div className="flex items-center gap-2">
-                  <Spline className="h-4 w-4" />
-                  <span className="text-sm">סגנון קו</span>
-                </div>
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="right"
-              className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
-            >
-              {edgeStyleOptions.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  onClick={() => setEdgeType(option.value)}
-                  className="gap-2"
-                >
-                  <span>{option.label}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {(viewMode === 'tree' || viewMode === 'timeline') && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full">
+                    <Spline className="ml-2 h-4 w-4" />
+                    <span>Line Style</span>
+                    <ChevronDown className="mr-auto h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="right"
+                className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
+              >
+                {edgeStyleOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() => setEdgeType(option.value)}
+                    className="gap-2"
+                  >
+                    <span>{option.label}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       )}
       
@@ -258,7 +252,7 @@ export function CanvasToolbar({
         <div className="flex w-full flex-col gap-1">
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2 px-2"
+            className="w-full justify-start gap-2 px-2 border border-black"
             onClick={onOpenSettings}
           >
             <Settings className="h-5 w-5" />
@@ -266,7 +260,7 @@ export function CanvasToolbar({
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2 px-2"
+            className="w-full justify-start gap-2 px-2 border border-black"
             onClick={onOpenAccount}
           >
             <User className="h-5 w-5" />
@@ -274,7 +268,7 @@ export function CanvasToolbar({
           </Button>
           <Button
             variant="ghost"
-            className="w-full justify-start gap-2 px-2"
+            className="w-full justify-start gap-2 px-2 border border-black"
             onClick={() => window.open(`/tree/${treeId}/help`, '_blank')}
           >
             <HelpCircle className="h-5 w-5" />
