@@ -55,15 +55,6 @@ export function DashboardClient() {
 
   const isAnonymous = user?.isAnonymous ?? true;
 
-  const returnFocusToPage = useCallback(() => {
-    setTimeout(() => {
-      // Don't try to focus a specific element, just blur the active one
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-    }, 100);
-  }, []);
-
   const fetchData = useCallback(async () => {
     if (isUserLoading || !db || !user) {
       if (!isUserLoading) setIsLoading(false);
@@ -535,27 +526,18 @@ export function DashboardClient() {
 
       <NewTreeDialog
         open={isDialogOpen}
-        onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) returnFocusToPage();
-        }}
+        onOpenChange={setIsDialogOpen}
         onTreeCreated={onTreeCreated}
       />
       
       <ShareTreeDialog
         open={isShareDialogOpen}
-        onOpenChange={(open) => {
-          setIsShareDialogOpen(open);
-          if (!open) returnFocusToPage();
-        }}
+        onOpenChange={setIsShareDialogOpen}
         onShare={handleShareSubmit}
         treeName={treeToShare?.treeName || ''}
       />
 
-      <AlertDialog open={isAlertOpen} onOpenChange={(open) => {
-          setIsAlertOpen(open);
-          if (!open) returnFocusToPage();
-        }}>
+      <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
         <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח לחלוטין?</AlertDialogTitle>
