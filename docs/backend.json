@@ -527,7 +527,10 @@
           "format": "email"
         },
         "sharedWithUserId": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "createdAt": {
           "type": "string",
@@ -543,7 +546,6 @@
         "treeId",
         "treeName",
         "sharedWithEmail",
-        "sharedWithUserId",
         "createdAt",
         "canEdit"
       ]

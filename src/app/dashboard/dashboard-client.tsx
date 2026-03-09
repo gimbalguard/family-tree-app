@@ -85,7 +85,9 @@ export function DashboardClient() {
 
         return treeData;
       });
-      const userTrees = await Promise.all(myTreesPromises);
+      const userTrees = (await Promise.all(myTreesPromises)).filter(
+        (tree) => tree.treeName !== 'משפחת אבידר'
+      );
       setMyTrees(userTrees);
 
       // 2. Fetch all shares related to the user
@@ -223,23 +225,25 @@ export function DashboardClient() {
     try {
       const emailQuery = query(collection(db, "userEmails"), where("email", "==", email), limit(1));
       const emailSnap = await getDocs(emailQuery);
-      if (emailSnap.empty) {
-        toast({ variant: 'destructive', title: 'משתמש לא נמצא', description: 'לא נמצא משתמש עם כתובת האימייל שהוזנה.' });
-        return;
+
+      let targetUserId: string | null = null;
+      if (!emailSnap.empty) {
+        targetUserId = emailSnap.docs[0].data().uid;
       }
-      const targetUser = emailSnap.docs[0].data();
+      
       const sharedDocData = {
         ownerUserId: user.uid,
         ownerName: user.displayName || 'Unknown',
         treeId: treeToShare.id,
         treeName: treeToShare.treeName,
         sharedWithEmail: email,
-        sharedWithUserId: targetUser.uid,
+        sharedWithUserId: targetUserId,
         canEdit: true,
         createdAt: serverTimestamp(),
       };
       await addDoc(collection(db, "sharedTrees"), sharedDocData);
-      toast({ title: 'העץ שותף בהצלחה', description: `העץ "${treeToShare.treeName}" שותף עם ${email}.` });
+
+      toast({ title: 'העץ שותף בהצלחה', description: `הזמנה לשיתוף העץ "${treeToShare.treeName}" נשלחה ל-${email}.` });
       setIsShareDialogOpen(false);
       setTreeToShare(null);
       fetchData(); // Refetch to show new shared status
@@ -361,6 +365,7 @@ export function DashboardClient() {
       const batch = writeBatch(db);
       const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
       
+      // Simply delete the main tree document. Let subcollections be orphaned or cleaned up later.
       batch.delete(treeDocRef);
       
       // Also delete any shares related to this tree where I am the owner
@@ -446,31 +451,60 @@ export function DashboardClient() {
         </div>
       );
     }
+    
+    const myPublicTrees = myTrees.filter(t => t.privacy === 'public');
+    const myPrivateTrees = myTrees.filter(t => t.privacy !== 'public');
 
     return (
       <div className="space-y-12 mt-8">
-        {myTrees.length > 0 && (
-          <section>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4">העצים שלי</h2>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {myTrees.map((tree) => (
-                <TreeCard
-                  key={`my-tree-${tree.id}`}
-                  tree={tree}
-                  type="owned"
-                  sharedWith={outgoingShares.get(tree.id)}
-                  onDelete={() => handleDeleteClick(tree)}
-                  onDuplicate={() => handleDuplicateTree(tree)}
-                  onShare={() => handleOpenShareDialog(tree)}
-                  onSetPublic={() => handleSetPublic(tree)}
-                  onSetPrivate={() => handleSetPrivate(tree)}
-                  onUploadCover={() => handleUploadCoverClick(tree)}
-                  onCreateShareLink={() => handleCreateShareLink(tree)}
-                />
-              ))}
+        <section>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4">העצים שיצרתי</h2>
+          {myPublicTrees.length > 0 && (
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-slate-700 mb-3">עצים ציבוריים</h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {myPublicTrees.map((tree) => (
+                  <TreeCard
+                    key={`my-public-${tree.id}`}
+                    tree={tree}
+                    type="owned"
+                    sharedWith={outgoingShares.get(tree.id)}
+                    onDelete={() => handleDeleteClick(tree)}
+                    onDuplicate={() => handleDuplicateTree(tree)}
+                    onShare={() => handleOpenShareDialog(tree)}
+                    onSetPublic={() => handleSetPublic(tree)}
+                    onSetPrivate={() => handleSetPrivate(tree)}
+                    onUploadCover={() => handleUploadCoverClick(tree)}
+                    onCreateShareLink={() => handleCreateShareLink(tree)}
+                  />
+                ))}
+              </div>
             </div>
-          </section>
-        )}
+          )}
+           {myPrivateTrees.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-slate-700 mb-3">עצים פרטיים</h3>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {myPrivateTrees.map((tree) => (
+                  <TreeCard
+                    key={`my-private-${tree.id}`}
+                    tree={tree}
+                    type="owned"
+                    sharedWith={outgoingShares.get(tree.id)}
+                    onDelete={() => handleDeleteClick(tree)}
+                    onDuplicate={() => handleDuplicateTree(tree)}
+                    onShare={() => handleOpenShareDialog(tree)}
+                    onSetPublic={() => handleSetPublic(tree)}
+                    onSetPrivate={() => handleSetPrivate(tree)}
+                    onUploadCover={() => handleUploadCoverClick(tree)}
+                    onCreateShareLink={() => handleCreateShareLink(tree)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+        
         {incomingSharedTrees.length > 0 && (
           <section>
             <h2 className="text-2xl font-bold tracking-tight text-slate-900 mb-4 flex items-center gap-2">

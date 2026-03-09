@@ -153,7 +153,7 @@ export type SharedTree = {
   treeId: string;
   treeName: string;
   sharedWithEmail: string;
-  sharedWithUserId: string;
+  sharedWithUserId: string | null;
   createdAt: Timestamp;
   canEdit: boolean;
   // Denormalized counts for display

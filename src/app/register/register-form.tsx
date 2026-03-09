@@ -18,7 +18,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, writeBatch, query, collection, where, getDocs } from 'firebase/firestore';
 
 const formSchema = z.object({
   username: z.string().min(3, { message: 'שם משתמש חייב להכיל לפחות 3 תווים.' }),
@@ -73,6 +73,22 @@ export function RegisterForm() {
 
         await batch.commit();
 
+        // After creating user, check for pending shares
+        const pendingSharesQuery = query(
+            collection(db, "sharedTrees"),
+            where("sharedWithEmail", "==", values.email)
+        );
+        const pendingSharesSnap = await getDocs(pendingSharesQuery);
+
+        if (!pendingSharesSnap.empty) {
+            const updateBatch = writeBatch(db);
+            pendingSharesSnap.forEach(shareDoc => {
+                updateBatch.update(shareDoc.ref, { sharedWithUserId: user.uid });
+            });
+            await updateBatch.commit();
+            toast({ title: "עצים ששותפו איתך נוספו לחשבונך!" });
+        }
+        
         // On success, redirect is handled by the auth state listener
       } catch (error: any) {
       toast({
