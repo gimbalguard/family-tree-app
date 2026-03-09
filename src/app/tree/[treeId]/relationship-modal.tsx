@@ -1,3 +1,4 @@
+
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -244,7 +245,7 @@ export function RelationshipModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent dir="rtl" className="rounded-xl">
+      <DialogContent dir="rtl" className="rounded-xl" onCloseAutoFocus={(e) => e.preventDefault()}>
         {isConfirmingDelete ? (
             <>
                 <DialogHeader className="text-right">

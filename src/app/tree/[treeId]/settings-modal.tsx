@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -300,7 +301,7 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0">
+      <DialogContent dir="rtl" className="max-w-2xl h-[90vh] flex flex-col p-0 gap-0" onCloseAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader className="text-right shrink-0 p-6 border-b">
           <DialogTitle>הגדרות עץ</DialogTitle>
           <DialogDescription>נהל את הגדרות העץ והפרטיות שלו.</DialogDescription>

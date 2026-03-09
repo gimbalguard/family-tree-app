@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -45,7 +46,7 @@ export function ImportConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl">
+      <DialogContent dir="rtl" onCloseAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader className="text-right">
           <DialogTitle>אישור ייבוא</DialogTitle>
           <DialogDescription>

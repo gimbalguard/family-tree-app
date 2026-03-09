@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -280,7 +281,7 @@ export function PersonEditor({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh] z-[1002]" dir="rtl">
+      <DialogContent className="sm:max-w-2xl w-[90vw] flex flex-col max-h-[90vh] z-[1002]" dir="rtl" onCloseAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader className="text-right">
           <DialogTitle>{isEditing ? 'עריכת אדם' : 'הוספת אדם חדש'}</DialogTitle>
           <DialogDescription>

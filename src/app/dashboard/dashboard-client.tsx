@@ -558,7 +558,7 @@ export function DashboardClient() {
           setIsAlertOpen(open);
           if (!open) returnFocusToPage();
         }}>
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח לחלוטין?</AlertDialogTitle>
             <AlertDialogDescription>

@@ -201,15 +201,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
-  const returnFocusToCanvas = useCallback(() => {
-    setTimeout(() => {
-      // Don't try to focus the canvas directly - just blur whatever has focus
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
-    }, 100);
-  }, []);
-
   const onNodesChange: OnNodesChange = useCallback(
     (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
     []
@@ -965,7 +956,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleEditorClose = () => {
     setIsEditorOpen(false);
     setSelectedPerson(null);
-    returnFocusToCanvas();
   };
 
   const handleOpenEditorForNew = () => {
@@ -1258,7 +1248,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsRelModalOpen(false);
     setNewConnection(null);
     setEditingRelationship(null);
-    returnFocusToCanvas();
   };
 
   const handleSaveRelationship = async (payload: {
@@ -1855,10 +1844,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
       <RelationshipModal
         isOpen={isRelModalOpen || !!pendingDeleteId}
-        onClose={() => {
-          handleRelModalClose();
-          if (pendingDeleteId) setPendingDeleteId(null);
-        }}
+        onClose={handleRelModalClose}
         connection={newConnection}
         relationship={
           editingRelationship ||
@@ -1882,10 +1868,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       />
        <ManualEventEditor 
         isOpen={isManualEventEditorOpen}
-        onClose={() => {
-          setIsManualEventEditorOpen(false);
-          returnFocusToCanvas();
-        }}
+        onClose={() => setIsManualEventEditorOpen(false)}
         event={editingManualEvent}
         onSave={handleSaveManualEvent}
         onDelete={handleDeleteManualEvent}
@@ -1893,19 +1876,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
       <AccountModal
         isOpen={isAccountModalOpen}
-        onClose={() => {
-          setIsAccountModalOpen(false);
-          returnFocusToCanvas();
-        }}
+        onClose={() => setIsAccountModalOpen(false)}
       />
       
       {tree && (
         <PdfExportModal
           isOpen={isPdfModalOpen}
-          onClose={() => {
-            setIsPdfModalOpen(false);
-            returnFocusToCanvas();
-          }}
+          onClose={() => setIsPdfModalOpen(false)}
           tree={tree}
           onSave={(blob, fileName) => saveExportedFile(blob, fileName, 'pdf')}
         />
@@ -1914,10 +1891,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
        {tree && (
         <ImageExportModal
           isOpen={isImageExportModalOpen}
-          onClose={() => {
-            setIsImageExportModalOpen(false);
-            returnFocusToCanvas();
-          }}
+          onClose={() => setIsImageExportModalOpen(false)}
           tree={tree}
           onSave={saveExportedFile}
         />
@@ -1926,10 +1900,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
        {tree && (
         <PowerPointExportModal
           isOpen={isPowerPointModalOpen}
-          onClose={() => {
-            setIsPowerPointModalOpen(false);
-            returnFocusToCanvas();
-          }}
+          onClose={() => setIsPowerPointModalOpen(false)}
           tree={tree}
           people={people}
           relationships={relationships}
@@ -1939,10 +1910,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       
        <ImportConfirmationModal
         isOpen={isImportModalOpen}
-        onClose={() => {
-          setIsImportModalOpen(false);
-          returnFocusToCanvas();
-        }}
+        onClose={() => setIsImportModalOpen(false)}
         parsedData={parsedExcelData}
         onConfirm={handleConfirmImport}
         isImporting={isImporting}
@@ -1950,10 +1918,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
       {tree && <SettingsModal
         isOpen={isSettingsModalOpen}
-        onClose={() => {
-          setIsSettingsModalOpen(false);
-          returnFocusToCanvas();
-        }}
+        onClose={() => setIsSettingsModalOpen(false)}
         tree={tree}
         people={people}
         onUpdate={handleUpdateTreeDetails}
@@ -1961,12 +1926,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
       <AlertDialog
         open={isDuplicateAlertOpen}
-        onOpenChange={(open) => {
-          setIsDuplicateAlertOpen(open);
-          if (!open) returnFocusToCanvas();
-        }}
+        onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1986,11 +1948,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={isDeleteAlertOpen} onOpenChange={(open) => {
-        setIsDeleteAlertOpen(open);
-        if (!open) returnFocusToCanvas();
-      }}>
-        <AlertDialogContent>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
