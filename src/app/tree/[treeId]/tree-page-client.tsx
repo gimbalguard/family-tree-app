@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -941,7 +940,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const rel = relationships.find((r) => r.id === edge.id);
       if (rel) {
         setEditingRelationship(rel);
-        setIsRelModalOpen(true);
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        requestAnimationFrame(() => setIsRelModalOpen(true));
       }
     },
     [relationships, readOnly]
@@ -950,7 +952,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleNodeDoubleClick: OnNodeDoubleClick = useCallback((_, node) => {
     if (readOnly) return;
     setSelectedPerson(node.data);
-    setIsEditorOpen(true);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsEditorOpen(true));
   }, [readOnly]);
   
   const handleEditorClose = () => {
@@ -961,7 +966,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleOpenEditorForNew = () => {
     if (readOnly) return;
     setSelectedPerson(null);
-    setIsEditorOpen(true);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsEditorOpen(true));
   };
 
   const proceedWithCreation = async (personData: any) => {
@@ -1035,7 +1043,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     if (!duplicateSnapshot.empty) {
       setPersonToCreate(personData);
-      setIsDuplicateAlertOpen(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      requestAnimationFrame(() => setIsDuplicateAlertOpen(true));
     } else {
       await proceedWithCreation(personData);
     }
@@ -1145,7 +1156,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     if (person) {
       setPersonToDelete(person);
       setIsEditorOpen(false);
-      setIsDeleteAlertOpen(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      requestAnimationFrame(() => setIsDeleteAlertOpen(true));
     }
   };
 
@@ -1241,7 +1255,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleConnect: OnConnect = useCallback((params) => {
     if (readOnly) return;
     setNewConnection(params);
-    setIsRelModalOpen(true);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsRelModalOpen(true));
   }, [readOnly]);
 
   const handleRelModalClose = () => {
@@ -1408,14 +1425,20 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const personToEdit = people.find(p => p.id === personId);
     if (personToEdit) {
       setSelectedPerson(personToEdit);
-      setIsEditorOpen(true);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      requestAnimationFrame(() => setIsEditorOpen(true));
     }
   }, [people, readOnly]);
 
   const handleOpenManualEventEditor = (event: Partial<ManualEvent> | null) => {
     if (readOnly) return;
     setEditingManualEvent(event);
-    setIsManualEventEditorOpen(true);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsManualEventEditorOpen(true));
   };
   
   const handleSaveManualEvent = async (eventData: Omit<ManualEvent, 'id' | 'createdAt' | 'updatedAt' | 'userId' | 'treeId'> & { id?: string }) => {
@@ -1481,7 +1504,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             const buffer = await file.arrayBuffer();
             const data = parseAndValidateExcel(buffer);
             setParsedExcelData(data);
-            setIsImportModalOpen(true);
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            requestAnimationFrame(() => setIsImportModalOpen(true));
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'שגיאת ייבוא', description: error.message });
         } finally {
@@ -1758,13 +1784,38 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           setViewMode={setViewMode}
           edgeType={edgeType}
           setEdgeType={setEdgeType}
-          onOpenSettings={() => setIsSettingsModalOpen(true)}
-          onOpenAccount={() => setIsAccountModalOpen(true)}
+          onOpenSettings={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            requestAnimationFrame(() => setIsSettingsModalOpen(true));
+          }}
+          onOpenAccount={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            requestAnimationFrame(() => setIsAccountModalOpen(true));
+          }}
           onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
-          onOpenPdfModal={() => setIsPdfModalOpen(true)}
-          onOpenPptExport={() => setIsPowerPointModalOpen(true)}
+          onOpenPdfModal={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            requestAnimationFrame(() => setIsPdfModalOpen(true));
+          }}
+          onOpenPptExport={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            requestAnimationFrame(() => setIsPowerPointModalOpen(true));
+          }}
           onExportExcel={handleExportExcel}
-          onOpenImageExport={() => setIsImageExportModalOpen(true)}
+          onOpenImageExport={() => {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            requestAnimationFrame(() => setIsImageExportModalOpen(true));
+          }}
           onImportClick={() => importFileInputRef.current?.click()}
           isTimelineCompact={isTimelineCompact}
           onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
@@ -1928,7 +1979,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         open={isDuplicateAlertOpen}
         onOpenChange={setIsDuplicateAlertOpen}
       >
-        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>נמצאה כפילות אפשרית</AlertDialogTitle>
             <AlertDialogDescription>
@@ -1949,7 +2000,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onCloseAutoFocus={(e) => e.preventDefault()}>
+        <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>

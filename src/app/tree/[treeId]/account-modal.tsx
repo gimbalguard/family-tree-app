@@ -138,7 +138,7 @@ export function AccountModal({ isOpen, onClose }: AccountModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent dir="rtl" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
+      <DialogContent dir="rtl" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader className="text-right">
           <DialogTitle>החשבון שלי</DialogTitle>
           <DialogDescription>נהל את פרטי החשבון והאבטחה שלך.</DialogDescription>

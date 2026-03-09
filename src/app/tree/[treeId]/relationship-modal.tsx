@@ -245,7 +245,7 @@ export function RelationshipModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent dir="rtl" className="rounded-xl" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => { e.preventDefault(); if (document.activeElement instanceof HTMLElement) document.activeElement.blur(); }}>
+      <DialogContent dir="rtl" className="rounded-xl" onOpenAutoFocus={(e) => e.preventDefault()} onCloseAutoFocus={(e) => e.preventDefault()}>
         {isConfirmingDelete ? (
             <>
                 <DialogHeader className="text-right">
