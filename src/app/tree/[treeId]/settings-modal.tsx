@@ -75,35 +75,35 @@ const CardPreview = ({ design, bgColor, borderColor, borderWidth }: { design?: s
     };
 
     return (
-        <div 
-            className="w-full h-full bg-card border rounded-md shadow-sm relative"
+        <div
+            className="w-full h-full bg-card border rounded-md shadow-sm relative p-1 flex items-center gap-1"
             style={style}
         >
-          <div className="p-1 h-full flex flex-col items-center justify-center gap-1">
-            <div className="w-4 h-4 rounded-full bg-muted"/>
-            <div className="w-10 h-1.5 bg-muted rounded-sm"/>
-            <div className="w-8 h-1 bg-muted/50 rounded-sm"/>
-          </div>
+            <div className="w-5 h-5 rounded-full bg-muted shrink-0"/>
+            <div className="flex-1 space-y-1">
+                <div className="w-10 h-1.5 bg-muted rounded-sm"/>
+                <div className="w-8 h-1 bg-muted/50 rounded-sm"/>
+            </div>
 
-          {design === 'modern' && <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-primary/20 border border-primary" />}
-          {design === 'elegant' && (
-            <>
-              <div className="absolute top-1 left-1 w-2 h-px bg-muted-foreground/50"/>
-              <div className="absolute top-1 right-1 w-2 h-px bg-muted-foreground/50"/>
-              <div className="absolute bottom-1 left-1 w-2 h-px bg-muted-foreground/50"/>
-              <div className="absolute bottom-1 right-1 w-2 h-px bg-muted-foreground/50"/>
-            </>
-          )}
-          {design === 'star' && <div className="absolute -top-1 -right-1.5"><Star className="w-3 h-3 text-amber-400 fill-amber-300" /></div>}
+            {design === 'modern' && <div className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-primary/50 border border-primary" />}
+            {design === 'elegant' && (
+                <>
+                    <div className="absolute top-1 left-1 w-2 h-px bg-muted-foreground/50"/>
+                    <div className="absolute top-1 right-1 w-2 h-px bg-muted-foreground/50"/>
+                    <div className="absolute bottom-1 left-1 w-2 h-px bg-muted-foreground/50"/>
+                    <div className="absolute bottom-1 right-1 w-2 h-px bg-muted-foreground/50"/>
+                </>
+            )}
+            {design === 'star' && <div className="absolute top-0 right-0"><Star className="w-2.5 h-2.5 text-amber-400 fill-amber-300" /></div>}
         </div>
     )
 }
 
 const designOptions: {value: NonNullable<FamilyTree['creatorCardDesign']>, label: string}[] = [
     { value: 'default', label: 'ברירת מחדל' },
-    { value: 'modern', label: 'מודרני' },
-    { value: 'elegant', label: 'אלגנטי' },
-    { value: 'star', label: 'כוכב' },
+    { value: 'modern', label: 'נקודת ציון' },
+    { value: 'elegant', label: 'מסגרת קלאסית' },
+    { value: 'star', label: 'כוכב העץ' },
 ];
 
 export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: SettingsModalProps) {
@@ -290,16 +290,31 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                             <FormField control={form.control} name="creatorCardDesign" render={({ field }) => (
                                 <FormItem className='text-right'><FormLabel>עיצוב כרטיס יוצר</FormLabel>
                                     <FormControl>
-                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
-                                            {designOptions.map(opt => {
+                                        <RadioGroup
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                            className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2"
+                                        >
+                                            {designOptions.map((opt) => {
                                                 const itemId = `design-option-${opt.value}`;
                                                 return (
                                                     <div key={opt.value}>
                                                         <RadioGroupItem value={opt.value} id={itemId} className="sr-only" />
-                                                        <Label htmlFor={itemId} className={cn("flex flex-col items-center justify-between gap-2 rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer h-24", field.value === opt.value && "border-primary")}>
-                                                            <div className="w-full h-full flex items-center justify-center"><div className="w-16 h-10 relative">
-                                                            <CardPreview design={opt.value} bgColor={formValues.cardBackgroundColor} borderColor={formValues.cardBorderColor} borderWidth={formValues.cardBorderWidth} />
-                                                            </div></div>
+                                                        <Label
+                                                            htmlFor={itemId}
+                                                            className={cn(
+                                                                "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-muted bg-popover p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer h-28 w-full",
+                                                                field.value === opt.value && "border-primary"
+                                                            )}
+                                                        >
+                                                            <div className="w-24 h-16 relative">
+                                                                <CardPreview
+                                                                    design={opt.value}
+                                                                    bgColor={formValues.cardBackgroundColor}
+                                                                    borderColor={formValues.cardBorderColor}
+                                                                    borderWidth={formValues.cardBorderWidth}
+                                                                />
+                                                            </div>
                                                             <span className="text-xs font-normal text-center">{opt.label}</span>
                                                         </Label>
                                                     </div>

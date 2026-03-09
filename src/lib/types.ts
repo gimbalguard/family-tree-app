@@ -21,7 +21,7 @@ export type FamilyTree = {
   creatorCardBacklightIntensity?: number;
   creatorCardBacklightDisabled?: boolean;
   creatorCardSize?: number;
-  creatorCardDesign?: 'default' | 'modern' | 'elegant' | 'minimalist';
+  creatorCardDesign?: 'default' | 'modern' | 'elegant' | 'star';
   cardBackgroundColor?: string;
   cardBorderColor?: string;
   cardBorderWidth?: number;
@@ -64,7 +64,7 @@ export type Person = {
   creatorCardBacklightIntensity?: number;
   creatorCardBacklightDisabled?: boolean;
   creatorCardSize?: number;
-  creatorCardDesign?: 'default' | 'modern' | 'elegant' | 'minimalist';
+  creatorCardDesign?: 'default' | 'modern' | 'elegant' | 'star';
   // Global styles passed down
   cardBackgroundColor?: string;
   cardBorderColor?: string;
