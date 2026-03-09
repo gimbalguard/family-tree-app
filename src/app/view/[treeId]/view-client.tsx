@@ -12,6 +12,11 @@ import { getDoc, doc, collection, getDocs } from 'firebase/firestore';
 import { AppHeader } from '@/components/app-header';
 import { Button } from '@/components/ui/button';
 
+// Define no-op functions at the module level so they are stable and not re-created on every render.
+const noOp = () => {};
+const noOpPreventDefault = (e: React.MouseEvent) => e.preventDefault();
+const noOpFalse = () => false;
+
 // Simplified version of getEdgeProps from tree-page-client
 const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
   const nodeA = nodes.find((n) => n.id === rel.personAId);
@@ -169,15 +174,15 @@ function ViewCanvasContainer({ treeId }: { treeId: string }) {
         <FamilyTreeCanvas
           nodes={nodes}
           edges={edges}
-          onNodesChange={() => {}}
-          onEdgesChange={() => {}}
-          onConnect={() => {}}
-          onNodeDragStart={() => {}}
-          onNodeDrag={() => {}}
-          onNodeDragStop={() => {}}
-          onNodeContextMenu={(e) => e.preventDefault()}
-          isValidConnection={() => false}
-          onSelectionChange={() => {}}
+          onNodesChange={noOp}
+          onEdgesChange={noOp}
+          onConnect={noOp}
+          onNodeDragStart={noOp}
+          onNodeDrag={noOp}
+          onNodeDragStop={noOp}
+          onNodeContextMenu={noOpPreventDefault}
+          isValidConnection={noOpFalse}
+          onSelectionChange={noOp}
         />
       </main>
     </div>
