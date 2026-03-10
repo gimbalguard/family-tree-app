@@ -1057,25 +1057,25 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree);
-  
+
     const dataToUpdate = {
-      firstName: personData.firstName ?? '',
-      lastName: personData.lastName ?? '',
-      middleName: personData.middleName ?? '',
-      previousFirstName: personData.previousFirstName ?? '',
-      maidenName: personData.maidenName ?? '',
-      nickname: personData.nickname ?? '',
-      gender: personData.gender ?? 'other',
-      birthDate: personData.birthDate ?? '',
-      birthPlace: personData.birthPlace ?? '',
-      deathDate: personData.deathDate ?? '',
-      cityOfResidence: personData.cityOfResidence ?? '',
-      countryOfResidence: personData.countryOfResidence ?? '',
-      religion: personData.religion ?? '',
-      status: personData.status ?? 'alive',
-      description: personData.description ?? '',
-      photoURL: personData.photoURL ?? '',
-      updatedAt: serverTimestamp(),
+        firstName: personData.firstName ?? '',
+        lastName: personData.lastName ?? '',
+        middleName: personData.middleName ?? '',
+        previousFirstName: personData.previousFirstName ?? '',
+        maidenName: personData.maidenName ?? '',
+        nickname: personData.nickname ?? '',
+        gender: personData.gender ?? 'other',
+        birthDate: personData.birthDate ?? '',
+        birthPlace: personData.birthPlace ?? '',
+        deathDate: personData.deathDate ?? '',
+        cityOfResidence: personData.cityOfResidence ?? '',
+        countryOfResidence: personData.countryOfResidence ?? '',
+        religion: personData.religion ?? '',
+        status: personData.status ?? 'alive',
+        description: personData.description ?? '',
+        photoURL: personData.photoURL ?? '',
+        updatedAt: serverTimestamp(),
     };
   
     try {
@@ -2039,7 +2039,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); requestAnimationFrame(() => { const canvas = document.getElementById('main-view-container'); if (canvas) canvas.focus(); }); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>
