@@ -533,7 +533,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
-        getDocs(manualEventsSnap),
+        getDocs(manualEventsRef),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
