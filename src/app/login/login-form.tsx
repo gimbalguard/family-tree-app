@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,8 +17,9 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'אנא הזן כתובת אימייל חוקית.' }),
@@ -28,6 +30,7 @@ export function LoginForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const auth = useAuth();
+  const db = useFirestore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,14 +43,32 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      
+      const user = userCredential.user;
+      if (db) {
+          const userDocRef = doc(db, "users", user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (!userDocSnap.exists()) {
+              // User exists in Auth but not Firestore. Create the doc to fix the missing profile.
+              await setDoc(userDocRef, {
+                  id: user.uid,
+                  username: user.displayName || values.email.split('@')[0],
+                  createdAt: serverTimestamp(),
+              });
+              toast({
+                  title: "פרופיל משתמש שוחזר",
+                  description: "הפרופיל החסר שלך נוצר מחדש במסד הנתונים.",
+              });
+          }
+      }
       // On success, the onAuthStateChanged listener in FirebaseProvider will
       // update the user state, and the AuthGuard/PublicPageGuard will redirect.
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'שגיאת אימות',
-        description: error.message,
+        description: 'שם משתמש או סיסמה שגויים.',
       });
     } finally {
         setIsLoading(false);
