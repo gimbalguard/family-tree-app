@@ -1051,36 +1051,36 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const oldPeople = people;
     const oldRels = relationships;
     const oldPositions = canvasPositions;
-
+  
     const birthDateChanged = oldPeople.find(p => p.id === personData.id)?.birthDate !== personData.birthDate;
-
+  
     const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree);
-
+  
+    const dataToUpdate = {
+      firstName: personData.firstName ?? '',
+      lastName: personData.lastName ?? '',
+      middleName: personData.middleName ?? '',
+      previousFirstName: personData.previousFirstName ?? '',
+      maidenName: personData.maidenName ?? '',
+      nickname: personData.nickname ?? '',
+      gender: personData.gender ?? 'other',
+      birthDate: personData.birthDate ?? '',
+      birthPlace: personData.birthPlace ?? '',
+      deathDate: personData.deathDate ?? '',
+      cityOfResidence: personData.cityOfResidence ?? '',
+      countryOfResidence: personData.countryOfResidence ?? '',
+      religion: personData.religion ?? '',
+      status: personData.status ?? 'alive',
+      description: personData.description ?? '',
+      photoURL: personData.photoURL ?? '',
+      updatedAt: serverTimestamp(),
+    };
+  
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
-      const dataToUpdate = {
-        firstName: personData.firstName ?? '',
-        lastName: personData.lastName ?? '',
-        middleName: personData.middleName ?? '',
-        previousFirstName: personData.previousFirstName ?? '',
-        maidenName: personData.maidenName ?? '',
-        nickname: personData.nickname ?? '',
-        gender: personData.gender ?? 'other',
-        birthDate: personData.birthDate ?? '',
-        birthPlace: personData.birthPlace ?? '',
-        deathDate: personData.deathDate ?? '',
-        cityOfResidence: personData.cityOfResidence ?? '',
-        countryOfResidence: personData.countryOfResidence ?? '',
-        religion: personData.religion ?? '',
-        status: personData.status ?? 'alive',
-        description: personData.description ?? '',
-        photoURL: personData.photoURL ?? '',
-        updatedAt: serverTimestamp(),
-      };
-
       await updateDoc(docRef, dataToUpdate);
       
       if (birthDateChanged) {
@@ -1102,7 +1102,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             await sibBatch.commit();
         }
       }
-
+  
       toast({
         title: 'אדם עודכן',
         description: `${personData.firstName} ${personData.lastName} עודכן.`,
@@ -1111,11 +1111,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } catch (error: any) {
       setPeople(oldPeople);
       deriveStateFromData(oldPeople, oldRels, oldPositions, tree);
-
+  
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people/${personData.id}`,
         operation: 'update',
-        requestResourceData: personData,
+        requestResourceData: dataToUpdate,
       });
       errorEmitter.emit('permission-error', permissionError);
       toast({
@@ -2074,3 +2074,5 @@ export function TreePageClient({ treeId, readOnly = false }: TreePageClientProps
     </ReactFlowProvider>
   );
 }
+
+    
