@@ -25,6 +25,16 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Mic, Paperclip, Send, Loader2, ArrowLeft, Bot, StopCircle, X, Globe } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog';
 import { Info } from 'lucide-react';
 import { generateTreeFromStory } from '@/ai/flows/ai-tree-generation-flow';
 import type { GenerateTreeOutput } from '@/ai/flows/ai-tree-generation.types';
@@ -35,6 +45,7 @@ import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
 import * as XLSX from 'xlsx';
 import type { PublicTree } from '@/lib/types';
 import { TreeCard } from './dashboard/tree-card';
+import Link from 'next/link';
 
 
 function SeparatorWithText({ text }: { text: string }) {
@@ -98,6 +109,8 @@ export function AiBuildClient() {
   const [publicTrees, setPublicTrees] = useState<PublicTree[]>([]);
   const [isLoadingPublicTrees, setIsLoadingPublicTrees] = useState(true);
 
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({
@@ -135,17 +148,22 @@ export function AiBuildClient() {
 
 
   const handleManualCreate = async () => {
+    if (!user || user.isAnonymous) {
+        setIsAuthModalOpen(true);
+        return;
+    }
+    
     setIsCreatingManually(true);
-    if (!user || user.isAnonymous || !db) {
+    if (!db) {
       toast({
         variant: 'destructive',
-        title: 'נדרש אימות',
-        description: 'כדי ליצור עץ, עליך להתחבר.',
+        title: 'שגיאה',
+        description: 'לא ניתן היה להתחבר למסד הנתונים.',
       });
-      router.push('/login');
       setIsCreatingManually(false);
       return;
     }
+
 
     try {
       const treeData = {
@@ -298,7 +316,12 @@ export function AiBuildClient() {
 
 
   const handleCreateTreeFromAI = async (data: GenerateTreeOutput | null) => {
-    if (!data || !user || !db) {
+    if (!user || user.isAnonymous) {
+        setIsAuthModalOpen(true);
+        return;
+    }
+    
+    if (!data || !db) {
       toast({
         variant: 'destructive',
         title: 'שגיאה',
@@ -389,22 +412,18 @@ export function AiBuildClient() {
   };
 
   const handleSend = async (messageContent: string) => {
-    if ((!messageContent.trim() && !attachment) || !user) return;
+    if (!user) return;
+    if (user.isAnonymous) {
+        setIsAuthModalOpen(true);
+        return;
+    }
+    if (!messageContent.trim() && !attachment) return;
     if (!treeName.trim()) {
       toast({
         variant: 'destructive',
         title: 'שגיאה',
         description: 'אנא תן שם לעץ המשפחה שלך.',
       });
-      return;
-    }
-    if (user.isAnonymous) {
-      toast({
-        variant: 'destructive',
-        title: 'נדרש אימות',
-        description: 'כדי להשתמש ב-AI, עליך להתחבר.',
-      });
-      router.push('/login');
       return;
     }
     
@@ -723,6 +742,28 @@ export function AiBuildClient() {
                 </div>
             )}
         </div>
+
+      <AlertDialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>הרשמה נדרשת</AlertDialogTitle>
+            <AlertDialogDescription>
+              כדי לשמור את העבודה שלך וליצור עצי משפחה, יש ליצור חשבון או להתחבר.
+              <br/><br/>
+              הסיסמה חייבת להכיל לפחות 8 תווים.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ביטול</AlertDialogCancel>
+            <AlertDialogAction asChild>
+                <Link href="/login">כניסה</Link>
+            </AlertDialogAction>
+            <AlertDialogAction asChild>
+                <Link href="/register">הרשמה</Link>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

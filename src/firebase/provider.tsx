@@ -81,10 +81,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   
     const unsubscribe = onAuthStateChanged(
       auth,
-      (firebaseUser) => { // Auth state determined
-        // When auth state changes, update the state.
-        // If firebaseUser is null, it means the user is not logged in.
-        // We no longer call signInAnonymously here.
+      (firebaseUser) => {
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
       },
       (error) => { // Auth listener error
