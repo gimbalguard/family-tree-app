@@ -32,7 +32,8 @@ import {
   User,
   Lock,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  AlertTriangle,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -54,6 +55,7 @@ type TreeCardProps = {
   onUploadCover?: () => void;
   onCreateShareLink?: () => void;
   sharedWith?: string[];
+  isRecovered?: boolean;
 };
 
 const PrivacyBadge = ({ privacy }: { privacy?: FamilyTree['privacy'] }) => {
@@ -93,6 +95,7 @@ export function TreeCard({
   onUploadCover,
   onCreateShareLink,
   sharedWith,
+  isRecovered,
 }: TreeCardProps) {
   
   const creationDate = tree.createdAt?.toDate
@@ -124,13 +127,13 @@ export function TreeCard({
       <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2 p-4 relative -mt-10 z-10">
         <div className="flex-1 space-y-1">
           <CardTitle className="hover:text-primary transition-colors text-lg text-white [text-shadow:_0_1px_3px_var(--tw-shadow-color)]">
-            <Link href={linkHref} className="stretched-link">
+            <Link href={isRecovered ? '#' : linkHref} className={cn("stretched-link", isRecovered && "pointer-events-none")}>
               {tree.treeName}
             </Link>
           </CardTitle>
           <CardDescription>
             <div className="flex items-center text-xs text-slate-300 [text-shadow:_0_1px_2px_var(--tw-shadow-color)]">
-              {type === 'owned' ? (
+              {type === 'owned' && !isRecovered ? (
                 <>
                   <Calendar className="ml-1 h-3 w-3" />
                   נוצר ב-{creationDate}
@@ -159,25 +162,29 @@ export function TreeCard({
                  <DropdownMenuItem onClick={onDuplicate}>
                     <Copy className="ml-2 h-4 w-4" /> שכפל עץ
                  </DropdownMenuItem>
-                 <DropdownMenuItem onClick={onShare}>
-                    <Share2 className="ml-2 h-4 w-4" /> שתף עם משתמש
-                 </DropdownMenuItem>
-                 <DropdownMenuItem onClick={onUploadCover}>
-                    <Upload className="ml-2 h-4 w-4" /> העלאת תמונת נושא
-                 </DropdownMenuItem>
-                 <DropdownMenuSeparator/>
-                 <DropdownMenuItem onClick={onCreateShareLink}>
-                    <LinkIcon className="ml-2 h-4 w-4" /> צור קישור שיתוף
-                 </DropdownMenuItem>
+                 {!isRecovered && (
+                  <>
+                  <DropdownMenuItem onClick={onShare}>
+                      <Share2 className="ml-2 h-4 w-4" /> שתף עם משתמש
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={onUploadCover}>
+                      <Upload className="ml-2 h-4 w-4" /> העלאת תמונת נושא
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator/>
+                  <DropdownMenuItem onClick={onCreateShareLink}>
+                      <LinkIcon className="ml-2 h-4 w-4" /> צור קישור שיתוף
+                  </DropdownMenuItem>
 
-                {(tree as FamilyTree).privacy === 'public' ? (
-                   <DropdownMenuItem onClick={onSetPrivate}>
-                     <Lock className="ml-2 h-4 w-4" /> הגדר כפרטי
-                   </DropdownMenuItem>
-                 ) : (
-                   <DropdownMenuItem onClick={onSetPublic}>
-                     <Globe className="ml-2 h-4 w-4" /> הגדר כציבורי
-                   </DropdownMenuItem>
+                  {(tree as FamilyTree).privacy === 'public' ? (
+                    <DropdownMenuItem onClick={onSetPrivate}>
+                        <Lock className="ml-2 h-4 w-4" /> הגדר כפרטי
+                    </DropdownMenuItem>
+                    ) : (
+                    <DropdownMenuItem onClick={onSetPublic}>
+                        <Globe className="ml-2 h-4 w-4" /> הגדר כציבורי
+                    </DropdownMenuItem>
+                  )}
+                  </>
                  )}
 
                  <DropdownMenuSeparator/>
@@ -190,8 +197,24 @@ export function TreeCard({
         )}
       </CardHeader>
       <CardContent className="flex-grow space-y-2 p-3">
-         {type === 'owned' && 'privacy' in tree && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
+         {type === 'owned' && 'privacy' in tree && !isRecovered && <PrivacyBadge privacy={(tree as FamilyTree).privacy} />}
         
+        {isRecovered && (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100 border-yellow-300 w-full justify-center">
+                            <AlertTriangle className="h-3 w-3 ml-1" />
+                            עץ לשחזור
+                        </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>יש לשכפל עץ זה כדי לקבל עליו בעלות מלאה.</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        )}
+
         {sharedWith && sharedWith.length > 0 && (
           <div className="pt-2">
             <p className="text-xs font-semibold text-slate-600 mb-2">שותף עם:</p>
@@ -238,8 +261,8 @@ export function TreeCard({
         </div>
       </CardContent>
       <CardFooter className="p-3">
-        <Button asChild variant="secondary" className="w-full">
-          <Link href={linkHref}>פתח עץ</Link>
+        <Button asChild variant={isRecovered ? "default" : "secondary"} className="w-full" disabled={isRecovered}>
+          <Link href={isRecovered ? '#' : linkHref}>{isRecovered ? "שכפל כדי לפתוח" : "פתח עץ"}</Link>
         </Button>
       </CardFooter>
     </Card>

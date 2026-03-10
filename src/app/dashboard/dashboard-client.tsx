@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser, useFirestore, useStorage } from '@/firebase';
 import type { FamilyTree, SharedTree } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, LogIn, Share2, Globe, Copy, Link as LinkIcon, Edit, Upload, Lock, Users } from 'lucide-react';
+import { Loader2, PlusCircle, LogIn, Share2, Globe, Copy, Link as LinkIcon, Edit, Upload, Lock, Users, AlertTriangle } from 'lucide-react';
 import { NewTreeDialog } from './new-tree-dialog';
 import { TreeCard, TreeCardSkeleton } from './tree-card';
 import {
@@ -35,7 +35,7 @@ export function DashboardClient() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [myTrees, setMyTrees] = useState<FamilyTree[]>([]);
+  const [myTrees, setMyTrees] = useState<(FamilyTree & { isRecovered?: boolean })[]>([]);
   const [incomingSharedTrees, setIncomingSharedTrees] = useState<SharedTree[]>([]);
   const [outgoingShares, setOutgoingShares] = useState<Map<string, string[]>>(new Map());
 
@@ -87,8 +87,24 @@ export function DashboardClient() {
 
         return treeData;
       });
-      const userTrees = (await Promise.all(myTreesPromises));
+      let userTrees = (await Promise.all(myTreesPromises));
+
+      // --- RECOVERY LOGIC ---
+      if (user.email === 'yakiravidar@gmail.com') {
+          const oldUserId = 'fsW3k9bT24XDIPHiuoL56U5zuKF3';
+          if (user.uid !== oldUserId) {
+            const recoveredTreesRef = collection(db, 'users', oldUserId, 'familyTrees');
+            const recoveredTreesSnapshot = await getDocs(recoveredTreesRef);
+            const recoveredTrees = recoveredTreesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                isRecovered: true,
+            } as FamilyTree & { isRecovered: boolean }));
+            userTrees = [...userTrees, ...recoveredTrees];
+          }
+      }
       setMyTrees(userTrees);
+
 
       // 2. Fetch all shares related to the user
       const sharesOwnedQuery = query(collection(db, "sharedTrees"), where("ownerUserId", "==", user.uid));
@@ -133,6 +149,10 @@ export function DashboardClient() {
 
   const handleDuplicateTree = async (treeToDuplicate: FamilyTree) => {
     if (!user || !db) return;
+    
+    // For recovered trees, the owner ID is the OLD one.
+    const ownerId = (treeToDuplicate as any).isRecovered ? 'fsW3k9bT24XDIPHiuoL56U5zuKF3' : user.uid;
+
     toast({ title: 'משכפל עץ, אנא המתן...' });
     try {
         const newTreeRef = doc(collection(db, 'users', user.uid, 'familyTrees'));
@@ -149,9 +169,10 @@ export function DashboardClient() {
         };
         batch.set(newTreeRef, newTreeData);
 
-        const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeToDuplicate.id, 'people');
-        const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeToDuplicate.id, 'relationships');
-        const posRef = collection(db, 'users', user.uid, 'familyTrees', treeToDuplicate.id, 'canvasPositions');
+        const basePath = `users/${ownerId}/familyTrees/${treeToDuplicate.id}`;
+        const peopleRef = collection(db, basePath, 'people');
+        const relsRef = collection(db, basePath, 'relationships');
+        const posRef = collection(db, basePath, 'canvasPositions');
         
         const [peopleSnap, relsSnap, posSnap] = await Promise.all([ getDocs(peopleRef), getDocs(relsRef), getDocs(posRef) ]);
         
@@ -367,12 +388,16 @@ export function DashboardClient() {
   const handleConfirmDelete = async () => {
     if (!treeToDelete || !user || !db) return;
     setIsDeleting(true);
+    
+    // For recovered trees, the owner ID is the OLD one.
+    const ownerId = (treeToDelete as any).isRecovered ? 'fsW3k9bT24XDIPHiuoL56U5zuKF3' : user.uid;
+
     try {
         const batch = writeBatch(db);
-        const treeDocRef = doc(db, 'users', user.uid, 'familyTrees', treeToDelete.id);
+        const treeDocRef = doc(db, 'users', ownerId, 'familyTrees', treeToDelete.id);
         batch.delete(treeDocRef);
         
-        const sharedTreesQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeToDelete.id), where("ownerUserId", "==", user.uid));
+        const sharedTreesQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeToDelete.id), where("ownerUserId", "==", ownerId));
         const sharedTreesSnapshot = await getDocs(sharedTreesQuery);
         sharedTreesSnapshot.forEach((doc) => {
             batch.delete(doc.ref);
@@ -452,6 +477,7 @@ export function DashboardClient() {
                   tree={tree}
                   type="owned"
                   sharedWith={outgoingShares.get(tree.id)}
+                  isRecovered={(tree as any).isRecovered}
                   onDelete={() => handleDeleteClick(tree)}
                   onDuplicate={() => handleDuplicateTree(tree)}
                   onShare={() => handleOpenShareDialog(tree)}
@@ -530,6 +556,21 @@ export function DashboardClient() {
       </div>
 
       <main className="container mx-auto py-8 px-4">
+        {user?.email === 'yakiravidar@gmail.com' && myTrees.some(t => (t as any).isRecovered) && (
+            <div className='p-4 mb-8 border-l-4 border-yellow-400 bg-yellow-50 rounded-md text-yellow-800'>
+                <div className='flex'>
+                    <div className='flex-shrink-0'>
+                        <AlertTriangle className='h-5 w-5 text-yellow-500'/>
+                    </div>
+                    <div className='ml-3 mr-3'>
+                        <h3 className='text-sm font-medium'>עצים לשחזור</h3>
+                        <div className='mt-2 text-sm'>
+                            <p>זיהינו עצים ששייכים לחשבונך הישן. כדי לקבל בעלות מלאה עליהם, השתמש בכפתור השכפול (העתקה) עבור כל עץ מסומן. לאחר שתשכפל את כולם, תוכל למחוק בבטחה את העצים המשוחזרים.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
         {renderContent()}
       </main>
 

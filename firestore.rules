@@ -43,6 +43,15 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    /**
+     * isRecoveryUser
+     * TEMPORARY rule to allow a specific user email to access an orphaned user's data for recovery.
+     */
+    function isRecoveryUser(userId) {
+      return userId == 'fsW3k9bT24XDIPHiuoL56U5zuKF3' && request.auth.token.email == 'yakiravidar@gmail.com';
+    }
+
 
     /**
      * isExistingOwner
@@ -141,11 +150,11 @@ service cloud.firestore {
        * @principle Enforces document ownership for all operations based on the top-level `{userId}` path segment.
        */
       match /familyTrees/{treeId} {
-        allow get: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
-        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+        allow list: if isOwner(userId) || isRecoveryUser(userId);
         allow create: if isOwner(userId) && hasValidCreateData_FamilyTree(userId);
-        allow update: if isExistingOwner(userId) && isImmutable_FamilyTree();
-        allow delete: if request.auth.uid == userId;
+        allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_FamilyTree();
+        allow delete: if isOwner(userId) || isRecoveryUser(userId);
 
         /**
          * @description Controls access to individual person records within a family tree.
@@ -156,10 +165,10 @@ service cloud.firestore {
          * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /people/{personId} {
-          allow get, list: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+          allow get, list: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
-          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
-          allow delete: if request.auth.uid == userId;
+          allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_SubTreeItem();
+          allow delete: if isOwner(userId) || isRecoveryUser(userId);
 
           /**
            * @description Controls access to social links associated with a person.
@@ -170,10 +179,10 @@ service cloud.firestore {
            * @principle Enforces deep ownership and relational integrity for deeply nested subcollections.
            */
           match /socialLinks/{socialLinkId} {
-            allow read: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+            allow read: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
             allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId && request.resource.data.personId == personId;
-            allow update: if isExistingOwner(userId) && isImmutable_SocialLink();
-            allow delete: if request.auth.uid == userId;
+            allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_SocialLink();
+            allow delete: if isOwner(userId) || isRecoveryUser(userId);
           }
         }
 
@@ -186,10 +195,10 @@ service cloud.firestore {
          * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /relationships/{relationshipId} {
-          allow get, list: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+          allow get, list: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
-          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
-          allow delete: if request.auth.uid == userId;
+          allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_SubTreeItem();
+          allow delete: if isOwner(userId) || isRecoveryUser(userId);
         }
 
         /**
@@ -201,10 +210,10 @@ service cloud.firestore {
          * @principle Validates relational integrity by ensuring denormalized `userId` and `treeId` fields are immutable on update.
          */
         match /canvasPositions/{positionId} {
-          allow read: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+          allow read: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
-          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
-          allow delete: if request.auth.uid == userId;
+          allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_SubTreeItem();
+          allow delete: if isOwner(userId) || isRecoveryUser(userId);
         }
         
         /**
@@ -212,10 +221,10 @@ service cloud.firestore {
          * @path /users/{userId}/familyTrees/{treeId}/manualEvents/{eventId}
          */
         match /manualEvents/{eventId} {
-          allow read: if isOwner(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+          allow read: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
           allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId;
-          allow update: if isExistingOwner(userId) && isImmutable_SubTreeItem();
-          allow delete: if request.auth.uid == userId;
+          allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_SubTreeItem();
+          allow delete: if isOwner(userId) || isRecoveryUser(userId);
         }
       }
     }
