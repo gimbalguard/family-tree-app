@@ -351,9 +351,9 @@ export function PersonEditor({
 
   async function onSubmit(values: z.infer<typeof personSchema>) {
     setIsSaving(true);
-    const dataToSave = isEditing
-      ? { ...values, id: person?.id }
-      : { ...values, treeId };
+    // Remove the socialLinks array before saving, as it's handled in a subcollection
+    const { socialLinks, ...personData } = values;
+    const dataToSave = { id: person?.id, ...personData };
     await onSave(dataToSave);
     setIsSaving(false);
     onClose();

@@ -118,63 +118,35 @@ export type EdgeType = 'default' | 'step' | 'straight';
 // This function now intelligently determines the correct source and target handles
 // based on the LOGICAL relationship type, not the handles used to draw the initial line.
 const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
-  const nodeA = nodes.find((n) => n.id === rel.personAId);
-  const nodeB = nodes.find((n) => n.id === rel.personBId);
+    const nodeA = nodes.find((n) => n.id === rel.personAId);
+    const nodeB = nodes.find((n) => n.id === rel.personBId);
 
-  if (!nodeA || !nodeB) {
-    // Return a default if nodes are not found, to prevent crashes
+    if (!nodeA || !nodeB) {
+        return { source: rel.personAId, target: rel.personBId, sourceHandle: 'bottom', targetHandle: 'top' };
+    }
+
+    const parentTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
+    const spouseTypes = ['spouse', 'ex_spouse', 'separated', 'partner', 'ex_partner'];
+    const siblingTypes = ['sibling', 'twin', 'step_sibling'];
+
+    if (parentTypes.includes(rel.relationshipType)) {
+        return { source: rel.personAId, target: rel.personBId, sourceHandle: 'bottom', targetHandle: 'top' };
+    }
+    
+    // For symmetrical relationships, decide left/right based on X position to keep lines consistent.
+    const isNodeALeft = nodeA.position.x < nodeB.position.x;
+    
+    const sourceId = isNodeALeft ? rel.personAId : rel.personBId;
+    const targetId = isNodeALeft ? rel.personBId : rel.personAId;
+    
     return {
-      source: rel.personAId,
-      target: rel.personBId,
-      sourceHandle: 'bottom',
-      targetHandle: 'top',
+        source: sourceId,
+        target: targetId,
+        sourceHandle: 'right',
+        targetHandle: 'left'
     };
-  }
-
-  const parentTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
-  const spouseTypes = [
-    'spouse',
-    'ex_spouse',
-    'separated',
-    'partner',
-    'ex_partner',
-  ];
-  const siblingTypes = ['sibling', 'twin', 'step_sibling'];
-
-  // For parent types, personA is ALWAYS the parent, personB is the child.
-  if (parentTypes.includes(rel.relationshipType)) {
-    return {
-      source: rel.personAId,
-      target: rel.personBId,
-      sourceHandle: 'bottom',
-      targetHandle: 'top',
-    };
-  }
-
-  // For symmetrical relationships, decide left/right based on X position to keep lines consistent.
-  const isNodeALeft = nodeA.position.x < nodeB.position.x;
-
-  // The source is always the left node, target is the right node
-  const sourceId = isNodeALeft ? rel.personAId : rel.personBId;
-  const targetId = isNodeALeft ? rel.personBId : rel.personAId;
-
-  if (spouseTypes.includes(rel.relationshipType) || siblingTypes.includes(rel.relationshipType)) {
-    return {
-      source: sourceId,
-      target: targetId,
-      sourceHandle: 'right',
-      targetHandle: 'left',
-    };
-  }
-
-  // Fallback for any other relationship type
-  return {
-    source: sourceId,
-    target: targetId,
-    sourceHandle: 'right',
-    targetHandle: 'left',
-  };
 };
+
 
 function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
@@ -403,44 +375,45 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     const currentNodesMap = new Map(currentNodes.map(n => [n.id, n]));
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
+    
     const newNodes = enrichedPeopleData.map(person => {
-      const existingNode = currentNodesMap.get(person.id);
-      const pos = positionsMap.get(person.id);
-
-      const isOwner = person.id === currentTree.ownerPersonId;
-      const isTwin = twinIds.has(person.id);
-      const applyCreatorStyles = isOwner || isTwin;
-
-      let finalPosition: XYPosition;
-      if (existingNode) {
-        finalPosition = existingNode.position;
-      } else if (pos) {
-        finalPosition = { x: pos.x, y: pos.y };
-      } else {
-        finalPosition = { x: Math.random() * 400, y: Math.random() * 400 };
-      }
-      
-      return {
-        id: person.id,
-        type: 'personNode',
-        position: finalPosition,
-        data: {
-          ...person,
-          isLocked: pos?.isLocked ?? false,
-          groupId: pos?.groupId ?? null,
-          cardDesign: applyCreatorStyles ? currentTree.creatorCardDesign : currentTree.cardDesign,
-          isOwner,
-          cardBackgroundColor: currentTree.cardBackgroundColor,
-          cardBorderColor: currentTree.cardBorderColor,
-          cardBorderWidth: currentTree.cardBorderWidth,
-          ...(applyCreatorStyles && {
-            creatorCardBacklightIntensity: currentTree.creatorCardBacklightIntensity,
-            creatorCardBacklightDisabled: currentTree.creatorCardBacklightDisabled,
-            creatorCardSize: currentTree.creatorCardSize,
-          }),
-        },
-        draggable: !(pos?.isLocked ?? false) && !readOnly,
-      };
+        const existingNode = currentNodesMap.get(person.id);
+        const pos = positionsMap.get(person.id);
+    
+        const isOwner = person.id === currentTree.ownerPersonId;
+        const isTwin = twinIds.has(person.id);
+        const applyCreatorStyles = isOwner || isTwin;
+    
+        let finalPosition: XYPosition;
+        if (existingNode) {
+            finalPosition = existingNode.position;
+        } else if (pos) {
+            finalPosition = { x: pos.x, y: pos.y };
+        } else {
+            finalPosition = { x: Math.random() * 400, y: Math.random() * 400 };
+        }
+        
+        return {
+            id: person.id,
+            type: 'personNode',
+            position: finalPosition,
+            data: {
+                ...person,
+                isLocked: pos?.isLocked ?? false,
+                groupId: pos?.groupId ?? null,
+                cardDesign: applyCreatorStyles ? currentTree.creatorCardDesign : currentTree.cardDesign,
+                isOwner,
+                cardBackgroundColor: currentTree.cardBackgroundColor,
+                cardBorderColor: currentTree.cardBorderColor,
+                cardBorderWidth: currentTree.cardBorderWidth,
+                ...(applyCreatorStyles && {
+                    creatorCardBacklightIntensity: currentTree.creatorCardBacklightIntensity,
+                    creatorCardBacklightDisabled: currentTree.creatorCardBacklightDisabled,
+                    creatorCardSize: currentTree.creatorCardSize,
+                }),
+            },
+            draggable: !(pos?.isLocked ?? false) && !readOnly,
+        };
     });
     setNodes(newNodes);
 
@@ -1018,7 +991,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     if (readOnly) return;
     recordHistory();
     if (personData.id) {
-      await handleUpdatePerson(personData as Person);
+      await handleUpdatePerson(personData);
     } else {
       await handleCreatePerson(personData);
     }
@@ -1064,27 +1037,18 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     );
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree, nodes);
-  
-    const dataToUpdate: Partial<Omit<Person, 'id' | 'userId' | 'treeId' | 'createdAt'>> = {
-      firstName: personData.firstName,
-      lastName: personData.lastName,
-      middleName: personData.middleName,
-      previousFirstName: personData.previousFirstName,
-      maidenName: personData.maidenName,
-      nickname: personData.nickname,
-      gender: personData.gender,
-      birthDate: personData.birthDate,
-      birthPlace: personData.birthPlace,
-      deathDate: personData.deathDate,
-      cityOfResidence: personData.cityOfResidence,
-      countryOfResidence: personData.countryOfResidence,
-      religion: personData.religion,
-      profession: personData.profession,
-      hobby: personData.hobby,
-      status: personData.status,
-      description: personData.description,
-      photoURL: personData.photoURL,
-      updatedAt: serverTimestamp(),
+
+    const {
+        firstName, lastName, middleName, previousFirstName, maidenName, nickname,
+        gender, birthDate, birthPlace, deathDate, cityOfResidence,
+        countryOfResidence, religion, profession, hobby, status, description, photoURL
+    } = personData;
+
+    const dataToUpdate = {
+        firstName, lastName, middleName, previousFirstName, maidenName, nickname,
+        gender, birthDate, birthPlace, deathDate, cityOfResidence,
+        countryOfResidence, religion, profession, hobby, status, description, photoURL,
+        updatedAt: serverTimestamp(),
     };
   
     try {
@@ -1092,7 +1056,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id
       );
   
-      await updateDoc(docRef, dataToUpdate as any);
+      await updateDoc(docRef, dataToUpdate);
   
       if (birthDateChanged) {
         const siblingChanges = await runSiblingDetection(
