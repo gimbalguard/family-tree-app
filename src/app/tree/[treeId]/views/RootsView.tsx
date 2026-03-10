@@ -12,7 +12,13 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, FileText, FileDown, Presentation, Image as ImageIcon } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { cn } from '@/lib/utils';
 
 // Define the shape of the project data
@@ -249,12 +255,48 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
       {/* Left Panel: Preview */}
       <div className="w-3/5 p-4">
         <Card className="h-full shadow-lg">
-          <CardHeader>
-            <h2 className="text-xl font-bold text-center">
-              תצוגה מקדימה: {WIZARD_STEPS.find(s => s.id === currentStep)?.label}
+          <CardHeader className="flex flex-row items-center justify-between">
+            <h2 className="text-xl font-bold text-center flex-1">
+                תצוגה מקדימה: {WIZARD_STEPS.find(s => s.id === currentStep)?.label}
             </h2>
+            <div className="flex items-center gap-1">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled className="opacity-50">
+                                <FileText className="h-5 w-5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>ייצוא ל-Word (בקרוב)</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled className="opacity-50">
+                                <FileDown className="h-5 w-5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>ייצוא ל-PDF (בקרוב)</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled className="opacity-50">
+                                <Presentation className="h-5 w-5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>ייצוא ל-PowerPoint (בקרוב)</p></TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled className="opacity-50">
+                                <ImageIcon className="h-5 w-5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>ייצוא כתמונות (בקרוב)</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
           </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)]">
+          <CardContent className="h-[calc(100%-4.5rem)]">
             {renderPreview()}
           </CardContent>
         </Card>
