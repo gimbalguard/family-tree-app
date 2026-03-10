@@ -1058,30 +1058,30 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree);
   
-    const dataToUpdate = {
-      firstName: personData.firstName ?? '',
-      lastName: personData.lastName ?? '',
-      middleName: personData.middleName ?? '',
-      previousFirstName: personData.previousFirstName ?? '',
-      maidenName: personData.maidenName ?? '',
-      nickname: personData.nickname ?? '',
-      gender: personData.gender ?? 'other',
-      birthDate: personData.birthDate ?? '',
-      birthPlace: personData.birthPlace ?? '',
-      deathDate: personData.deathDate ?? '',
-      cityOfResidence: personData.cityOfResidence ?? '',
-      countryOfResidence: personData.countryOfResidence ?? '',
-      religion: personData.religion ?? '',
-      status: personData.status ?? 'alive',
-      description: personData.description ?? '',
-      photoURL: personData.photoURL ?? '',
+    const dataToUpdate: Partial<Person> = {
+      firstName: personData.firstName,
+      lastName: personData.lastName,
+      middleName: personData.middleName,
+      previousFirstName: personData.previousFirstName,
+      maidenName: personData.maidenName,
+      nickname: personData.nickname,
+      gender: personData.gender,
+      birthDate: personData.birthDate,
+      birthPlace: personData.birthPlace,
+      deathDate: personData.deathDate,
+      cityOfResidence: personData.cityOfResidence,
+      countryOfResidence: personData.countryOfResidence,
+      religion: personData.religion,
+      status: personData.status,
+      description: personData.description,
+      photoURL: personData.photoURL,
       updatedAt: serverTimestamp(),
     };
   
     try {
       const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
       
-      await updateDoc(docRef, dataToUpdate);
+      await updateDoc(docRef, dataToUpdate as any);
       
       if (birthDateChanged) {
         const siblingChanges = await runSiblingDetection([personData.id], newPeople, relationships);
@@ -1321,7 +1321,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     if (isEditing) {
       newRelationships = relationships.map(r => r.id === relData.id ? { ...r, ...relData, updatedAt: new Date() } : r);
     } else {
-      newRelationship = { ...relData, id: uuidv4(), createdAt: new Date(), updatedAt: new Date() } as Relationship;
+      newRelationship = { ...relData, id: uuidv4(), userId: user.uid, treeId: treeId, createdAt: new Date(), updatedAt: new Date() } as Relationship;
       newRelationships = [...relationships, newRelationship];
     }
     
@@ -1351,7 +1351,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         batch.update(relRef, { ...relData, updatedAt: serverTimestamp() });
       } else {
         const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', newRelationship!.id);
-        batch.set(relRef, { ...newRelationship, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        batch.set(relRef, { ...newRelationship!, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       }
 
       if (genderUpdate) {
