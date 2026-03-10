@@ -77,7 +77,7 @@ service cloud.firestore {
      * Ensures the core `id` field of a UserProfile cannot be changed after creation.
      */
     function isImmutable_UserProfile() {
-      return !('id' in request.resource.data) || request.resource.data.id == resource.data.id;
+      return request.resource.data.id == resource.data.id;
     }
 
     /**
@@ -95,7 +95,7 @@ service cloud.firestore {
      * Ensures the `userId` of a FamilyTree is immutable.
      */
     function isImmutable_FamilyTree() {
-       return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
+       return request.resource.data.userId == resource.data.userId;
     }
 
     /**
@@ -103,8 +103,8 @@ service cloud.firestore {
      * Ensures the denormalized `userId` and `treeId` fields are immutable during an update.
      */
     function isImmutable_SubTreeItem() {
-      return (!('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId)
-          && (!('treeId' in request.resource.data) || request.resource.data.treeId == resource.data.treeId);
+      return request.resource.data.userId == resource.data.userId
+          && request.resource.data.treeId == resource.data.treeId;
     }
 
     /**
@@ -112,8 +112,9 @@ service cloud.firestore {
      * Ensures the denormalized relational IDs on a SocialLink are immutable.
      */
     function isImmutable_SocialLink() {
-      return isImmutable_SubTreeItem()
-          && (!('personId' in request.resource.data) || request.resource.data.personId == resource.data.personId);
+      return request.resource.data.userId == resource.data.userId
+          && request.resource.data.treeId == resource.data.treeId
+          && request.resource.data.personId == resource.data.personId;
     }
 
     //-------------------------------------------------------------------------
