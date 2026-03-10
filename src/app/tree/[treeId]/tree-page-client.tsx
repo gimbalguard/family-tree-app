@@ -476,17 +476,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const fetchData = useCallback(async () => {
     if (isUserLoading || !db) return; // Wait for user state to be known
-    
-    // For writeable views, a non-anonymous user is required.
-    if (!readOnly && (!user || user.isAnonymous)) {
+
+    // A user is required for any writeable view.
+    if (!readOnly && !user) {
         router.replace('/login');
         return;
-    }
-    
-    // For read-only views, an anonymous user is fine.
-    if (readOnly && !user) {
-        // This should be brief as anonymous sign-in is quick.
-        return; 
     }
 
     setIsLoading(true);
@@ -494,33 +488,34 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     try {
       let ownerId;
       if (readOnly) {
-        // For read-only views, we need to discover the owner's ID
         const publicDocRef = doc(db, 'publicTrees', treeId);
         const publicDocSnap = await getDoc(publicDocRef);
         if (publicDocSnap.exists()) {
           ownerId = publicDocSnap.data().ownerUserId;
-        } else {
-            const sharedQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeId), where("sharedWithUserId", "==", user!.uid), limit(1));
+        } else if (user) {
+            const sharedQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeId), where("sharedWithUserId", "==", user.uid), limit(1));
             const sharedSnap = await getDocs(sharedQuery);
             if (!sharedSnap.empty) {
                 ownerId = sharedSnap.docs[0].data().ownerUserId;
             } else {
-                 const myTreeRef = doc(db, 'users', user!.uid, 'familyTrees', treeId);
+                 const myTreeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
                  const myTreeSnap = await getDoc(myTreeRef);
                  if (myTreeSnap.exists()) {
-                     ownerId = user!.uid;
-                 } else {
-                     throw new Error('This tree is not public and has not been shared with you.');
+                     ownerId = user.uid;
                  }
             }
+        } else {
+            // Not a public tree and no user. Redirect.
+            router.replace('/login');
+            return;
         }
       } else {
-        // For editable views, the current user must be the owner.
+        // For editable views, the current user must be the owner. `user` is guaranteed to be non-null here by the check at the top.
         ownerId = user!.uid;
       }
       
       if (!ownerId) {
-        throw new Error('Could not determine the owner of the tree.');
+        throw new Error('This tree is not public and has not been shared with you.');
       }
       
       const treeDetailsRef = doc(db, 'users', ownerId, 'familyTrees', treeId);
@@ -538,7 +533,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
-        getDocs(manualEventsRef),
+        getDocs(manualEventsSnap),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
@@ -663,7 +658,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    if (!isUserLoading && user && !hasInitiallyLoaded.current) {
+    if (!isUserLoading && !hasInitiallyLoaded.current) {
       hasInitiallyLoaded.current = true;
       fetchData();
     }
