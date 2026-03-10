@@ -324,7 +324,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     peopleData: Person[], 
     relsData: Relationship[], 
     posData: CanvasPosition[],
-    currentTree: FamilyTree
+    currentTree: FamilyTree,
+    currentNodes: Node<Person>[]
   ) => {
     const allParentalRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
     const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling'];
@@ -409,7 +410,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         };
     });
 
-    const currentNodesMap = new Map(getNodes().map(n => [n.id, n.position]));
+    const currentNodesMap = new Map(currentNodes.map(n => [n.id, n.position]));
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
     const newNodes = enrichedPeopleData.map(person => {
       const pos = positionsMap.get(person.id);
@@ -483,7 +484,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       };
     });
     setEdges(newEdges);
-  }, [edgeType, readOnly]);
+  }, [edgeType, readOnly, setNodes, setEdges]);
 
   const fetchData = useCallback(async () => {
     if (isUserLoading || !db) return; // Wait for user state to be known
@@ -559,7 +560,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setCanvasPositions(posData);
       setManualEvents(manualEventsData);
       setCanvasBg(treeData.canvasBackgroundColor);
-      deriveStateFromData(peopleData, relsData, posData, treeData);
+      deriveStateFromData(peopleData, relsData, posData, treeData, []);
       
     } catch (err: any) {
       console.error('Error fetching tree data:', err);
@@ -994,7 +995,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } as Person;
     
     setPeople(ps => [...ps, newPersonData]);
-    deriveStateFromData([...people, newPersonData], relationships, canvasPositions, tree!);
+    deriveStateFromData([...people, newPersonData], relationships, canvasPositions, tree!, nodes);
 
     try {
       const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
@@ -1005,7 +1006,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
     } catch (error: any) {
       setPeople(ps => ps.filter(p => p.id !== newPersonId));
-      deriveStateFromData(people.filter(p => p.id !== newPersonId), relationships, canvasPositions, tree!);
+      deriveStateFromData(people.filter(p => p.id !== newPersonId), relationships, canvasPositions, tree!, nodes);
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people`,
         operation: 'create',
@@ -1067,7 +1068,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
     const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
     setPeople(newPeople);
-    deriveStateFromData(newPeople, relationships, canvasPositions, tree);
+    deriveStateFromData(newPeople, relationships, canvasPositions, tree, nodes);
   
     const dataToUpdate: Partial<Person> = {
       firstName: personData.firstName,
@@ -1102,7 +1103,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                 updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
             });
             setRelationships(updatedRels);
-            deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
+            deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!, nodes);
             const sibBatch = writeBatch(db);
             siblingChanges.relationshipsToAdd.forEach(r => {
                 sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r);
@@ -1121,7 +1122,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       handleEditorClose();
     } catch (error: any) {
       setPeople(oldPeople);
-      deriveStateFromData(oldPeople, oldRels, oldPositions, tree);
+      deriveStateFromData(oldPeople, oldRels, oldPositions, tree, nodes);
   
       const permissionError = new FirestorePermissionError({
         path: `users/${user.uid}/familyTrees/${treeId}/people/${personData.id}`,
@@ -1163,7 +1164,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const newPeople = people.map(p => p.id === personId ? { ...p, [field]: value } : p);
     
     setPeople(newPeople);
-    deriveStateFromData(newPeople, relationships, canvasPositions, tree);
+    deriveStateFromData(newPeople, relationships, canvasPositions, tree, nodes);
 
     try {
         const personRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personId);
@@ -1177,7 +1178,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                   updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
               });
               setRelationships(updatedRels);
-              deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!);
+              deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!, nodes);
               const sibBatch = writeBatch(db);
               siblingChanges.relationshipsToAdd.forEach(r => sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r));
               siblingChanges.relationshipsToUpdate.forEach(r => sibBatch.update(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!), r));
@@ -1189,7 +1190,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         return true;
     } catch (error: any) {
         setPeople(oldPeople);
-        deriveStateFromData(oldPeople, oldRels, oldPositions, tree);
+        deriveStateFromData(oldPeople, oldRels, oldPositions, tree, nodes);
 
         const permissionError = new FirestorePermissionError({
             path: `users/${user.uid}/familyTrees/${treeId}/people/${personId}`,
@@ -1204,7 +1205,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         });
         return false;
     }
-  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, recordHistory, readOnly, setPeople]);
+  }, [user, db, treeId, toast, people, relationships, canvasPositions, tree, deriveStateFromData, runSiblingDetection, recordHistory, readOnly, setPeople, nodes]);
 
   const handleDeleteRequest = (personId: string) => {
     if (readOnly) return;
@@ -1241,7 +1242,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setPeople(newPeople);
     setRelationships(newRelationships);
     setCanvasPositions(newPositions);
-    deriveStateFromData(newPeople, newRelationships, newPositions, tree);
+    deriveStateFromData(newPeople, newRelationships, newPositions, tree, nodes);
   
     try {
       const batch = writeBatch(db);
@@ -1284,7 +1285,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setPeople(prevPeople);
       setRelationships(prevRelationships);
       setCanvasPositions(prevCanvasPositions);
-      deriveStateFromData(prevPeople, prevRelationships, prevCanvasPositions, tree);
+      deriveStateFromData(prevPeople, prevRelationships, prevCanvasPositions, tree, nodes);
       toast({
         variant: 'destructive',
         title: 'שגיאת מחיקה',
@@ -1353,7 +1354,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     setPeople(newPeople);
     setRelationships(newRelationships);
-    deriveStateFromData(newPeople, newRelationships, canvasPositions, tree);
+    deriveStateFromData(newPeople, newRelationships, canvasPositions, tree, nodes);
     
     try {
       const batch = writeBatch(db);
@@ -1389,7 +1390,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } catch (error: any) {
       setPeople(oldState.people);
       setRelationships(oldState.relationships);
-      deriveStateFromData(oldState.people, oldState.relationships, canvasPositions, tree);
+      deriveStateFromData(oldState.people, oldState.relationships, canvasPositions, tree, nodes);
       toast({
         variant: 'destructive',
         title: 'שגיאה בשמירת קשר',
@@ -1405,7 +1406,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const oldRelationships = relationships;
     const newRelationships = relationships.filter(r => r.id !== relationshipId);
     setRelationships(newRelationships);
-    deriveStateFromData(people, newRelationships, canvasPositions, tree!);
+    deriveStateFromData(people, newRelationships, canvasPositions, tree!, nodes);
 
     try {
       const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', relationshipId);
@@ -1413,7 +1414,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       toast({ title: 'קשר נמחק' });
     } catch (error: any) {
       setRelationships(oldRelationships);
-      deriveStateFromData(people, oldRelationships, canvasPositions, tree!);
+      deriveStateFromData(people, oldRelationships, canvasPositions, tree!, nodes);
       console.error('Error deleting relationship:', error);
       toast({
         variant: 'destructive',
@@ -1452,14 +1453,14 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setCanvasBg(details.canvasBackgroundColor);
     }
     
-    deriveStateFromData(people, relationships, canvasPositions, newTreeData as FamilyTree);
+    deriveStateFromData(people, relationships, canvasPositions, newTreeData as FamilyTree, nodes);
 
     try {
         await updateDoc(treeRef, { ...details, updatedAt: serverTimestamp() });
         toast({ title: "ההגדרות עודכנו" });
     } catch (error: any) {
         setTree(oldTree);
-        deriveStateFromData(people, relationships, canvasPositions, oldTree);
+        deriveStateFromData(people, relationships, canvasPositions, oldTree, nodes);
 
         toast({ variant: "destructive", title: "שגיאת עדכון", description: "לא ניתן היה לשמור את הגדרות העץ." });
         const permissionError = new FirestorePermissionError({
@@ -1469,7 +1470,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         });
         errorEmitter.emit('permission-error', permissionError);
     }
-  }, [user, db, tree, treeId, toast, people, relationships, canvasPositions, deriveStateFromData, readOnly]);
+  }, [user, db, tree, treeId, toast, people, relationships, canvasPositions, deriveStateFromData, readOnly, nodes]);
 
   const handleEditPerson = useCallback((personId: string) => {
     if (readOnly) return;
