@@ -75,10 +75,10 @@ service cloud.firestore {
     /**
      * isImmutable_UserProfile
      * Ensures the core `id` field of a UserProfile cannot be changed after creation.
+     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_UserProfile() {
-      let data = request.resource.data;
-      return data.id == resource.data.id;
+      return request.resource.data.get('id', resource.data.id) == resource.data.id;
     }
 
     /**
@@ -94,30 +94,31 @@ service cloud.firestore {
     /**
      * isImmutable_FamilyTree
      * Ensures the `userId` of a FamilyTree is immutable.
+     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_FamilyTree() {
-      let data = request.resource.data;
-      return data.userId == resource.data.userId;
+       return request.resource.data.get('userId', resource.data.userId) == resource.data.userId;
     }
 
     /**
      * isImmutable_SubTreeItem
      * Ensures the denormalized `userId` and `treeId` fields are immutable during an update.
-     * This version correctly handles partial updates by comparing the final state
-     * (`request.resource.data`) with the pre-update state (`resource.data`).
+     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_SubTreeItem() {
-      return (!('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId) &&
-             (!('treeId' in request.resource.data) || request.resource.data.treeId == resource.data.treeId);
+      let isUserIdOk = request.resource.data.get('userId', resource.data.userId) == resource.data.userId;
+      let isTreeIdOk = request.resource.data.get('treeId', resource.data.treeId) == resource.data.treeId;
+      return isUserIdOk && isTreeIdOk;
     }
 
     /**
      * isImmutable_SocialLink
      * Ensures the denormalized relational IDs on a SocialLink are immutable.
+     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_SocialLink() {
-      return isImmutable_SubTreeItem() &&
-             (!('personId' in request.resource.data) || request.resource.data.personId == resource.data.personId);
+      let isPersonIdOk = request.resource.data.get('personId', resource.data.personId) == resource.data.personId;
+      return isImmutable_SubTreeItem() && isPersonIdOk;
     }
 
     //-------------------------------------------------------------------------
