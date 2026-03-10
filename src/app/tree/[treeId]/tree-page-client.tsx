@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -89,6 +88,7 @@ import { CalendarView } from './views/CalendarView';
 import { ManualEventEditor } from './views/ManualEventEditor';
 import { StatisticsView } from './views/StatisticsView';
 import { TriviaView } from './views/TriviaView';
+import { RootsView } from './views/RootsView';
 import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
 import { AiChatPanel } from './ai-chat-panel';
@@ -112,7 +112,8 @@ export type ViewMode =
   | 'map'
   | 'calendar'
   | 'statistics'
-  | 'trivia';
+  | 'trivia'
+  | 'roots';
 
 export type EdgeType = 'default' | 'step' | 'straight';
 
@@ -1787,6 +1788,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         return <StatisticsView people={people} relationships={relationships} onEditPerson={handleEditPerson} />;
       case 'trivia':
         return <TriviaView people={people} relationships={relationships} setViewMode={setViewMode} />;
+      case 'roots':
+        return <RootsView treeId={treeId} people={people} tree={tree} />;
       default:
         return null;
     }

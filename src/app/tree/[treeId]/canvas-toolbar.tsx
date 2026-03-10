@@ -31,6 +31,7 @@ import {
   Globe,
   Printer,
   Book,
+  BookMarked,
   Link as LinkIcon,
   Upload,
   Shrink,
@@ -67,6 +68,7 @@ const viewOptions: {
   { value: 'map', label: 'מפה', icon: <MapIcon />, color: '#16a34a' },
   { value: 'calendar', label: 'לוח שנה', icon: <CalendarIcon />, color: '#ea580c' },
   { value: 'statistics', label: 'סטטיסטיקות', icon: <BarChart />, color: '#db2777' },
+  { value: 'roots', label: 'עבודת שורשים', icon: <BookMarked />, color: '#64748b' },
   { value: 'trivia', label: 'טריוויה', icon: <Trophy />, color: '#d97706' },
 ];
 
