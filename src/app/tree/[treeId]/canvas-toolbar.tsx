@@ -37,6 +37,7 @@ import {
   Shrink,
   Expand,
   Trophy,
+  LayoutPanelTop,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -44,8 +45,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import type { ViewMode } from './tree-page-client';
+import type { ViewMode, CanvasAspectRatio } from './tree-page-client';
 import { Separator } from '@/components/ui/separator';
 import {
   Popover,
@@ -61,6 +64,7 @@ const viewOptions: {
   label: string;
   icon: React.ReactNode;
   color: string;
+  iconColor?: string;
 }[] = [
   { value: 'tree', label: 'עץ', icon: <Network />, color: '#26a69a' },
   { value: 'timeline', label: 'ציר זמן', icon: <GanttChart />, color: '#7c3aed' },
@@ -68,8 +72,8 @@ const viewOptions: {
   { value: 'map', label: 'מפה', icon: <MapIcon />, color: '#16a34a' },
   { value: 'calendar', label: 'לוח שנה', icon: <CalendarIcon />, color: '#ea580c' },
   { value: 'statistics', label: 'סטטיסטיקות', icon: <BarChart />, color: '#db2777' },
-  { value: 'roots', label: 'עבודת שורשים', icon: <BookMarked />, color: '#64748b' },
-  { value: 'trivia', label: 'טריוויה', icon: <Trophy />, color: '#d97706' },
+  { value: 'roots', label: 'עבודת שורשים', icon: <BookMarked />, color: '#6366f1', iconColor: '#6366f1' },
+  { value: 'trivia', label: 'טריוויה', icon: <Trophy />, color: '#f59e0b', iconColor: '#f59e0b' },
 ];
 
 const edgeStyleOptions: {
@@ -104,6 +108,8 @@ type CanvasToolbarProps = {
   onToggleTimelineCompact: () => void;
   readOnly: boolean;
   onBack: () => void;
+  canvasAspectRatio: CanvasAspectRatio;
+  setCanvasAspectRatio: (ratio: CanvasAspectRatio) => void;
 };
 
 export function CanvasToolbar({
@@ -129,6 +135,8 @@ export function CanvasToolbar({
   onToggleTimelineCompact,
   readOnly,
   onBack,
+  canvasAspectRatio,
+  setCanvasAspectRatio,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -166,6 +174,34 @@ export function CanvasToolbar({
           <p>חזרה ללוח הבקרה</p>
         </TooltipContent>
       </Tooltip>
+      
+      {(viewMode === 'tree' || viewMode === 'roots') && (
+        <DropdownMenu>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <LayoutPanelTop className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                    <p>יחס תצוגה</p>
+                </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="right">
+                <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
+                    <DropdownMenuRadioItem value="free">חופשי</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="16:9-portrait">16:9 לגובה</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
 
       {!readOnly && (
         <Tooltip>
@@ -196,7 +232,10 @@ export function CanvasToolbar({
                     viewMode === option.value ? 'text-white' : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {React.cloneElement(option.icon as React.ReactElement, { className: "h-6 w-6" })}
+                  {React.cloneElement(option.icon as React.ReactElement, { 
+                      className: "h-6 w-6",
+                      style: viewMode !== option.value && option.iconColor ? { color: option.iconColor } : {}
+                  })}
                 </Button>
              </TooltipTrigger>
              <TooltipContent side="right"><p>{option.label}</p></TooltipContent>

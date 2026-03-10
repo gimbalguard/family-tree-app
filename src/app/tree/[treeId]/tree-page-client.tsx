@@ -116,6 +116,8 @@ export type ViewMode =
   | 'trivia'
   | 'roots';
 
+export type CanvasAspectRatio = 'free' | 'a4-landscape' | 'a4-portrait' | '16:9-landscape' | '16:9-portrait' | '1:1';
+
 export type EdgeType = 'default' | 'step' | 'straight';
 
 // This function now intelligently determines the correct source and target handles
@@ -226,6 +228,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
   const [isPowerPointModalOpen, setIsPowerPointModalOpen] = useState(false);
+  const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('free');
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -968,6 +971,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
       const personDocRef = doc(peopleCollection, newPersonId);
       await setDoc(personDocRef, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+
       toast({
         title: 'אדם נוסף',
         description: `${newPersonData.firstName} ${newPersonData.lastName} נוסף.`,
@@ -995,7 +999,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     if (readOnly) return;
     recordHistory();
     if (!isNew) {
-      await handleUpdatePerson(personData);
+      await handleUpdatePerson(personData as Partial<Person> & { id: string });
     } else {
       await handleCreatePerson(personData);
     }
@@ -1734,6 +1738,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsEditingName(false);
   };
 
+  const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
   const renderCurrentView = () => {
     switch (viewMode) {
@@ -1869,15 +1874,36 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
           readOnly={readOnly}
           onBack={handleBackToDashboard}
+          canvasAspectRatio={canvasAspectRatio}
+          setCanvasAspectRatio={setCanvasAspectRatio}
         />
-        <main tabIndex={-1} className="flex-1 relative overflow-hidden" id="main-view-container" style={{ backgroundColor: canvasBg }}>
-        <input
+        <main tabIndex={-1} className={cn("flex-1 relative overflow-hidden", isConstrainedView && "flex items-center justify-center p-8")} id="main-view-container" style={{ backgroundColor: isConstrainedView ? (canvasBg || 'hsl(var(--muted))') : canvasBg }}>
+          <input
             type="file"
             ref={importFileInputRef}
             className="hidden"
             accept=".xlsx"
             onChange={handleFileSelectedForImport}
           />
+
+          <div
+            className={cn(
+              "relative",
+              isConstrainedView 
+                  ? "bg-background shadow-2xl border overflow-hidden"
+                  : "w-full h-full",
+              isConstrainedView && {
+                  'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
+                  'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
+                  'aspect-video w-full h-auto max-h-full': canvasAspectRatio === '16:9-landscape',
+                  'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '16:9-portrait',
+                  'aspect-square h-full w-auto max-w-full': canvasAspectRatio === '1:1',
+              }
+            )}
+          >
+              {renderCurrentView()}
+          </div>
+          
           {viewMode === 'tree' && (
             <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2" data-export-hide>
               {isEditingName ? (
@@ -1938,7 +1964,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               </Popover>
             </div>
           )}
-          {renderCurrentView()}
           {contextMenu && viewMode === 'tree' && (
             <NodeContextMenu
               x={contextMenu.x}
