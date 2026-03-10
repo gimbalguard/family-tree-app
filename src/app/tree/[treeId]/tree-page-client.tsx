@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -1016,7 +1017,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleSavePerson = async (personData: any) => {
     if (readOnly) return;
     recordHistory();
-    if (selectedPerson) {
+    if (personData.id) {
       await handleUpdatePerson(personData as Person);
     } else {
       await handleCreatePerson(personData);
@@ -1064,7 +1065,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree, nodes);
   
-    const dataToUpdate: Partial<Person> = {
+    const dataToUpdate: Partial<Omit<Person, 'id' | 'userId' | 'treeId' | 'createdAt'>> = {
       firstName: personData.firstName,
       lastName: personData.lastName,
       middleName: personData.middleName,

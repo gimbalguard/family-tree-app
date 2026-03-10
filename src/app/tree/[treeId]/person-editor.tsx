@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -351,7 +352,7 @@ export function PersonEditor({
   async function onSubmit(values: z.infer<typeof personSchema>) {
     setIsSaving(true);
     const dataToSave = isEditing
-      ? { ...person, ...values }
+      ? { ...values, id: person?.id }
       : { ...values, treeId };
     await onSave(dataToSave);
     setIsSaving(false);
