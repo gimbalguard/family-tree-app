@@ -1,15 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { Person, FamilyTree } from '@/lib/types';
+import type { Person, FamilyTree, RootsProject } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { v4 as uuidv4 } from 'uuid';
 import { useToast } from '@/hooks/use-toast';
+import { rootsAssistant } from '@/ai/flows/roots-assistant-flow';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
@@ -24,6 +23,7 @@ interface RootsProjectData {
     studentName?: string;
     teacherName?: string;
     submissionDate?: string;
+    className?: string;
   };
   // Add other steps data structure later
   [key: string]: any;
@@ -31,11 +31,11 @@ interface RootsProjectData {
 
 // Define the steps for the wizard
 const WIZARD_STEPS = [
-  { id: 1, label: 'שער המבוא' },
-  { id: 2, label: 'אני' },
-  { id: 3, label: 'משפחה קרובה' },
-  { id: 4, label: 'שורשים' },
-  { id: 5, label: 'סיכום' },
+  { id: 1, label: 'שער המבוא', instruction: "שאל על שם העבודה, שם התלמיד, בית הספר והכיתה. הצע את הנתונים הקיימים מהעץ." },
+  { id: 2, label: 'אני', instruction: "שאל על שם התלמיד, משמעותו, תאריך לידה, תחביבים, חפץ יקר. הצע נתונים אם קיימים." },
+  { id: 3, label: 'משפחה קרובה', instruction: "שאל על ההורים — מקום לידה, עיסוק, סיפור היכרות. אחים — גילאים וקשר." },
+  { id: 4, label: 'שורשים', instruction: "נחה ראיון עומק עם הסבים — ילדות, עלייה, אירועים היסטוריים. שאלה אחת בכל פעם." },
+  { id: 5, label: 'סיכום', instruction: "בקש רפלקציה — מה למד על עצמו? מה הפתיע אותו? סכם את כל העבודה לפרקים." },
 ];
 
 type RootsViewProps = {
@@ -64,6 +64,7 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
   const { toast } = useToast();
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isAiLoading, setIsAiLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectData, setProjectData] = useState<RootsProjectData>({});
@@ -83,7 +84,7 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
       try {
         const docSnap = await getDoc(projectDocRef);
         if (docSnap.exists()) {
-          const data = docSnap.data();
+          const data = docSnap.data() as RootsProject;
           setProjectId(docSnap.id);
           setProjectData(data.projectData || {});
           setCurrentStep(data.currentStep || 1);
@@ -153,14 +154,87 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
     }
   };
 
-  const handleSendMessage = () => {
-    if (!userInput.trim()) return;
-    const newHistory = [...chatHistory, { role: 'user' as const, content: userInput }];
-    // Placeholder AI response
-    newHistory.push({ role: 'ai' as const, content: `הבנתי. תודה על המידע: "${userInput}"` });
+  const handleSendMessage = async () => {
+    if (!userInput.trim() || !user) return;
+    
+    const userMessage = { role: 'user' as const, content: userInput };
+    const newHistory = [...chatHistory, userMessage];
     setChatHistory(newHistory);
     setUserInput('');
+    setIsAiLoading(true);
+
+    try {
+      const stepInstruction = WIZARD_STEPS.find(s => s.id === currentStep)?.instruction || '';
+
+      const treeDataSummary = JSON.stringify({
+        people: people.map(p => ({ 
+          name: `${p.firstName} ${p.lastName}`, 
+          birth: p.birthDate, 
+          birthplace: p.birthPlace,
+          isOwner: p.id === tree?.ownerPersonId
+        })),
+        relationships: relationships.map(r => ({ from: r.personAId, to: r.personBId, type: r.relationshipType })),
+      });
+      
+      const result = await rootsAssistant({
+        currentStep,
+        stepInstruction,
+        treeDataSummary,
+        stepChatHistory: newHistory,
+        newUserMessage: userInput,
+      });
+
+      const aiMessage = { role: 'ai' as const, content: result.aiResponse };
+      setChatHistory(prev => [...prev, aiMessage]);
+      
+      if (result.updatedProjectData) {
+         setProjectData(prev => {
+            const newProjectData = { ...prev };
+            for (const key in result.updatedProjectData) {
+                if (typeof result.updatedProjectData[key] === 'object' && !Array.isArray(result.updatedProjectData[key]) && result.updatedProjectData[key] !== null) {
+                    newProjectData[key] = { ...(prev[key] || {}), ...result.updatedProjectData[key] };
+                } else if (result.updatedProjectData[key] !== undefined) {
+                    newProjectData[key] = result.updatedProjectData[key];
+                }
+            }
+            return newProjectData;
+        });
+      }
+
+    } catch (error) {
+      console.error("AI assistant error:", error);
+      toast({ variant: "destructive", title: "שגיאת AI", description: "לא ניתן היה לקבל תגובה מהעוזר." });
+      const errorMessage = { role: 'ai' as const, content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?' };
+      setChatHistory(prev => [...prev, errorMessage]);
+    } finally {
+        setIsAiLoading(false);
+    }
   };
+
+  const renderPreview = () => {
+    switch (currentStep) {
+        case 1:
+            const { title, studentName, teacherName, submissionDate, className } = projectData.coverPage || {};
+            return (
+                <div className="p-8 border-4 border-gray-700 bg-white h-full text-black text-center flex flex-col justify-center items-center font-serif">
+                    <h1 className="text-4xl font-bold mb-12">{title || projectData.projectName || 'שם הפרויקט'}</h1>
+                    <div className="space-y-4 text-lg">
+                        <p>מגיש/ה: {studentName || '[שם התלמיד/ה]'}</p>
+                        <p>כיתה: {className || '[כיתה]'}</p>
+                        <p>מורה: {teacherName || '[שם המורה]'}</p>
+                        <p>תאריך הגשה: {submissionDate || '[תאריך הגשה]'}</p>
+                    </div>
+                </div>
+            )
+        default:
+            return (
+                <div className="flex items-center justify-center h-full">
+                    <p className="text-muted-foreground">תוכן השלב יוצג כאן...</p>
+                </div>
+            );
+    }
+}
+
 
   if (isLoading) {
     return (
@@ -180,8 +254,8 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
               תצוגה מקדימה: {WIZARD_STEPS.find(s => s.id === currentStep)?.label}
             </h2>
           </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)] flex items-center justify-center">
-            <p className="text-muted-foreground">תוכן השלב יוצג כאן...</p>
+          <CardContent className="h-[calc(100%-4rem)]">
+            {renderPreview()}
           </CardContent>
         </Card>
       </div>
@@ -225,6 +299,14 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
                   </div>
                 </div>
               ))}
+              {isAiLoading && (
+                <div className="flex justify-start">
+                    <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm bg-accent flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin"/>
+                        <span>חושב...</span>
+                    </div>
+                </div>
+              )}
             </div>
           </ScrollArea>
           
@@ -237,16 +319,17 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                     className="pr-10"
+                    disabled={isAiLoading}
                 />
-                <Button size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={handleSendMessage}>
+                <Button size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={handleSendMessage} disabled={isAiLoading}>
                   <Send className="h-4 w-4" />
                 </Button>
             </div>
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => handleStepChange(currentStep - 1)} disabled={currentStep === 1}>
+              <Button variant="outline" onClick={() => handleStepChange(currentStep - 1)} disabled={currentStep === 1 || isAiLoading}>
                 → הקודם
               </Button>
-              <Button onClick={() => handleStepChange(currentStep + 1)} disabled={currentStep === WIZARD_STEPS.length}>
+              <Button onClick={() => handleStepChange(currentStep + 1)} disabled={currentStep === WIZARD_STEPS.length || isAiLoading}>
                 הבא ←
               </Button>
             </div>
