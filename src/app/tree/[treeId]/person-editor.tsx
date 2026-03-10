@@ -351,13 +351,15 @@ export function PersonEditor({
 
   async function onSubmit(values: z.infer<typeof personSchema>) {
     setIsSaving(true);
-    // Remove the socialLinks array before saving, as it's handled in a subcollection
     const { socialLinks, ...personData } = values;
     const dataToSave = { id: person?.id, ...personData };
-    await onSave(dataToSave);
-    setIsSaving(false);
-    onClose();
-  }
+    try {
+        await onSave(dataToSave);
+    } finally {
+        setIsSaving(false);
+    }
+    // Don't call onClose() here — let the parent handle closing
+}
   
   const buttonText = isEditing ? 'שמור שינויים' : 'צור אדם';
   const photoUrlValue = form.watch('photoURL');

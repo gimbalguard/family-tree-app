@@ -1020,7 +1020,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   };
 
-  const handleUpdatePerson = async (personData: Person) => {
+  const handleUpdatePerson = async (personData: Partial<Person> & { id: string }) => {
     if (!user || !db || !tree) return;
   
     recordHistory();
@@ -1044,11 +1044,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         countryOfResidence, religion, profession, hobby, status, description, photoURL
     } = personData;
 
-    const dataToUpdate = {
+    const dataToUpdate: Partial<Person> = {
         firstName, lastName, middleName, previousFirstName, maidenName, nickname,
         gender, birthDate, birthPlace, deathDate, cityOfResidence,
         countryOfResidence, religion, profession, hobby, status, description, photoURL,
-        updatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp() as any,
     };
   
     try {
@@ -1102,6 +1102,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
       handleEditorClose();
     } catch (error: any) {
+      console.error('RAW ERROR:', error.code, error.message, JSON.stringify(error));
       setPeople(oldPeople);
       deriveStateFromData(oldPeople, oldRels, oldPositions, tree, nodes);
   
