@@ -1069,20 +1069,20 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const dataToUpdate = {
         firstName: personData.firstName,
         lastName: personData.lastName,
-        middleName: personData.middleName || '',
-        previousFirstName: personData.previousFirstName || '',
-        maidenName: personData.maidenName || '',
-        nickname: personData.nickname || '',
+        middleName: personData.middleName,
+        previousFirstName: personData.previousFirstName,
+        maidenName: personData.maidenName,
+        nickname: personData.nickname,
         gender: personData.gender,
-        birthDate: personData.birthDate || '',
-        birthPlace: personData.birthPlace || '',
-        deathDate: personData.deathDate || '',
-        cityOfResidence: personData.cityOfResidence || '',
-        countryOfResidence: personData.countryOfResidence || '',
-        religion: personData.religion || '',
+        birthDate: personData.birthDate,
+        birthPlace: personData.birthPlace,
+        deathDate: personData.deathDate,
+        cityOfResidence: personData.cityOfResidence,
+        countryOfResidence: personData.countryOfResidence,
+        religion: personData.religion,
         status: personData.status,
-        description: personData.description || '',
-        photoURL: personData.photoURL || '',
+        description: personData.description,
+        photoURL: personData.photoURL,
         updatedAt: serverTimestamp(),
       };
 
@@ -1248,7 +1248,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
       const [relsSnapA, relsSnapB, posSnap] = await Promise.all([
         getDocs(relsQueryA),
-        getDocs(relsSnapB),
+        getDocs(relsQueryB),
         getDocs(posQuery),
       ]);
   
