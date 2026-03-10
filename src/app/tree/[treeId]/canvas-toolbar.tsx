@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -164,44 +165,44 @@ export function CanvasToolbar({
 
   return (
     <aside className="flex flex-col items-center gap-4 border-l bg-card p-2" data-export-hide>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onBack}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          <p>חזרה ללוח הבקרה</p>
-        </TooltipContent>
-      </Tooltip>
-      
-      {(viewMode === 'tree' || viewMode === 'roots') && (
-        <DropdownMenu>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <LayoutPanelTop className="h-5 w-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                    <p>יחס תצוגה</p>
-                </TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent side="right">
-                <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
-                    <DropdownMenuRadioItem value="free">חופשי</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="16:9-portrait">16:9 לגובה</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-
+      <div className="flex w-full justify-center gap-2">
+         {(viewMode === 'tree' || viewMode === 'roots') && (
+          <DropdownMenu>
+              <Tooltip>
+                  <TooltipTrigger asChild>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                              <LayoutPanelTop className="h-5 w-5" />
+                          </Button>
+                      </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                      <p>יחס תצוגה</p>
+                  </TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent side="right">
+                  <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
+                      <DropdownMenuRadioItem value="free">חופשי</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="16:9-portrait">16:9 לגובה</DropdownMenuRadioItem>
+                      <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onBack}>
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>חזרה ללוח הבקרה</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
 
       {!readOnly && (
         <Tooltip>
@@ -346,22 +347,6 @@ export function CanvasToolbar({
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={onUndo}
-                  disabled={!canUndo}
-                >
-                  <Undo2 className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>בטל</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
                   onClick={onRedo}
                   disabled={!canRedo}
                 >
@@ -371,6 +356,22 @@ export function CanvasToolbar({
               <TooltipContent side="right">
                 <p>בצע שוב</p>
               </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                  >
+                    <Undo2 className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <p>בטל</p>
+                </TooltipContent>
             </Tooltip>
           </div>
         )}
