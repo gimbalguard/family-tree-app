@@ -65,20 +65,17 @@ export function DashboardClient() {
         return;
     }
 
-
     setIsLoading(true);
     try {
-      // 1. Fetch My Trees
       const myTreesRef = collection(db, 'users', user.uid, 'familyTrees');
       const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
         const treeData = { id: treeDoc.id, ...treeDoc.data() } as FamilyTree;
         
-        // Fetch real counts
         const peopleRef = collection(db, 'users', user.uid, 'familyTrees', treeDoc.id, 'people');
         const relsRef = collection(db, 'users', user.uid, 'familyTrees', treeDoc.id, 'relationships');
         const [peopleSnap, relsSnap] = await Promise.all([
-          getDocs(query(peopleRef, limit(1000))), // Firestore count is in beta, so we fetch docs
+          getDocs(query(peopleRef, limit(1000))),
           getDocs(query(relsRef, limit(1000))),
         ]);
         treeData.personCount = peopleSnap.size; 
@@ -87,25 +84,8 @@ export function DashboardClient() {
         return treeData;
       });
       let userTrees = (await Promise.all(myTreesPromises));
-
-      // --- RECOVERY LOGIC ---
-      if (user.email === 'yakiravidar@gmail.com') {
-          const oldUserId = 'fsW3k9bT24XDIPHiuoL56U5zuKF3';
-          if (user.uid !== oldUserId) {
-            const recoveredTreesRef = collection(db, 'users', oldUserId, 'familyTrees');
-            const recoveredTreesSnapshot = await getDocs(recoveredTreesRef);
-            const recoveredTrees = recoveredTreesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                isRecovered: true,
-            } as FamilyTree & { isRecovered: boolean }));
-            userTrees = [...userTrees, ...recoveredTrees];
-          }
-      }
       setMyTrees(userTrees);
 
-
-      // 2. Fetch all shares related to the user
       const sharesOwnedQuery = query(collection(db, "sharedTrees"), where("ownerUserId", "==", user.uid));
       const sharesReceivedQuery = query(collection(db, "sharedTrees"), where("sharedWithUserId", "==", user.uid));
       
@@ -114,7 +94,6 @@ export function DashboardClient() {
           getDocs(sharesReceivedQuery)
       ]);
 
-      // 3. Process outgoing shares (trees I own and shared with others)
       const outgoingMap = new Map<string, string[]>();
       sharesOwnedSnapshot.forEach(doc => {
           const share = doc.data() as SharedTree;
@@ -124,7 +103,6 @@ export function DashboardClient() {
       });
       setOutgoingShares(outgoingMap);
 
-      // 4. Process incoming shares (trees others shared with me)
       setIncomingSharedTrees(sharesReceivedSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as SharedTree)));
 
     } catch (error) {
@@ -149,8 +127,8 @@ export function DashboardClient() {
   const handleDuplicateTree = async (treeToDuplicate: FamilyTree) => {
     if (!user || !db) return;
     
-    // For recovered trees, the owner ID is the OLD one.
-    const ownerId = (treeToDuplicate as any).isRecovered ? 'fsW3k9bT24XDIPHiuoL56U5zuKF3' : user.uid;
+    // This logic is now simplified as we removed the recovery UI flow.
+    const ownerId = treeToDuplicate.userId;
 
     toast({ title: 'משכפל עץ, אנא המתן...' });
     try {
@@ -388,8 +366,8 @@ export function DashboardClient() {
     if (!treeToDelete || !user || !db) return;
     setIsDeleting(true);
     
-    // For recovered trees, the owner ID is the OLD one.
-    const ownerId = (treeToDelete as any).isRecovered ? 'fsW3k9bT24XDIPHiuoL56U5zuKF3' : user.uid;
+    // Use the actual userId from the tree object
+    const ownerId = treeToDelete.userId;
 
     try {
         const batch = writeBatch(db);
@@ -476,7 +454,6 @@ export function DashboardClient() {
                   tree={tree}
                   type="owned"
                   sharedWith={outgoingShares.get(tree.id)}
-                  isRecovered={(tree as any).isRecovered}
                   onDelete={() => handleDeleteClick(tree)}
                   onDuplicate={() => handleDuplicateTree(tree)}
                   onShare={() => handleOpenShareDialog(tree)}
@@ -555,21 +532,6 @@ export function DashboardClient() {
       </div>
 
       <main className="container mx-auto py-8 px-4">
-        {user?.email === 'yakiravidar@gmail.com' && myTrees.some(t => (t as any).isRecovered) && (
-            <div className='p-4 mb-8 border-l-4 border-yellow-400 bg-yellow-50 rounded-md text-yellow-800'>
-                <div className='flex'>
-                    <div className='flex-shrink-0'>
-                        <AlertTriangle className='h-5 w-5 text-yellow-500'/>
-                    </div>
-                    <div className='ml-3 mr-3'>
-                        <h3 className='text-sm font-medium'>עצים לשחזור</h3>
-                        <div className='mt-2 text-sm'>
-                            <p>זיהינו עצים ששייכים לחשבונך הישן. כדי לקבל בעלות מלאה עליהם, השתמש בכפתור השכפול (העתקה) עבור כל עץ מסומן. לאחר שתשכפל את כולם, תוכל למחוק בבטחה את העצים המשוחזרים.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        )}
         {renderContent()}
       </main>
 

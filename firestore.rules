@@ -247,13 +247,13 @@ service cloud.firestore {
       allow get: if isSignedIn() && (request.auth.uid == resource.data.ownerUserId || request.auth.uid == resource.data.sharedWithUserId);
       allow list: if isSignedIn(); // relies on client query with where() clause
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.ownerUserId;
-      allow delete: if isSignedIn() && (request.auth.uid == resource.data.ownerUserId || request.auth.uid == resource.data.sharedWithUserId);
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.ownerUserId || request.auth.uid == resource.data.sharedWithUserId || isRecoveryUser(resource.data.ownerUserId));
     }
 
     match /publicTrees/{treeId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.resource.data.ownerUserId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.ownerUserId == request.auth.uid;
+      allow delete: if isSignedIn() && (resource.data.ownerUserId == request.auth.uid || isRecoveryUser(resource.data.ownerUserId));
     }
   }
 }
