@@ -400,21 +400,21 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         };
     });
 
-    const currentNodesMap = new Map(currentNodes.map(n => [n.id, n.position]));
+    const currentNodesMap = new Map(currentNodes.map(n => [n.id, n]));
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
     const newNodes = enrichedPeopleData.map(person => {
+      const existingNode = currentNodesMap.get(person.id);
       const pos = positionsMap.get(person.id);
-      const currentPos = currentNodesMap.get(person.id);
-      
+
       const isOwner = person.id === currentTree.ownerPersonId;
       const isTwin = twinIds.has(person.id);
       const applyCreatorStyles = isOwner || isTwin;
 
       let finalPosition: XYPosition;
-      if (pos) {
+      if (existingNode) {
+        finalPosition = existingNode.position;
+      } else if (pos) {
         finalPosition = { x: pos.x, y: pos.y };
-      } else if (currentPos) {
-        finalPosition = currentPos;
       } else {
         finalPosition = { x: Math.random() * 400, y: Math.random() * 400 };
       }
@@ -1074,6 +1074,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       cityOfResidence: personData.cityOfResidence,
       countryOfResidence: personData.countryOfResidence,
       religion: personData.religion,
+      profession: personData.profession,
+      hobby: personData.hobby,
       status: personData.status,
       description: personData.description,
       photoURL: personData.photoURL,
@@ -1729,6 +1731,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const handleBackToDashboard = useCallback(() => {
     router.push('/dashboard');
   }, [router]);
+  
+  const handleNameSave = () => {
+    if (!readOnly && nameValue.trim() && nameValue !== tree?.treeName) {
+      handleUpdateTreeDetails({ treeName: nameValue });
+    }
+    setIsEditingName(false);
+  };
 
 
   const renderCurrentView = () => {
@@ -1873,8 +1882,30 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             onChange={handleFileSelectedForImport}
           />
           {viewMode === 'tree' && (
-            <div className="absolute top-4 right-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2" data-export-hide>
-              <h1 className="text-lg font-semibold">{tree?.treeName}</h1>
+            <div className="absolute top-4 left-4 z-10 rounded-lg border bg-background/80 px-4 py-2 shadow-sm backdrop-blur-sm flex items-center gap-2" data-export-hide>
+              {isEditingName ? (
+                <Input
+                    value={nameValue}
+                    onChange={(e) => setNameValue(e.target.value)}
+                    onBlur={handleNameSave}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleNameSave();
+                        if (e.key === 'Escape') {
+                            setIsEditingName(false);
+                            setNameValue(tree?.treeName || '');
+                        }
+                    }}
+                    className="h-9 text-lg"
+                    autoFocus
+                />
+              ) : (
+                <h1
+                    className="text-lg font-semibold rounded-md px-2 py-1 -m-2 -my-1 hover:bg-black/5 cursor-pointer"
+                    onDoubleClick={() => { if(!readOnly) setIsEditingName(true) }}
+                >
+                    {tree?.treeName}
+                </h1>
+              )}
               <Popover
                 open={isOwnerPopoverOpen}
                 onOpenChange={setIsOwnerPopoverOpen}
@@ -2015,6 +2046,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         tree={tree}
         people={people}
         onUpdate={handleUpdateTreeDetails}
+        onUploadCover={() => {}}
       />}
 
       <AlertDialog

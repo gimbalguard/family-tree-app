@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -108,7 +107,8 @@ export function PersonEditor({
   const [showAdditionalFields, setShowAdditionalFields] = useState(false);
 
   const [isUploading, setIsUploading] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isAvatarDragging, setIsAvatarDragging] = useState(false);
+  const [isGalleryDragging, setIsGalleryDragging] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   
@@ -272,16 +272,38 @@ export function PersonEditor({
     }
   };
   
-  const handleDragEvents = (e: React.DragEvent) => {
+  const handleAvatarDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    handleDragEvents(e);
-    setIsDragging(false);
+    setIsAvatarDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleImageUpload(e.dataTransfer.files[0]);
+      handleImageUpload(e.dataTransfer.files[0], true, false);
+    }
+  };
+  
+  const handleGalleryFilesSelected = async (files: FileList | null) => {
+    if (!files) return;
+    const filesToUpload = Array.from(files).slice(0, 15 - gallery.length);
+    if (filesToUpload.length < files.length) {
+        toast({
+            variant: 'destructive',
+            title: 'הגעת למגבלת התמונות',
+            description: `ניתן להעלות עד ${15 - gallery.length} תמונות נוספות.`,
+        });
+    }
+
+    // Process files one by one to give user feedback
+    for (const file of filesToUpload) {
+        await handleImageUpload(file, false, true);
+    }
+  };
+  
+  const handleGalleryDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsGalleryDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleGalleryFilesSelected(e.dataTransfer.files);
     }
   };
   
@@ -356,12 +378,12 @@ export function PersonEditor({
                 <div 
                   className={cn(
                     "relative w-40 h-40 mx-auto rounded-full border-2 border-dashed flex items-center justify-center text-muted-foreground transition-colors",
-                    isDragging && "border-primary bg-primary/10"
+                    isAvatarDragging && "border-primary bg-primary/10"
                   )}
-                  onDragEnter={(e) => {handleDragEvents(e); setIsDragging(true);}}
-                  onDragLeave={(e) => {handleDragEvents(e); setIsDragging(false);}}
-                  onDragOver={handleDragEvents}
-                  onDrop={handleDrop}
+                  onDragEnter={(e) => {e.preventDefault(); e.stopPropagation(); setIsAvatarDragging(true);}}
+                  onDragLeave={(e) => {e.preventDefault(); e.stopPropagation(); setIsAvatarDragging(false);}}
+                  onDragOver={(e) => {e.preventDefault(); e.stopPropagation();}}
+                  onDrop={handleAvatarDrop}
                 >
                   <Avatar className="w-full h-full">
                     <AvatarImage src={photoUrlValue || undefined} className="object-cover" />
@@ -577,7 +599,16 @@ export function PersonEditor({
                 </div>
 
                 {isEditing && (
-                  <div className="space-y-2 text-right">
+                  <div 
+                    className={cn(
+                        "space-y-2 text-right relative border-2 border-dashed rounded-lg p-4 transition-colors",
+                        isGalleryDragging ? "border-primary bg-primary/10" : "border-transparent"
+                    )}
+                    onDragEnter={(e) => {e.preventDefault(); e.stopPropagation(); setIsGalleryDragging(true);}}
+                    onDragLeave={(e) => {e.preventDefault(); e.stopPropagation(); setIsGalleryDragging(false);}}
+                    onDragOver={(e) => {e.preventDefault(); e.stopPropagation();}}
+                    onDrop={handleGalleryDrop}
+                  >
                     <Label>גלריית תמונות</Label>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                       {gallery.map(photo => (
@@ -593,11 +624,11 @@ export function PersonEditor({
                       {gallery.length < 15 && (
                         <button type="button" onClick={() => galleryFileInputRef.current?.click()} className="aspect-square border-2 border-dashed rounded-md flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary">
                           <UploadCloud className="h-8 w-8" />
-                          <span className="text-xs mt-1">הוסף תמונה</span>
+                          <span className="text-xs mt-1 text-center">הוסף תמונות<br/>(עד {15-gallery.length})</span>
                         </button>
                       )}
                     </div>
-                    <input type="file" ref={galleryFileInputRef} multiple={false} onChange={(e) => e.target.files && e.target.files[0] && handleImageUpload(e.target.files[0], false, true)} className="hidden" accept="image/*" />
+                    <input type="file" ref={galleryFileInputRef} multiple onChange={(e) => handleGalleryFilesSelected(e.target.files)} className="hidden" accept="image/*" />
                   </div>
                 )}
               </div>
