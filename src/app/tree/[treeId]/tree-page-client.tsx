@@ -409,18 +409,29 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         };
     });
 
+    const currentNodesMap = new Map(getNodes().map(n => [n.id, n.position]));
     const positionsMap = new Map<string, Partial<CanvasPosition>>(posData.map(p => [p.personId, p]));
     const newNodes = enrichedPeopleData.map(person => {
       const pos = positionsMap.get(person.id);
+      const currentPos = currentNodesMap.get(person.id);
       
       const isOwner = person.id === currentTree.ownerPersonId;
       const isTwin = twinIds.has(person.id);
       const applyCreatorStyles = isOwner || isTwin;
+
+      let finalPosition: XYPosition;
+      if (pos) {
+        finalPosition = { x: pos.x, y: pos.y };
+      } else if (currentPos) {
+        finalPosition = currentPos;
+      } else {
+        finalPosition = { x: Math.random() * 400, y: Math.random() * 400 };
+      }
       
       return {
         id: person.id,
         type: 'personNode',
-        position: pos ? { x: pos.x, y: pos.y } : { x: Math.random() * 400, y: Math.random() * 400 },
+        position: finalPosition,
         data: {
           ...person,
           isLocked: pos?.isLocked ?? false,
@@ -1351,7 +1362,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         batch.update(relRef, { ...relData, updatedAt: serverTimestamp() });
       } else {
         const relRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', newRelationship!.id);
-        batch.set(relRef, { ...newRelationship!, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        batch.set(relRef, { ...newRelationship!, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       }
 
       if (genderUpdate) {
