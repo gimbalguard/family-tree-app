@@ -75,10 +75,9 @@ service cloud.firestore {
     /**
      * isImmutable_UserProfile
      * Ensures the core `id` field of a UserProfile cannot be changed after creation.
-     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_UserProfile() {
-      return request.resource.data.get('id', resource.data.id) == resource.data.id;
+      return !('id' in request.resource.data) || request.resource.data.id == resource.data.id;
     }
 
     /**
@@ -94,31 +93,27 @@ service cloud.firestore {
     /**
      * isImmutable_FamilyTree
      * Ensures the `userId` of a FamilyTree is immutable.
-     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_FamilyTree() {
-       return request.resource.data.get('userId', resource.data.userId) == resource.data.userId;
+       return !('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId;
     }
 
     /**
      * isImmutable_SubTreeItem
      * Ensures the denormalized `userId` and `treeId` fields are immutable during an update.
-     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_SubTreeItem() {
-      let isUserIdOk = request.resource.data.get('userId', resource.data.userId) == resource.data.userId;
-      let isTreeIdOk = request.resource.data.get('treeId', resource.data.treeId) == resource.data.treeId;
-      return isUserIdOk && isTreeIdOk;
+      return (!('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId)
+          && (!('treeId' in request.resource.data) || request.resource.data.treeId == resource.data.treeId);
     }
 
     /**
      * isImmutable_SocialLink
      * Ensures the denormalized relational IDs on a SocialLink are immutable.
-     * This robustly handles partial updates by defaulting to the existing value if the field is not in the request.
      */
     function isImmutable_SocialLink() {
-      let isPersonIdOk = request.resource.data.get('personId', resource.data.personId) == resource.data.personId;
-      return isImmutable_SubTreeItem() && isPersonIdOk;
+      return isImmutable_SubTreeItem()
+          && (!('personId' in request.resource.data) || request.resource.data.personId == resource.data.personId);
     }
 
     //-------------------------------------------------------------------------
