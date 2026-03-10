@@ -989,7 +989,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     handleEditorClose();
   };
 
-  const handleSavePerson = async (personData: any) => {
+  const handleSavePerson = async (personData: Omit<Person, 'socialLinks' | 'gallery'>) => {
     if (readOnly) return;
     recordHistory();
     if (personData.id) {
@@ -1058,7 +1058,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id
       );
   
-      await updateDoc(docRef, dataToUpdate);
+      await setDoc(docRef, dataToUpdate, { merge: true });
   
       if (birthDateChanged) {
         const siblingChanges = await runSiblingDetection(
