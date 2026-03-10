@@ -1,3 +1,4 @@
+
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,7 +19,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp, writeBatch, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, writeBatch, query, collection, where, getDocs, getDoc } from 'firebase/firestore';
 
 const formSchema = z.object({
   username: z.string().min(3, { message: 'שם משתמש חייב להכיל לפחות 3 תווים.' }),
@@ -56,12 +57,22 @@ export function RegisterForm() {
         const batch = writeBatch(db);
 
         const userProfileRef = doc(db, 'users', user.uid);
-        const userProfile = {
-          id: user.uid,
-          username: values.username,
-          createdAt: serverTimestamp(),
-        };
-        batch.set(userProfileRef, userProfile);
+        
+        // Check if the user profile document already exists
+        const userProfileSnap = await getDoc(userProfileRef);
+
+        if (!userProfileSnap.exists()) {
+            const userProfile = {
+              id: user.uid,
+              username: values.username,
+              createdAt: serverTimestamp(),
+            };
+            batch.set(userProfileRef, userProfile);
+        } else {
+            // Optionally update the username if it differs
+            batch.update(userProfileRef, { username: values.username });
+        }
+
 
         const userEmailRef = doc(db, 'userEmails', values.email);
         const userEmail = {
@@ -151,3 +162,5 @@ export function RegisterForm() {
     </Form>
   );
 }
+
+    
