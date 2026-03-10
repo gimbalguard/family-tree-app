@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -158,21 +157,12 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
   const sourceId = isNodeALeft ? rel.personAId : rel.personBId;
   const targetId = isNodeALeft ? rel.personBId : rel.personAId;
 
-  if (spouseTypes.includes(rel.relationshipType)) {
+  if (spouseTypes.includes(rel.relationshipType) || siblingTypes.includes(rel.relationshipType)) {
     return {
       source: sourceId,
       target: targetId,
-      sourceHandle: 'upper-right-source',
-      targetHandle: 'upper-left-source',
-    };
-  }
-
-  if (siblingTypes.includes(rel.relationshipType)) {
-    return {
-      source: sourceId,
-      target: targetId,
-      sourceHandle: 'lower-right-source',
-      targetHandle: 'lower-right-source',
+      sourceHandle: 'right',
+      targetHandle: 'left',
     };
   }
 
@@ -180,8 +170,8 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
   return {
     source: sourceId,
     target: targetId,
-    sourceHandle: 'upper-right-source',
-    targetHandle: 'upper-left-source',
+    sourceHandle: 'right',
+    targetHandle: 'left',
   };
 };
 
@@ -560,7 +550,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setCanvasPositions(posData);
       setManualEvents(manualEventsData);
       setCanvasBg(treeData.canvasBackgroundColor);
-      deriveStateFromData(peopleData, relsData, posData, treeData, []);
+      deriveStateFromData(peopleData, relsData, posData, treeData, nodes);
       
     } catch (err: any) {
       console.error('Error fetching tree data:', err);
@@ -568,7 +558,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     } finally {
       setIsLoading(false);
     }
-  }, [treeId, user, db, deriveStateFromData, readOnly, isUserLoading, router]);
+  }, [treeId, user, db, deriveStateFromData, readOnly, isUserLoading, router, nodes]);
   
   const runSiblingDetection = useCallback(async (
     personIdsForCheck: string[], 
