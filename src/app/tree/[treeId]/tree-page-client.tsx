@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -990,10 +991,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     handleEditorClose();
   };
 
-  const handleSavePerson = async (personData: Omit<Person, 'socialLinks' | 'gallery'>) => {
+  const handleSavePerson = async (personData: Omit<Person, 'socialLinks' | 'gallery'>, isNew: boolean) => {
     if (readOnly) return;
     recordHistory();
-    if (personData.id) {
+    if (!isNew) {
       await handleUpdatePerson(personData);
     } else {
       await handleCreatePerson(personData);
@@ -1789,7 +1790,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       case 'trivia':
         return <TriviaView people={people} relationships={relationships} setViewMode={setViewMode} />;
       case 'roots':
-        return <RootsView treeId={treeId} people={people} tree={tree} />;
+        return <RootsView treeId={treeId} people={people} relationships={relationships} tree={tree} />;
       default:
         return null;
     }
@@ -1983,7 +1984,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         onClose={handleEditorClose}
         person={selectedPerson}
         treeId={treeId}
-        onSave={handleSavePerson}
+        onSave={(data) => handleSavePerson(data, !selectedPerson)}
         onDelete={handleDeleteRequest}
       />
        <ManualEventEditor 

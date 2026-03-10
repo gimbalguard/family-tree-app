@@ -1,24 +1,20 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import type { Person, FamilyTree, RootsProject } from '@/lib/types';
+import type { Person, FamilyTree, RootsProject, Relationship } from '@/lib/types';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { rootsAssistant } from '@/ai/flows/roots-assistant-flow';
+import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Send, FileText, FileDown, Presentation, Image as ImageIcon } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Loader2, Send, Mic, StopCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Define the shape of the project data
@@ -47,6 +43,7 @@ const WIZARD_STEPS = [
 type RootsViewProps = {
   treeId: string;
   people: Person[];
+  relationships: Relationship[];
   tree: FamilyTree | null;
 };
 
@@ -64,7 +61,27 @@ function useDebounce(value: any, delay: number) {
   return debouncedValue;
 }
 
-export function RootsView({ treeId, people, tree }: RootsViewProps) {
+const EditableField = ({ value, onUpdate, placeholder, className }: { value: string; onUpdate: (newValue: string) => void; placeholder: string; className?: string }) => {
+    const handleBlur = (e: React.FocusEvent<HTMLSpanElement>) => {
+      onUpdate(e.currentTarget.textContent || '');
+    };
+  
+    return (
+      <span
+        contentEditable
+        suppressContentEditableWarning
+        onBlur={handleBlur}
+        className={cn(
+          "px-2 py-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary focus:bg-blue-50 dark:focus:bg-blue-950",
+          !value && "text-muted-foreground",
+          className
+        )}
+        dangerouslySetInnerHTML={{ __html: value || placeholder }}
+      />
+    );
+};
+
+export function RootsView({ treeId, people, relationships, tree }: RootsViewProps) {
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
@@ -76,6 +93,11 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
   const [projectData, setProjectData] = useState<RootsProjectData>({});
   const [chatHistory, setChatHistory] = useState<{ role: 'ai' | 'user', content: string }[]>([]);
   const [userInput, setUserInput] = useState('');
+
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const debouncedProjectData = useDebounce(projectData, 2000);
   const isInitialLoad = useRef(true);
@@ -179,7 +201,7 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
           birthplace: p.birthPlace,
           isOwner: p.id === tree?.ownerPersonId
         })),
-        relationships: relationships.map(r => ({ from: r.personAId, to: r.personBId, type: r.relationshipType })),
+        relationships: (relationships || []).map(r => ({ from: r.personAId, to: r.personBId, type: r.relationshipType })),
       });
       
       const result = await rootsAssistant({
@@ -216,6 +238,67 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
         setIsAiLoading(false);
     }
   };
+  
+    const handleMicClick = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        setIsRecording(true);
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        audioChunksRef.current = [];
+
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          audioChunksRef.current.push(event.data);
+        };
+
+        mediaRecorderRef.current.onstop = async () => {
+          stream.getTracks().forEach(track => track.stop());
+          setIsRecording(false);
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = async () => {
+            const base64Audio = reader.result as string;
+            if (!base64Audio) return;
+
+            setIsTranscribing(true);
+            try {
+              const { transcript } = await transcribeAudio({ audioDataUri: base64Audio });
+              setUserInput((prev) => (prev ? `${prev}\n${transcript}` : transcript));
+              toast({ title: 'התמלול הושלם', description: 'הטקסט נוסף לתיבת הקלט.' });
+            } catch (error) {
+              console.error("Error transcribing audio:", error);
+              toast({ variant: 'destructive', title: 'שגיאת תמלול' });
+            } finally {
+              setIsTranscribing(false);
+            }
+          };
+        };
+        mediaRecorderRef.current.start();
+      } catch (err) {
+        console.error("Error accessing microphone:", err);
+        toast({ variant: 'destructive', title: 'שגיאת מיקרופון' });
+        setIsRecording(false);
+      }
+    }
+  };
+
+  const handleProjectDataChange = (path: string[], value: any) => {
+    setProjectData(prev => {
+      const newProjectData = JSON.parse(JSON.stringify(prev)); // Deep copy
+      let current: any = newProjectData;
+      for (let i = 0; i < path.length - 1; i++) {
+        current[path[i]] = current[path[i]] || {};
+        current = current[path[i]];
+      }
+      current[path[path.length - 1]] = value;
+      return newProjectData;
+    });
+  };
+
 
   const renderPreview = () => {
     switch (currentStep) {
@@ -223,12 +306,14 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
             const { title, studentName, teacherName, submissionDate, className } = projectData.coverPage || {};
             return (
                 <div className="p-8 border-4 border-gray-700 bg-white h-full text-black text-center flex flex-col justify-center items-center font-serif">
-                    <h1 className="text-4xl font-bold mb-12">{title || projectData.projectName || 'שם הפרויקט'}</h1>
+                    <h1 className="text-4xl font-bold mb-12">
+                        <EditableField value={title || ''} onUpdate={(newValue) => handleProjectDataChange(['coverPage', 'title'], newValue)} placeholder={projectData.projectName || 'שם הפרויקט'} className="font-bold text-4xl" />
+                    </h1>
                     <div className="space-y-4 text-lg">
-                        <p>מגיש/ה: {studentName || '[שם התלמיד/ה]'}</p>
-                        <p>כיתה: {className || '[כיתה]'}</p>
-                        <p>מורה: {teacherName || '[שם המורה]'}</p>
-                        <p>תאריך הגשה: {submissionDate || '[תאריך הגשה]'}</p>
+                        <p>מגיש/ה: <EditableField value={studentName || ''} onUpdate={(newValue) => handleProjectDataChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" /></p>
+                        <p>כיתה: <EditableField value={className || ''} onUpdate={(newValue) => handleProjectDataChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></p>
+                        <p>מורה: <EditableField value={teacherName || ''} onUpdate={(newValue) => handleProjectDataChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></p>
+                        <p>תאריך הגשה: <EditableField value={submissionDate || ''} onUpdate={(newValue) => handleProjectDataChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></p>
                     </div>
                 </div>
             )
@@ -259,42 +344,6 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
             <h2 className="text-xl font-bold text-center flex-1">
                 תצוגה מקדימה: {WIZARD_STEPS.find(s => s.id === currentStep)?.label}
             </h2>
-            <div className="flex items-center gap-1">
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled className="opacity-50">
-                                <FileText className="h-5 w-5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>ייצוא ל-Word (בקרוב)</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled className="opacity-50">
-                                <FileDown className="h-5 w-5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>ייצוא ל-PDF (בקרוב)</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled className="opacity-50">
-                                <Presentation className="h-5 w-5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>ייצוא ל-PowerPoint (בקרוב)</p></TooltipContent>
-                    </Tooltip>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled className="opacity-50">
-                                <ImageIcon className="h-5 w-5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>ייצוא כתמונות (בקרוב)</p></TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            </div>
           </CardHeader>
           <CardContent className="h-[calc(100%-4.5rem)]">
             {renderPreview()}
@@ -341,11 +390,11 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
                   </div>
                 </div>
               ))}
-              {isAiLoading && (
+              {(isAiLoading || isTranscribing) && (
                 <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg px-3 py-2 text-sm bg-accent flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin"/>
-                        <span>חושב...</span>
+                        <span>{isTranscribing ? 'מתמלל...' : 'חושב...'}</span>
                     </div>
                 </div>
               )}
@@ -360,12 +409,17 @@ export function RootsView({ treeId, people, tree }: RootsViewProps) {
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-                    className="pr-10"
-                    disabled={isAiLoading}
+                    className="pr-20"
+                    disabled={isAiLoading || isTranscribing}
                 />
-                <Button size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={handleSendMessage} disabled={isAiLoading}>
-                  <Send className="h-4 w-4" />
-                </Button>
+                 <div className="absolute top-2 right-2 flex flex-col gap-2">
+                    <Button size="icon" className="h-7 w-7" onClick={handleSendMessage} disabled={isAiLoading || isTranscribing || !userInput.trim()}>
+                      <Send className="h-4 w-4" />
+                    </Button>
+                     <Button size="icon" variant={isRecording ? "destructive" : "outline"} className="h-7 w-7" onClick={handleMicClick} disabled={isAiLoading || isTranscribing}>
+                      {isRecording ? <StopCircle className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </Button>
+                </div>
             </div>
             <div className="flex justify-between">
               <Button variant="outline" onClick={() => handleStepChange(currentStep - 1)} disabled={currentStep === 1 || isAiLoading}>
