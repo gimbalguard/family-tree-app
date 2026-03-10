@@ -64,6 +64,7 @@ import {
   addDoc,
   serverTimestamp,
   doc,
+  setDoc,
   deleteDoc,
   writeBatch,
   getDoc,
@@ -963,7 +964,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     try {
       const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
-      await addDoc(peopleCollection, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      const personDocRef = doc(peopleCollection, newPersonId);
+      await setDoc(personDocRef, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       toast({
         title: 'אדם נוסף',
         description: `${newPersonData.firstName} ${newPersonData.lastName} נוסף.`,
@@ -1238,7 +1240,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
       const [relsSnapA, relsSnapB, posSnap] = await Promise.all([
         getDocs(relsQueryA),
-        getDocs(relsQueryB),
+        getDocs(relsSnapB),
         getDocs(posQuery),
       ]);
   
