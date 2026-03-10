@@ -1243,7 +1243,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
       const [relsSnapA, relsSnapB, posSnap] = await Promise.all([
         getDocs(relsQueryA),
-        getDocs(relsSnapB),
+        getDocs(relsQueryB),
         getDocs(posQuery),
       ]);
   
