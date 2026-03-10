@@ -210,6 +210,14 @@
           "type": "string",
           "description": "A biographical description of the person, limited to 2000 characters."
         },
+        "profession": {
+          "type": "string",
+          "description": "The person's profession or job."
+        },
+        "hobby": {
+          "type": "string",
+          "description": "The person's hobby."
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when this person record was created.",
@@ -327,6 +335,21 @@
         "platform",
         "url"
       ]
+    },
+    "GalleryPhoto": {
+      "title": "GalleryPhoto",
+      "type": "object",
+      "description": "A photo in a person's gallery.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "treeId": { "type": "string" },
+        "personId": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "storagePath": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "treeId", "personId", "url", "storagePath", "createdAt"]
     },
     "CanvasPosition": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -664,6 +687,14 @@
               "description": "The unique identifier for the person document."
             }
           ]
+        }
+      },
+       {
+        "path": "/users/{userId}/familyTrees/{treeId}/people/{personId}/gallery/{photoId}",
+        "definition": {
+          "entityName": "GalleryPhoto",
+          "schema": { "$ref": "#/backend/entities/GalleryPhoto" },
+          "description": "Stores gallery photos for a person."
         }
       },
       {

@@ -184,6 +184,12 @@ service cloud.firestore {
             allow update: if (isExistingOwner(userId) || isRecoveryUser(userId)) && isImmutable_SocialLink();
             allow delete: if isOwner(userId) || isRecoveryUser(userId);
           }
+          
+          match /gallery/{photoId} {
+            allow read: if isOwner(userId) || isRecoveryUser(userId) || (get(/databases/$(database)/documents/publicTrees/$(treeId)).data.id == treeId) || (exists(/databases/$(database)/documents/sharedTrees/$(treeId)) && get(/databases/$(database)/documents/sharedTrees/$(treeId)).data.sharedWithUserId == request.auth.uid);
+            allow create: if isOwner(userId) && request.resource.data.userId == userId && request.resource.data.treeId == treeId && request.resource.data.personId == personId;
+            allow delete: if isOwner(userId) || isRecoveryUser(userId);
+          }
         }
 
         /**

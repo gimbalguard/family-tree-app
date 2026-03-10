@@ -34,16 +34,17 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
-import type { Person, SocialLink } from '@/lib/types';
+import type { Person, SocialLink, GalleryPhoto } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, PlusCircle, Trash2, Sparkles, Camera, UploadCloud } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, Sparkles, Camera, UploadCloud, X } from 'lucide-react';
 import { generateDescription } from '@/ai/flows/ai-description-generation-flow';
 import { Switch } from '@/components/ui/switch';
-import { useUser, useStorage } from '@/firebase';
+import { useUser, useStorage, useFirestore } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, getDocs, deleteDoc, doc } from 'firebase/firestore';
 
 
 const socialLinkSchema = z.object({
@@ -76,6 +77,8 @@ const personSchema = z.object({
   religion: z.enum(['jewish', 'christian', 'muslim', 'buddhist', 'other', '']).optional(),
   countryOfResidence: z.string().optional(),
   cityOfResidence: z.string().optional(),
+  profession: z.string().optional(),
+  hobby: z.string().optional(),
 });
 
 type PersonEditorProps = {
@@ -98,6 +101,7 @@ export function PersonEditor({
   const { toast } = useToast();
   const { user } = useUser();
   const storage = useStorage();
+  const db = useFirestore();
   
   const [isSaving, setIsSaving] = useState(false);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -108,6 +112,9 @@ export function PersonEditor({
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   
+  const [gallery, setGallery] = useState<GalleryPhoto[]>([]);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -122,6 +129,7 @@ export function PersonEditor({
       description: '', socialLinks: [], middleName: '',
       previousFirstName: '', maidenName: '', nickname: '',
       religion: '', countryOfResidence: '', cityOfResidence: '',
+      profession: '', hobby: ''
     },
   });
 
@@ -150,6 +158,7 @@ export function PersonEditor({
             description: '', socialLinks: [], middleName: '',
             previousFirstName: '', maidenName: '', nickname: '',
             religion: '' as const, countryOfResidence: '', cityOfResidence: '',
+            profession: '', hobby: '',
         };
 
         if (person) {
@@ -170,10 +179,21 @@ export function PersonEditor({
                 religion: person.religion || '',
                 countryOfResidence: person.countryOfResidence || '',
                 cityOfResidence: person.cityOfResidence || '',
+                profession: person.profession || '',
+                hobby: person.hobby || '',
                 socialLinks: person.socialLinks || [],
             });
+            // Fetch gallery photos
+            if (user && db) {
+              const galleryRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', person.id, 'gallery');
+              getDocs(galleryRef).then(snapshot => {
+                const photos = snapshot.docs.map(d => ({id: d.id, ...d.data()}) as GalleryPhoto);
+                setGallery(photos);
+              });
+            }
         } else {
             form.reset(defaultValues);
+            setGallery([]);
         }
         setShowAdditionalFields(false);
         setIsCameraOpen(false);
@@ -184,31 +204,71 @@ export function PersonEditor({
         setCameraStream(null);
       }
     }
-  }, [person, isOpen, form, cameraStream]);
+  }, [person, isOpen, form, cameraStream, db, user, treeId]);
 
-  const handleImageUpload = async (file: File | Blob) => {
-    if (!user || !treeId || !storage) {
-      toast({ variant: 'destructive', title: 'שגיאת אימות או אתחול', description: 'נדרש אימות ושירות אחסון כדי להעלות תמונה.' });
-      return;
-    }
+  const handleImageUpload = async (file: File | Blob, isProfile: boolean = true, isGallery: boolean = false) => {
+    if (!user || !treeId || !storage || !db || !person) return;
     setIsUploading(true);
-
+  
     try {
+      let path: string;
       const filename = `${uuidv4()}-${(file instanceof File) ? file.name.replace(/[^a-zA-Z0-9._-]/g, '_') : 'capture.jpg'}`;
-      const path = `users/${user.uid}/trees/${treeId}/photos/${filename}`;
-      const imageRef = storageRef(storage, path);
+  
+      if (isGallery) {
+        path = `users/${user.uid}/trees/${treeId}/people/${person.id}/gallery/${filename}`;
+      } else {
+        path = `users/${user.uid}/trees/${treeId}/photos/${filename}`;
+      }
       
+      const imageRef = storageRef(storage, path);
       const snapshot = await uploadBytes(imageRef, file);
       const downloadURL = await getDownloadURL(snapshot.ref);
       
-      form.setValue('photoURL', downloadURL, { shouldValidate: true });
-      toast({ title: 'התמונה הועלתה בהצלחה' });
-
+      if (isProfile) {
+        form.setValue('photoURL', downloadURL, { shouldValidate: true });
+        toast({ title: 'תמונת הפרופיל הועלתה' });
+      }
+  
+      if (isGallery) {
+        const galleryRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', person.id, 'gallery');
+        const newPhotoDoc = {
+          userId: user.uid,
+          treeId,
+          personId: person.id,
+          url: downloadURL,
+          storagePath: path,
+          createdAt: serverTimestamp(),
+        };
+        const docRef = await addDoc(galleryRef, newPhotoDoc);
+        setGallery(prev => [...prev, { ...newPhotoDoc, id: docRef.id, createdAt: new Date() as any }]);
+        toast({ title: 'תמונה נוספה לגלריה' });
+      }
+  
     } catch (error: any) {
       console.error("Upload error:", error);
       toast({ variant: 'destructive', title: 'שגיאת העלאה', description: error.message || 'An unknown error occurred' });
     } finally {
       setIsUploading(false);
+    }
+  };
+  
+  const handleGalleryPhotoDelete = async (photo: GalleryPhoto) => {
+    if (!user || !db || !storage) return;
+
+    try {
+      // Delete from storage
+      const photoStorageRef = storageRef(storage, photo.storagePath);
+      await deleteObject(photoStorageRef);
+
+      // Delete from firestore
+      const photoDocRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', photo.personId, 'gallery', photo.id);
+      await deleteDoc(photoDocRef);
+
+      setGallery(prev => prev.filter(p => p.id !== photo.id));
+      toast({ title: 'התמונה נמחקה מהגלריה' });
+    } catch (error) {
+      console.error("Error deleting gallery photo:", error);
+      toast({ variant: 'destructive', title: 'שגיאת מחיקה' });
     }
   };
   
@@ -425,6 +485,14 @@ export function PersonEditor({
                         <FormItem className="text-right"><FormLabel>עיר מגורים</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="profession" render={({ field }) => (
+                    <FormItem className="text-right"><FormLabel>מקצוע</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
+                  )}/>
+                  <FormField control={form.control} name="hobby" render={({ field }) => (
+                    <FormItem className="text-right"><FormLabel>תחביב</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
+                  )}/>
+                </div>
                 <div className="grid grid-cols-1">
                     <FormField control={form.control} name="religion" render={({ field }) => (
                         <FormItem className="text-right"><FormLabel>דת</FormLabel>
@@ -507,6 +575,31 @@ export function PersonEditor({
                       </Button>
                     </div>
                 </div>
+
+                {isEditing && (
+                  <div className="space-y-2 text-right">
+                    <Label>גלריית תמונות</Label>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+                      {gallery.map(photo => (
+                        <div key={photo.id} className="relative group aspect-square">
+                          <img src={photo.url} alt="Gallery photo" className="w-full h-full object-cover rounded-md border" />
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => handleGalleryPhotoDelete(photo)}>
+                              <Trash2 className="h-4 w-4"/>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {gallery.length < 15 && (
+                        <button type="button" onClick={() => galleryFileInputRef.current?.click()} className="aspect-square border-2 border-dashed rounded-md flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary">
+                          <UploadCloud className="h-8 w-8" />
+                          <span className="text-xs mt-1">הוסף תמונה</span>
+                        </button>
+                      )}
+                    </div>
+                    <input type="file" ref={galleryFileInputRef} multiple={false} onChange={(e) => e.target.files && e.target.files[0] && handleImageUpload(e.target.files[0], false, true)} className="hidden" accept="image/*" />
+                  </div>
+                )}
               </div>
             <DialogFooter className="pt-6 border-t items-center flex justify-between">
                 <div>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Copy, Heart, Baby, Users } from 'lucide-react';
+import { Loader2, Copy, Heart, Baby, Users, Upload } from 'lucide-react';
 import type { FamilyTree, Person } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -68,6 +68,7 @@ type SettingsModalProps = {
   tree: FamilyTree;
   people: Person[];
   onUpdate: (details: Partial<FamilyTree>) => Promise<void>;
+  onUploadCover: () => void;
 };
 
 const CardPreview = ({
@@ -194,7 +195,7 @@ function DesignCarousel({
     );
 }
 
-export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: SettingsModalProps) {
+export function SettingsModal({ isOpen, onClose, tree, people, onUpdate, onUploadCover }: SettingsModalProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [shareLink, setShareLink] = useState('');
@@ -335,6 +336,12 @@ export function SettingsModal({ isOpen, onClose, tree, people, onUpdate }: Setti
                                     </SelectContent>
                                 </Select><FormMessage /></FormItem>
                             )}/>
+                            <div className="text-right">
+                               <Button type="button" variant="outline" size="sm" onClick={onUploadCover}>
+                                   <Upload className="ml-2 h-4 w-4" />
+                                   העלאת תמונת נושא
+                               </Button>
+                            </div>
                             <Separator/>
                             <FormField control={form.control} name="language" render={({ field }) => (
                                 <FormItem className='text-right'><FormLabel className='text-xs'>שפה</FormLabel>

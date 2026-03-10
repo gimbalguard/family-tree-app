@@ -31,6 +31,16 @@ export type FamilyTree = {
   applyCreatorSettingsToTwins?: boolean;
 };
 
+export type GalleryPhoto = {
+  id: string;
+  userId: string;
+  treeId: string;
+  personId: string;
+  url: string;
+  storagePath: string;
+  createdAt: Timestamp;
+};
+
 export type Person = {
   id:string;
   userId: string;
@@ -51,9 +61,12 @@ export type Person = {
   cityOfResidence?: string;
   photoURL?: string;
   description?: string;
+  profession?: string;
+  hobby?: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   socialLinks?: SocialLink[];
+  gallery?: GalleryPhoto[];
   // UI-specific properties, not from DB schema directly but merged at runtime
   isLocked?: boolean;
   groupId?: string | null;
