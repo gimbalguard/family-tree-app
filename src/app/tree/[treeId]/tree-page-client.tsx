@@ -1048,15 +1048,19 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleUpdatePerson = async (personData: Person) => {
     if (!user || !db || !tree) return;
-    
+  
     recordHistory();
     const oldPeople = people;
     const oldRels = relationships;
     const oldPositions = canvasPositions;
   
-    const birthDateChanged = oldPeople.find(p => p.id === personData.id)?.birthDate !== personData.birthDate;
+    const birthDateChanged =
+      oldPeople.find((p) => p.id === personData.id)?.birthDate !==
+      personData.birthDate;
   
-    const newPeople = people.map(p => p.id === personData.id ? { ...p, ...personData } : p);
+    const newPeople = people.map((p) =>
+      p.id === personData.id ? { ...p, ...personData } : p
+    );
     setPeople(newPeople);
     deriveStateFromData(newPeople, relationships, canvasPositions, tree, nodes);
   
@@ -1083,27 +1087,47 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     };
   
     try {
-      const docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id);
-      
+      const docRef = doc(
+        db, 'users', user.uid, 'familyTrees', treeId, 'people', personData.id
+      );
+  
       await updateDoc(docRef, dataToUpdate as any);
-      
+  
       if (birthDateChanged) {
-        const siblingChanges = await runSiblingDetection([personData.id], newPeople, relationships);
-        if (siblingChanges.relationshipsToAdd.length > 0 || siblingChanges.relationshipsToUpdate.length > 0) {
-            let updatedRels = [...relationships, ...siblingChanges.relationshipsToAdd];
-            siblingChanges.relationshipsToUpdate.forEach(u => {
-                updatedRels = updatedRels.map(r => r.id === u.id ? { ...r, ...u } : r);
-            });
-            setRelationships(updatedRels);
-            deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!, nodes);
-            const sibBatch = writeBatch(db);
-            siblingChanges.relationshipsToAdd.forEach(r => {
-                sibBatch.set(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id), r);
-            });
-            siblingChanges.relationshipsToUpdate.forEach(r => {
-                sibBatch.update(doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!), r);
-            });
-            await sibBatch.commit();
+        const siblingChanges = await runSiblingDetection(
+          [personData.id],
+          newPeople,
+          relationships
+        );
+        if (
+          siblingChanges.relationshipsToAdd.length > 0 ||
+          siblingChanges.relationshipsToUpdate.length > 0
+        ) {
+          let updatedRels = [
+            ...relationships,
+            ...siblingChanges.relationshipsToAdd,
+          ];
+          siblingChanges.relationshipsToUpdate.forEach((u) => {
+            updatedRels = updatedRels.map((r) =>
+              r.id === u.id ? { ...r, ...u } : r
+            );
+          });
+          setRelationships(updatedRels);
+          deriveStateFromData(newPeople, updatedRels, canvasPositions, tree!, nodes);
+          const sibBatch = writeBatch(db);
+          siblingChanges.relationshipsToAdd.forEach((r) => {
+            sibBatch.set(
+              doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id),
+              r
+            );
+          });
+          siblingChanges.relationshipsToUpdate.forEach((r) => {
+            sibBatch.update(
+              doc(db, 'users', user.uid, 'familyTrees', treeId, 'relationships', r.id!),
+              r
+            );
+          });
+          await sibBatch.commit();
         }
       }
   
@@ -1129,6 +1153,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
     }
   };
+  
 
   const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
     const nonDbFields: (keyof Person)[] = [
