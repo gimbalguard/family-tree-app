@@ -168,6 +168,10 @@ service cloud.firestore {
           allow update: if isExistingOwner(userId) || isRecoveryUser(userId);
           allow delete: if isOwner(userId) || isRecoveryUser(userId);
         }
+
+        match /rootsProjects/{projectId} {
+          allow read, write: if isOwner(userId);
+        }
       }
     }
     

@@ -185,3 +185,15 @@ export type PublicTree = {
   createdAt: Timestamp;
   coverPhotoURL?: string;
 };
+
+export type RootsProject = {
+  id: string;
+  userId: string;
+  treeId: string;
+  projectName: string;
+  currentStep: number;
+  projectData: { [key: string]: any };
+  chatHistory: { role: 'ai' | 'user', content: string }[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+};

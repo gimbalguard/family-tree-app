@@ -615,6 +615,50 @@
         "relationshipCount",
         "createdAt"
       ]
+    },
+    "RootsProject": {
+      "title": "RootsProject",
+      "type": "object",
+      "description": "A 'Shoreshim' (Family Roots) project for Israeli middle school students.",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string"
+        },
+        "treeId": {
+          "type": "string"
+        },
+        "projectName": {
+          "type": "string"
+        },
+        "currentStep": {
+          "type": "number"
+        },
+        "projectData": {
+          "type": "object"
+        },
+        "chatHistory": {
+          "type": "array"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "treeId",
+        "projectName",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "auth": {
@@ -689,11 +733,13 @@
           ]
         }
       },
-       {
+      {
         "path": "/users/{userId}/familyTrees/{treeId}/people/{personId}/gallery/{photoId}",
         "definition": {
           "entityName": "GalleryPhoto",
-          "schema": { "$ref": "#/backend/entities/GalleryPhoto" },
+          "schema": {
+            "$ref": "#/backend/entities/GalleryPhoto"
+          },
           "description": "Stores gallery photos for a person."
         }
       },
@@ -795,6 +841,16 @@
               "description": "The event's unique ID."
             }
           ]
+        }
+      },
+      {
+        "path": "/users/{userId}/familyTrees/{treeId}/rootsProjects/{projectId}",
+        "definition": {
+          "entityName": "RootsProject",
+          "schema": {
+            "$ref": "#/backend/entities/RootsProject"
+          },
+          "description": "Stores the data for a user's Shoreshim project associated with a specific tree."
         }
       },
       {
