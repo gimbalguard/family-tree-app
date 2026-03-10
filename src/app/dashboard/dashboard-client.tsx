@@ -70,8 +70,7 @@ export function DashboardClient() {
     try {
       // 1. Fetch My Trees
       const myTreesRef = collection(db, 'users', user.uid, 'familyTrees');
-      const myTreesQuery = query(myTreesRef, where('treeName', '!=', 'משפחת אבידר'));
-      const myTreesSnapshot = await getDocs(myTreesQuery);
+      const myTreesSnapshot = await getDocs(myTreesRef);
       const myTreesPromises = myTreesSnapshot.docs.map(async (treeDoc) => {
         const treeData = { id: treeDoc.id, ...treeDoc.data() } as FamilyTree;
         

@@ -1572,11 +1572,12 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                 // Create new FamilyTree doc
                 const newTreeRef = doc(db, 'users', user.uid, 'familyTrees', newTreeId);
                 batch.set(newTreeRef, {
-                    ...tree, // copy settings from current tree
                     treeName: parsedExcelData.treeName,
                     userId: user.uid,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
+                    language: 'he',
+                    privacy: 'private',
                 });
 
                 const oldIdToNewIdMap = new Map<string, string>();
@@ -2074,7 +2075,3 @@ export function TreePageClient({ treeId, readOnly = false }: TreePageClientProps
     </ReactFlowProvider>
   );
 }
-
-    
-
-    
