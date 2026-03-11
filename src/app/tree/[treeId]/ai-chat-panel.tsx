@@ -26,25 +26,16 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
-import type { Person, Relationship, RootsProject } from '@/lib/types';
+import type { Person, Relationship } from '@/lib/types';
 import * as XLSX from 'xlsx';
-import { rootsAssistant } from '@/ai/flows/roots-assistant-flow';
-import { type RootsProjectData } from './views/RootsView';
 
 interface AiChatPanelProps {
     treeId: string;
     treeName: string;
     people: Person[];
-    relationships: Relationship[];
     onClose: () => void;
     onDataAdded: () => void;
     viewMode: 'tree' | 'roots' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
-    rootsProject: RootsProject | null;
-    onRootsProjectUpdate: (updatedData: Partial<RootsProjectData>) => void;
-    rootsStepInstruction?: string;
-    isRootsMode?: boolean;
-    rootsChatHistory?: ChatMessage[];
-    onRootsChatHistoryChange?: (newHistory: ChatMessage[]) => void;
 }
 
 const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
@@ -64,29 +55,23 @@ export function AiChatPanel({
     treeId, 
     treeName, 
     people, 
-    relationships,
     onClose, 
     onDataAdded, 
     viewMode,
-    rootsProject,
-    onRootsProjectUpdate,
-    rootsStepInstruction,
-    isRootsMode,
-    rootsChatHistory,
-    onRootsChatHistoryChange,
 }: AiChatPanelProps) {
   const router = useRouter();
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   
-  const globalChat = useAiChat();
-  const { isGenerating, setIsGenerating, isTranscribing, setIsTranscribing } = globalChat;
-
-  // Conditionally use props or global context
-  const chatHistory = isRootsMode ? rootsChatHistory || [] : globalChat.chatHistory;
-  const setChatHistory = isRootsMode ? onRootsChatHistoryChange! : globalChat.setChatHistory;
-
+  const { 
+    chatHistory,
+    setChatHistory,
+    isGenerating, 
+    setIsGenerating, 
+    isTranscribing, 
+    setIsTranscribing 
+  } = useAiChat();
 
   const [story, setStory] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -383,89 +368,59 @@ export function AiChatPanel({
     setIsGenerating(true);
 
     try {
-        if (viewMode === 'roots' && rootsProject && rootsStepInstruction) {
-            const treeDataSummary = JSON.stringify({
-              people: people.map(p => ({ 
-                name: `${p.firstName} ${p.lastName}`, 
-                birth: p.birthDate, 
-                birthplace: p.birthPlace,
-                isOwner: p.id === user.uid
-              })),
-              relationships: relationships.map(r => ({ from: r.personAId, to: r.personBId, type: r.relationshipType })),
-            });
-            
-            const result = await rootsAssistant({
-              currentStep: rootsProject.currentStep,
-              stepInstruction: rootsStepInstruction,
-              treeDataSummary,
-              stepChatHistory: newHistory.map(m => ({
-                role: m.role,
-                content: typeof m.content === 'string' ? m.content : '[תגובה מורכבת]',
-              })),
-              newUserMessage: messageContent,
-            });
-      
-            const aiMessage: ChatMessage = { role: 'assistant', id: (Date.now() + 1).toString(), content: result.aiResponse };
-            setChatHistory([...newHistory, aiMessage]);
-            
-            if (result.updatedProjectData) {
-               onRootsProjectUpdate(result.updatedProjectData);
-            }
-        } else {
-             const flowInput: any = {
-                newUserMessage: messageContent,
-                treeName: treeName,
-                chatHistory: newHistory.map(m => ({
-                role: m.role,
-                content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
-                })),
-                existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
-            };
+        const flowInput: any = {
+           newUserMessage: messageContent,
+           treeName: treeName,
+           chatHistory: newHistory.map(m => ({
+           role: m.role,
+           content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
+           })),
+           existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
+       };
 
-            if (currentAttachment?.type === 'image') {
-                flowInput.photoDataUri = currentAttachment.data;
-            }
+       if (currentAttachment?.type === 'image') {
+           flowInput.photoDataUri = currentAttachment.data;
+       }
 
-            if (currentAttachment?.type === 'text') {
-                flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
-            }
-            
-            const result = await generateTreeFromStory(flowInput);
-            
-            const assistantMessageContent = (
-                <div className="space-y-4 text-right">
-                    <p className="font-semibold">{result.summary}</p>
-                    {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
-                        <div className="space-y-2">
-                        {result.clarificationQuestions.map((q, index) => (
-                            <Alert dir="rtl" key={index}>
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>{q.question}</AlertTitle>
-                            {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
-                                <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
-                                {q.suggestedAnswers.map((ans, i) => (
-                                    <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
-                                    {ans}
-                                    </Button>
-                                ))}
-                                </AlertDescription>
-                            )}
-                            </Alert>
-                        ))}
-                        </div>
-                    )}
-                </div>
-            );
+       if (currentAttachment?.type === 'text') {
+           flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
+       }
+       
+       const result = await generateTreeFromStory(flowInput);
+       
+       const assistantMessageContent = (
+           <div className="space-y-4 text-right">
+               <p className="font-semibold">{result.summary}</p>
+               {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
+                   <div className="space-y-2">
+                   {result.clarificationQuestions.map((q, index) => (
+                       <Alert dir="rtl" key={index}>
+                       <Info className="h-4 w-4" />
+                       <AlertTitle>{q.question}</AlertTitle>
+                       {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
+                           <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
+                           {q.suggestedAnswers.map((ans, i) => (
+                               <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
+                               {ans}
+                               </Button>
+                           ))}
+                           </AlertDescription>
+                       )}
+                       </Alert>
+                   ))}
+                   </div>
+               )}
+           </div>
+       );
 
-            const assistantMessage: ChatMessage = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: assistantMessageContent,
-                data: result.isComplete ? result : null,
-            };
-            
-            setChatHistory([...newHistory, assistantMessage]);
-        }
+       const assistantMessage: ChatMessage = {
+           id: (Date.now() + 1).toString(),
+           role: 'assistant',
+           content: assistantMessageContent,
+           data: result.isComplete ? result : null,
+       };
+       
+       setChatHistory([...newHistory, assistantMessage]);
 
     } catch (error) {
       console.error('AI assistant error:', error);
@@ -481,9 +436,7 @@ export function AiChatPanel({
 
   const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
 
-  const placeholder = viewMode === 'roots' 
-    ? 'הקלד כאן כדי להמשיך את עבודת השורשים...' 
-    : 'ספר על אדם או קשר כדי להוסיף לעץ...';
+  const placeholder = 'ספר על אדם או קשר כדי להוסיף לעץ...';
 
   return (
     <div

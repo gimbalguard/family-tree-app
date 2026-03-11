@@ -190,10 +190,11 @@ export type RootsProject = {
   id: string;
   userId: string;
   treeId: string;
+  studentPersonId?: string; // The ID of the person who is the subject of the project
   projectName: string;
   currentStep: number;
   projectData: { [key: string]: any };
-  chatHistory: { role: 'assistant' | 'user', content: string }[];
+  chatHistory?: { role: 'assistant' | 'user', content: string }[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };
