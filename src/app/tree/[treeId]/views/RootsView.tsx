@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,23 +54,12 @@ MotionButton.displayName = "MotionButton";
 
 const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asTextarea }: { value: string, onUpdate: (newValue: string) => void, placeholder?: string, isMagical?: boolean, className?: string, asTextarea?: boolean }) => {
     const ref = useRef<HTMLDivElement>(null);
-    const [localValue, setLocalValue] = useState(value);
-
-    useEffect(() => {
-        setLocalValue(value);
-    }, [value]);
 
     const handleBlur = () => {
         if (ref.current && ref.current.textContent !== value) {
             onUpdate(ref.current.textContent || '');
         }
     };
-
-    const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-        if (!e.currentTarget.textContent && placeholder) {
-            // This logic is tricky with contentEditable. We will hide placeholder via parent state.
-        }
-    }
     
     return (
         <div className="relative">
@@ -80,21 +68,18 @@ const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asT
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={handleBlur}
-                onInput={handleInput}
-                dangerouslySetInnerHTML={{ __html: localValue || '' }}
+                dangerouslySetInnerHTML={{ __html: value || '' }}
                 className={cn(
                     "w-full bg-gray-50/50 border-2 border-indigo-100 rounded-2xl p-4 text-lg focus:bg-white focus:border-indigo-500 transition-all duration-300 shadow-inner",
                     "outline-none focus:ring-4 focus:ring-indigo-500/20",
-                    asTextarea ? "min-h-[120px]" : "min-h-[68px]",
+                    asTextarea ? "min-h-[120px]" : "",
+                    !value && "text-muted-foreground/50",
                     className
                 )}
                 whileFocus={{ scale: 1.02 }}
-            />
-            {(!localValue && placeholder) && (
-                <span className={cn("absolute right-4 text-muted-foreground/50 pointer-events-none z-0", asTextarea ? "top-4" : "top-1/2 -translate-y-1/2")}>
-                    {placeholder}
-                </span>
-            )}
+            >
+              {!value ? placeholder : null}
+            </motion.div>
              {isMagical && (
                 <Sparkles className="absolute top-3 left-3 h-5 w-5 text-blue-400 z-20" />
             )}
@@ -123,7 +108,6 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
     const [selectedId, setSelectedId] = useState(currentStudentId);
 
     useEffect(() => {
-        // If there's a tree owner and no student is selected yet, pre-select the owner.
         if (treeOwnerId && !currentStudentId) {
             setSelectedId(treeOwnerId);
             onSelect(treeOwnerId);
@@ -273,7 +257,7 @@ export function RootsView({ project, people, relationships, tree, onProjectChang
         }
     };
 
-    const isIdentityStep = project.currentStep === 0;
+    const isIdentityStep = !project.studentPersonId || project.currentStep === 0;
 
     return (
         <div className="w-full h-full flex flex-col p-4 sm:p-8 bg-gradient-to-br from-indigo-50 via-white to-violet-50" dir="rtl">

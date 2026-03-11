@@ -1810,39 +1810,27 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         
         setRootsProject(prev => {
             if (!prev) return null;
-
-            // Use a structured cloning approach for deep copy to avoid issues with complex objects.
             const newProject = structuredClone(prev);
-            
             let currentLevel: any = newProject.projectData;
-    
             for (let i = 0; i < path.length - 1; i++) {
                 const key = path[i];
                 if (currentLevel[key] === undefined || typeof currentLevel[key] !== 'object' || currentLevel[key] === null) {
-                    currentLevel[key] = {}; // Initialize if path doesn't exist
+                    currentLevel[key] = {};
                 }
                 currentLevel = currentLevel[key];
             }
-            
             currentLevel[path[path.length - 1]] = value;
-    
             return newProject;
         });
     }, [recordHistory, readOnly]);
 
-    const handleStepChange = useCallback((step: number) => {
+    const handleStepChange = useCallback((newStep: number) => {
         if (readOnly) return;
-        
-        const updateAndSave = (prev: RootsProject | null): RootsProject | null => {
-            if (!prev) return null;
-            if (step >= 0 && step < WIZARD_STEPS.length) {
-                return { ...prev, currentStep: step };
-            }
-            return prev;
-        };
-        
         recordHistory();
-        setRootsProject(prev => updateAndSave(prev));
+        setRootsProject(prev => {
+            if (!prev || newStep < 0 || newStep >= WIZARD_STEPS.length) return prev;
+            return { ...prev, currentStep: newStep };
+        });
     }, [recordHistory, readOnly]);
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
