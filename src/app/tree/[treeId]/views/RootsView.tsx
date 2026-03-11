@@ -117,9 +117,9 @@ const Step0_Identity = ({ people, tree, onSelect }: { people: Person[], tree: Fa
                                 {people.map(person => (
                                     <CommandItem
                                         key={person.id}
-                                        value={`${person.firstName} ${person.lastName}|${person.id}`}
-                                        onSelect={() => {
-                                            setValue(person.id)
+                                        value={person.id}
+                                        onSelect={(currentValue) => {
+                                            setValue(currentValue)
                                             setOpen(false)
                                         }}
                                     >
