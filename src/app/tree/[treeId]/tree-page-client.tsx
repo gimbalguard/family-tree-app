@@ -1832,10 +1832,17 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     const handleStepChange = useCallback((step: number) => {
         if (readOnly) return;
-        if (step >= 0 && step < WIZARD_STEPS.length) {
-            recordHistory();
-            setRootsProject(prev => prev ? { ...prev, currentStep: step } : null);
-        }
+        
+        const updateAndSave = (prev: RootsProject | null): RootsProject | null => {
+            if (!prev) return null;
+            if (step >= 0 && step < WIZARD_STEPS.length) {
+                return { ...prev, currentStep: step };
+            }
+            return prev;
+        };
+        
+        recordHistory();
+        setRootsProject(prev => updateAndSave(prev));
     }, [recordHistory, readOnly]);
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
@@ -1898,6 +1905,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         return <RootsView 
             project={rootsProject}
             people={people}
+            relationships={relationships}
             tree={tree}
             onProjectChange={handleProjectDataChange}
             onStepChange={handleStepChange}
