@@ -1,15 +1,18 @@
+
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser, useFirestore } from '@/firebase';
 import type { RootsProject, Person, FamilyTree, Relationship } from '@/lib/types';
 import { format } from 'date-fns';
+import { he } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Check, Search, Sparkles, Wand2, Star, BadgeCheck, School, User, Calendar, MapPin } from 'lucide-react';
+import { Check, Search, Sparkles, Wand2, Star, BadgeCheck, School, User, Calendar, MapPin, Edit, Flag, BookOpen, Recipe, Gem } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 
 export interface RootsProjectData {
   [key: string]: any;
@@ -31,7 +34,7 @@ const WizardCard = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   <div
     ref={ref}
     className={cn(
-      'w-full max-w-4xl mx-auto bg-white/90 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.3)] rounded-[2.5rem] p-8 sm:p-12',
+      'w-full max-w-4xl mx-auto bg-white/90 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.3)] rounded-[2.5rem] p-10',
       className
     )}
     {...props}
@@ -46,65 +49,65 @@ const GradientHeading = ({ children, className }: { children: React.ReactNode, c
 );
 
 const MotionButton = motion(forwardRef<HTMLButtonElement, React.ComponentProps<"button">>(({ className, ...props }, ref) => (
-  <button ref={ref} className={cn("bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-4 px-8 rounded-2xl shadow-lg shadow-indigo-500/30 transition-all duration-300", className)} {...props} />
+  <motion.button ref={ref} className={cn("bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-4 px-8 rounded-2xl shadow-lg shadow-indigo-500/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed", className)} {...props} whileHover={{ translateY: -2 }} whileTap={{ scale: 0.95 }}/>
 )));
 MotionButton.displayName = "MotionButton";
 
-
-const EditableField = ({ value, onUpdate, placeholder, isMagical, className }: { value: string, onUpdate: (newValue: string) => void, placeholder?: string, isMagical?: boolean, className?: string }) => {
+const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asTextarea }: { value: string, onUpdate: (newValue: string) => void, placeholder?: string, isMagical?: boolean, className?: string, asTextarea?: boolean }) => {
     const ref = useRef<HTMLDivElement>(null);
+    const [localValue, setLocalValue] = useState(value);
 
     useEffect(() => {
-        if (ref.current && ref.current.textContent !== value) {
-            ref.current.textContent = value;
-        }
+        setLocalValue(value);
     }, [value]);
 
     const handleBlur = () => {
-        if (ref.current) {
+        if (ref.current && ref.current.textContent !== value) {
             onUpdate(ref.current.textContent || '');
         }
     };
 
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            ref.current?.blur();
+    const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
+        if (!e.currentTarget.textContent && placeholder) {
+            // This logic is tricky with contentEditable. We will hide placeholder via parent state.
         }
-    };
+    }
     
     return (
-        <motion.div
-            ref={ref}
-            contentEditable
-            suppressContentEditableWarning
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            className={cn(
-                "px-2 py-1 rounded-md min-h-[30px] inline-block hover:bg-primary/5 focus:bg-primary/10 transition-colors duration-200 outline-none focus:ring-4 focus:ring-indigo-500/30",
-                className
-            )}
-            whileFocus={{ scale: 1.02 }}
-        >
-            {value}
-            {!value && placeholder && (
-                <span className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground/50 pointer-events-none">
+        <div className="relative">
+            <motion.div
+                ref={ref}
+                contentEditable
+                suppressContentEditableWarning
+                onBlur={handleBlur}
+                onInput={handleInput}
+                dangerouslySetInnerHTML={{ __html: localValue || '' }}
+                className={cn(
+                    "w-full bg-gray-50/50 border-2 border-indigo-100 rounded-2xl p-4 text-lg focus:bg-white focus:border-indigo-500 transition-all duration-300 shadow-inner",
+                    "outline-none focus:ring-4 focus:ring-indigo-500/20",
+                    asTextarea ? "min-h-[120px]" : "min-h-[68px]",
+                    className
+                )}
+                whileFocus={{ scale: 1.02 }}
+            />
+            {(!localValue && placeholder) && (
+                <span className={cn("absolute right-4 text-muted-foreground/50 pointer-events-none z-0", asTextarea ? "top-4" : "top-1/2 -translate-y-1/2")}>
                     {placeholder}
                 </span>
             )}
              {isMagical && (
-                <Sparkles className="absolute -top-1 -right-2 h-4 w-4 text-blue-400" />
+                <Sparkles className="absolute top-3 left-3 h-5 w-5 text-blue-400 z-20" />
             )}
-        </motion.div>
+        </div>
     );
 };
 
 const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) => {
     const percentage = ((currentStep) / (totalSteps - 1)) * 100;
     return (
-        <div className="w-full bg-gray-200/50 rounded-full h-3 backdrop-blur-sm border border-white/10">
+        <div className="w-full bg-gray-200/50 rounded-full h-3 backdrop-blur-sm border border-white/10 overflow-hidden">
             <motion.div 
-                className="bg-gradient-to-r from-emerald-400 to-indigo-500 h-full rounded-full"
+                className="bg-gradient-to-r from-emerald-400 to-indigo-500 h-full"
                 initial={{ width: 0 }}
                 animate={{ width: `${percentage}%` }}
                 transition={{ duration: 0.8, ease: "easeInOut" }}
@@ -117,12 +120,17 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number, totalSt
 
 const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwnerId, onContinue }: { people: Person[], onSelect: (personId: string) => void, currentStudentId?: string, treeOwnerId?: string, onContinue: () => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
-    
     const [selectedId, setSelectedId] = useState(currentStudentId);
 
     useEffect(() => {
-        setSelectedId(currentStudentId);
-    }, [currentStudentId]);
+        // If there's a tree owner and no student is selected yet, pre-select the owner.
+        if (treeOwnerId && !currentStudentId) {
+            setSelectedId(treeOwnerId);
+            onSelect(treeOwnerId);
+        } else {
+            setSelectedId(currentStudentId);
+        }
+    }, [currentStudentId, treeOwnerId, onSelect]);
 
     const handleSelect = (id: string) => {
         setSelectedId(id);
@@ -136,7 +144,7 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
     return (
       <WizardCard className="text-center">
           <GradientHeading>מי אני?</GradientHeading>
-          <p className="text-muted-foreground mt-2 mb-6">בחר את עצמך מהרשימה כדי להתחיל.</p>
+          <p className="text-muted-foreground mt-2 mb-6">בחר את עצמך מהרשימה כדי להתחיל את עבודת השורשים.</p>
           <div className="relative mb-4">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
@@ -162,8 +170,8 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
                               whileHover={{ y: -3 }}
                               whileTap={{ scale: 0.98 }}
                           >
-                              {isOwner && !isSelected && <BadgeCheck className="absolute top-2 left-2 h-5 w-5 text-indigo-500" title="This is you in the tree settings" />}
-                              {isSelected && <Check className="absolute top-2 left-2 h-5 w-5 text-white bg-indigo-500 rounded-full p-0.5" />}
+                              {isOwner && <BadgeCheck className="absolute top-2 left-2 h-5 w-5 text-indigo-500" title="This is you in the tree settings" />}
+                              {isSelected && <div className="absolute top-2 left-2 h-5 w-5 text-white bg-indigo-500 rounded-full flex items-center justify-center"><Check className="h-3 w-3" /></div>}
                               <Avatar className="h-12 w-12 border-2 border-white">
                                   <AvatarImage src={person.photoURL || undefined} />
                                   <AvatarFallback>
@@ -183,8 +191,6 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
             className="mt-6" 
             disabled={!selectedId}
             onClick={onContinue}
-            whileHover={{ y: selectedId ? -2 : 0 }}
-            whileTap={{ scale: selectedId ? 0.95 : 1 }}
           >
               המשך
           </MotionButton>
@@ -195,16 +201,19 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
 
 const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void }) => {
     const coverPage = projectData.coverPage || {};
+    const fieldContainerClass = "space-y-2 text-right";
+    const labelClass = "font-semibold text-gray-600 px-2 flex items-center gap-2";
+
     return (
-        <div className="space-y-6 text-right">
+        <div className="space-y-6">
             <GradientHeading className="text-center mb-10">שער העבודה</GradientHeading>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-xl">
-                <div className="flex items-center justify-between"><label>מגיש/ה:</label> <EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" isMagical={!!coverPage.studentName} /></div>
-                <div className="flex items-center justify-between"><label>בית ספר:</label> <EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" /></div>
-                <div className="flex items-center justify-between"><label>כיתה:</label> <EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></div>
-                <div className="flex items-center justify-between"><label>מורה:</label> <EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></div>
-                <div className="flex items-center justify-between"><label>שם המנהל/ת:</label> <EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="[שם המנהל/ת]" /></div>
-                <div className="flex items-center justify-between"><label>תאריך הגשה:</label> <EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className={fieldContainerClass}><label className={labelClass}><User/> מגיש/ה:</label><EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" isMagical={!!coverPage.studentName} /></div>
+                <div className={fieldContainerClass}><label className={labelClass}><School/> בית ספר:</label><EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" /></div>
+                <div className={fieldContainerClass}><label className={labelClass}><School/> כיתה:</label><EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></div>
+                <div className={fieldContainerClass}><label className={labelClass}><User/> מורה:</label><EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></div>
+                <div className={fieldContainerClass}><label className={labelClass}><User/> שם המנהל/ת:</label><EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="[שם המנהל/ת]" /></div>
+                <div className={fieldContainerClass}><label className={labelClass}><Calendar/> תאריך הגשה:</label><EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></div>
             </div>
         </div>
     );
@@ -212,23 +221,18 @@ const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: Roots
 
 const Step2_MyStory = ({ projectData, onProjectChange, student }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void, student?: Person }) => {
     const myStory = projectData.myStory || {};
+    const fieldContainerClass = "space-y-2 text-right";
+    const labelClass = "font-bold text-xl text-indigo-700 flex items-center justify-end gap-2";
     return (
-        <div className="space-y-12 text-right">
+        <div className="space-y-12">
              <GradientHeading className="text-center mb-10">הסיפור האישי שלי</GradientHeading>
              <div className="space-y-8">
-                <div>
-                    <label className="font-bold text-xl text-indigo-700 flex items-center justify-end gap-2"><Wand2/> משמעות השם שלי</label>
-                    <EditableField className="w-full text-right mt-2 text-lg" value={myStory.nameMeaning || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'nameMeaning'], newValue)} placeholder="כתוב/י כאן..." />
-                </div>
-                <div>
-                    <label className="font-bold text-xl text-indigo-700 flex items-center justify-end gap-2"><Star/> סיפור הלידה שלי</label>
-                    <EditableField className="w-full text-right mt-2 text-lg" value={myStory.birthStory || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'birthStory'], newValue)} placeholder="כתוב/י כאן..." />
-                </div>
+                <div className={fieldContainerClass}><label className={labelClass}><Wand2/> משמעות השם שלי</label><EditableField asTextarea value={myStory.nameMeaning || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'nameMeaning'], newValue)} placeholder="כתוב/י כאן על משמעות שמך..." isMagical={!!student?.firstName} /></div>
+                <div className={fieldContainerClass}><label className={labelClass}><Star/> סיפור הלידה שלי</label><EditableField asTextarea value={myStory.birthStory || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'birthStory'], newValue)} placeholder="תאר/י את סיפור לידתך, כפי שסופר לך..." isMagical={!!student?.birthDate}/></div>
              </div>
         </div>
     );
 };
-
 
 // ─── Main View Component ──────────────────────────────────────────────────────
 
@@ -240,12 +244,9 @@ export function RootsView({ project, people, relationships, tree, onProjectChang
     }
     
     const WIZARD_STEPS = useMemo(() => [
-        { id: 0, label: 'בחירת זהות' },
-        { id: 1, label: 'שער' },
-        { id: 2, label: 'הסיפור שלי' },
-        { id: 3, label: 'המשפחה הגרעינית' },
-        { id: 4, label: 'ראיונות עם סבים' },
-        { id: 5, label: 'סיכום ורפלקציה' },
+        { id: 0, label: 'בחירת זהות' }, { id: 1, label: 'שער' }, { id: 2, label: 'הסיפור שלי' },
+        { id: 3, label: 'המשפחה הגרעינית' }, { id: 4, label: 'שורשים' },
+        { id: 5, label: 'מורשת וסמלים' }, { id: 6, label: 'סיכום' },
     ], []);
 
     const handleSelectStudent = (personId: string) => {
@@ -263,24 +264,12 @@ export function RootsView({ project, people, relationships, tree, onProjectChang
     };
 
     const renderStepContent = () => {
+        const student = people.find(p => p.id === project.studentPersonId);
         switch (project.currentStep) {
-            case 0:
-                return (
-                    <Step0_IdentitySelection
-                        people={people}
-                        onSelect={handleSelectStudent}
-                        currentStudentId={project.studentPersonId}
-                        treeOwnerId={tree.ownerPersonId}
-                        onContinue={handleContinueFromIdentity}
-                    />
-                );
-            case 1:
-                return <Step1_FormalInfo projectData={project.projectData} onProjectChange={onProjectChange} />;
-            case 2:
-                const student = people.find(p => p.id === project.studentPersonId);
-                return <Step2_MyStory projectData={project.projectData} onProjectChange={onProjectChange} student={student} />;
-            default:
-                return <div className="text-center p-8"><h2 className="text-2xl font-bold">פרק בבנייה</h2><p>הפרק הזה עדיין בפיתוח ויגיע בקרוב!</p></div>;
+            case 0: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onContinue={handleContinueFromIdentity}/>;
+            case 1: return <Step1_FormalInfo projectData={project.projectData} onProjectChange={onProjectChange} />;
+            case 2: return <Step2_MyStory projectData={project.projectData} onProjectChange={onProjectChange} student={student} />;
+            default: return <div className="text-center p-8"><h2 className="text-2xl font-bold">פרק בבנייה</h2><p className="text-muted-foreground mt-2">הפרק הזה עדיין בפיתוח ויגיע בקרוב!</p></div>;
         }
     };
 
@@ -299,13 +288,7 @@ export function RootsView({ project, people, relationships, tree, onProjectChang
                         className="w-full"
                     >
                         {isIdentityStep ? (
-                             <Step0_IdentitySelection
-                                people={people}
-                                onSelect={handleSelectStudent}
-                                currentStudentId={project.studentPersonId}
-                                treeOwnerId={tree.ownerPersonId}
-                                onContinue={handleContinueFromIdentity}
-                            />
+                             <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onContinue={handleContinueFromIdentity}/>
                         ) : (
                             <WizardCard>
                                 {renderStepContent()}
@@ -316,29 +299,17 @@ export function RootsView({ project, people, relationships, tree, onProjectChang
             </div>
             
             {!isIdentityStep && (
-                <div className="flex flex-col items-center gap-4 pt-6 mt-6 border-t max-w-4xl mx-auto w-full">
+                <div className="flex flex-col items-center gap-4 pt-6 mt-6 border-t-2 border-indigo-100 max-w-4xl mx-auto w-full">
                     <div className="w-full">
                        <ProgressBar currentStep={project.currentStep} totalSteps={WIZARD_STEPS.length} />
                     </div>
                     <div className="flex justify-between items-center w-full">
-                        <MotionButton
-                            onClick={() => onStepChange(project.currentStep - 1)}
-                            disabled={project.currentStep <= 0}
-                            className="disabled:opacity-50 disabled:cursor-not-allowed"
-                            whileHover={{ y: project.currentStep > 0 ? -2 : 0 }}
-                            whileTap={{ scale: project.currentStep > 0 ? 0.95 : 1 }}
-                        >
-                            הפרק הקודם
+                        <MotionButton onClick={() => onStepChange(project.currentStep - 1)} disabled={project.currentStep <= 1}>
+                            הקודם
                         </MotionButton>
                         <p className="text-sm text-muted-foreground font-medium">פרק {project.currentStep} מתוך {WIZARD_STEPS.length - 1}</p>
-                        <MotionButton
-                            onClick={() => onStepChange(project.currentStep + 1)}
-                            disabled={project.currentStep >= WIZARD_STEPS.length - 1}
-                            className="disabled:opacity-50 disabled:cursor-not-allowed"
-                            whileHover={{ y: project.currentStep < WIZARD_STEPS.length - 1 ? -2 : 0 }}
-                            whileTap={{ scale: project.currentStep < WIZARD_STEPS.length - 1 ? 0.95 : 1 }}
-                        >
-                            הפרק הבא
+                        <MotionButton onClick={() => onStepChange(project.currentStep + 1)} disabled={project.currentStep >= WIZARD_STEPS.length - 1}>
+                            הבא
                         </MotionButton>
                     </div>
                 </div>
