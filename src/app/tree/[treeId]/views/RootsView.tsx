@@ -8,12 +8,13 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { WIZARD_STEPS } from '../roots-config';
 import { useUser } from '@/firebase';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Define the shape of the project data
 export interface RootsProjectData {
@@ -92,48 +93,74 @@ const EditableField = ({ value, onUpdate, placeholder, multiline = false, classN
 // Step 0: Identity Selection
 const Step0_Identity = ({ people, tree, onSelect }: { people: Person[], tree: FamilyTree | null, onSelect: (personId: string) => void }) => {
     const [open, setOpen] = useState(false);
-    
     const initialOwnerId = tree?.ownerPersonId || '';
     const validInitialOwner = people.find(p => p.id === initialOwnerId);
     const [value, setValue] = useState(validInitialOwner ? initialOwnerId : '');
-  
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const filteredPeople = useMemo(() => {
+        if (!searchTerm) return people;
+        return people.filter(person =>
+            `${person.firstName} ${person.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [people, searchTerm]);
+
+    const selectedPerson = people.find(p => p.id === value);
+
+    useEffect(() => {
+        // If the dropdown is closed, clear the search term
+        if (!open) {
+            setSearchTerm("");
+        }
+    }, [open]);
+
     return (
         <Card className="max-w-md mx-auto text-center shadow-2xl rounded-3xl p-8">
             <h2 className="text-3xl font-bold mb-4">מי אני בעץ?</h2>
             <p className="text-muted-foreground mb-6">בחירת זהותך תקבע את נקודת המבט של עבודת השורשים.</p>
-             <Popover open={open} onOpenChange={setOpen}>
+            <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
                     <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-12 text-lg">
-                        {value ? people.find(p => p.id === value)?.firstName + ' ' + people.find(p => p.id === value)?.lastName : "בחר אדם..."}
+                        {selectedPerson ? `${selectedPerson.firstName} ${selectedPerson.lastName}` : "בחר אדם..."}
                         <ChevronsUpDown className="mr-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                    <Command>
-                        <CommandInput placeholder="חפש אדם..." />
-                        <CommandList>
-                            <CommandEmpty>לא נמצא אדם.</CommandEmpty>
-                            <CommandGroup>
-                                {people.map(person => (
-                                    <CommandItem
-                                        key={person.id}
-                                        value={person.id}
-                                        onSelect={(currentValue) => {
-                                            setValue(currentValue)
-                                            setOpen(false)
-                                        }}
-                                    >
-                                        <Check className={cn("ml-2 h-4 w-4", value === person.id ? "opacity-100" : "opacity-0")} />
-                                        <Avatar className="h-6 w-6 mr-2">
+                    <div className="p-2 border-b">
+                        <Input
+                            placeholder="חפש אדם..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="h-9"
+                        />
+                    </div>
+                    <ScrollArea className="h-72">
+                        <div className="p-1">
+                            {filteredPeople.length === 0 && (
+                                <div className="py-6 text-center text-sm text-muted-foreground">לא נמצא אדם.</div>
+                            )}
+                            {filteredPeople.map(person => (
+                                <Button
+                                    key={person.id}
+                                    variant="ghost"
+                                    className="w-full justify-start h-auto py-2"
+                                    onClick={() => {
+                                        setValue(person.id);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <Avatar className="h-8 w-8">
                                             <AvatarImage src={person.photoURL || undefined} />
                                             <AvatarFallback><img src={getPlaceholderImage(person.gender)} alt="avatar"/></AvatarFallback>
                                         </Avatar>
-                                        {person.firstName} {person.lastName}
-                                    </CommandItem>
-                                ))}
-                            </CommandGroup>
-                        </CommandList>
-                    </Command>
+                                        <span>{person.firstName} {person.lastName}</span>
+                                    </div>
+                                    {value === person.id && <Check className="h-4 w-4 mr-auto" />}
+                                </Button>
+                            ))}
+                        </div>
+                    </ScrollArea>
                 </PopoverContent>
             </Popover>
             <Button size="lg" className="w-full mt-6" onClick={() => onSelect(value)} disabled={!value}>המשך</Button>
