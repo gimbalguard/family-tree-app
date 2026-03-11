@@ -3,7 +3,7 @@ import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'r
 import { motion, AnimatePresence } from 'framer-motion';
 import { useUser, useFirestore } from '@/firebase';
 import type { RootsProject, Person, FamilyTree, Relationship } from '@/lib/types';
-import { WIZARD_STEPS } from '../roots-config';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
@@ -31,7 +31,7 @@ const WizardCard = forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   <div
     ref={ref}
     className={cn(
-      'w-full max-w-4xl mx-auto bg-white/80 backdrop-blur-2xl border border-white/20 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.3)] rounded-[2.5rem] p-8 sm:p-12',
+      'w-full max-w-4xl mx-auto bg-white/90 backdrop-blur-xl border border-white/20 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.3)] rounded-[2.5rem] p-8 sm:p-12',
       className
     )}
     {...props}
@@ -74,27 +74,28 @@ const EditableField = ({ value, onUpdate, placeholder, isMagical, className }: {
     };
     
     return (
-        <div className="relative inline-block">
-            {isMagical && (
-                <Sparkles className="absolute -top-1 -right-2 h-4 w-4 text-blue-400" />
+        <motion.div
+            ref={ref}
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className={cn(
+                "px-2 py-1 rounded-md min-h-[30px] inline-block hover:bg-primary/5 focus:bg-primary/10 transition-colors duration-200 outline-none focus:ring-4 focus:ring-indigo-500/30",
+                className
             )}
-            <motion.div
-                ref={ref}
-                contentEditable
-                suppressContentEditableWarning
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                className={cn("px-2 py-1 rounded-md min-h-[30px] inline-block hover:bg-primary/5 focus:bg-primary/10 transition-colors duration-200 outline-none focus:ring-2 focus:ring-indigo-400", className)}
-                whileFocus={{ scale: 1.02 }}
-            >
-                {value}
-            </motion.div>
-             {!value && placeholder && (
+            whileFocus={{ scale: 1.02 }}
+        >
+            {value}
+            {!value && placeholder && (
                 <span className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground/50 pointer-events-none">
                     {placeholder}
                 </span>
             )}
-        </div>
+             {isMagical && (
+                <Sparkles className="absolute -top-1 -right-2 h-4 w-4 text-blue-400" />
+            )}
+        </motion.div>
     );
 };
 
@@ -114,8 +115,20 @@ const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number, totalSt
 
 // ─── Wizard Steps ─────────────────────────────────────────────────────────────
 
-const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwnerId }: { people: Person[], onSelect: (personId: string) => void, currentStudentId?: string, treeOwnerId?: string }) => {
+const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwnerId, onContinue }: { people: Person[], onSelect: (personId: string) => void, currentStudentId?: string, treeOwnerId?: string, onContinue: () => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    
+    const [selectedId, setSelectedId] = useState(currentStudentId);
+
+    useEffect(() => {
+        setSelectedId(currentStudentId);
+    }, [currentStudentId]);
+
+    const handleSelect = (id: string) => {
+        setSelectedId(id);
+        onSelect(id);
+    };
+    
     const filteredPeople = useMemo(() => people.filter(p => 
         `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
     ), [people, searchTerm]);
@@ -136,12 +149,12 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
           <ScrollArea className="h-72">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
                   {filteredPeople.map(person => {
-                      const isSelected = person.id === currentStudentId;
+                      const isSelected = person.id === selectedId;
                       const isOwner = person.id === treeOwnerId;
                       return (
                           <motion.button
                               key={person.id}
-                              onClick={() => onSelect(person.id)}
+                              onClick={() => handleSelect(person.id)}
                               className={cn(
                                   "relative text-right p-3 border-2 rounded-2xl flex items-center gap-3 transition-all duration-200",
                                   isSelected ? "bg-indigo-100 border-indigo-500 shadow-lg" : "bg-white/50 border-transparent hover:border-indigo-300"
@@ -166,24 +179,32 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
                   })}
               </div>
           </ScrollArea>
+          <MotionButton 
+            className="mt-6" 
+            disabled={!selectedId}
+            onClick={onContinue}
+            whileHover={{ y: selectedId ? -2 : 0 }}
+            whileTap={{ scale: selectedId ? 0.95 : 1 }}
+          >
+              המשך
+          </MotionButton>
       </WizardCard>
   );
 };
 
+
 const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void }) => {
     const coverPage = projectData.coverPage || {};
     return (
-        <div className="space-y-6">
-            <div className="p-8 border-b-2 border-indigo-100">
-                <GradientHeading className="text-center mb-6">שער העבודה</GradientHeading>
-                <div className="grid sm:grid-cols-2 gap-x-8 gap-y-6 text-xl">
-                    <div className="flex items-center justify-between"><label>מגיש/ה:</label> <EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" isMagical={!!coverPage.studentName} /></div>
-                    <div className="flex items-center justify-between"><label>בית ספר:</label> <EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" /></div>
-                    <div className="flex items-center justify-between"><label>כיתה:</label> <EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></div>
-                    <div className="flex items-center justify-between"><label>מורה:</label> <EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></div>
-                    <div className="flex items-center justify-between"><label>שם המנהל/ת:</label> <EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="[שם המנהל/ת]" /></div>
-                    <div className="flex items-center justify-between"><label>תאריך הגשה:</label> <EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></div>
-                </div>
+        <div className="space-y-6 text-right">
+            <GradientHeading className="text-center mb-10">שער העבודה</GradientHeading>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 text-xl">
+                <div className="flex items-center justify-between"><label>מגיש/ה:</label> <EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" isMagical={!!coverPage.studentName} /></div>
+                <div className="flex items-center justify-between"><label>בית ספר:</label> <EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" /></div>
+                <div className="flex items-center justify-between"><label>כיתה:</label> <EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></div>
+                <div className="flex items-center justify-between"><label>מורה:</label> <EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></div>
+                <div className="flex items-center justify-between"><label>שם המנהל/ת:</label> <EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="[שם המנהל/ת]" /></div>
+                <div className="flex items-center justify-between"><label>תאריך הגשה:</label> <EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></div>
             </div>
         </div>
     );
@@ -192,110 +213,136 @@ const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: Roots
 const Step2_MyStory = ({ projectData, onProjectChange, student }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void, student?: Person }) => {
     const myStory = projectData.myStory || {};
     return (
-        <div className="space-y-6">
-             <GradientHeading className="text-center mb-6">הסיפור האישי שלי</GradientHeading>
+        <div className="space-y-12 text-right">
+             <GradientHeading className="text-center mb-10">הסיפור האישי שלי</GradientHeading>
              <div className="space-y-8">
                 <div>
-                    <label className="font-bold text-lg text-indigo-700 flex items-center gap-2"><Wand2/> משמעות השם שלי</label>
-                    <EditableField className="w-full text-right mt-2" value={myStory.nameMeaning || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'nameMeaning'], newValue)} placeholder="כתוב/י כאן..." />
+                    <label className="font-bold text-xl text-indigo-700 flex items-center justify-end gap-2"><Wand2/> משמעות השם שלי</label>
+                    <EditableField className="w-full text-right mt-2 text-lg" value={myStory.nameMeaning || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'nameMeaning'], newValue)} placeholder="כתוב/י כאן..." />
                 </div>
                 <div>
-                    <label className="font-bold text-lg text-indigo-700 flex items-center gap-2"><Star/> סיפור הלידה שלי</label>
-                    <EditableField className="w-full text-right mt-2" value={myStory.birthStory || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'birthStory'], newValue)} placeholder="כתוב/י כאן..." />
+                    <label className="font-bold text-xl text-indigo-700 flex items-center justify-end gap-2"><Star/> סיפור הלידה שלי</label>
+                    <EditableField className="w-full text-right mt-2 text-lg" value={myStory.birthStory || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'birthStory'], newValue)} placeholder="כתוב/י כאן..." />
                 </div>
              </div>
         </div>
     );
 };
 
+
 // ─── Main View Component ──────────────────────────────────────────────────────
 
 export function RootsView({ project, people, relationships, tree, onProjectChange, onStepChange }: RootsViewProps) {
-  if (!project || !tree) {
-    return (
-      <div className="flex items-center justify-center h-full w-full bg-gray-100 text-muted-foreground">
-        טוען פרויקט שורשים...
-      </div>
-    );
-  }
-
-  const handleSelectStudent = (personId: string) => {
-    onProjectChange(['studentPersonId'], personId);
-    // Also pre-fill student name in cover page
-    const student = people.find(p => p.id === personId);
-    if(student) {
-        onProjectChange(['coverPage', 'studentName'], `${student.firstName} ${student.lastName}`);
+    if (!project || !tree) {
+        return (
+            <div className="flex items-center justify-center h-full w-full bg-gray-100 text-muted-foreground">טוען פרויקט שורשים...</div>
+        );
     }
-  }
+    
+    const WIZARD_STEPS = useMemo(() => [
+        { id: 0, label: 'בחירת זהות' },
+        { id: 1, label: 'שער' },
+        { id: 2, label: 'הסיפור שלי' },
+        { id: 3, label: 'המשפחה הגרעינית' },
+        { id: 4, label: 'ראיונות עם סבים' },
+        { id: 5, label: 'סיכום ורפלקציה' },
+    ], []);
 
-  const renderStepContent = () => {
-    switch (project.currentStep) {
-        case 1:
-            return <Step1_FormalInfo projectData={project.projectData} onProjectChange={onProjectChange} />;
-        case 2:
-            const student = people.find(p => p.id === project.studentPersonId);
-            return <Step2_MyStory projectData={project.projectData} onProjectChange={onProjectChange} student={student} />;
-        default:
-            return <div className="text-center p-8"><h2 className="text-2xl font-bold">פרק בבנייה</h2><p>הפרק הזה עדיין בפיתוח ויגיע בקרוב!</p></div>;
-    }
-  }
+    const handleSelectStudent = (personId: string) => {
+        onProjectChange(['studentPersonId'], personId);
+        const student = people.find(p => p.id === personId);
+        if (student) {
+            onProjectChange(['coverPage', 'studentName'], `${student.firstName} ${student.lastName}`);
+        }
+    };
+    
+    const handleContinueFromIdentity = () => {
+        if (project.studentPersonId) {
+            onStepChange(1);
+        }
+    };
 
-  if (!project.studentPersonId) {
+    const renderStepContent = () => {
+        switch (project.currentStep) {
+            case 0:
+                return (
+                    <Step0_IdentitySelection
+                        people={people}
+                        onSelect={handleSelectStudent}
+                        currentStudentId={project.studentPersonId}
+                        treeOwnerId={tree.ownerPersonId}
+                        onContinue={handleContinueFromIdentity}
+                    />
+                );
+            case 1:
+                return <Step1_FormalInfo projectData={project.projectData} onProjectChange={onProjectChange} />;
+            case 2:
+                const student = people.find(p => p.id === project.studentPersonId);
+                return <Step2_MyStory projectData={project.projectData} onProjectChange={onProjectChange} student={student} />;
+            default:
+                return <div className="text-center p-8"><h2 className="text-2xl font-bold">פרק בבנייה</h2><p>הפרק הזה עדיין בפיתוח ויגיע בקרוב!</p></div>;
+        }
+    };
+
+    const isIdentityStep = project.currentStep === 0;
+
     return (
-      <div className="w-full h-full flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-violet-50" dir="rtl">
-        <Step0_IdentitySelection 
-            people={people} 
-            onSelect={handleSelectStudent} 
-            currentStudentId={project.studentPersonId}
-            treeOwnerId={tree.ownerPersonId}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className="w-full h-full flex flex-col p-4 sm:p-8 bg-gradient-to-br from-indigo-50 via-white to-violet-50" dir="rtl">
-        <div className="flex-1 overflow-y-auto">
-            <div className="max-w-4xl mx-auto mb-8">
-                <ProgressBar currentStep={project.currentStep} totalSteps={WIZARD_STEPS.length} />
+        <div className="w-full h-full flex flex-col p-4 sm:p-8 bg-gradient-to-br from-indigo-50 via-white to-violet-50" dir="rtl">
+            <div className="flex-1 flex items-center justify-center overflow-y-auto">
+                 <AnimatePresence mode="wait">
+                    <motion.div
+                        key={project.currentStep}
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.5, ease: 'easeInOut' }}
+                        className="w-full"
+                    >
+                        {isIdentityStep ? (
+                             <Step0_IdentitySelection
+                                people={people}
+                                onSelect={handleSelectStudent}
+                                currentStudentId={project.studentPersonId}
+                                treeOwnerId={tree.ownerPersonId}
+                                onContinue={handleContinueFromIdentity}
+                            />
+                        ) : (
+                            <WizardCard>
+                                {renderStepContent()}
+                            </WizardCard>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
             </div>
-
-            <AnimatePresence mode="wait">
-                <motion.div
-                    key={project.currentStep}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.5, ease: 'easeInOut' }}
-                >
-                    <WizardCard>
-                        {renderStepContent()}
-                    </WizardCard>
-                </motion.div>
-            </AnimatePresence>
+            
+            {!isIdentityStep && (
+                <div className="flex flex-col items-center gap-4 pt-6 mt-6 border-t max-w-4xl mx-auto w-full">
+                    <div className="w-full">
+                       <ProgressBar currentStep={project.currentStep} totalSteps={WIZARD_STEPS.length} />
+                    </div>
+                    <div className="flex justify-between items-center w-full">
+                        <MotionButton
+                            onClick={() => onStepChange(project.currentStep - 1)}
+                            disabled={project.currentStep <= 0}
+                            className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            whileHover={{ y: project.currentStep > 0 ? -2 : 0 }}
+                            whileTap={{ scale: project.currentStep > 0 ? 0.95 : 1 }}
+                        >
+                            הפרק הקודם
+                        </MotionButton>
+                        <p className="text-sm text-muted-foreground font-medium">פרק {project.currentStep} מתוך {WIZARD_STEPS.length - 1}</p>
+                        <MotionButton
+                            onClick={() => onStepChange(project.currentStep + 1)}
+                            disabled={project.currentStep >= WIZARD_STEPS.length - 1}
+                            className="disabled:opacity-50 disabled:cursor-not-allowed"
+                            whileHover={{ y: project.currentStep < WIZARD_STEPS.length - 1 ? -2 : 0 }}
+                            whileTap={{ scale: project.currentStep < WIZARD_STEPS.length - 1 ? 0.95 : 1 }}
+                        >
+                            הפרק הבא
+                        </MotionButton>
+                    </div>
+                </div>
+            )}
         </div>
-        
-        <div className="flex justify-between items-center pt-6 mt-6 border-t max-w-4xl mx-auto w-full">
-            <MotionButton
-                onClick={() => onStepChange(project.currentStep - 1)}
-                disabled={project.currentStep <= 1}
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={{ y: project.currentStep > 1 ? -2 : 0 }}
-                whileTap={{ scale: project.currentStep > 1 ? 0.95 : 1 }}
-            >
-                הפרק הקודם
-            </MotionButton>
-             <p className="text-sm text-muted-foreground font-medium">פרק {project.currentStep} מתוך {WIZARD_STEPS.length - 1}</p>
-            <MotionButton
-                onClick={() => onStepChange(project.currentStep + 1)}
-                disabled={project.currentStep >= WIZARD_STEPS.length - 1}
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={{ y: project.currentStep < WIZARD_STEPS.length - 1 ? -2 : 0 }}
-                whileTap={{ scale: project.currentStep < WIZARD_STEPS.length - 1 ? 0.95 : 1 }}
-            >
-                הפרק הבא
-            </MotionButton>
-        </div>
-    </div>
-  );
+    );
 }
