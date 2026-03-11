@@ -193,7 +193,7 @@ export type RootsProject = {
   projectName: string;
   currentStep: number;
   projectData: { [key: string]: any };
-  chatHistory: { role: 'ai' | 'user', content: string }[];
+  chatHistory: { role: 'assistant' | 'user', content: string }[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -91,7 +90,7 @@ export function RootsView({ treeId, people, relationships, tree }: RootsViewProp
   const [currentStep, setCurrentStep] = useState(1);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectData, setProjectData] = useState<RootsProjectData>({});
-  const [chatHistory, setChatHistory] = useState<{ role: 'ai' | 'user', content: string }[]>([]);
+  const [chatHistory, setChatHistory] = useState<{ role: 'assistant' | 'user', content: string }[]>([]);
   const [userInput, setUserInput] = useState('');
 
   const [isRecording, setIsRecording] = useState(false);
@@ -116,12 +115,14 @@ export function RootsView({ treeId, people, relationships, tree }: RootsViewProp
           setProjectId(docSnap.id);
           setProjectData(data.projectData || {});
           setCurrentStep(data.currentStep || 1);
-          setChatHistory(data.chatHistory || [{ role: 'ai', content: `שלום! ברוכים הבאים לאשף עבודת השורשים. מה תרצו שיהיה שם הפרויקט?` }]);
+          const loadedChatHistory = data.chatHistory || [{ role: 'assistant', content: `שלום! ברוכים הבאים לאשף עבודת השורשים. מה תרצו שיהיה שם הפרויקט?` }];
+          setChatHistory(loadedChatHistory.map(msg => ({...msg, role: msg.role === 'ai' ? 'assistant' : msg.role as 'assistant' | 'user' })));
+
         } else {
           // No project exists, prompt for a name and create it
           const newProjectId = 'main';
           const initialProjectData = { projectName: tree?.treeName || "עבודת שורשים" };
-          const initialChat = [{ role: 'ai' as const, content: `שלום! יצרתי עבורך פרויקט חדש בשם "${initialProjectData.projectName}". בוא נתחיל בשלב הראשון: שער המבוא.` }];
+          const initialChat = [{ role: 'assistant' as const, content: `שלום! יצרתי עבורך פרויקט חדש בשם "${initialProjectData.projectName}". בוא נתחיל בשלב הראשון: שער המבוא.` }];
 
           await setDoc(projectDocRef, {
             userId: user.uid,
@@ -212,7 +213,7 @@ export function RootsView({ treeId, people, relationships, tree }: RootsViewProp
         newUserMessage: userInput,
       });
 
-      const aiMessage = { role: 'ai' as const, content: result.aiResponse };
+      const aiMessage = { role: 'assistant' as const, content: result.aiResponse };
       setChatHistory(prev => [...prev, aiMessage]);
       
       if (result.updatedProjectData) {
@@ -232,7 +233,7 @@ export function RootsView({ treeId, people, relationships, tree }: RootsViewProp
     } catch (error) {
       console.error("AI assistant error:", error);
       toast({ variant: "destructive", title: "שגיאת AI", description: "לא ניתן היה לקבל תגובה מהעוזר." });
-      const errorMessage = { role: 'ai' as const, content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?' };
+      const errorMessage = { role: 'assistant' as const, content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?' };
       setChatHistory(prev => [...prev, errorMessage]);
     } finally {
         setIsAiLoading(false);
