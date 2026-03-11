@@ -1,11 +1,12 @@
 import { TreePageClient } from './tree-page-client';
 
 type TreePageProps = {
-  params: {
+  params: Promise<{
     treeId: string;
-  };
+  }>;
 };
 
-export default function TreePage({ params }: TreePageProps) {
-  return <TreePageClient treeId={params.treeId} readOnly={false} />;
+export default async function TreePage({ params }: TreePageProps) {
+  const resolvedParams = await params;
+  return <TreePageClient treeId={resolvedParams.treeId} readOnly={false} />;
 }
