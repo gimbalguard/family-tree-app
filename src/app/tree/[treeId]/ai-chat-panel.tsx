@@ -26,20 +26,22 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
-import type { Person, RootsProject } from '@/lib/types';
+import type { Person, Relationship, RootsProject } from '@/lib/types';
 import * as XLSX from 'xlsx';
 import { rootsAssistant } from '@/ai/flows/roots-assistant-flow';
-import { WIZARD_STEPS, type RootsProjectData } from './views/RootsView';
+import { type RootsProjectData } from './views/RootsView';
 
 interface AiChatPanelProps {
     treeId: string;
     treeName: string;
     people: Person[];
+    relationships: Relationship[];
     onClose: () => void;
     onDataAdded: () => void;
     viewMode: 'tree' | 'roots' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
     rootsProject: RootsProject | null;
     onRootsProjectUpdate: (updatedData: Partial<RootsProjectData>) => void;
+    rootsStepInstruction?: string;
 }
 
 const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
@@ -59,11 +61,13 @@ export function AiChatPanel({
     treeId, 
     treeName, 
     people, 
+    relationships,
     onClose, 
     onDataAdded, 
     viewMode,
     rootsProject,
-    onRootsProjectUpdate
+    onRootsProjectUpdate,
+    rootsStepInstruction,
 }: AiChatPanelProps) {
   const router = useRouter();
   const { user } = useUser();
@@ -375,22 +379,20 @@ export function AiChatPanel({
     setIsGenerating(true);
 
     try {
-        if (viewMode === 'roots' && rootsProject) {
-            const stepInstruction = WIZARD_STEPS.find(s => s.id === rootsProject.currentStep)?.instruction || '';
-
+        if (viewMode === 'roots' && rootsProject && rootsStepInstruction) {
             const treeDataSummary = JSON.stringify({
               people: people.map(p => ({ 
                 name: `${p.firstName} ${p.lastName}`, 
                 birth: p.birthDate, 
                 birthplace: p.birthPlace,
-                isOwner: p.id === rootsProject.userId
+                isOwner: p.id === user.uid
               })),
-              relationships: rootsProject.projectData.relationships || [],
+              relationships: relationships.map(r => ({ from: r.personAId, to: r.personBId, type: r.relationshipType })),
             });
             
             const result = await rootsAssistant({
               currentStep: rootsProject.currentStep,
-              stepInstruction,
+              stepInstruction: rootsStepInstruction,
               treeDataSummary,
               stepChatHistory: newHistory.map(m => ({
                 role: m.role,
@@ -399,7 +401,7 @@ export function AiChatPanel({
               newUserMessage: messageContent,
             });
       
-            const aiMessage = { role: 'assistant' as const, id: (Date.now() + 1).toString(), content: result.aiResponse };
+            const aiMessage: ChatMessage = { role: 'assistant', id: (Date.now() + 1).toString(), content: result.aiResponse };
             addMessage(aiMessage);
             
             if (result.updatedProjectData) {

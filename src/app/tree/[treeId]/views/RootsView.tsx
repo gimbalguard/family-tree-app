@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { WIZARD_STEPS } from '../tree-page-client';
 
 // Define the shape of the project data
 export interface RootsProjectData {
@@ -20,15 +21,6 @@ export interface RootsProjectData {
   // Add other steps data structure later
   [key: string]: any;
 }
-
-// Define the steps for the wizard
-export const WIZARD_STEPS = [
-  { id: 1, label: 'שער המבוא' },
-  { id: 2, label: 'אני' },
-  { id: 3, label: 'משפחה קרובה' },
-  { id: 4, label: 'שורשים' },
-  { id: 5, label: 'סיכום' },
-];
 
 type RootsViewProps = {
     project: RootsProject | null;
