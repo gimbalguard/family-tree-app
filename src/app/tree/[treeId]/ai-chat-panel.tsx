@@ -26,8 +26,10 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
-import type { Person } from '@/lib/types';
+import type { Person, RootsProject } from '@/lib/types';
 import * as XLSX from 'xlsx';
+import { rootsAssistant } from '@/ai/flows/roots-assistant-flow';
+import { WIZARD_STEPS, type RootsProjectData } from './views/RootsView';
 
 interface AiChatPanelProps {
     treeId: string;
@@ -35,6 +37,9 @@ interface AiChatPanelProps {
     people: Person[];
     onClose: () => void;
     onDataAdded: () => void;
+    viewMode: 'tree' | 'roots' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
+    rootsProject: RootsProject | null;
+    onRootsProjectUpdate: (updatedData: Partial<RootsProjectData>) => void;
 }
 
 const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
@@ -50,7 +55,16 @@ const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File 
 };
 
 
-export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: AiChatPanelProps) {
+export function AiChatPanel({ 
+    treeId, 
+    treeName, 
+    people, 
+    onClose, 
+    onDataAdded, 
+    viewMode,
+    rootsProject,
+    onRootsProjectUpdate
+}: AiChatPanelProps) {
   const router = useRouter();
   const { user } = useUser();
   const db = useFirestore();
@@ -122,7 +136,6 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
   const handleMicClick = async () => {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
-      setIsRecording(false);
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -136,6 +149,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
 
         mediaRecorderRef.current.onstop = async () => {
           stream.getTracks().forEach(track => track.stop());
+          setIsRecording(false);
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
 
           const reader = new FileReader();
@@ -356,72 +370,104 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
     const currentAttachment = attachment;
     setAttachment(null);
     
-    const newHistory = [...chatHistory, userMessage];
+    const newHistory = [...(chatHistory || []), userMessage];
     setChatHistory(newHistory);
     setIsGenerating(true);
 
     try {
-      const flowInput: any = {
-        newUserMessage: messageContent,
-        treeName: treeName,
-        chatHistory: newHistory.map(m => ({
-          role: m.role,
-          content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
-        })),
-        existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
-      };
+        if (viewMode === 'roots' && rootsProject) {
+            const stepInstruction = WIZARD_STEPS.find(s => s.id === rootsProject.currentStep)?.instruction || '';
 
-      if (currentAttachment?.type === 'image') {
-        flowInput.photoDataUri = currentAttachment.data;
-      }
+            const treeDataSummary = JSON.stringify({
+              people: people.map(p => ({ 
+                name: `${p.firstName} ${p.lastName}`, 
+                birth: p.birthDate, 
+                birthplace: p.birthPlace,
+                isOwner: p.id === rootsProject.userId
+              })),
+              relationships: rootsProject.projectData.relationships || [],
+            });
+            
+            const result = await rootsAssistant({
+              currentStep: rootsProject.currentStep,
+              stepInstruction,
+              treeDataSummary,
+              stepChatHistory: newHistory.map(m => ({
+                role: m.role,
+                content: typeof m.content === 'string' ? m.content : '[תגובה מורכבת]',
+              })),
+              newUserMessage: messageContent,
+            });
+      
+            const aiMessage = { role: 'assistant' as const, id: (Date.now() + 1).toString(), content: result.aiResponse };
+            addMessage(aiMessage);
+            
+            if (result.updatedProjectData) {
+               onRootsProjectUpdate(result.updatedProjectData);
+            }
+        } else {
+             const flowInput: any = {
+                newUserMessage: messageContent,
+                treeName: treeName,
+                chatHistory: newHistory.map(m => ({
+                role: m.role,
+                content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
+                })),
+                existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
+            };
 
-      if (currentAttachment?.type === 'text') {
-        flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
-      }
-      
-      const result = await generateTreeFromStory(flowInput);
-      
-      const assistantMessageContent = (
-        <div className="space-y-4 text-right">
-            <p className="font-semibold">{result.summary}</p>
-            {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
-                <div className="space-y-2">
-                {result.clarificationQuestions.map((q, index) => (
-                    <Alert dir="rtl" key={index}>
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>{q.question}</AlertTitle>
-                    {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
-                        <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
-                        {q.suggestedAnswers.map((ans, i) => (
-                            <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
-                            {ans}
-                            </Button>
+            if (currentAttachment?.type === 'image') {
+                flowInput.photoDataUri = currentAttachment.data;
+            }
+
+            if (currentAttachment?.type === 'text') {
+                flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
+            }
+            
+            const result = await generateTreeFromStory(flowInput);
+            
+            const assistantMessageContent = (
+                <div className="space-y-4 text-right">
+                    <p className="font-semibold">{result.summary}</p>
+                    {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
+                        <div className="space-y-2">
+                        {result.clarificationQuestions.map((q, index) => (
+                            <Alert dir="rtl" key={index}>
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>{q.question}</AlertTitle>
+                            {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
+                                <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
+                                {q.suggestedAnswers.map((ans, i) => (
+                                    <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
+                                    {ans}
+                                    </Button>
+                                ))}
+                                </AlertDescription>
+                            )}
+                            </Alert>
                         ))}
-                        </AlertDescription>
+                        </div>
                     )}
-                    </Alert>
-                ))}
                 </div>
-            )}
-        </div>
-      );
+            );
 
-      const assistantMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: assistantMessageContent,
-        data: result.isComplete ? result : null,
-      };
-      
-      setChatHistory((prev) => [...prev, assistantMessage]);
+            const assistantMessage: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: assistantMessageContent,
+                data: result.isComplete ? result : null,
+            };
+            
+            setChatHistory((prev) => [...prev, assistantMessage]);
+        }
 
     } catch (error) {
-      console.error('Error generating tree from story:', error);
+      console.error('AI assistant error:', error);
       const errorMessage: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant',
-        content: 'מצטער, נתקלתי בשגיאה בעת ניתוח הסיפור שלך. נסה לנסח מחדש או נסה שוב מאוחר יותר.',
+        content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?',
       };
       setChatHistory((prev) => [...prev, errorMessage]);
-      toast({ variant: 'destructive', title: 'שגיאת AI', description: 'לא ניתן היה לעבד את הסיפור.' });
+      toast({ variant: 'destructive', title: 'שגיאת AI', description: 'לא ניתן היה לעבד את הבקשה.' });
     } finally {
       setIsGenerating(false);
     }
@@ -476,7 +522,7 @@ export function AiChatPanel({ treeId, treeName, people, onClose, onDataAdded }: 
                     {message.role === 'assistant' && ( <Avatar className="h-8 w-8 border"><AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback></Avatar> )}
                     <div className={`max-w-[75%] rounded-lg p-3 break-words ${ message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background' }`}>
                       {message.content}
-                       {message.data?.isComplete && (
+                       {message.data?.isComplete && viewMode === 'tree' && (
                         <div className="pt-2 text-right">
                           <Button onClick={() => handleAddDataToTree(message.data)} disabled={isAdding}>
                             {isAdding ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}

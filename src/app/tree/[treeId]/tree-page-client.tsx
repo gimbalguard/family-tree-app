@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import type {
@@ -36,6 +35,7 @@ import type {
   ManualEvent,
   SocialLink,
   ExportedFile,
+  RootsProject,
 } from '@/lib/types';
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
@@ -89,7 +89,7 @@ import { CalendarView } from './views/CalendarView';
 import { ManualEventEditor } from './views/ManualEventEditor';
 import { StatisticsView } from './views/StatisticsView';
 import { TriviaView } from './views/TriviaView';
-import { RootsView } from './views/RootsView';
+import { RootsView, type RootsProjectData } from './views/RootsView';
 import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
 import { AiChatPanel } from './ai-chat-panel';
@@ -100,6 +100,7 @@ import { exportToExcel, parseAndValidateExcel, ParsedExcelData } from '@/lib/exc
 import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useAiChat } from '@/context/ai-chat-context';
 
 type TreePageClientProps = {
   treeId: string;
@@ -161,7 +162,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const { toast } = useToast();
   const { getNodes } = useReactFlow();
   
-  const historyRef = useRef<{ past: { nodes: Node[]; edges: Edge[] }[]; future: { nodes: Node[]; edges: Edge[] }[] }>({ past: [], future: [] });
+  type HistoryState = { nodes: Node[]; edges: Edge[]; rootsProject: RootsProject | null; };
+  const historyRef = useRef<{ past: HistoryState[]; future: HistoryState[] }>({ past: [], future: [] });
+
   const hasInitiallyLoaded = useRef(false);
   const HISTORY_LIMIT = 30;
   const [canUndo, setCanUndo] = useState(false);
@@ -183,6 +186,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [people, setPeople] = useState<Person[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [manualEvents, setManualEvents] = useState<ManualEvent[]>([]);
+  const [rootsProject, setRootsProject] = useState<RootsProject | null>(null);
   
   const [canvasPositions, setCanvasPositions] = useState<CanvasPosition[]>([]);
 
@@ -242,52 +246,63 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   } | null>(null);
   
   const [canvasBg, setCanvasBg] = useState<string | undefined>(undefined);
+  
+  const { chatHistory, setChatHistory } = useAiChat();
 
   const recordHistory = useCallback(() => {
     if (readOnly) return;
     const currentPast = historyRef.current.past;
+    const currentState = { nodes, edges, rootsProject };
     if (currentPast.length > 0) {
       const lastState = currentPast[currentPast.length - 1];
-      if (lastState.nodes === nodes && lastState.edges === edges) {
+      if (lastState.nodes === nodes && lastState.edges === edges && lastState.rootsProject === rootsProject) {
         return;
       }
     }
-    const newPast = [...currentPast, { nodes, edges }];
+    const newPast = [...currentPast, currentState];
     if (newPast.length > HISTORY_LIMIT) {
       newPast.shift();
     }
     historyRef.current = { past: newPast, future: [] };
     setCanUndo(true);
     setCanRedo(false);
-  }, [nodes, edges, readOnly]);
+  }, [nodes, edges, rootsProject, readOnly]);
 
   const handleUndo = useCallback(() => {
     if (historyRef.current.past.length === 0) return;
     const newPast = [...historyRef.current.past];
     const present = newPast.pop();
     if (present) {
-      historyRef.current.future.unshift({ nodes, edges });
+      historyRef.current.future.unshift({ nodes, edges, rootsProject });
       historyRef.current.past = newPast;
       setNodes(present.nodes);
       setEdges(present.edges);
+      setRootsProject(present.rootsProject);
+      if (viewMode === 'roots') {
+        setChatHistory(present.rootsProject?.chatHistory || []);
+      }
       setCanUndo(newPast.length > 0);
       setCanRedo(true);
     }
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes, edges, rootsProject, setNodes, setEdges, viewMode, setChatHistory]);
 
   const handleRedo = useCallback(() => {
     if (historyRef.current.future.length === 0) return;
     const newFuture = [...historyRef.current.future];
     const present = newFuture.shift();
     if (present) {
-      historyRef.current.past.push({ nodes, edges });
+      historyRef.current.past.push({ nodes, edges, rootsProject });
       historyRef.current.future = newFuture;
       setNodes(present.nodes);
       setEdges(present.edges);
+      setRootsProject(present.rootsProject);
+       if (viewMode === 'roots') {
+        setChatHistory(present.rootsProject?.chatHistory || []);
+      }
       setCanUndo(true);
       setCanRedo(newFuture.length > 0);
     }
-  }, [nodes, edges, setNodes, setEdges]);
+  }, [nodes, edges, rootsProject, setNodes, setEdges, viewMode, setChatHistory]);
 
   const deriveStateFromData = useCallback((
     peopleData: Person[], 
@@ -500,22 +515,25 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         throw new Error('This tree is not public and has not been shared with you.');
       }
       
-      const treeDetailsRef = doc(db, 'users', ownerId, 'familyTrees', treeId);
-      const peopleRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'people');
-      const relsRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'relationships');
-      const posRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'canvasPositions');
-      const manualEventsRef = collection(db, 'users', ownerId, 'familyTrees', treeId, 'manualEvents');
+      const basePath = `users/${ownerId}/familyTrees/${treeId}`;
+      const treeDetailsRef = doc(db, basePath);
+      const peopleRef = collection(db, basePath, 'people');
+      const relsRef = collection(db, basePath, 'relationships');
+      const posRef = collection(db, basePath, 'canvasPositions');
+      const manualEventsRef = collection(db, basePath, 'manualEvents');
+      const rootsProjectRef = doc(db, basePath, 'rootsProjects/main');
 
       const treeSnap = await getDoc(treeDetailsRef);
       if (!treeSnap.exists()) {
         throw new Error('עץ המשפחה לא נמצא או שאין לך גישה.');
       }
 
-      const [peopleSnap, relsSnap, posSnap, manualEventsSnap] = await Promise.all([
+      const [peopleSnap, relsSnap, posSnap, manualEventsSnap, rootsProjectSnap] = await Promise.all([
         getDocs(peopleRef),
         getDocs(relsRef),
         getDocs(posRef),
         getDocs(manualEventsRef),
+        getDoc(rootsProjectRef),
       ]);
 
       const treeData = { id: treeSnap.id, ...treeSnap.data() } as FamilyTree;
@@ -523,6 +541,24 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const relsData = relsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Relationship));
       const posData = posSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CanvasPosition));
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
+      
+      if (rootsProjectSnap.exists()) {
+        setRootsProject(rootsProjectSnap.data() as RootsProject);
+      } else if (user) {
+        const newProject: RootsProject = {
+          id: 'main',
+          userId: user.uid,
+          treeId: treeId,
+          projectName: treeData.treeName,
+          currentStep: 1,
+          projectData: { projectName: treeData.treeName },
+          chatHistory: [{ role: 'assistant', content: `שלום! יצרתי עבורך פרויקט חדש בשם "${treeData.treeName}". בוא נתחיל בשלב הראשון: שער המבוא.` }],
+          createdAt: serverTimestamp() as any,
+          updatedAt: serverTimestamp() as any,
+        };
+        await setDoc(rootsProjectRef, newProject);
+        setRootsProject(newProject);
+      }
       
       setTree(treeData);
       setPeople(peopleData);
@@ -1737,6 +1773,42 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     setIsEditingName(false);
   };
+  
+    const handleProjectDataChange = useCallback((path: string[], value: any) => {
+        if (!rootsProject || readOnly) return;
+        recordHistory(); // snapshot before change
+        const newProjectData = JSON.parse(JSON.stringify(rootsProject.projectData)); // Deep copy
+        let current: any = newProjectData;
+        for (let i = 0; i < path.length - 1; i++) {
+            current[path[i]] = current[path[i]] || {};
+            current = current[path[i]];
+        }
+        current[path[path.length - 1]] = value;
+        setRootsProject(prev => prev ? { ...prev, projectData: newProjectData } : null);
+    }, [rootsProject, recordHistory, readOnly]);
+
+    const handleStepChange = useCallback((step: number) => {
+        if (!rootsProject || readOnly) return;
+        if (step >= 1 && step <= 5) {
+            recordHistory();
+            setRootsProject(prev => prev ? { ...prev, currentStep: step } : null);
+        }
+    }, [rootsProject, recordHistory, readOnly]);
+    
+    const handleRootsProjectUpdate = useCallback((updatedData: Partial<RootsProjectData>) => {
+        if (!rootsProject || readOnly) return;
+        recordHistory();
+        const newProjectData = { ...rootsProject.projectData };
+        for (const key in updatedData) {
+            if (typeof updatedData[key] === 'object' && !Array.isArray(updatedData[key]) && updatedData[key] !== null) {
+                newProjectData[key] = { ...(newProjectData[key] || {}), ...updatedData[key as keyof typeof updatedData] };
+            } else if (updatedData[key as keyof typeof updatedData] !== undefined) {
+                (newProjectData as any)[key] = updatedData[key as keyof typeof updatedData];
+            }
+        }
+        setRootsProject(prev => prev ? { ...prev, projectData: newProjectData } : null);
+    }, [rootsProject, recordHistory, readOnly]);
+
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
@@ -1795,7 +1867,12 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       case 'trivia':
         return <TriviaView people={people} relationships={relationships} setViewMode={setViewMode} />;
       case 'roots':
-        return <RootsView treeId={treeId} people={people} relationships={relationships} tree={tree} />;
+        return <RootsView 
+            project={rootsProject}
+            onProjectChange={handleProjectDataChange}
+            currentStep={rootsProject?.currentStep || 1}
+            onStepChange={handleStepChange}
+        />;
       default:
         return null;
     }
@@ -1983,6 +2060,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               treeId={tree.id}
               treeName={tree.treeName}
               people={people}
+              viewMode={viewMode}
+              rootsProject={rootsProject}
+              onRootsProjectUpdate={handleRootsProjectUpdate}
             />
           )}
         </main>
