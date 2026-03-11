@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { rephraseText } from '@/ai/flows/rephrase-text-flow';
+
 
 // --- Utility & Base Components ---
 
@@ -165,7 +166,7 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
         if (!currentStudentId && treeOwnerId) {
             onSelect(treeOwnerId);
         }
-    }, []);
+    }, [currentStudentId, treeOwnerId, onSelect]);
 
     const handleSelectAndConfirm = (id: string) => {
         onSelect(id);
@@ -457,7 +458,7 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
           console.error("Could not calculate Hebrew year:", e);
         }
       }
-    }, [submissionDate]);
+    }, [submissionDate, onUpdate, coverPage.hebrewYear]);
 
     return (
         <div className="space-y-3">
@@ -520,36 +521,19 @@ const AiRephraseButton = ({ value, onRephrase, fieldName }: {
     }
     setStatus('loading');
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `אתה עוזר לתלמיד ישראלי לכתוב עבודת שורשים. התלמיד כתב את הטקסט הבא בשדה "${fieldName}".
-            
-תפקידך:
-1. לתקן שגיאות כתיב ודקדוק בעברית
-2. לשפר את הניסוח כך שיישמע מקצועי ויפה יותר
-3. לשמור על הסגנון האישי של התלמיד ועל התוכן המקורי
-4. לכתוב בגוף ראשון (אני/אנחנו)
-5. לא להוסיף מידע שלא היה בטקסט המקורי
-
-הטקסט המקורי:
-"${value}"
-
-החזר אך ורק את הטקסט המשופר, ללא הסברים, ללא מרכאות.`
-          }]
-        })
+      const result = await rephraseText({
+        textToRephrase: value,
+        fieldName: fieldName,
       });
-      const data = await response.json();
-      const improved = data.content?.[0]?.text?.trim();
+
+      const improved = result.rephrasedText;
+      
       if (improved) {
         onRephrase(improved);
         setStatus('done');
         setTimeout(() => setStatus('idle'), 2000);
+      } else {
+        setStatus('idle');
       }
     } catch (e) {
       console.error('AI rephrase error:', e);
@@ -865,7 +849,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.inheritedObject || ''} onRephrase={(v) => onUpdate(['heritage', 'inheritedObject'], v)} fieldName="חפץ עובר בירושה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">חפץ עובר בירושה 💎</label>
         </div>
         <EditableField asTextarea value={heritage.inheritedObject || ''} onUpdate={(v) => onUpdate(['heritage', 'inheritedObject'], v)} placeholder="תארו חפץ שעבר במשפחה מדור לדור. מה הוא? מאיפה הגיע? מה הוא מסמל?" />
       </div>
@@ -874,7 +858,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyRecipe || ''} onRephrase={(v) => onUpdate(['heritage', 'familyRecipe'], v)} fieldName="מתכון משפחתי" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מתכון משפחתי 🍽️</label>
         </div>
         <EditableField asTextarea value={heritage.familyRecipe || ''} onUpdate={(v) => onUpdate(['heritage', 'familyRecipe'], v)} placeholder="מה המנה שכולם מחכים לה בארוחות משפחתיות? מי מכינה אותה? מה הסיפור שלה?" />
       </div>
@@ -883,7 +867,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyNameOrigin || ''} onRephrase={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} fieldName="מקור שם המשפחה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מקור שם המשפחה</label>
         </div>
         <EditableField asTextarea value={heritage.familyNameOrigin || ''} onUpdate={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} placeholder="מאיפה מגיע שם המשפחה? מה משמעותו? מתי אומץ שם זה?" />
       </div>
