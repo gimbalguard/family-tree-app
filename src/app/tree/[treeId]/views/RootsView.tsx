@@ -7,12 +7,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { WIZARD_STEPS } from '../roots-config';
-import { useUser } from '@/firebase';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, User, School, BookOpen, Users, Milestone } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -43,15 +40,17 @@ export interface RootsProjectData {
 type RootsViewProps = {
     project: RootsProject | null;
     people: Person[];
+    relationships: Relationship[];
     tree: FamilyTree | null;
     onProjectChange: (path: (string | number)[], value: any) => void;
     onStepChange: (step: number) => void;
 };
 
-// Reusable Editable Field Component
-const EditableField = ({ value, onUpdate, placeholder, multiline = false, className }: { value: string; onUpdate: (newValue: string) => void; placeholder: string; multiline?: boolean, className?: string }) => {
+// Reusable Editable Field Component - Enhanced for high-end look
+const EditableField = ({ value, onUpdate, placeholder, multiline = false, className, as = 'div' }: { value: string; onUpdate: (newValue: string) => void; placeholder: string; multiline?: boolean, className?: string; as?: 'div' | 'h1' }) => {
     const ref = useRef<HTMLDivElement>(null);
     const isPlaceholder = !value;
+    const Comp = as;
 
     useEffect(() => {
         if (ref.current && ref.current.textContent !== value) {
@@ -71,24 +70,24 @@ const EditableField = ({ value, onUpdate, placeholder, multiline = false, classN
     };
   
     return (
-      <div
+      <Comp
         ref={ref}
         contentEditable
         suppressContentEditableWarning
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
         className={cn(
-          "px-2 py-1 rounded-md min-h-[30px] inline-block",
-          "hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-primary/10 transition-all focus:scale-[1.02] origin-right",
-          isPlaceholder && "text-muted-foreground/70",
+          "px-2 py-1 rounded-md min-h-[30px] inline-block w-full text-right",
+          "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:bg-primary/10 transition-all focus:scale-[1.02] origin-right",
+          isPlaceholder ? "text-muted-foreground/60 italic" : "text-foreground/90",
+          multiline && "min-h-[100px] whitespace-pre-wrap",
           className
         )}
       >
         {isPlaceholder ? placeholder : value}
-      </div>
+      </Comp>
     );
 };
-
 
 // Step 0: Identity Selection
 const Step0_Identity = ({ people, tree, onSelect }: { people: Person[], tree: FamilyTree | null, onSelect: (personId: string) => void }) => {
@@ -108,66 +107,49 @@ const Step0_Identity = ({ people, tree, onSelect }: { people: Person[], tree: Fa
     const selectedPerson = people.find(p => p.id === value);
 
     useEffect(() => {
-        // If the dropdown is closed, clear the search term
-        if (!open) {
-            setSearchTerm("");
-        }
+        if (!open) setSearchTerm("");
     }, [open]);
 
     return (
-        <Card className="max-w-md mx-auto text-center shadow-2xl rounded-3xl p-8">
+        <Card className="max-w-md mx-auto text-center shadow-2xl rounded-3xl p-8 bg-card/80 backdrop-blur-sm border-white/20">
+            <User className="mx-auto h-16 w-16 text-primary mb-4"/>
             <h2 className="text-3xl font-bold mb-4">מי אני בעץ?</h2>
             <p className="text-muted-foreground mb-6">בחירת זהותך תקבע את נקודת המבט של עבודת השורשים.</p>
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-12 text-lg">
-                        {selectedPerson ? `${selectedPerson.firstName} ${selectedPerson.lastName}` : "בחר אדם..."}
-                        <ChevronsUpDown className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                    <div className="p-2 border-b">
-                        <Input
-                            placeholder="חפש אדם..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="h-9"
-                        />
-                    </div>
-                    <ScrollArea className="h-72">
-                        <div className="p-1">
-                            {filteredPeople.length === 0 && (
-                                <div className="py-6 text-center text-sm text-muted-foreground">לא נמצא אדם.</div>
-                            )}
-                            {filteredPeople.map(person => (
-                                <Button
-                                    key={person.id}
-                                    variant="ghost"
-                                    className="w-full justify-start h-auto py-2"
-                                    onClick={() => {
-                                        setValue(person.id);
-                                        setOpen(false);
-                                    }}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={person.photoURL || undefined} />
-                                            <AvatarFallback><img src={getPlaceholderImage(person.gender)} alt="avatar"/></AvatarFallback>
-                                        </Avatar>
-                                        <span>{person.firstName} {person.lastName}</span>
-                                    </div>
-                                    {value === person.id && <Check className="h-4 w-4 mr-auto" />}
-                                </Button>
-                            ))}
-                        </div>
-                    </ScrollArea>
-                </PopoverContent>
-            </Popover>
-            <Button size="lg" className="w-full mt-6" onClick={() => onSelect(value)} disabled={!value}>המשך</Button>
+            <div className="relative">
+                <Input
+                    placeholder="חפש אדם..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-12 text-lg text-center bg-background/50 mb-2"
+                />
+                <ScrollArea className="h-60 border rounded-lg">
+                    {filteredPeople.length === 0 ? (
+                        <div className="py-6 text-center text-sm text-muted-foreground">לא נמצא אדם.</div>
+                    ) : (
+                       filteredPeople.map(person => (
+                            <button
+                                key={person.id}
+                                className={cn(
+                                    "w-full text-right h-auto py-2 px-3 flex items-center gap-3 transition-colors",
+                                    value === person.id ? "bg-primary/20" : "hover:bg-muted/50"
+                                )}
+                                onClick={() => setValue(person.id)}
+                            >
+                                <Avatar className="h-10 w-10 border-2 border-white">
+                                    <AvatarImage src={person.photoURL || undefined} />
+                                    <AvatarFallback><img src={getPlaceholderImage(person.gender)} alt="avatar"/></AvatarFallback>
+                                </Avatar>
+                                <span className="font-semibold">{person.firstName} {person.lastName}</span>
+                                {value === person.id && <Check className="h-5 w-5 text-primary mr-auto" />}
+                            </button>
+                        ))
+                    )}
+                </ScrollArea>
+            </div>
+            <Button size="lg" className="w-full mt-6 text-lg" onClick={() => onSelect(value)} disabled={!value}>המשך</Button>
         </Card>
     );
 };
-
 
 // Step 1: Formal Info
 const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void }) => {
@@ -175,34 +157,121 @@ const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: Roots
 
     return (
         <div className="space-y-6">
-             <div className="p-8 border-4 border-gray-700 bg-white text-black text-center flex flex-col justify-center items-center font-serif min-h-[500px]">
-                <h1 className="text-4xl font-bold mb-12">
-                    <EditableField value={coverPage.title || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'title'], newValue)} placeholder={projectData.projectName || 'שם הפרויקט'} className="font-bold text-4xl" />
-                </h1>
-                <div className="space-y-4 text-lg">
-                    <p>מגיש/ה: <EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" /></p>
-                    <p>בית ספר: <EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" /></p>
-                    <p>כיתה: <EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></p>
-                    <p>מורה: <EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></p>
-                    <p>תאריך הגשה: <EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></p>
+             <div className="p-8 border-4 border-gray-700 bg-white text-black text-center flex flex-col justify-between items-center font-serif min-h-[600px] shadow-2xl">
+                <div>
+                  <EditableField as="h1" value={coverPage.title || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'title'], newValue)} placeholder={projectData.projectName || 'שם הפרויקט'} className="font-bold text-5xl mb-16" />
+                </div>
+                <div className="space-y-6 text-2xl">
+                    <div className="flex items-center gap-2"><span>מגיש/ה:</span><EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" className="text-2xl font-semibold"/></div>
+                    <div className="flex items-center gap-2"><span>בית ספר:</span><EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" className="text-2xl"/></div>
+                    <div className="flex items-center gap-2"><span>כיתה:</span><EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" className="text-2xl"/></div>
+                    <div className="flex items-center gap-2"><span>מורה:</span><EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" className="text-2xl"/></div>
+                </div>
+                 <div className="w-full">
+                    <div className="flex justify-between w-full mt-16 text-lg">
+                       <EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" className="text-lg"/>
+                       <EditableField value={coverPage.hebrewYear || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'hebrewYear'], newValue)} placeholder="[שנה עברית]" className="text-lg"/>
+                    </div>
+                 </div>
+            </div>
+        </div>
+    );
+};
+
+// Step 2: My Story
+const Step2_MyStory = ({ projectData, onProjectChange }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void }) => {
+    const { myStory = {} } = projectData;
+
+    return (
+        <div className="space-y-8">
+            <div className="text-center">
+                <BookOpen className="mx-auto h-12 w-12 text-primary mb-2"/>
+                <h2 className="text-3xl font-bold">הסיפור האישי שלי</h2>
+                <p className="text-muted-foreground mt-1">כאן המקום לספר על עצמך</p>
+            </div>
+            <div className="space-y-6">
+                <div>
+                    <label className="text-lg font-semibold block text-right mb-1">מה משמעות השם שלי?</label>
+                    <EditableField multiline value={myStory.nameMeaning || ''} onUpdate={(v) => onProjectChange(['myStory', 'nameMeaning'], v)} placeholder="מי בחר את השם? האם יש לו משמעות מיוחדת?..." className="bg-background"/>
+                </div>
+                 <div>
+                    <label className="text-lg font-semibold block text-right mb-1">סיפור הלידה שלי</label>
+                    <EditableField multiline value={myStory.birthStory || ''} onUpdate={(v) => onProjectChange(['myStory', 'birthStory'], v)} placeholder="ספר/י על היום שנולדת, איפה זה קרה, וסיפורים מיוחדים מההורים." className="bg-background"/>
+                </div>
+                 <div>
+                    <label className="text-lg font-semibold block text-right mb-1">תחביבים וחלומות</label>
+                    <EditableField multiline value={myStory.hobbies || ''} onUpdate={(v) => onProjectChange(['myStory', 'hobbies'], v)} placeholder="מה את/ה אוהב/ת לעשות בזמנך הפנוי? מה החלום הכי גדול שלך?" className="bg-background"/>
                 </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
-                <div className="space-y-1">
-                    <Label>מנהל/ת בית הספר</Label>
-                    <EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="שם המנהל/ת" />
+        </div>
+    );
+}
+
+// Step 3: Nuclear Family
+const Step3_NuclearFamily = ({ projectData, people, relationships, onProjectChange }: { projectData: RootsProjectData, people: Person[], relationships: Relationship[], onProjectChange: Function }) => {
+    const studentId = projectData.studentPersonId;
+
+    const { parents, siblings } = useMemo(() => {
+        if (!studentId) return { parents: [], siblings: [] };
+
+        const parentIds = relationships
+            .filter(r => r.personBId === studentId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType))
+            .map(r => r.personAId);
+        
+        const parents = people.filter(p => parentIds.includes(p.id));
+
+        const siblingIds = new Set<string>();
+        parentIds.forEach(parentId => {
+            relationships.forEach(r => {
+                if (r.personAId === parentId && r.personBId !== studentId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)) {
+                    siblingIds.add(r.personBId);
+                }
+            });
+        });
+
+        const siblings = people.filter(p => siblingIds.has(p.id)).sort((a,b) => (a.birthDate || '').localeCompare(b.birthDate || ''));
+
+        return { parents, siblings };
+    }, [studentId, people, relationships]);
+
+    return (
+        <div className="space-y-8">
+            <div className="text-center">
+                <Users className="mx-auto h-12 w-12 text-primary mb-2"/>
+                <h2 className="text-3xl font-bold">המשפחה הגרעינית שלי</h2>
+                <p className="text-muted-foreground mt-1">ספר על האנשים הקרובים אליך ביותר.</p>
+            </div>
+            
+            <div>
+                <h3 className="text-2xl font-semibold border-b-2 border-primary pb-1 mb-4 text-right">הורים</h3>
+                <div className="space-y-4">
+                    {parents.length > 0 ? parents.map(p => (
+                        <div key={p.id}>
+                            <label className="text-lg font-semibold block text-right mb-1">סיפור על {p.firstName}</label>
+                            <EditableField multiline value={projectData.family?.parents?.[p.id]?.story || ''} onUpdate={(v) => onProjectChange(['family', 'parents', p.id, 'story'], v)} placeholder={`איפה נולד/ה? מה המקצוע? מה התחביבים?`} className="bg-background"/>
+                        </div>
+                    )) : <p className="text-muted-foreground text-center">לא נמצאו הורים בעץ.</p>}
                 </div>
-                <div className="space-y-1">
-                    <Label>שנה עברית</Label>
-                    <EditableField value={coverPage.hebrewYear || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'hebrewYear'], newValue)} placeholder="לדוג׳: תשפ״ה" />
+            </div>
+
+            <div>
+                <h3 className="text-2xl font-semibold border-b-2 border-primary pb-1 mb-4 text-right">אחים ואחיות</h3>
+                <div className="space-y-4">
+                    {siblings.length > 0 ? siblings.map(s => (
+                        <div key={s.id}>
+                             <label className="text-lg font-semibold block text-right mb-1">סיפור על {s.firstName}</label>
+                            <EditableField multiline value={projectData.family?.siblings?.[s.id]?.story || ''} onUpdate={(v) => onProjectChange(['family', 'siblings', s.id, 'story'], v)} placeholder={`מה הגיל? מה הקשר ביניכם?`} className="bg-background"/>
+                        </div>
+                    )) : <p className="text-muted-foreground text-center">לא נמצאו אחים בעץ.</p>}
                 </div>
             </div>
         </div>
     );
 };
 
+
 // Main Component
-export function RootsView({ project, people, tree, onProjectChange, onStepChange }: RootsViewProps) {
+export function RootsView({ project, people, relationships, tree, onProjectChange, onStepChange }: RootsViewProps) {
   const currentStep = project?.currentStep || 0;
   
   const debouncedSave = useCallback(
@@ -216,8 +285,8 @@ export function RootsView({ project, people, tree, onProjectChange, onStepChange
     // Step 0 - always show if no student is selected
     if (!project.projectData?.studentPersonId) {
         return <Step0_Identity people={people} tree={tree} onSelect={(personId) => {
-            onProjectChange(['studentPersonId'], personId);
             const student = people.find(p => p.id === personId);
+            onProjectChange(['studentPersonId'], personId);
             onProjectChange(['coverPage', 'studentName'], student ? `${student.firstName} ${student.lastName}` : '');
             onStepChange(1);
         }} />;
@@ -226,9 +295,13 @@ export function RootsView({ project, people, tree, onProjectChange, onStepChange
     switch (currentStep) {
         case 1:
             return <Step1_FormalInfo projectData={project.projectData || {}} onProjectChange={debouncedSave} />;
+        case 2:
+            return <Step2_MyStory projectData={project.projectData || {}} onProjectChange={debouncedSave} />;
+        case 3:
+            return <Step3_NuclearFamily projectData={project.projectData || {}} people={people} relationships={relationships} onProjectChange={debouncedSave} />;
         default:
             return (
-                <div className="flex items-center justify-center h-full">
+                <div className="flex items-center justify-center h-96">
                     <p className="text-muted-foreground">שלב {currentStep} - תוכן יוצג כאן...</p>
                 </div>
             );
@@ -244,10 +317,10 @@ export function RootsView({ project, people, tree, onProjectChange, onStepChange
   }
 
   return (
-    <div className="w-full h-full flex flex-col p-4 bg-muted/20" dir="rtl">
+    <div className="w-full h-full flex flex-col p-4 bg-gray-100 dark:bg-gray-900" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23a0aec0\' fill-opacity=\'0.1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")' }} dir="rtl">
         <div className="flex-1 overflow-y-auto">
             <div className="max-w-4xl mx-auto py-8">
-                 <Card className="w-full shadow-2xl rounded-3xl">
+                 <Card className="w-full shadow-2xl rounded-3xl bg-card/95 backdrop-blur-sm border-white/10">
                      <CardContent className="p-4 sm:p-8">
                         {renderStepContent()}
                      </CardContent>
@@ -256,12 +329,12 @@ export function RootsView({ project, people, tree, onProjectChange, onStepChange
         </div>
         
         {project.projectData?.studentPersonId && (
-            <div className="p-4 border-t bg-card mt-4 rounded-b-lg shadow-lg shrink-0">
+            <div className="p-4 border-t bg-card/95 backdrop-blur-sm mt-4 rounded-t-2xl shadow-lg shrink-0">
                 <div className="mb-2 text-center text-sm font-medium">
                 שלב {currentStep} מתוך {WIZARD_STEPS.length - 1}: {WIZARD_STEPS.find(s => s.id === currentStep)?.label}
                 </div>
                 <Progress value={((currentStep) / (WIZARD_STEPS.length -1)) * 100} />
-                <div className="flex justify-between items-center mt-2">
+                <div className="flex justify-between items-center mt-4">
                     <Button variant="outline" onClick={() => onStepChange(currentStep - 1)} disabled={currentStep <= 1}>
                         → הקודם
                     </Button>
@@ -271,16 +344,16 @@ export function RootsView({ project, people, tree, onProjectChange, onStepChange
                             key={step.id}
                             onClick={() => onStepChange(step.id)}
                             className={cn(
-                                "w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all",
-                                currentStep === step.id ? "bg-primary text-primary-foreground scale-110" :
-                                currentStep > step.id ? "bg-primary/50 text-primary-foreground" : "bg-muted text-muted-foreground"
+                                "w-7 h-7 rounded-full flex items-center justify-center text-xs transition-all border-2",
+                                currentStep === step.id ? "bg-primary text-primary-foreground border-primary-foreground/50 scale-110" :
+                                currentStep > step.id ? "bg-primary/50 text-primary-foreground border-transparent" : "bg-muted text-muted-foreground border-border"
                             )}
                             >
                             {step.id}
                             </button>
                         ))}
                     </div>
-                    <Button variant="outline" onClick={() => onStepChange(currentStep + 1)} disabled={currentStep >= WIZARD_STEPS.length - 1}>
+                    <Button onClick={() => onStepChange(currentStep + 1)} disabled={currentStep >= WIZARD_STEPS.length - 1}>
                         הבא ←
                     </Button>
                 </div>
