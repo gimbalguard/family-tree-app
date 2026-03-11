@@ -477,6 +477,10 @@ export function AiChatPanel({
 
   const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
 
+  const placeholder = viewMode === 'roots' 
+    ? 'הקלד כאן כדי להמשיך את עבודת השורשים...' 
+    : 'ספר על אדם או קשר כדי להוסיף לעץ...';
+
   return (
     <div
       ref={panelRef}
@@ -549,7 +553,7 @@ export function AiChatPanel({
             <div className="relative mt-4">
                {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
               <Textarea
-                placeholder="ספר על אדם או קשר כדי להוסיף לעץ..."
+                placeholder={placeholder}
                 className="pr-28 pl-12 h-20"
                 value={story}
                 onChange={(e) => setStory(e.target.value)}
