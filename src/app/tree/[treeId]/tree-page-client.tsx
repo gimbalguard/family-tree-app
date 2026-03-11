@@ -1804,34 +1804,58 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsEditingName(false);
   };
   
-    const handleProjectDataChange = useCallback((path: (string|number)[], value: any) => {
-        if (readOnly) return;
-        recordHistory();
-        
-        setRootsProject(prev => {
-            if (!prev) return null;
-            const newProject = structuredClone(prev);
-            let currentLevel: any = newProject.projectData;
-            for (let i = 0; i < path.length - 1; i++) {
-                const key = path[i];
-                if (currentLevel[key] === undefined || typeof currentLevel[key] !== 'object' || currentLevel[key] === null) {
-                    currentLevel[key] = {};
-                }
-                currentLevel = currentLevel[key];
-            }
-            currentLevel[path[path.length - 1]] = value;
-            return newProject;
-        });
-    }, [recordHistory, readOnly]);
+  const handleOpenSettings = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsSettingsModalOpen(true));
+  }, []);
 
-    const handleStepChange = useCallback((newStep: number) => {
-        if (readOnly) return;
-        recordHistory();
-        setRootsProject(prev => {
-            if (!prev || newStep < 0 || newStep >= WIZARD_STEPS.length) return prev;
-            return { ...prev, currentStep: newStep };
-        });
-    }, [recordHistory, readOnly]);
+  const handleOpenAccount = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsAccountModalOpen(true));
+  }, []);
+
+  const handleOpenPdfModal = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsPdfModalOpen(true));
+  }, []);
+  
+  const handleOpenPptExport = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsPowerPointModalOpen(true));
+  }, []);
+
+  const handleOpenImageExport = useCallback(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsImageExportModalOpen(true));
+  }, []);
+
+  const handleUpdateRootsProject = useCallback(
+    (updater: (project: RootsProject) => RootsProject) => {
+      if (readOnly) return;
+      recordHistory();
+      setRootsProject((prev) => (prev ? updater(prev) : null));
+    },
+    [readOnly, recordHistory]
+  );
+  
+  const handleSetRootsProject = useCallback(
+    (newProjectState: RootsProject) => {
+      if (readOnly) return;
+      recordHistory();
+      setRootsProject(newProjectState);
+    },
+    [readOnly, recordHistory]
+  );
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
@@ -1892,11 +1916,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       case 'roots':
         return <RootsView 
             project={rootsProject}
+            setProject={handleSetRootsProject}
+            updateProject={handleUpdateRootsProject}
             people={people}
             relationships={relationships}
             tree={tree}
-            onProjectChange={handleProjectDataChange}
-            onStepChange={handleStepChange}
         />;
       default:
         return null;
@@ -1939,38 +1963,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           setViewMode={setViewMode}
           edgeType={edgeType}
           setEdgeType={setEdgeType}
-          onOpenSettings={() => {
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            requestAnimationFrame(() => setIsSettingsModalOpen(true));
-          }}
-          onOpenAccount={() => {
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            requestAnimationFrame(() => setIsAccountModalOpen(true));
-          }}
+          onOpenSettings={handleOpenSettings}
+          onOpenAccount={handleOpenAccount}
           onToggleChat={() => setIsChatPanelOpen(prev => !prev)}
-          onOpenPdfModal={() => {
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            requestAnimationFrame(() => setIsPdfModalOpen(true));
-          }}
-          onOpenPptExport={() => {
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            requestAnimationFrame(() => setIsPowerPointModalOpen(true));
-          }}
+          onOpenPdfModal={handleOpenPdfModal}
+          onOpenPptExport={handleOpenPptExport}
           onExportExcel={handleExportExcel}
-          onOpenImageExport={() => {
-            if (document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
-            }
-            requestAnimationFrame(() => setIsImageExportModalOpen(true));
-          }}
+          onOpenImageExport={handleOpenImageExport}
           onImportClick={() => importFileInputRef.current?.click()}
           isTimelineCompact={isTimelineCompact}
           onToggleTimelineCompact={() => setIsTimelineCompact(v => !v)}
