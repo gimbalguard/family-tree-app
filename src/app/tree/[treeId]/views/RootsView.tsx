@@ -20,8 +20,7 @@ type RootsViewProps = {
     people: Person[];
     relationships: Relationship[];
     tree: FamilyTree | null;
-    updateProject: (updater: (project: RootsProject | null) => RootsProject | null) => void;
-    setProject: (project: RootsProject) => void;
+    updateProject: (updater: (project: RootsProject) => RootsProject) => void;
 };
 
 
@@ -50,7 +49,7 @@ const MotionButton = motion(forwardRef<HTMLButtonElement, React.ComponentProps<"
 )));
 MotionButton.displayName = "MotionButton";
 
-const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asTextarea }: { value: string, onUpdate: (newValue: string) => void, placeholder?: string, isMagical?: boolean, className?: string, asTextarea?: boolean }) => {
+const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asTextarea }: { value: string; onUpdate: (newValue: string) => void; placeholder?: string; isMagical?: boolean; className?: string; asTextarea?: boolean; }) => {
     const ref = useRef<HTMLDivElement>(null);
 
     const handleBlur = () => {
@@ -58,33 +57,39 @@ const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asT
             onUpdate(ref.current.textContent || '');
         }
     };
-    
+
     return (
         <div className="relative">
             <motion.div
+                key={value} // Use key to re-render with new initial value to avoid dangerouslySetInnerHTML conflicts
                 ref={ref}
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={handleBlur}
-                onKeyDown={(e) => { if(e.key === 'Enter' && !asTextarea) { e.preventDefault(); (e.target as HTMLElement).blur(); } }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !asTextarea) {
+                        e.preventDefault();
+                        (e.target as HTMLElement).blur();
+                    }
+                }}
                 dangerouslySetInnerHTML={{ __html: value || '' }}
                 className={cn(
                     "w-full bg-gray-50/50 border-2 border-indigo-100 rounded-2xl p-4 text-lg focus:bg-white focus:border-indigo-500 transition-all duration-300 shadow-inner",
                     "outline-none focus:ring-4 focus:ring-indigo-500/20",
                     asTextarea ? "min-h-[120px]" : "min-h-[58px]",
-                    !value && "text-muted-foreground/50",
+                    "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50",
                     className
                 )}
+                data-placeholder={placeholder}
                 whileFocus={{ scale: 1.02 }}
-            >
-              {!value ? placeholder : null}
-            </motion.div>
-             {isMagical && (
+            />
+            {isMagical && (
                 <Sparkles className="absolute top-3 left-3 h-5 w-5 text-blue-400 z-20" />
             )}
         </div>
     );
 };
+
 
 const ProgressBar = ({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) => {
     const percentage = ((currentStep) / (totalSteps - 1)) * 100;
@@ -186,18 +191,36 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
 const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: RootsProjectData, onProjectChange: (path: (string|number)[], value: any) => void }) => {
     const coverPage = projectData.coverPage || {};
     const fieldContainerClass = "space-y-2 text-right";
-    const labelClass = "font-semibold text-gray-600 px-2 flex items-center gap-2";
+    const labelClass = "font-semibold text-gray-600 px-2 flex items-center justify-end gap-2";
 
     return (
         <div className="space-y-6">
             <GradientHeading className="text-center mb-10">שער העבודה</GradientHeading>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className={fieldContainerClass}><label className={labelClass}><User/> מגיש/ה:</label><EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" isMagical={!!coverPage.studentName} /></div>
-                <div className={fieldContainerClass}><label className={labelClass}><School/> בית ספר:</label><EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" /></div>
-                <div className={fieldContainerClass}><label className={labelClass}><School/> כיתה:</label><EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></div>
-                <div className={fieldContainerClass}><label className={labelClass}><User/> מורה:</label><EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></div>
-                <div className={fieldContainerClass}><label className={labelClass}><User/> שם המנהל/ת:</label><EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="[שם המנהל/ת]" /></div>
-                <div className={fieldContainerClass}><label className={labelClass}><Calendar/> תאריך הגשה:</label><EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><User/> מגיש/ה</label>
+                    <EditableField value={coverPage.studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" isMagical={!!coverPage.studentName} />
+                </div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><School/> בית ספר</label>
+                    <EditableField value={coverPage.schoolName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'schoolName'], newValue)} placeholder="[שם בית הספר]" />
+                </div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><School/> כיתה</label>
+                    <EditableField value={coverPage.className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" />
+                </div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><User/> מורה</label>
+                    <EditableField value={coverPage.teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" />
+                </div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><User/> שם המנהל/ת</label>
+                    <EditableField value={coverPage.principalName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'principalName'], newValue)} placeholder="[שם המנהל/ת]" />
+                </div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><Calendar/> תאריך הגשה</label>
+                    <EditableField value={coverPage.submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" />
+                </div>
             </div>
         </div>
     );
@@ -211,8 +234,14 @@ const Step2_MyStory = ({ projectData, onProjectChange, student }: { projectData:
         <div className="space-y-12">
              <GradientHeading className="text-center mb-10">הסיפור האישי שלי</GradientHeading>
              <div className="space-y-8">
-                <div className={fieldContainerClass}><label className={labelClass}><Wand2/> משמעות השם שלי</label><EditableField asTextarea value={myStory.nameMeaning || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'nameMeaning'], newValue)} placeholder="כתוב/י כאן על משמעות שמך..." isMagical={!!student?.firstName} /></div>
-                <div className={fieldContainerClass}><label className={labelClass}><Star/> סיפור הלידה שלי</label><EditableField asTextarea value={myStory.birthStory || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'birthStory'], newValue)} placeholder="תאר/י את סיפור לידתך, כפי שסופר לך..." isMagical={!!student?.birthDate}/></div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><Wand2/> משמעות השם שלי</label>
+                    <EditableField asTextarea value={myStory.nameMeaning || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'nameMeaning'], newValue)} placeholder="כתוב/י כאן על משמעות שמך..." isMagical={!!student?.firstName} />
+                </div>
+                <div className={fieldContainerClass}>
+                    <label className={labelClass}><Star/> סיפור הלידה שלי</label>
+                    <EditableField asTextarea value={myStory.birthStory || ''} onUpdate={(newValue) => onProjectChange(['myStory', 'birthStory'], newValue)} placeholder="תאר/י את סיפור לידתך, כפי שסופר לך..." isMagical={!!student?.birthDate}/>
+                </div>
              </div>
         </div>
     );
@@ -227,32 +256,25 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         );
     }
     
-    const onProjectChange = useCallback((path: (string|number)[], value: any) => {
+    const handleProjectUpdate = useCallback((path: (string|number)[], value: any) => {
         updateProject(proj => {
             if (!proj) return proj;
             
             const newProject = JSON.parse(JSON.stringify(proj));
-            const firstSegment = path[0];
-
-            if (firstSegment === 'studentPersonId' || firstSegment === 'currentStep') {
-                (newProject as any)[firstSegment] = value;
-            } else {
-                let current = newProject.projectData;
-                for (let i = 0; i < path.length - 1; i++) {
-                    const segment = path[i];
-                    if (current[segment] === undefined || typeof current[segment] !== 'object') {
-                        current[segment] = {};
-                    }
-                    current = current[segment];
+            let current = newProject;
+            for (let i = 0; i < path.length - 1; i++) {
+                const segment = path[i];
+                if (current[segment] === undefined || typeof current[segment] !== 'object') {
+                    current[segment] = {};
                 }
-                current[path[path.length - 1]] = value;
+                current = current[segment];
             }
-            
+            current[path[path.length - 1]] = value;
             return newProject;
         });
     }, [updateProject]);
 
-    const onStepChange = useCallback((step: number) => {
+    const handleStepChange = useCallback((step: number) => {
         updateProject(proj => {
             if (!proj) return proj;
             return { ...proj, currentStep: step };
@@ -266,16 +288,16 @@ export function RootsView({ project, people, relationships, tree, updateProject,
     ], []);
 
     const handleSelectStudent = (personId: string) => {
-        onProjectChange(['studentPersonId'], personId);
+        handleProjectUpdate(['studentPersonId'], personId);
         const student = people.find(p => p.id === personId);
         if (student) {
-            onProjectChange(['coverPage', 'studentName'], `${student.firstName} ${student.lastName}`);
+            handleProjectUpdate(['projectData', 'coverPage', 'studentName'], `${student.firstName} ${student.lastName}`);
         }
     };
     
     const handleContinueFromIdentity = () => {
         if (project.studentPersonId) {
-            onStepChange(1);
+            handleStepChange(1);
         }
     };
 
@@ -283,8 +305,8 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         const student = people.find(p => p.id === project.studentPersonId);
         switch (project.currentStep) {
             case 0: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onContinue={handleContinueFromIdentity}/>;
-            case 1: return <Step1_FormalInfo projectData={project.projectData} onProjectChange={onProjectChange} />;
-            case 2: return <Step2_MyStory projectData={project.projectData} onProjectChange={onProjectChange} student={student} />;
+            case 1: return <Step1_FormalInfo projectData={project.projectData} onProjectChange={(path, value) => handleProjectUpdate(['projectData', ...path], value)} />;
+            case 2: return <Step2_MyStory projectData={project.projectData} onProjectChange={(path, value) => handleProjectUpdate(['projectData', ...path], value)} student={student} />;
             default: return <div className="text-center p-8"><h2 className="text-2xl font-bold">פרק בבנייה</h2><p className="text-muted-foreground mt-2">הפרק הזה עדיין בפיתוח ויגיע בקרוב!</p></div>;
         }
     };
@@ -320,11 +342,11 @@ export function RootsView({ project, people, relationships, tree, updateProject,
                        <ProgressBar currentStep={project.currentStep} totalSteps={WIZARD_STEPS.length} />
                     </div>
                     <div className="flex justify-between items-center w-full">
-                        <MotionButton onClick={() => onStepChange(project.currentStep - 1)} disabled={project.currentStep <= 1}>
+                        <MotionButton onClick={() => handleStepChange(project.currentStep - 1)} disabled={project.currentStep <= 1}>
                             הקודם
                         </MotionButton>
                         <p className="text-sm text-muted-foreground font-medium">פרק {project.currentStep} מתוך {WIZARD_STEPS.length - 1}</p>
-                        <MotionButton onClick={() => onStepChange(project.currentStep + 1)} disabled={project.currentStep >= WIZARD_STEPS.length - 1}>
+                        <MotionButton onClick={() => handleStepChange(project.currentStep + 1)} disabled={project.currentStep >= WIZARD_STEPS.length - 1}>
                             הבא
                         </MotionButton>
                     </div>
