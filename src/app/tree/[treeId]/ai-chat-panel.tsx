@@ -33,9 +33,10 @@ interface AiChatPanelProps {
     treeId: string;
     treeName: string;
     people: Person[];
+    relationships: Relationship[];
     onClose: () => void;
     onDataAdded: () => void;
-    viewMode: 'tree' | 'roots' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
+    viewMode: 'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
 }
 
 const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
@@ -435,8 +436,7 @@ export function AiChatPanel({
   };
 
   const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
-
-  const placeholder = 'ספר על אדם או קשר כדי להוסיף לעץ...';
+  const placeholder = "ספר על אדם או קשר כדי להוסיף לעץ...";
 
   return (
     <div

@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
@@ -123,6 +122,24 @@ export type ViewMode =
 export type CanvasAspectRatio = 'free' | 'a4-landscape' | 'a4-portrait' | '16:9-landscape' | '16:9-portrait' | '1:1';
 
 export type EdgeType = 'default' | 'step' | 'straight';
+
+// Helper for debouncing
+function useDebounce<F extends (...args: any[]) => any>(callback: F, delay: number) {
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
+    }, []);
+
+    return useCallback((...args: Parameters<F>) => {
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+            callback(...args);
+        }, delay);
+    }, [callback, delay]);
+}
 
 // This function now intelligently determines the correct source and target handles
 // based on the LOGICAL relationship type, not the handles used to draw the initial line.
@@ -541,23 +558,15 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       
       if (rootsProjectSnap.exists()) {
         const project = rootsProjectSnap.data() as RootsProject;
-        // Fix for old data where role might be 'ai'
-        if (project.chatHistory) {
-            project.chatHistory = project.chatHistory.map(m => ({
-                ...m,
-                role: m.role === ('ai' as any) ? 'assistant' : m.role,
-            }));
-        }
         setRootsProject(project);
-      } else if (user) {
+      } else if (user && !readOnly) {
         const newProject: RootsProject = {
           id: 'main',
           userId: user.uid,
           treeId: treeId,
           projectName: treeData.treeName,
-          currentStep: 1,
+          currentStep: 0, // Start at identity selection
           projectData: { projectName: treeData.treeName },
-          chatHistory: [{ role: 'assistant', id: 'init', content: `שלום! יצרתי עבורך פרויקט חדש בשם "${treeData.treeName}". בוא נתחיל בשלב הראשון: שער המבוא.` }],
           createdAt: serverTimestamp() as any,
           updatedAt: serverTimestamp() as any,
         };
@@ -581,6 +590,22 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   }, [treeId, user, db, deriveStateFromData, readOnly, isUserLoading, router, nodes]);
   
+    const debouncedSaveRootsProject = useDebounce((projectToSave: RootsProject) => {
+        if (!user || !db || readOnly) return;
+        const projectRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'rootsProjects', 'main');
+        const { id, ...dataToSave } = projectToSave;
+        updateDoc(projectRef, { ...dataToSave, updatedAt: serverTimestamp() }).catch(err => {
+            console.error("Failed to save Roots project", err);
+            toast({ variant: 'destructive', title: 'שגיאת שמירה' });
+        });
+    }, 2000);
+
+    useEffect(() => {
+        if (rootsProject) {
+            debouncedSaveRootsProject(rootsProject);
+        }
+    }, [rootsProject, debouncedSaveRootsProject]);
+
   const runSiblingDetection = useCallback(async (
     personIdsForCheck: string[], 
     currentPeople: Person[], 
@@ -1779,51 +1804,32 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsEditingName(false);
   };
   
-    const handleProjectDataChange = useCallback((path: string[], value: any) => {
+    const handleProjectDataChange = useCallback((path: (string|number)[], value: any) => {
         if (!rootsProject || readOnly) return;
-        recordHistory(); // snapshot before change
-        const newProjectData = JSON.parse(JSON.stringify(rootsProject.projectData)); // Deep copy
-        let current: any = newProjectData;
+        recordHistory();
+
+        // Manual deep update for nested state
+        const newProject = { ...rootsProject, projectData: { ...rootsProject.projectData } };
+        let currentLevel: any = newProject.projectData;
+
         for (let i = 0; i < path.length - 1; i++) {
-            current[path[i]] = current[path[i]] || {};
-            current = current[path[i]];
+            const key = path[i];
+            currentLevel[key] = { ...(currentLevel[key] || {}) };
+            currentLevel = currentLevel[key];
         }
-        current[path[path.length - 1]] = value;
-        setRootsProject(prev => prev ? { ...prev, projectData: newProjectData } : null);
+        
+        currentLevel[path[path.length - 1]] = value;
+
+        setRootsProject(newProject);
     }, [rootsProject, recordHistory, readOnly]);
 
     const handleStepChange = useCallback((step: number) => {
         if (!rootsProject || readOnly) return;
-        if (step >= 1 && step <= 5) {
+        if (step >= 0 && step < WIZARD_STEPS.length) {
             recordHistory();
             setRootsProject(prev => prev ? { ...prev, currentStep: step } : null);
         }
     }, [rootsProject, recordHistory, readOnly]);
-    
-    const handleRootsProjectUpdate = useCallback((updatedData: Partial<RootsProjectData>) => {
-        if (!rootsProject || readOnly) return;
-        recordHistory();
-        const newProjectData = { ...rootsProject.projectData };
-        for (const key in updatedData) {
-            if (typeof updatedData[key] === 'object' && !Array.isArray(updatedData[key]) && updatedData[key] !== null) {
-                newProjectData[key] = { ...(newProjectData[key] || {}), ...updatedData[key as keyof typeof updatedData] };
-            } else if (updatedData[key as keyof typeof updatedData] !== undefined) {
-                (newProjectData as any)[key] = updatedData[key as keyof typeof updatedData];
-            }
-        }
-        setRootsProject(prev => prev ? { ...prev, projectData: newProjectData } : null);
-    }, [rootsProject, recordHistory, readOnly]);
-
-    const handleRootsChatHistoryChange = useCallback((newHistory: ChatMessage[]) => {
-      if (readOnly) return;
-      recordHistory();
-      setRootsProject(prev => prev ? { ...prev, chatHistory: newHistory } : null);
-    }, [recordHistory, readOnly]);
-
-
-  const rootsStepInstruction = useMemo(() => {
-    return WIZARD_STEPS.find(s => s.id === rootsProject?.currentStep)?.instruction;
-  }, [rootsProject?.currentStep]);
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
@@ -1884,8 +1890,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       case 'roots':
         return <RootsView 
             project={rootsProject}
+            people={people}
+            tree={tree}
             onProjectChange={handleProjectDataChange}
-            currentStep={rootsProject?.currentStep || 1}
             onStepChange={handleStepChange}
         />;
       default:
@@ -2068,8 +2075,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               onUnlock={handleUnlock}
             />
           )}
-           {isChatPanelOpen && user && db && tree && (
-            <AiChatPanel 
+           {isChatPanelOpen && user && db && tree && viewMode !== 'roots' && (
+            <AiChatPanel
               onClose={() => setIsChatPanelOpen(false)}
               onDataAdded={fetchData}
               treeId={tree.id}
@@ -2077,12 +2084,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               people={people}
               relationships={relationships}
               viewMode={viewMode}
-              rootsProject={rootsProject}
-              onRootsProjectUpdate={handleRootsProjectUpdate}
-              rootsStepInstruction={rootsStepInstruction}
-              isRootsMode={viewMode === 'roots'}
-              rootsChatHistory={rootsProject?.chatHistory}
-              onRootsChatHistoryChange={handleRootsChatHistoryChange}
             />
           )}
         </main>
