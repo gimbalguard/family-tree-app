@@ -186,15 +186,81 @@ export type PublicTree = {
   coverPhotoURL?: string;
 };
 
+// --- Roots Project Types ---
+interface CoverPageData {
+  schoolName?: string;
+  city?: string;
+  grade?: string;
+  teacherName?: string;
+  principalName?: string;
+  hebrewYear?: string;
+  gregorianYear?: number;
+  submissionDate?: string;
+}
+
+interface PersonalStoryData {
+  nameMeaning?: string;
+  nameChoiceStory?: string;
+  birthStory?: string;
+  personalVision?: string;
+  lifeStations?: { icon: string; date: string; event: string }[];
+}
+
+interface NuclearFamilyData {
+  parents: {
+    [personId: string]: { bio?: string };
+  };
+  siblings: {
+    [personId: string]: { notes?: string };
+  };
+  introductionStory?: string;
+  includeStatsChart?: boolean;
+}
+
+interface GenerationData {
+  [personId: string]: {
+    birthYear?: number;
+    birthplace?: string;
+    countryOfOrigin?: string;
+    immigrationYear?: number;
+    story?: string;
+  };
+}
+
+interface HeritageData {
+  heirloom?: string;
+  familyRecipe?: string;
+  surnameOrigin?: string;
+  nationalConnections?: {
+    [eventName: string]: {
+      selected: boolean;
+      story: string;
+    };
+  };
+  includeMigrationMap?: boolean;
+}
+
+
+export interface RootsProjectData {
+  coverPage?: CoverPageData;
+  personalStory?: PersonalStoryData;
+  nuclearFamily?: NuclearFamilyData;
+  maternalGrandparents?: GenerationData;
+  paternalGrandparents?: GenerationData;
+  maternalGreatGrandparents?: GenerationData;
+  paternalGreatGrandparents?: GenerationData;
+  heritage?: HeritageData;
+}
+
+
 export type RootsProject = {
   id: string;
   userId: string;
   treeId: string;
-  studentPersonId?: string; // The ID of the person who is the subject of the project
+  studentPersonId?: string;
   projectName: string;
   currentStep: number;
-  projectData: { [key: string]: any };
-  chatHistory?: { role: 'assistant' | 'user', content: string }[];
+  projectData: RootsProjectData;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 };

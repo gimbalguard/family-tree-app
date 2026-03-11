@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Rubik', 'sans-serif'],
-        headline: ['Rubik', 'sans-serif'],
+        body: ['Assistant', 'sans-serif'],
+        headline: ['Assistant', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
@@ -70,6 +70,7 @@ export default {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        '4xl': '2.5rem',
       },
       keyframes: {
         'accordion-down': {

@@ -193,3 +193,20 @@ body.pdf-export-mode .react-flow__edge.custom-edge .react-flow__edge-path {
 .card-design-elegant .text-sub, .card-design-elegant .text-sub * {
   color: #d1d5db !important;
 }
+
+
+/* Roots Wizard Background */
+@keyframes move-orb {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(40vw, -20vh) scale(1.2); }
+  50% { transform: translate(10vw, 30vh) scale(0.9); }
+  75% { transform: translate(-30vw, 10vh) scale(1.1); }
+}
+
+.cosmic-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(120px);
+  will-change: transform;
+  animation: move-orb 40s infinite linear;
+}
