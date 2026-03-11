@@ -118,7 +118,7 @@ const EditableField = forwardRef<HTMLInputElement | HTMLTextAreaElement, Editabl
     onKeyDown: handleKeyDown,
     placeholder: placeholder,
     className: cn(
-      "w-full bg-slate-800/80 border-2 border-slate-600 rounded-2xl px-4 py-3 text-base text-white text-right placeholder:text-right",
+      "w-full bg-slate-800/80 border-2 border-slate-600 rounded-2xl px-3 py-1.5 text-sm text-white text-right placeholder:text-slate-400 placeholder:text-right",
       "focus:bg-slate-700/90 focus:border-indigo-400 focus:outline-none focus:ring-4 focus:ring-indigo-500/40",
       "transition-all duration-200",
       "shadow-inner shadow-black/30",
@@ -135,18 +135,18 @@ const EditableField = forwardRef<HTMLInputElement | HTMLTextAreaElement, Editabl
                 <textarea
                     ref={ref as React.ForwardedRef<HTMLTextAreaElement>}
                     {...commonProps}
-                    className={cn(commonProps.className, "min-h-[100px] resize-y")}
+                    className={cn(commonProps.className, "min-h-[80px] resize-y")}
                 />
             ) : (
                 <input
                     ref={ref as React.ForwardedRef<HTMLInputElement>}
                     {...commonProps}
-                    className={cn(commonProps.className, "h-[48px]")}
+                    className={cn(commonProps.className, "h-[38px]")}
                 />
             )}
         </motion.div>
         {isMagical && (
-            <Sparkles className="absolute top-1/2 -translate-y-1/2 right-4 h-5 w-5 text-teal-400 z-10 pointer-events-none" />
+            <Sparkles className="absolute top-1/2 -translate-y-1/2 right-3 h-5 w-5 text-teal-400 z-10 pointer-events-none" />
         )}
     </div>
   );
@@ -262,71 +262,129 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
     );
 };
 
-const StudentSelector = ({ people, currentStudentId, onStudentChange }: { people: Person[], currentStudentId?: string, onStudentChange: (id: string) => void }) => {
+const StudentSelector = ({ people, currentStudentId, onStudentChange }: { 
+  people: Person[], 
+  currentStudentId?: string, 
+  onStudentChange: (id: string) => void 
+}) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
   const selectedPerson = people.find(p => p.id === currentStudentId);
 
+  const filtered = useMemo(() => 
+    people.filter(p => 
+      `${p.firstName} ${p.lastName}`.toLowerCase().includes(search.toLowerCase())
+    ), [people, search]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
   return (
-    <div className="relative" dir="rtl">
+    <div className="relative" dir="rtl" ref={containerRef}>
+      {/* Trigger button */}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-[48px] flex items-center justify-between px-4 rounded-2xl bg-slate-800/80 border-2 border-teal-500/50 text-white text-base hover:border-teal-400 transition-all duration-200"
+        onMouseDown={(e) => { e.preventDefault(); setIsOpen(prev => !prev); }}
+        className="w-full h-[38px] flex items-center justify-between px-3 rounded-xl bg-slate-800 border-2 border-teal-500/60 text-white text-sm hover:border-teal-400 transition-all duration-200 cursor-pointer"
       >
-        <div className="flex items-center gap-2">
-          <BadgeCheck className="h-4 w-4 text-teal-400" />
-          <svg className={cn("h-4 w-4 text-slate-400 transition-transform", isOpen && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-        </div>
-        <span className="flex items-center gap-2">
+        <svg 
+          className={cn("h-4 w-4 text-slate-400 transition-transform flex-shrink-0", isOpen && "rotate-180")} 
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+        <span className="flex items-center gap-2 flex-1 justify-end">
           {selectedPerson ? (
             <>
-              <span>{selectedPerson.firstName} {selectedPerson.lastName}</span>
-              <Avatar className="h-7 w-7 border border-white/20">
+              <span className="text-white font-medium">{selectedPerson.firstName} {selectedPerson.lastName}</span>
+              <Avatar className="h-7 w-7 border border-white/20 flex-shrink-0">
                 <AvatarImage src={selectedPerson.photoURL || undefined} />
                 <AvatarFallback className="bg-slate-600 text-xs">
                   <img src={getPlaceholderImage(selectedPerson.gender)} alt="" />
                 </AvatarFallback>
               </Avatar>
             </>
-          ) : <span className="text-slate-400">בחר/י תלמיד/ה</span>}
+          ) : (
+            <span className="text-slate-400">בחר/י תלמיד/ה</span>
+          )}
         </span>
+        <BadgeCheck className="h-4 w-4 text-teal-400 flex-shrink-0 mr-1" />
       </button>
-      
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className="absolute top-full mt-2 w-full z-50 bg-slate-800 border border-slate-600 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden"
-          >
-            <ScrollArea className="max-h-56">
-              {people.map(person => (
+
+      {/* Dropdown panel — rendered in a portal-like fixed overlay */}
+      {isOpen && (
+        <div 
+          className="absolute top-full mt-1 w-full z-[9999] bg-slate-900 border border-slate-600 rounded-xl shadow-2xl shadow-black/70 overflow-hidden"
+          style={{ maxHeight: '280px', display: 'flex', flexDirection: 'column' }}
+        >
+          {/* Search input inside dropdown */}
+          <div className="p-2 border-b border-slate-700 flex-shrink-0">
+            <div className="relative">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 pointer-events-none" />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="חיפוש..."
+                autoFocus
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 pr-9 text-sm text-white placeholder:text-slate-500 text-right focus:outline-none focus:border-indigo-400"
+                style={{ direction: 'rtl' }}
+                onMouseDown={e => e.stopPropagation()}
+              />
+            </div>
+          </div>
+
+          {/* Scrollable list */}
+          <div className="overflow-y-auto flex-1">
+            {filtered.length === 0 ? (
+              <p className="text-center text-slate-500 py-4 text-sm">לא נמצאו תוצאות</p>
+            ) : (
+              filtered.map(person => (
                 <button
                   key={person.id}
                   type="button"
-                  onClick={() => { onStudentChange(person.id); setIsOpen(false); }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onStudentChange(person.id);
+                    setIsOpen(false);
+                    setSearch('');
+                  }}
                   className={cn(
-                    "w-full flex items-center justify-end gap-3 px-4 py-3 text-right hover:bg-slate-700 transition-colors",
-                    person.id === currentStudentId && "bg-indigo-900/50"
+                    "w-full flex items-center justify-end gap-3 px-4 py-2.5 text-right hover:bg-slate-700 active:bg-slate-600 transition-colors cursor-pointer",
+                    person.id === currentStudentId && "bg-indigo-900/60"
                   )}
                 >
-                  <span className="text-sm text-white">{person.firstName} {person.lastName}</span>
-                  {person.birthDate && <span className="text-xs text-slate-400">{format(new Date(person.birthDate), 'yyyy')}</span>}
-                  <Avatar className="h-8 w-8 border border-white/20">
+                  {person.id === currentStudentId && (
+                    <Check className="h-4 w-4 text-teal-400 flex-shrink-0 mr-auto" />
+                  )}
+                  <div className="text-right">
+                    <p className="text-sm text-white font-medium">{person.firstName} {person.lastName}</p>
+                    {person.birthDate && (
+                      <p className="text-xs text-slate-400">{format(new Date(person.birthDate), 'yyyy')}</p>
+                    )}
+                  </div>
+                  <Avatar className="h-8 w-8 border border-white/20 flex-shrink-0">
                     <AvatarImage src={person.photoURL || undefined} />
                     <AvatarFallback className="bg-slate-600">
                       <img src={getPlaceholderImage(person.gender)} alt="" />
                     </AvatarFallback>
                   </Avatar>
-                  {person.id === currentStudentId && <Check className="h-4 w-4 text-teal-400 mr-auto" />}
                 </button>
-              ))}
-            </ScrollArea>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -338,20 +396,22 @@ interface Step1FormalInfoProps {
     onUpdate: (path: (string | number)[], value: any) => void;
     people: Person[];
     onStudentChange: (personId: string) => void;
+    currentStudentId?: string;
 }
-const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange }: Step1FormalInfoProps) => {
+const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, currentStudentId }: Step1FormalInfoProps) => {
     const coverPage = projectData.coverPage || {};
-    const fieldContainerClass = "space-y-2";
-    const labelClass = "font-semibold text-slate-300 px-2 flex items-center justify-end gap-2 text-sm";
+    const fieldContainerClass = "space-y-1";
+    const labelClass = "font-semibold text-slate-300 px-2 flex items-center justify-end gap-2 text-xs";
     const currentYear = new Date().getFullYear();
 
     return (
-        <div className="space-y-6">
-            <h1 className="text-2xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">מעטפת רשמית</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4" dir="rtl">
+        <div className="space-y-3">
+            <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">מעטפת רשמית</h1>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2" dir="rtl">
+                
                 <div className={fieldContainerClass}>
                     <label className={labelClass}><User /> מגיש/ה</label>
-                    <StudentSelector people={people} currentStudentId={projectData.studentPersonId} onStudentChange={onStudentChange} />
+                    <StudentSelector people={people} currentStudentId={currentStudentId} onStudentChange={onStudentChange} />
                 </div>
                 <div className={fieldContainerClass}>
                     <label className={labelClass}><School/> שם בית הספר</label>
@@ -385,7 +445,7 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange }: St
                     <EditableField value={coverPage.hebrewYear || ''} onUpdate={(v) => onUpdate(['coverPage', 'hebrewYear'], v)} placeholder="לדוגמה: תשפ''ה" isMagical={!!coverPage.hebrewYear} />
                 </div>
                 
-                <div className={fieldContainerClass}>
+                <div className={cn(fieldContainerClass, "md:col-span-2")}>
                     <label className={labelClass}><Flag/> שנה לועזית</label>
                     <EditableField value={coverPage.gregorianYear || currentYear.toString()} onUpdate={(v) => onUpdate(['coverPage', 'gregorianYear'], v)} placeholder={currentYear.toString()} isMagical={true} />
                 </div>
@@ -402,7 +462,7 @@ const Step2_PersonalStory = ({ projectData, onUpdate }: { projectData: any, onUp
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור האישי שלי</h1>
+            <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור האישי שלי</h1>
             <div className="space-y-6">
                 <div className={fieldContainerClass}>
                     <label className={labelClass}><Wand2/> משמעות שמי</label>
@@ -430,11 +490,11 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
   const percentage = ((currentStep) / totalSteps) * 100;
   return (
     <div className="w-full h-full flex flex-col max-w-2xl mx-auto">
-       <div className="flex justify-between items-center mb-4 px-2">
+       <div className="flex justify-between items-center mb-3 px-2">
          <h2 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">עבודת שורשים: {studentName}</h2>
          <p className="text-sm text-slate-400 font-medium">פרק {currentStep} מתוך {totalSteps}</p>
        </div>
-       <div className="w-full bg-white/5 rounded-full h-3 mb-6 overflow-hidden border border-white/10">
+       <div className="w-full bg-white/5 rounded-full h-3 mb-3 overflow-hidden border border-white/10">
             <motion.div
                 className="bg-gradient-to-r from-emerald-400 to-indigo-500 h-full"
                 initial={{ width: 0 }}
@@ -444,12 +504,12 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
         </div>
       <GlassmorphicCard className="flex-1 flex flex-col overflow-hidden">
         <ScrollArea className="flex-1">
-            <div className="p-8 sm:p-10">
+            <div className="p-4 sm:p-6">
              {children}
             </div>
         </ScrollArea>
       </GlassmorphicCard>
-      <div className="flex justify-between items-center mt-6">
+      <div className="flex justify-between items-center mt-3">
         <MotionButton onClick={() => onStepChange(currentStep - 1)} disabled={currentStep <= 1} className="bg-white/10 backdrop-blur-md">
           ← הקודם
         </MotionButton>
@@ -505,23 +565,23 @@ export function RootsView({ project, people, relationships, tree, updateProject 
   };
 
   const handleSelectStudent = (personId: string) => {
-      updateProject(proj => {
-          const student = people.find(p => p.id === personId);
-          const studentName = student ? `${student.firstName} ${student.lastName}` : '';
-          const newProjectData = {
-              ...proj.projectData,
-              coverPage: {
-                  ...proj.projectData?.coverPage,
-                  studentName: studentName,
-                  studentPersonId: personId,
-              }
-          };
-          return { 
-              ...proj,
-              studentPersonId: personId,
-              projectData: newProjectData
-          };
-      });
+    updateProject(proj => {
+        const student = people.find(p => p.id === personId);
+        const studentName = student ? `${student.firstName} ${student.lastName}` : '';
+        const newProjectData = {
+            ...proj.projectData,
+            coverPage: {
+                ...proj.projectData?.coverPage,
+                studentName: studentName,
+                studentPersonId: personId,
+            }
+        };
+        return { 
+            ...proj,
+            studentPersonId: personId,
+            projectData: newProjectData
+        };
+    });
   };
 
   if (!project || !tree) {
@@ -553,7 +613,13 @@ export function RootsView({ project, people, relationships, tree, updateProject 
                 treeOwnerId={tree.ownerPersonId}
                 onConfirm={() => handleStepChange(1)}
             />;
-        case 1: return <Step1_FormalInfo projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onStudentChange={handleSelectStudent} />;
+        case 1: return <Step1_FormalInfo 
+                          projectData={project.projectData} 
+                          onUpdate={handleProjectUpdate} 
+                          people={people} 
+                          onStudentChange={handleSelectStudent}
+                          currentStudentId={project.studentPersonId}
+                        />;
         case 2: return <Step2_PersonalStory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
         case 3: return <p className='text-center p-10'>שלב 3 בבנייה</p>;
         case 4: return <p className='text-center p-10'>שלב 4 בבנייה</p>;
