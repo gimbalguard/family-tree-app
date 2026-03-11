@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RootsProject, Person, FamilyTree, Relationship } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
@@ -294,30 +294,31 @@ const StudentSelector = ({ people, currentStudentId, onStudentChange }: {
       <button
         type="button"
         onMouseDown={(e) => { e.preventDefault(); setIsOpen(prev => !prev); }}
-        className="w-full h-[38px] flex items-center justify-between px-3 rounded-xl bg-slate-800 border-2 border-teal-500/60 text-white text-sm hover:border-teal-400 transition-all duration-200 cursor-pointer"
+        className="w-full h-[38px] flex items-center gap-2 px-3 rounded-xl bg-slate-800 border-2 border-teal-500/60 text-white text-sm hover:border-teal-400 transition-all duration-200 cursor-pointer"
+        dir="rtl"
       >
-        <svg 
-          className={cn("h-4 w-4 text-slate-400 transition-transform flex-shrink-0", isOpen && "rotate-180")} 
+        {/* RIGHT side: avatar + name (appears first in RTL) */}
+        <BadgeCheck className="h-4 w-4 text-teal-400 flex-shrink-0" />
+        {selectedPerson ? (
+          <>
+            <Avatar className="h-6 w-6 border border-white/20 flex-shrink-0">
+              <AvatarImage src={selectedPerson.photoURL || undefined} />
+              <AvatarFallback className="bg-slate-600 text-xs">
+                <img src={getPlaceholderImage(selectedPerson.gender)} alt="" />
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-white font-medium flex-1 text-right">{selectedPerson.firstName} {selectedPerson.lastName}</span>
+          </>
+        ) : (
+          <span className="text-slate-400 flex-1 text-right">בחר/י תלמיד/ה</span>
+        )}
+        {/* LEFT side: chevron */}
+        <svg
+          className={cn("h-4 w-4 text-slate-400 transition-transform flex-shrink-0 mr-auto", isOpen && "rotate-180")}
           fill="none" viewBox="0 0 24 24" stroke="currentColor"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
-        <span className="flex items-center gap-2 flex-1 justify-end">
-          {selectedPerson ? (
-            <>
-              <span className="text-white font-medium">{selectedPerson.firstName} {selectedPerson.lastName}</span>
-              <Avatar className="h-7 w-7 border border-white/20 flex-shrink-0">
-                <AvatarImage src={selectedPerson.photoURL || undefined} />
-                <AvatarFallback className="bg-slate-600 text-xs">
-                  <img src={getPlaceholderImage(selectedPerson.gender)} alt="" />
-                </AvatarFallback>
-              </Avatar>
-            </>
-          ) : (
-            <span className="text-slate-400">בחר/י תלמיד/ה</span>
-          )}
-        </span>
-        <BadgeCheck className="h-4 w-4 text-teal-400 flex-shrink-0 mr-1" />
       </button>
 
       {/* Dropdown panel — rendered in a portal-like fixed overlay */}
@@ -401,8 +402,26 @@ interface Step1FormalInfoProps {
 const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, currentStudentId }: Step1FormalInfoProps) => {
     const coverPage = projectData.coverPage || {};
     const fieldContainerClass = "space-y-1";
-    const labelClass = "font-semibold text-slate-300 px-2 flex items-center justify-end gap-2 text-xs";
+    const labelClass = "font-semibold text-slate-300 px-1 flex items-center justify-end gap-1.5 text-xs w-full text-right";
     const currentYear = new Date().getFullYear();
+    const submissionDate = coverPage.submissionDate;
+
+    useEffect(() => {
+        if (submissionDate) {
+            try {
+                const date = new Date(submissionDate);
+                if (isValid(date)) {
+                    const hebrewYearString = new Intl.DateTimeFormat('en-u-ca-hebrew', { year: 'numeric' }).format(date);
+                    const yearNumber = hebrewYearString.replace(/,/g, '');
+                    if (coverPage.hebrewYear !== yearNumber) {
+                        onUpdate(['coverPage', 'hebrewYear'], yearNumber);
+                    }
+                }
+            } catch (e) {
+                console.error("Could not calculate Hebrew year:", e);
+            }
+        }
+    }, [submissionDate, onUpdate, coverPage.hebrewYear]);
 
     return (
         <div className="space-y-3">
@@ -442,7 +461,7 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
                 </div>
                  <div className={fieldContainerClass}>
                     <label className={labelClass}><Flag/> שנה עברית</label>
-                    <EditableField value={coverPage.hebrewYear || ''} onUpdate={(v) => onUpdate(['coverPage', 'hebrewYear'], v)} placeholder="לדוגמה: תשפ''ה" isMagical={!!coverPage.hebrewYear} />
+                    <EditableField value={coverPage.hebrewYear || ''} onUpdate={(v) => onUpdate(['coverPage', 'hebrewYear'], v)} placeholder="תחושב אוטומטית" isMagical={!!coverPage.hebrewYear} />
                 </div>
                 
                 <div className={cn(fieldContainerClass, "md:col-span-2")}>
@@ -458,11 +477,11 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
 const Step2_PersonalStory = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
     const myStory = projectData.personalStory || {};
     const fieldContainerClass = "space-y-3";
-    const labelClass = "font-bold text-base text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 flex items-center justify-end gap-3";
+    const labelClass = "font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 flex items-center justify-end gap-2 w-full";
 
     return (
         <div className="space-y-6">
-            <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור האישי שלי</h1>
+            <h1 className="text-2xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור האישי שלי</h1>
             <div className="space-y-6">
                 <div className={fieldContainerClass}>
                     <label className={labelClass}><Wand2/> משמעות שמי</label>
@@ -523,23 +542,24 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
 
 
 // --- Main View Component ---
-export function RootsView({ project, people, relationships, tree, updateProject }: {
+export function RootsView({ project, people, relationships, tree, updateProject, setProject }: {
   project: RootsProject | null;
   people: Person[];
   relationships: Relationship[];
   tree: FamilyTree | null;
   updateProject: (updater: (project: RootsProject) => RootsProject) => void;
+  setProject: (project: RootsProject) => void;
 }) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
 
   // Debounced save logic
   const debouncedSave = useCallback(
     debounce((proj: RootsProject) => {
-      updateProject(() => proj);
+      setProject(proj);
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     }, 2000),
-    [updateProject]
+    [setProject]
   );
 
   const handleProjectUpdate = (path: (string | number)[], value: any) => {
