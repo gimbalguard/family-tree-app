@@ -1805,31 +1805,38 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   };
   
     const handleProjectDataChange = useCallback((path: (string|number)[], value: any) => {
-        if (!rootsProject || readOnly) return;
+        if (readOnly) return;
         recordHistory();
-
-        // Manual deep update for nested state
-        const newProject = { ...rootsProject, projectData: { ...rootsProject.projectData } };
-        let currentLevel: any = newProject.projectData;
-
-        for (let i = 0; i < path.length - 1; i++) {
-            const key = path[i];
-            currentLevel[key] = { ...(currentLevel[key] || {}) };
-            currentLevel = currentLevel[key];
-        }
         
-        currentLevel[path[path.length - 1]] = value;
+        setRootsProject(prev => {
+            if (!prev) return null;
 
-        setRootsProject(newProject);
-    }, [rootsProject, recordHistory, readOnly]);
+            // Use a structured cloning approach for deep copy to avoid issues with complex objects.
+            const newProject = structuredClone(prev);
+            
+            let currentLevel: any = newProject.projectData;
+    
+            for (let i = 0; i < path.length - 1; i++) {
+                const key = path[i];
+                if (currentLevel[key] === undefined || typeof currentLevel[key] !== 'object' || currentLevel[key] === null) {
+                    currentLevel[key] = {}; // Initialize if path doesn't exist
+                }
+                currentLevel = currentLevel[key];
+            }
+            
+            currentLevel[path[path.length - 1]] = value;
+    
+            return newProject;
+        });
+    }, [recordHistory, readOnly]);
 
     const handleStepChange = useCallback((step: number) => {
-        if (!rootsProject || readOnly) return;
+        if (readOnly) return;
         if (step >= 0 && step < WIZARD_STEPS.length) {
             recordHistory();
             setRootsProject(prev => prev ? { ...prev, currentStep: step } : null);
         }
-    }, [rootsProject, recordHistory, readOnly]);
+    }, [recordHistory, readOnly]);
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
