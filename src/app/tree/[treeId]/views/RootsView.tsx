@@ -402,26 +402,60 @@ interface Step1FormalInfoProps {
 const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, currentStudentId }: Step1FormalInfoProps) => {
     const coverPage = projectData.coverPage || {};
     const fieldContainerClass = "space-y-1";
-    const labelClass = "font-semibold text-slate-300 px-1 flex items-center justify-end gap-1.5 text-xs w-full text-right";
-    const currentYear = new Date().getFullYear();
+    const labelClass = "font-semibold text-slate-300 px-1 text-xs block w-full text-right";
     const submissionDate = coverPage.submissionDate;
 
     useEffect(() => {
-        if (submissionDate) {
-            try {
-                const date = new Date(submissionDate);
-                if (isValid(date)) {
-                    const hebrewYearString = new Intl.DateTimeFormat('en-u-ca-hebrew', { year: 'numeric' }).format(date);
-                    const yearNumber = hebrewYearString.replace(/,/g, '');
-                    if (coverPage.hebrewYear !== yearNumber) {
-                        onUpdate(['coverPage', 'hebrewYear'], yearNumber);
-                    }
+      if (submissionDate) {
+        try {
+          const date = new Date(submissionDate);
+          if (isValid(date)) {
+            // Get Hebrew year number
+            const hebrewYearNum = parseInt(
+              new Intl.DateTimeFormat('en-u-ca-hebrew', { year: 'numeric' }).format(date)
+            );
+            
+            // Convert to Hebrew letters (Gematria)
+            const toHebrewLetters = (num: number): string => {
+              const letters: [number, string][] = [
+                [400,'ת'],[300,'ש'],[200,'ר'],[100,'ק'],
+                [90,'צ'],[80,'פ'],[70,'ע'],[60,'ס'],[50,'נ'],
+                [40,'מ'],[30,'ל'],[20,'כ'],[10,'י'],
+                [9,'ט'],[8,'ח'],[7,'ז'],[6,'ו'],[5,'ה'],
+                [4,'ד'],[3,'ג'],[2,'ב'],[1,'א']
+              ];
+              // Work with last 3 digits for year (remove thousands)
+              let n = num % 1000;
+              let result = '';
+              for (const [val, letter] of letters) {
+                while (n >= val) {
+                  result += letter;
+                  n -= val;
                 }
-            } catch (e) {
-                console.error("Could not calculate Hebrew year:", e);
+              }
+              // Fix special cases: יה→טו, יו→טז
+              result = result.replace('יה', 'טו').replace('יו', 'טז');
+              // Add geresh/gershayim
+              if (result.length === 1) {
+                result += '׳';
+              } else {
+                result = result.slice(0, -1) + '״' + result.slice(-1);
+              }
+              return result;
+            };
+            
+            const hebrewLetters = toHebrewLetters(hebrewYearNum);
+            const combined = `${hebrewLetters} (${hebrewYearNum})`;
+            
+            if (coverPage.hebrewYear !== combined) {
+              onUpdate(['coverPage', 'hebrewYear'], combined);
             }
+          }
+        } catch (e) {
+          console.error("Could not calculate Hebrew year:", e);
         }
-    }, [submissionDate, onUpdate, coverPage.hebrewYear]);
+      }
+    }, [submissionDate]);
 
     return (
         <div className="space-y-3">
@@ -429,44 +463,39 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2" dir="rtl">
                 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><User /> מגיש/ה</label>
+                    <label className={labelClass}>מגיש/ה <User className="inline h-3 w-3 mb-0.5" /></label>
                     <StudentSelector people={people} currentStudentId={currentStudentId} onStudentChange={onStudentChange} />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><School/> שם בית הספר</label>
+                    <label className={labelClass}>שם בית הספר <School className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.schoolName || ''} onUpdate={(v) => onUpdate(['coverPage', 'schoolName'], v)} placeholder="לדוגמה: עירוני א'" isMagical={!!coverPage.schoolName} />
                 </div>
 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><MapPin/> עיר</label>
+                    <label className={labelClass}>עיר <MapPin className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.city || ''} onUpdate={(v) => onUpdate(['coverPage', 'city'], v)} placeholder="לדוגמה: תל אביב" isMagical={!!coverPage.city} />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><User/> כיתה</label>
+                    <label className={labelClass}>כיתה <User className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.grade || ''} onUpdate={(v) => onUpdate(['coverPage', 'grade'], v)} placeholder="לדוגמה: ז'3" isMagical={!!coverPage.grade} />
                 </div>
                 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><User/> שם המורה</label>
+                    <label className={labelClass}>שם המורה <User className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.teacherName || ''} onUpdate={(v) => onUpdate(['coverPage', 'teacherName'], v)} placeholder="לדוגמה: ישראל ישראלי" isMagical={!!coverPage.teacherName} />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><User/> שם המנהל/ת</label>
+                    <label className={labelClass}>שם המנהל/ת <User className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.principalName || ''} onUpdate={(v) => onUpdate(['coverPage', 'principalName'], v)} placeholder="לדוגמה: דנה לוי" />
                 </div>
                 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><Calendar/> תאריך הגשה</label>
+                    <label className={labelClass}>תאריך הגשה <Calendar className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.submissionDate || ''} onUpdate={(v) => onUpdate(['coverPage', 'submissionDate'], v)} placeholder="DD/MM/YYYY" />
                 </div>
                  <div className={fieldContainerClass}>
-                    <label className={labelClass}><Flag/> שנה עברית</label>
+                    <label className={labelClass}>שנה עברית <Flag className="inline h-3 w-3 mb-0.5" /></label>
                     <EditableField value={coverPage.hebrewYear || ''} onUpdate={(v) => onUpdate(['coverPage', 'hebrewYear'], v)} placeholder="תחושב אוטומטית" isMagical={!!coverPage.hebrewYear} />
-                </div>
-                
-                <div className={cn(fieldContainerClass, "md:col-span-2")}>
-                    <label className={labelClass}><Flag/> שנה לועזית</label>
-                    <EditableField value={coverPage.gregorianYear || currentYear.toString()} onUpdate={(v) => onUpdate(['coverPage', 'gregorianYear'], v)} placeholder={currentYear.toString()} isMagical={true} />
                 </div>
             </div>
         </div>
@@ -477,26 +506,26 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
 const Step2_PersonalStory = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
     const myStory = projectData.personalStory || {};
     const fieldContainerClass = "space-y-3";
-    const labelClass = "font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 flex items-center justify-end gap-2 w-full";
+    const labelClass = "font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right";
 
     return (
         <div className="space-y-6">
             <h1 className="text-2xl font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור האישי שלי</h1>
             <div className="space-y-6">
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><Wand2/> משמעות שמי</label>
+                    <label className={labelClass}>משמעות שמי <Wand2 className="inline h-3 w-3" /></label>
                     <EditableField asTextarea value={myStory.nameMeaning || ''} onUpdate={(v) => onUpdate(['personalStory', 'nameMeaning'], v)} placeholder="ספרו על מקור השם שלכם, מה הוא מסמל עבורכם, והאם יש לו סיפור מיוחד במשפחה..." />
                 </div>
                  <div className={fieldContainerClass}>
-                    <label className={labelClass}><Gem/> מי בחר את שמי ולמה</label>
+                    <label className={labelClass}>מי בחר את שמי ולמה <Gem className="inline h-3 w-3" /></label>
                     <EditableField asTextarea value={myStory.nameChoiceStory || ''} onUpdate={(v) => onUpdate(['personalStory', 'nameChoiceStory'], v)} placeholder="מי החליט על השם הזה? האם זה על שם מישהו? מה היה הסיפור מאחורי הבחירה?" />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}><Star/> סיפור הלידה שלי</label>
+                    <label className={labelClass}>סיפור הלידה שלי <Star className="inline h-3 w-3" /></label>
                     <EditableField asTextarea value={myStory.birthStory || ''} onUpdate={(v) => onUpdate(['personalStory', 'birthStory'], v)} placeholder="תארו את סיפור לידתכם כפי שסופר לכם על ידי ההורים. איפה נולדתם? האם היו אירועים מיוחדים?" />
                 </div>
                  <div className={fieldContainerClass}>
-                    <label className={labelClass}><BookOpen/> חזון אישי</label>
+                    <label className={labelClass}>חזון אישי <BookOpen className="inline h-3 w-3" /></label>
                     <EditableField asTextarea value={myStory.personalVision || ''} onUpdate={(v) => onUpdate(['personalStory', 'personalVision'], v)} placeholder="אני מאמין/ה ש... מהם הערכים שמובילים אתכם? מה השאיפות שלכם לעתיד?" />
                 </div>
             </div>
