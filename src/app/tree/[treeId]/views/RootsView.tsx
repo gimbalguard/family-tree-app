@@ -1,10 +1,8 @@
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useUser, useFirestore } from '@/firebase';
 import type { RootsProject, Person, FamilyTree, Relationship } from '@/lib/types';
 import { format } from 'date-fns';
-import { he } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
@@ -22,8 +20,8 @@ type RootsViewProps = {
     people: Person[];
     relationships: Relationship[];
     tree: FamilyTree | null;
-    onProjectChange: (path: (string|number)[], value: any) => void;
-    onStepChange: (step: number) => void;
+    updateProject: (updater: (project: RootsProject | null) => RootsProject | null) => void;
+    setProject: (project: RootsProject) => void;
 };
 
 
@@ -68,11 +66,12 @@ const EditableField = ({ value, onUpdate, placeholder, isMagical, className, asT
                 contentEditable
                 suppressContentEditableWarning
                 onBlur={handleBlur}
+                onKeyDown={(e) => { if(e.key === 'Enter' && !asTextarea) { e.preventDefault(); (e.target as HTMLElement).blur(); } }}
                 dangerouslySetInnerHTML={{ __html: value || '' }}
                 className={cn(
                     "w-full bg-gray-50/50 border-2 border-indigo-100 rounded-2xl p-4 text-lg focus:bg-white focus:border-indigo-500 transition-all duration-300 shadow-inner",
                     "outline-none focus:ring-4 focus:ring-indigo-500/20",
-                    asTextarea ? "min-h-[120px]" : "",
+                    asTextarea ? "min-h-[120px]" : "min-h-[58px]",
                     !value && "text-muted-foreground/50",
                     className
                 )}
@@ -109,12 +108,13 @@ const Step0_IdentitySelection = ({ people, onSelect, currentStudentId, treeOwner
 
     useEffect(() => {
         if (treeOwnerId && !currentStudentId) {
-            setSelectedId(treeOwnerId);
             onSelect(treeOwnerId);
-        } else {
-            setSelectedId(currentStudentId);
         }
     }, [currentStudentId, treeOwnerId, onSelect]);
+
+    useEffect(() => {
+      setSelectedId(currentStudentId);
+    }, [currentStudentId]);
 
     const handleSelect = (id: string) => {
         setSelectedId(id);
@@ -220,13 +220,45 @@ const Step2_MyStory = ({ projectData, onProjectChange, student }: { projectData:
 
 // ─── Main View Component ──────────────────────────────────────────────────────
 
-export function RootsView({ project, people, relationships, tree, onProjectChange, onStepChange }: RootsViewProps) {
+export function RootsView({ project, people, relationships, tree, updateProject, setProject }: RootsViewProps) {
     if (!project || !tree) {
         return (
             <div className="flex items-center justify-center h-full w-full bg-gray-100 text-muted-foreground">טוען פרויקט שורשים...</div>
         );
     }
     
+    const onProjectChange = useCallback((path: (string|number)[], value: any) => {
+        updateProject(proj => {
+            if (!proj) return proj;
+            
+            const newProject = JSON.parse(JSON.stringify(proj));
+            const firstSegment = path[0];
+
+            if (firstSegment === 'studentPersonId' || firstSegment === 'currentStep') {
+                (newProject as any)[firstSegment] = value;
+            } else {
+                let current = newProject.projectData;
+                for (let i = 0; i < path.length - 1; i++) {
+                    const segment = path[i];
+                    if (current[segment] === undefined || typeof current[segment] !== 'object') {
+                        current[segment] = {};
+                    }
+                    current = current[segment];
+                }
+                current[path[path.length - 1]] = value;
+            }
+            
+            return newProject;
+        });
+    }, [updateProject]);
+
+    const onStepChange = useCallback((step: number) => {
+        updateProject(proj => {
+            if (!proj) return proj;
+            return { ...proj, currentStep: step };
+        });
+    }, [updateProject]);
+
     const WIZARD_STEPS = useMemo(() => [
         { id: 0, label: 'בחירת זהות' }, { id: 1, label: 'שער' }, { id: 2, label: 'הסיפור שלי' },
         { id: 3, label: 'המשפחה הגרעינית' }, { id: 4, label: 'שורשים' },
