@@ -47,24 +47,6 @@ type RootsViewProps = {
     onStepChange: (step: number) => void;
 };
 
-// Debounce function
-function useDebounce<F extends (...args: any[]) => any>(callback: F, delay: number) {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
-
-  return useCallback((...args: Parameters<F>) => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      callback(...args);
-    }, delay);
-  }, [callback, delay]);
-}
-
 // Reusable Editable Field Component
 const EditableField = ({ value, onUpdate, placeholder, multiline = false, className }: { value: string; onUpdate: (newValue: string) => void; placeholder: string; multiline?: boolean, className?: string }) => {
     const ref = useRef<HTMLDivElement>(null);
@@ -110,7 +92,10 @@ const EditableField = ({ value, onUpdate, placeholder, multiline = false, classN
 // Step 0: Identity Selection
 const Step0_Identity = ({ people, tree, onSelect }: { people: Person[], tree: FamilyTree | null, onSelect: (personId: string) => void }) => {
     const [open, setOpen] = useState(false);
-    const [value, setValue] = useState(tree?.ownerPersonId || '');
+    
+    const initialOwnerId = tree?.ownerPersonId || '';
+    const validInitialOwner = people.find(p => p.id === initialOwnerId);
+    const [value, setValue] = useState(validInitialOwner ? initialOwnerId : '');
   
     return (
         <Card className="max-w-md mx-auto text-center shadow-2xl rounded-3xl p-8">
@@ -132,7 +117,7 @@ const Step0_Identity = ({ people, tree, onSelect }: { people: Person[], tree: Fa
                                 {people.map(person => (
                                     <CommandItem
                                         key={person.id}
-                                        value={`${person.firstName} ${person.lastName}`}
+                                        value={`${person.firstName} ${person.lastName}|${person.id}`}
                                         onSelect={() => {
                                             setValue(person.id)
                                             setOpen(false)
@@ -193,7 +178,10 @@ const Step1_FormalInfo = ({ projectData, onProjectChange }: { projectData: Roots
 export function RootsView({ project, people, tree, onProjectChange, onStepChange }: RootsViewProps) {
   const currentStep = project?.currentStep || 0;
   
-  const debouncedSave = useDebounce(onProjectChange, 2000);
+  const debouncedSave = useCallback(
+    debounce(onProjectChange, 2000),
+    [onProjectChange]
+  );
 
   const renderStepContent = () => {
     if (!project) return null;
@@ -273,4 +261,16 @@ export function RootsView({ project, people, tree, onProjectChange, onStepChange
         )}
     </div>
   );
+}
+
+function debounce<F extends (...args: any[]) => any>(func: F, wait: number): (...args: Parameters<F>) => void {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: Parameters<F>) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
 }
