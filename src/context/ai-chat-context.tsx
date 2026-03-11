@@ -17,7 +17,6 @@ interface AiChatContextType {
   setIsGenerating: React.Dispatch<React.SetStateAction<boolean>>;
   isTranscribing: boolean;
   setIsTranscribing: React.Dispatch<React.SetStateAction<boolean>>;
-  addMessage: (message: ChatMessage) => void;
   clearChat: () => void;
 }
 
@@ -28,10 +27,6 @@ export const AiChatProvider = ({ children }: { children: ReactNode }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   
-  const addMessage = (message: ChatMessage) => {
-    setChatHistory(prev => [...prev, message]);
-  };
-
   const clearChat = () => {
     setChatHistory([]);
   };
@@ -44,7 +39,6 @@ export const AiChatProvider = ({ children }: { children: ReactNode }) => {
       setIsGenerating,
       isTranscribing,
       setIsTranscribing,
-      addMessage,
       clearChat,
     }}>
       {children}

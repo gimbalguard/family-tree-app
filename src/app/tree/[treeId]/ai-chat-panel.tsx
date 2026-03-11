@@ -42,6 +42,9 @@ interface AiChatPanelProps {
     rootsProject: RootsProject | null;
     onRootsProjectUpdate: (updatedData: Partial<RootsProjectData>) => void;
     rootsStepInstruction?: string;
+    isRootsMode?: boolean;
+    rootsChatHistory?: ChatMessage[];
+    onRootsChatHistoryChange?: (newHistory: ChatMessage[]) => void;
 }
 
 const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
@@ -68,21 +71,22 @@ export function AiChatPanel({
     rootsProject,
     onRootsProjectUpdate,
     rootsStepInstruction,
+    isRootsMode,
+    rootsChatHistory,
+    onRootsChatHistoryChange,
 }: AiChatPanelProps) {
   const router = useRouter();
   const { user } = useUser();
   const db = useFirestore();
   const { toast } = useToast();
   
-  const {
-    chatHistory,
-    setChatHistory,
-    isGenerating,
-    setIsGenerating,
-    isTranscribing,
-    setIsTranscribing,
-    addMessage,
-  } = useAiChat();
+  const globalChat = useAiChat();
+  const { isGenerating, setIsGenerating, isTranscribing, setIsTranscribing } = globalChat;
+
+  // Conditionally use props or global context
+  const chatHistory = isRootsMode ? rootsChatHistory || [] : globalChat.chatHistory;
+  const setChatHistory = isRootsMode ? onRootsChatHistoryChange! : globalChat.setChatHistory;
+
 
   const [story, setStory] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -227,7 +231,7 @@ export function AiChatPanel({
             role: 'assistant',
             content: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
         };
-        addMessage(assistantMessage);
+        setChatHistory([...chatHistory, assistantMessage]);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
         toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע לא ניתן לעבד טקסט מקבצי PDF או PowerPoint.' });
     } else {
@@ -374,7 +378,7 @@ export function AiChatPanel({
     const currentAttachment = attachment;
     setAttachment(null);
     
-    const newHistory = [...(chatHistory || []), userMessage];
+    const newHistory = [...chatHistory, userMessage];
     setChatHistory(newHistory);
     setIsGenerating(true);
 
@@ -402,7 +406,7 @@ export function AiChatPanel({
             });
       
             const aiMessage: ChatMessage = { role: 'assistant', id: (Date.now() + 1).toString(), content: result.aiResponse };
-            addMessage(aiMessage);
+            setChatHistory([...newHistory, aiMessage]);
             
             if (result.updatedProjectData) {
                onRootsProjectUpdate(result.updatedProjectData);
@@ -460,7 +464,7 @@ export function AiChatPanel({
                 data: result.isComplete ? result : null,
             };
             
-            setChatHistory((prev) => [...prev, assistantMessage]);
+            setChatHistory([...newHistory, assistantMessage]);
         }
 
     } catch (error) {
@@ -468,7 +472,7 @@ export function AiChatPanel({
       const errorMessage: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant',
         content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?',
       };
-      setChatHistory((prev) => [...prev, errorMessage]);
+      setChatHistory([...newHistory, errorMessage]);
       toast({ variant: 'destructive', title: 'שגיאת AI', description: 'לא ניתן היה לעבד את הבקשה.' });
     } finally {
       setIsGenerating(false);

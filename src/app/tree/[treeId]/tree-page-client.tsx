@@ -101,7 +101,7 @@ import { exportToExcel, parseAndValidateExcel, ParsedExcelData } from '@/lib/exc
 import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { useAiChat } from '@/context/ai-chat-context';
+import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
 import { WIZARD_STEPS } from './roots-config';
 
 
@@ -250,7 +250,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
   const [canvasBg, setCanvasBg] = useState<string | undefined>(undefined);
   
-  const { chatHistory, setChatHistory } = useAiChat();
+  const { setChatHistory } = useAiChat();
 
   const recordHistory = useCallback(() => {
     if (readOnly) return;
@@ -281,13 +281,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setNodes(present.nodes);
       setEdges(present.edges);
       setRootsProject(present.rootsProject);
-      if (viewMode === 'roots') {
-        setChatHistory(present.rootsProject?.chatHistory || []);
-      }
       setCanUndo(newPast.length > 0);
       setCanRedo(true);
     }
-  }, [nodes, edges, rootsProject, setNodes, setEdges, viewMode, setChatHistory]);
+  }, [nodes, edges, rootsProject, setNodes, setEdges]);
 
   const handleRedo = useCallback(() => {
     if (historyRef.current.future.length === 0) return;
@@ -299,13 +296,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setNodes(present.nodes);
       setEdges(present.edges);
       setRootsProject(present.rootsProject);
-       if (viewMode === 'roots') {
-        setChatHistory(present.rootsProject?.chatHistory || []);
-      }
       setCanUndo(true);
       setCanRedo(newFuture.length > 0);
     }
-  }, [nodes, edges, rootsProject, setNodes, setEdges, viewMode, setChatHistory]);
+  }, [nodes, edges, rootsProject, setNodes, setEdges]);
 
   const deriveStateFromData = useCallback((
     peopleData: Person[], 
@@ -563,7 +557,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           projectName: treeData.treeName,
           currentStep: 1,
           projectData: { projectName: treeData.treeName },
-          chatHistory: [{ role: 'assistant', content: `שלום! יצרתי עבורך פרויקט חדש בשם "${treeData.treeName}". בוא נתחיל בשלב הראשון: שער המבוא.` }],
+          chatHistory: [{ role: 'assistant', id: 'init', content: `שלום! יצרתי עבורך פרויקט חדש בשם "${treeData.treeName}". בוא נתחיל בשלב הראשון: שער המבוא.` }],
           createdAt: serverTimestamp() as any,
           updatedAt: serverTimestamp() as any,
         };
@@ -1820,6 +1814,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         setRootsProject(prev => prev ? { ...prev, projectData: newProjectData } : null);
     }, [rootsProject, recordHistory, readOnly]);
 
+    const handleRootsChatHistoryChange = useCallback((newHistory: ChatMessage[]) => {
+      if (readOnly) return;
+      recordHistory();
+      setRootsProject(prev => prev ? { ...prev, chatHistory: newHistory } : null);
+    }, [recordHistory, readOnly]);
+
+
   const rootsStepInstruction = useMemo(() => {
     return WIZARD_STEPS.find(s => s.id === rootsProject?.currentStep)?.instruction;
   }, [rootsProject?.currentStep]);
@@ -2079,6 +2080,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               rootsProject={rootsProject}
               onRootsProjectUpdate={handleRootsProjectUpdate}
               rootsStepInstruction={rootsStepInstruction}
+              isRootsMode={viewMode === 'roots'}
+              rootsChatHistory={rootsProject?.chatHistory}
+              onRootsChatHistoryChange={handleRootsChatHistoryChange}
             />
           )}
         </main>
