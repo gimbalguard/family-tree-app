@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -6,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
-import { WIZARD_STEPS } from '../tree-page-client';
+import { WIZARD_STEPS } from '../roots-config';
+import { useUser } from '@/firebase';
 
 // Define the shape of the project data
 export interface RootsProjectData {
@@ -50,6 +52,7 @@ const EditableField = ({ value, onUpdate, placeholder, className }: { value: str
 };
 
 export function RootsView({ project, onProjectChange, currentStep, onStepChange }: RootsViewProps) {
+  const { user } = useUser();
   const renderPreview = () => {
     switch (currentStep) {
         case 1:
@@ -60,7 +63,7 @@ export function RootsView({ project, onProjectChange, currentStep, onStepChange 
                         <EditableField value={title || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'title'], newValue)} placeholder={project?.projectName || 'שם הפרויקט'} className="font-bold text-4xl" />
                     </h1>
                     <div className="space-y-4 text-lg">
-                        <p>מגיש/ה: <EditableField value={studentName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" /></p>
+                        <p>מגיש/ה: <EditableField value={studentName || user?.displayName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'studentName'], newValue)} placeholder="[שם התלמיד/ה]" /></p>
                         <p>כיתה: <EditableField value={className || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'className'], newValue)} placeholder="[כיתה]" /></p>
                         <p>מורה: <EditableField value={teacherName || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'teacherName'], newValue)} placeholder="[שם המורה]" /></p>
                         <p>תאריך הגשה: <EditableField value={submissionDate || ''} onUpdate={(newValue) => onProjectChange(['coverPage', 'submissionDate'], newValue)} placeholder="[תאריך הגשה]" /></p>

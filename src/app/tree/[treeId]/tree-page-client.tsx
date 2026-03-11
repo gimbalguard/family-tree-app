@@ -1,5 +1,6 @@
+
 'use client';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
   Node,
   Edge,
@@ -101,6 +102,8 @@ import { ImportConfirmationModal, ImportMode } from './import-confirmation-modal
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useAiChat } from '@/context/ai-chat-context';
+import { WIZARD_STEPS } from './roots-config';
+
 
 type TreePageClientProps = {
   treeId: string;
@@ -543,7 +546,15 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const manualEventsData = manualEventsSnap.docs.map(d => ({ id: d.id, ...d.data() } as ManualEvent));
       
       if (rootsProjectSnap.exists()) {
-        setRootsProject(rootsProjectSnap.data() as RootsProject);
+        const project = rootsProjectSnap.data() as RootsProject;
+        // Fix for old data where role might be 'ai'
+        if (project.chatHistory) {
+            project.chatHistory = project.chatHistory.map(m => ({
+                ...m,
+                role: m.role === ('ai' as any) ? 'assistant' : m.role,
+            }));
+        }
+        setRootsProject(project);
       } else if (user) {
         const newProject: RootsProject = {
           id: 'main',
@@ -1809,6 +1820,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         setRootsProject(prev => prev ? { ...prev, projectData: newProjectData } : null);
     }, [rootsProject, recordHistory, readOnly]);
 
+  const rootsStepInstruction = useMemo(() => {
+    return WIZARD_STEPS.find(s => s.id === rootsProject?.currentStep)?.instruction;
+  }, [rootsProject?.currentStep]);
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
@@ -2060,9 +2074,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               treeId={tree.id}
               treeName={tree.treeName}
               people={people}
+              relationships={relationships}
               viewMode={viewMode}
               rootsProject={rootsProject}
               onRootsProjectUpdate={handleRootsProjectUpdate}
+              rootsStepInstruction={rootsStepInstruction}
             />
           )}
         </main>
