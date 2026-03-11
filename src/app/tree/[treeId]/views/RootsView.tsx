@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -608,7 +609,7 @@ const Step2_MyName = ({ projectData, onUpdate }: { projectData: any, onUpdate: (
       <div className="space-y-1">
         <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={myStory.nameMeaning || ''} onRephrase={(v) => onUpdate(['personalStory', 'nameMeaning'], v)} fieldName="משמעות שמי" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">משמעות שמי</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">משמעות שמי</label>
         </div>
         <EditableField asTextarea value={myStory.nameMeaning || ''} onUpdate={(v) => onUpdate(['personalStory', 'nameMeaning'], v)} placeholder="ספרו על מקור השם שלכם, מה הוא מסמל, ומה הקשר שלו למשפחה..." />
       </div>
@@ -616,7 +617,7 @@ const Step2_MyName = ({ projectData, onUpdate }: { projectData: any, onUpdate: (
       <div className="space-y-1">
         <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={myStory.nameChoiceStory || ''} onRephrase={(v) => onUpdate(['personalStory', 'nameChoiceStory'], v)} fieldName="מי בחר את שמי" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מי בחר את שמי ולמה</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מי בחר את שמי ולמה</label>
         </div>
         <EditableField asTextarea value={myStory.nameChoiceStory || ''} onUpdate={(v) => onUpdate(['personalStory', 'nameChoiceStory'], v)} placeholder="מי החליט על השם? האם זה על שם מישהו? מה הסיפור?" />
       </div>
@@ -634,7 +635,7 @@ const Step3_MyStory = ({ projectData, onUpdate }: { projectData: any, onUpdate: 
       <div className="space-y-1">
         <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={myStory.birthStory || ''} onRephrase={(v) => onUpdate(['personalStory', 'birthStory'], v)} fieldName="סיפור הלידה שלי" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">סיפור הלידה שלי</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור הלידה שלי</label>
         </div>
         <EditableField asTextarea value={myStory.birthStory || ''} onUpdate={(v) => onUpdate(['personalStory', 'birthStory'], v)} placeholder="תארו את סיפור לידתכם כפי שסופר ע״י ההורים. איפה נולדתם? מה היה מיוחד?" />
       </div>
@@ -642,7 +643,7 @@ const Step3_MyStory = ({ projectData, onUpdate }: { projectData: any, onUpdate: 
       <div className="space-y-1">
         <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={myStory.personalVision || ''} onRephrase={(v) => onUpdate(['personalStory', 'personalVision'], v)} fieldName="חזון אישי" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">חזון אישי — אני מאמין/ה ש...</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חזון אישי — אני מאמין/ה ש...</label>
         </div>
         <EditableField asTextarea value={myStory.personalVision || ''} onUpdate={(v) => onUpdate(['personalStory', 'personalVision'], v)} placeholder="מהם הערכים שמנחים אותך? מה השאיפות שלך לעתיד?" />
       </div>
@@ -671,7 +672,7 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
   const parents = useMemo(() => {
     if (!currentStudentId) return [];
     const parentRels = relationships.filter(r => 
-      r.personBId === currentStudentId && r.relationshipType === 'parent'
+      r.personBId === currentStudentId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
     );
     const parentIds = parentRels.map(r => r.personAId);
     return parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
@@ -703,7 +704,7 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <AiRephraseButton value={family[`parent_${parent.id}_bio`] || ''} onRephrase={(v) => onUpdate(['nuclearFamily', `parent_${parent.id}_bio`], v)} fieldName={`סיפור על ${parent.firstName}`} />
-                  <label className="text-xs text-slate-400">ספר/י על {parent.firstName} במשפחה</label>
+                  <label className="text-xs text-slate-400 block w-full text-right">ספר/י על {parent.firstName} במשפחה</label>
                 </div>
                 <EditableField asTextarea value={family[`parent_${parent.id}_bio`] || ''} onUpdate={(v) => onUpdate(['nuclearFamily', `parent_${parent.id}_bio`], v)} placeholder={`מי זה/זו ${parent.firstName}? מה הוא/היא עושה? מה מיוחד בו/בה?`} />
               </div>
@@ -720,7 +721,7 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
         <div className="space-y-1 mt-3">
           <div className="flex items-center justify-between">
             <AiRephraseButton value={family.parentsMeetingStory || ''} onRephrase={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} fieldName="סיפור ההיכרות של ההורים" />
-            <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">סיפור ההיכרות של ההורים</label>
+            <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור ההיכרות של ההורים</label>
           </div>
           <EditableField asTextarea value={family.parentsMeetingStory || ''} onUpdate={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} placeholder="איך הכירו ההורים שלך? מה הסיפור שלהם?" />
         </div>
@@ -864,7 +865,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.inheritedObject || ''} onRephrase={(v) => onUpdate(['heritage', 'inheritedObject'], v)} fieldName="חפץ עובר בירושה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">חפץ עובר בירושה 💎</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
         </div>
         <EditableField asTextarea value={heritage.inheritedObject || ''} onUpdate={(v) => onUpdate(['heritage', 'inheritedObject'], v)} placeholder="תארו חפץ שעבר במשפחה מדור לדור. מה הוא? מאיפה הגיע? מה הוא מסמל?" />
       </div>
@@ -873,7 +874,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyRecipe || ''} onRephrase={(v) => onUpdate(['heritage', 'familyRecipe'], v)} fieldName="מתכון משפחתי" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מתכון משפחתי 🍽️</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
         </div>
         <EditableField asTextarea value={heritage.familyRecipe || ''} onUpdate={(v) => onUpdate(['heritage', 'familyRecipe'], v)} placeholder="מה המנה שכולם מחכים לה בארוחות משפחתיות? מי מכינה אותה? מה הסיפור שלה?" />
       </div>
@@ -882,7 +883,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyNameOrigin || ''} onRephrase={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} fieldName="מקור שם המשפחה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מקור שם המשפחה</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
         </div>
         <EditableField asTextarea value={heritage.familyNameOrigin || ''} onUpdate={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} placeholder="מאיפה מגיע שם המשפחה? מה משמעותו? מתי אומץ שם זה?" />
       </div>
@@ -917,7 +918,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
             <div key={eventId} className="space-y-1">
               <div className="flex items-center justify-between">
                 <AiRephraseButton value={heritage[`event_${eventId}`] || ''} onRephrase={(v) => onUpdate(['heritage', `event_${eventId}`], v)} fieldName={event.label} />
-                <label className="text-xs text-slate-300">הקשר של משפחתי ל{event.label}:</label>
+                <label className="text-xs text-slate-300 block w-full text-right">הקשר של משפחתי ל{event.label}:</label>
               </div>
               <EditableField asTextarea value={heritage[`event_${eventId}`] || ''} onUpdate={(v) => onUpdate(['heritage', `event_${eventId}`], v)} placeholder={`ספר/י על הקשר של משפחתך ל${event.label}...`} />
             </div>
