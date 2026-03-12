@@ -274,7 +274,7 @@ function generatePagesFromProject(
       id: 'page_nuclear_family_student_card',
       type: 'person_card',
       personId: student.id,
-      x: 35, y: 60, width: 30, height: 25,
+      x: 35, y: 60, width: 30, height: 28,
       zIndex: 10
     });
   }
@@ -283,7 +283,7 @@ function generatePagesFromProject(
       id: `page_nuclear_family_parent_${parent.id}_card`,
       type: 'person_card',
       personId: parent.id,
-      x: 20 + (index * 40), y: 20, width: 30, height: 25,
+      x: 20 + (index * 40), y: 20, width: 30, height: 28,
       zIndex: 10
     });
     if (student) {
@@ -336,16 +336,16 @@ function generatePagesFromProject(
       { id: 'page_paternal_title', type: 'text', content: 'שורשים מצד אבא', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
     ];
     if (paternalGF?.personId) {
-      paternalElements.push({ id: 'page_paternal_gf_card', type: 'person_card', personId: paternalGF.personId, x: 5, y: 14, width: 28, height: 22, zIndex: 10 });
+      paternalElements.push({ id: 'page_paternal_gf_card', type: 'person_card', personId: paternalGF.personId, x: 5, y: 14, width: 28, height: 28, zIndex: 10 });
     }
     if (paternalGF?.story) {
-      paternalElements.push({ id: 'page_paternal_gf_story', type: 'text', content: paternalGF.story, x: 35, y: 14, width: 60, height: 22, style: { fontSize: 11, textAlign: 'right' } });
+      paternalElements.push({ id: 'page_paternal_gf_story', type: 'text', content: paternalGF.story, x: 35, y: 14, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     if (paternalGM?.personId) {
-      paternalElements.push({ id: 'page_paternal_gm_card', type: 'person_card', personId: paternalGM.personId, x: 5, y: 42, width: 28, height: 22, zIndex: 10 });
+      paternalElements.push({ id: 'page_paternal_gm_card', type: 'person_card', personId: paternalGM.personId, x: 5, y: 46, width: 28, height: 28, zIndex: 10 });
     }
     if (paternalGM?.story) {
-      paternalElements.push({ id: 'page_paternal_gm_story', type: 'text', content: paternalGM.story, x: 35, y: 42, width: 60, height: 22, style: { fontSize: 11, textAlign: 'right' } });
+      paternalElements.push({ id: 'page_paternal_gm_story', type: 'text', content: paternalGM.story, x: 35, y: 46, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     pages.push({
       id: 'page_paternal_roots',
@@ -365,16 +365,16 @@ function generatePagesFromProject(
         { id: 'page_maternal_title', type: 'text', content: 'שורשים מצד אמא', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
     ];
     if (maternalGF?.personId) {
-        maternalElements.push({ id: 'page_maternal_gf_card', type: 'person_card', personId: maternalGF.personId, x: 5, y: 14, width: 28, height: 22, zIndex: 10 });
+        maternalElements.push({ id: 'page_maternal_gf_card', type: 'person_card', personId: maternalGF.personId, x: 5, y: 14, width: 28, height: 28, zIndex: 10 });
     }
     if (maternalGF?.story) {
-        maternalElements.push({ id: 'page_maternal_gf_story', type: 'text', content: maternalGF.story, x: 35, y: 14, width: 60, height: 22, style: { fontSize: 11, textAlign: 'right' } });
+        maternalElements.push({ id: 'page_maternal_gf_story', type: 'text', content: maternalGF.story, x: 35, y: 14, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     if (maternalGM?.personId) {
-        maternalElements.push({ id: 'page_maternal_gm_card', type: 'person_card', personId: maternalGM.personId, x: 5, y: 42, width: 28, height: 22, zIndex: 10 });
+        maternalElements.push({ id: 'page_maternal_gm_card', type: 'person_card', personId: maternalGM.personId, x: 5, y: 46, width: 28, height: 28, zIndex: 10 });
     }
     if (maternalGM?.story) {
-        maternalElements.push({ id: 'page_maternal_gm_story', type: 'text', content: maternalGM.story, x: 35, y: 42, width: 60, height: 22, style: { fontSize: 11, textAlign: 'right' } });
+        maternalElements.push({ id: 'page_maternal_gm_story', type: 'text', content: maternalGM.story, x: 35, y: 46, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     pages.push({
         id: 'page_maternal_roots',
@@ -399,15 +399,15 @@ function generatePagesFromProject(
         { id: 'page_heritage_title', type: 'text', content: 'מורשת משפחתית', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
         ...(heritage.inheritedObject ? [
           { id: 'page_heritage_obj_label', type: 'text', content: '💎 חפץ עובר בירושה', x: 5, y: 14, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_heritage_obj', type: 'text', content: heritage.inheritedObject, x: 5, y: 20, width: 90, height: 15, style: { fontSize: 12, textAlign: 'right' } },
+          { id: 'page_heritage_obj', type: 'text', content: heritage.inheritedObject, x: 5, y: 20, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
         ] as DesignElement[] : []),
         ...(heritage.familyRecipe ? [
           { id: 'page_heritage_recipe_label', type: 'text', content: '🍽️ מתכון משפחתי', x: 5, y: 38, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_heritage_recipe', type: 'text', content: heritage.familyRecipe, x: 5, y: 44, width: 90, height: 15, style: { fontSize: 12, textAlign: 'right' } },
+          { id: 'page_heritage_recipe', type: 'text', content: heritage.familyRecipe, x: 5, y: 44, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
         ] as DesignElement[] : []),
         ...(heritage.familyNameOrigin ? [
           { id: 'page_heritage_name_label', type: 'text', content: 'מקור שם המשפחה', x: 5, y: 62, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_heritage_name', type: 'text', content: heritage.familyNameOrigin, x: 5, y: 68, width: 90, height: 15, style: { fontSize: 12, textAlign: 'right' } },
+          { id: 'page_heritage_name', type: 'text', content: heritage.familyNameOrigin, x: 5, y: 68, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
         ] as DesignElement[] : []),
       ]
     });
@@ -427,7 +427,7 @@ const PersonCardElement = ({ element, people, relationships }: { element: Design
   const childCount = relationships.filter(r => r.personAId === person.id && r.relationshipType === 'parent').length;
   const siblingCount = relationships.filter(r => (r.personAId === person.id || r.personBId === person.id) && r.relationshipType === 'sibling').length;
   const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
-  const deathYear = person.deathDate ? new Date(person.deathDate as string).getFullYear() : null;
+  const deathYear = person.deathDate ? new Date(String(person.deathDate)).getFullYear() : null;
   const age = birthYear ? (deathYear ? deathYear - birthYear : new Date().getFullYear() - birthYear) : null;
   
   const displayName = [
@@ -449,11 +449,9 @@ const PersonCardElement = ({ element, people, relationships }: { element: Design
         <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
       </div>
       <p className="font-bold text-xs text-center leading-tight px-1" style={{ color: textColor }}>{displayName}</p>
-      {(birthYear || deathYear) && (
+      {birthYear && (
         <p className="text-xs text-center opacity-70" style={{ color: textColor }}>
-          {person.birthDate ? format(new Date(person.birthDate), 'dd/MM/yyyy') : ''}
-          {deathYear ? ` – ${format(new Date(person.deathDate as string), 'dd/MM/yyyy')}` : ''}
-          {age ? ` (גיל ${age})` : ''}
+            {birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` (גיל ${age})` : ''}
         </p>
       )}
       {person.birthPlace && (
@@ -611,14 +609,14 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   useEffect(() => {
     const existingPages = project.projectData?.designData?.pages;
     if (!existingPages || existingPages.length === 0) {
-      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-      onUpdateProject(proj => ({
-        ...proj,
-        projectData: {
-          ...proj.projectData,
-          designData: { pages: generated }
-        }
-      }));
+        const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
+        onUpdateProject(proj => ({
+            ...proj,
+            projectData: {
+                ...proj.projectData,
+                designData: { pages: generated }
+            }
+        }));
     }
     setIsGenerating(false);
   }, []);
@@ -626,6 +624,22 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   useEffect(() => {
     setPages(project.projectData?.designData?.pages || []);
   }, [project.projectData?.designData?.pages]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId && !editingElementId) {
+        e.preventDefault();
+        deleteElement(selectedElementId);
+      }
+      if (e.key === 'Escape') {
+        setSelectedElementId(null);
+        setEditingElementId(null);
+        setActiveTool('select');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElementId, editingElementId]);
 
 
   const updatePages = (updater: (currentPages: DesignPage[]) => DesignPage[]) => {
@@ -817,6 +831,10 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 </DropdownMenu>
             </div>
             <div className='flex items-center gap-2'>
+                <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-xs" onClick={() => setShowTemplatePicker(true)}>
+                    🎨 תבנית
+                </Button>
+                <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <TooltipProvider>
                     <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'select' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('select')}><MousePointer2 /></Button></TooltipTrigger><TooltipContent><p>בחר</p></TooltipContent></Tooltip>
                     <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('text')}><Pilcrow /></Button></TooltipTrigger><TooltipContent><p>טקסט</p></TooltipContent></Tooltip>
@@ -858,310 +876,18 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
         </header>
 
         <div className="flex-1 flex min-h-0">
-            <aside className="w-32 border-l border-white/10 p-2 flex flex-col gap-2">
-                <div className='flex-1 overflow-y-auto space-y-2'>
-                    {pages.map((page, index) => (
-                        <div key={page.id} onClick={() => setCurrentPageIndex(index)} className={cn("w-full bg-slate-800/50 rounded-md p-1 cursor-pointer border-2", currentPageIndex === index ? "border-indigo-500" : "border-transparent", aspectClass)}>
-                            <div className='relative w-full h-full bg-slate-900/50 overflow-hidden rounded-sm'>
-                                <span className='absolute bottom-1 right-1 text-xs font-bold text-white/50'>{page.pageNumber}</span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                 <Button size="sm" variant="outline" className='bg-transparent w-full mt-2' onClick={addPage}>+ הוסף עמוד</Button>
-            </aside>
-            
-            <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-                <div 
-                    className={cn(
-                        "relative",
-                        canvasAspectRatio === 'free' ? "w-full h-full" : "shadow-2xl",
-                        canvasAspectRatio !== 'free' && {
-                            'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
-                            'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
-                            'aspect-video w-full h-auto max-h-full': canvasAspectRatio === '16:9-landscape',
-                            'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '9/16',
-                            'aspect-square h-full w-auto max-w-full': canvasAspectRatio === '1:1',
-                        }
-                    )}
-                >
-                    <div id="canvas-container" ref={canvasRef} className="w-full h-full relative" 
-                        style={{
-                            background: (currentPage as any).backgroundImage ? undefined : (currentPage?.backgroundColor || template.backgroundGradient),
-                            backgroundImage: (currentPage as any).backgroundImage ? `url(${(currentPage as any).backgroundImage})` : undefined,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                        }}
-                        onClick={handleCanvasClick}
-                    >
-                         <TemplateDecorations template={template} />
-                        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
-                          <defs>
-                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                              <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
-                            </marker>
-                          </defs>
-                          {currentPage?.elements
-                            .filter(el => el.type === 'connection_line')
-                            .map((el, lineIndex) => {
-                              const fromEl = currentPage.elements.find(e => e.id === el.fromElementId);
-                              const toEl = currentPage.elements.find(e => e.id === el.toElementId);
-                              if (!fromEl || !toEl) return null;
-                              const x1 = fromEl.x + fromEl.width / 2;
-                              const y1 = fromEl.y + fromEl.height;
-                              const x2 = toEl.x + toEl.width / 2;
-                              const y2 = toEl.y;
-                              return (
-                                <line
-                                  key={`svg-line-${lineIndex}-${el.id.slice(-8)}`}
-                                  x1={`${x1}%`} y1={`${y1}%`}
-                                  x2={`${x2}%`} y2={`${y2}%`}
-                                  stroke={selectedElementId === el.id ? '#60a5fa' : template.primaryColor}
-                                  strokeWidth={selectedElementId === el.id ? 3 : 2}
-                                  markerEnd="url(#arrowhead)"
-                                  onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
-                                  style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
-                                />
-                              );
-                            })
-                          }
-                        </svg>
-                        {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => (
-                           <div 
-                             key={`el-${elIndex}-${el.id.slice(-8)}`}
-                             className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
-                             style={{
-                                 left: `${el.x}%`,
-                                 top: `${el.y}%`,
-                                 width: `${el.width}%`,
-                                 height: `${el.height}%`,
-                                 zIndex: el.zIndex,
-                             }}
-                             onMouseDown={(e) => handleMouseDown(e, el)}
-                           >
-                               {el.type === 'text' && (
-                                editingElementId === el.id ? (
-                                <textarea
-                                    autoFocus
-                                    className="w-full h-full bg-transparent resize-none outline-none border-none p-1"
-                                    style={{
-                                        color: el.style?.color || template.textColor,
-                                        fontSize: el.style?.fontSize,
-                                        fontWeight: el.style?.fontWeight,
-                                        textAlign: el.style?.textAlign || 'right',
-                                        direction: 'rtl',
-                                    }}
-                                    value={el.content || ''}
-                                    onChange={(e) => updateElement(el.id, { content: e.target.value })}
-                                    onBlur={() => setEditingElementId(null)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                />
-                                ) : (
-                                <div
-                                    className="w-full h-full p-1 overflow-hidden"
-                                    style={{
-                                    color: el.style?.color || template.textColor,
-                                    fontSize: el.style?.fontSize,
-                                    fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400,
-                                    textAlign: el.style?.textAlign || 'right',
-                                    direction: 'rtl',
-                                    whiteSpace: 'pre-wrap',
-                                    lineHeight: el.style?.lineHeight || 1.4,
-                                    }}
-                                    onDoubleClick={(e) => { e.stopPropagation(); setEditingElementId(el.id); }}
-                                >
-                                    {el.content}
-                                </div>
-                                )
-                            )}
-                               {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
-                               {el.type === 'image' && el.content && (
-                                <img src={el.content} alt="" className="w-full h-full object-cover rounded" />
-                               )}
-                               {el.type === 'shape' && (
-                                <div
-                                className="w-full h-full"
-                                style={{
-                                    backgroundColor: el.style?.backgroundColor || template.primaryColor,
-                                    borderRadius: el.style?.shapeType === 'circle' ? '50%' :
-                                                    el.style?.shapeType === 'rounded_rectangle' ? '12px' :
-                                                    el.style?.shapeType === 'diamond' ? '0' : el.style?.borderRadius || 0,
-                                    transform: el.style?.shapeType === 'diamond' ? 'rotate(45deg)' : undefined,
-                                    clipPath: el.style?.shapeType === 'star'
-                                    ? 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
-                                    : undefined,
-                                    border: el.style?.borderColor ? `${el.style.borderWidth || 2}px solid ${el.style.borderColor}` : undefined,
-                                    opacity: el.style?.opacity,
-                                }}
-                                />
-                            )}
-                            {el.type === 'icon' && (
-                                <div className="w-full h-full flex items-center justify-center"
-                                style={{ fontSize: el.style?.fontSize || 32 }}>
-                                {el.content}
-                                </div>
-                            )}
-                           </div>
-                        ))}
-                    </div>
-                </div>
-                 {showPersonPicker && (
-                    <div className="absolute right-0 top-0 h-full w-64 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
-                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                            <button onClick={() => { setShowPersonPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
-                            <h3 className="font-bold text-sm">הוסף כרטיס אדם</h3>
-                        </div>
-                        <input
-                            className="m-2 px-3 py-1.5 bg-slate-700 rounded-lg text-sm text-right placeholder:text-slate-500 border border-white/10 focus:outline-none"
-                            placeholder="חפש שם..."
-                            value={personSearch}
-                            onChange={e => setPersonSearch(e.target.value)}
-                        />
-                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
-                            {people
-                            .filter(p => `${p.firstName} ${p.lastName}`.toLowerCase().includes(personSearch.toLowerCase()))
-                            .map(person => (
-                                <button
-                                key={person.id}
-                                onClick={() => {
-                                    addElement({
-                                    type: 'person_card',
-                                    personId: person.id,
-                                    x: 20, y: 20, width: 30, height: 25,
-                                    zIndex: 10
-                                    });
-                                    setShowPersonPicker(false);
-                                    setActiveTool('select');
-                                }}
-                                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-right"
-                                >
-                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                                    <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
-                                </div>
-                                <div className="text-right flex-1 min-w-0">
-                                    <p className="text-xs font-bold truncate">{person.firstName} {person.lastName}</p>
-                                    {person.birthDate && <p className="text-xs text-slate-400">{new Date(person.birthDate).getFullYear()}</p>}
-                                </div>
-                                </button>
-                            ))
-                            }
-                        </div>
-                    </div>
-                )}
-                 {showImagePicker && (
-                    <div className="absolute right-0 top-0 h-full w-72 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
-                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                        <button onClick={() => { setShowImagePicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
-                        <h3 className="font-bold text-sm">הוסף תמונה</h3>
-                        </div>
-                        
-                        <div className="p-3 border-b border-white/10">
-                        <label className="cursor-pointer flex flex-col items-center gap-2 p-4 border-2 border-dashed border-white/20 rounded-xl hover:border-indigo-400 transition-colors">
-                            <ImageIcon className="w-8 h-8 text-slate-400" />
-                            <span className="text-xs text-slate-400 text-center">העלה תמונה מהמכשיר</span>
-                            <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = (ev) => {
-                                const dataUrl = ev.target?.result as string;
-                                addElement({
-                                    type: 'image',
-                                    content: dataUrl,
-                                    x: 10, y: 10, width: 40, height: 30,
-                                    zIndex: 5
-                                });
-                                setShowImagePicker(false);
-                                setActiveTool('select');
-                                };
-                                reader.readAsDataURL(file);
-                            }}
-                            />
-                        </label>
-                        </div>
-
-                        <div className="p-3 flex-1 overflow-y-auto">
-                        <p className="text-xs font-bold text-slate-300 text-right mb-2">הקבצים שלי</p>
-                        <MyFilesImageGrid 
-                            treeId={project.treeId} 
-                            onSelectImage={(url) => {
-                            addElement({
-                                type: 'image',
-                                content: url,
-                                x: 10, y: 10, width: 40, height: 30,
-                                zIndex: 5
-                            });
-                            setShowImagePicker(false);
-                            setActiveTool('select');
-                            }} 
-                        />
-                        </div>
-                    </div>
-                )}
-                 {showEmojiPicker && (
-                    <div className="absolute right-0 top-0 h-full w-64 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
-                    <div className="p-3 border-b border-white/10 flex items-center justify-between">
-                        <button onClick={() => { setShowEmojiPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
-                        <h3 className="font-bold text-sm">הוסף אמוג׳י</h3>
-                    </div>
-                    <div className="p-3 border-b border-white/10">
-                        <input
-                        className="w-full px-3 py-1.5 bg-slate-700 rounded-lg text-sm text-center placeholder:text-slate-500 border border-white/10 focus:outline-none"
-                        placeholder="הקלד אמוג׳י..."
-                        value={emojiInput}
-                        onChange={e => setEmojiInput(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-2">
-                        <div className="grid grid-cols-6 gap-1">
-                        {['❤️','⭐','🌟','✨','🔥','💫','🎯','🌈','🌺','🌸','🍀','🌿','🕊️','🦋','🌙','☀️','🏡','👨‍👩‍👧‍👦','👨‍👩‍👦','👪','🤝','💝','🎗️','📖','✡️','🕍','🇮🇱','🗺️','📍','📜','🏺','💎','🎵','🌍','🕰️','🌾'].map(emoji => (
-                            <button key={emoji} className="text-2xl p-1 hover:bg-white/10 rounded-lg transition-colors"
-                            onClick={() => {
-                                addElement({
-                                type: 'icon',
-                                content: emojiInput || emoji,
-                                x: 40, y: 40, width: 10, height: 10,
-                                style: { fontSize: 32, textAlign: 'center' },
-                                zIndex: 15
-                                });
-                                setShowEmojiPicker(false);
-                                setActiveTool('select');
-                            }}
-                            >
-                            {emoji}
-                            </button>
-                        ))}
-                        </div>
-                        {emojiInput && (
-                        <button
-                            className="w-full mt-2 p-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm font-bold"
-                            onClick={() => {
-                            addElement({
-                                type: 'icon',
-                                content: emojiInput,
-                                x: 40, y: 40, width: 10, height: 10,
-                                style: { fontSize: 32, textAlign: 'center' },
-                                zIndex: 15
-                            });
-                            setShowEmojiPicker(false);
-                            setActiveTool('select');
-                            }}
-                        >
-                            הוסף: {emojiInput}
-                        </button>
-                        )}
-                    </div>
-                    </div>
-                )}
-            </main>
-
-            <aside className="w-60 border-r border-white/10 p-4 space-y-4 overflow-y-auto">
-                <h3 className='font-bold text-sm text-center'>{selectedElement ? `עריכת ${selectedElement.type}` : 'עריכת עמוד'}</h3>
+            <aside className="w-64 min-w-[240px] border-l border-white/10 p-4 space-y-4 overflow-y-auto flex-shrink-0">
+                <h3 className='font-bold text-sm text-center'>
+                     {selectedElement ? (
+                        selectedElement.type === 'text' ? 'עריכת טקסט' :
+                        selectedElement.type === 'person_card' ? 'כרטיס אדם' :
+                        selectedElement.type === 'shape' ? 'עריכת צורה' :
+                        selectedElement.type === 'image' ? 'עריכת תמונה' :
+                        selectedElement.type === 'icon' ? 'עריכת אמוג׳י' :
+                        selectedElement.type === 'connection_line' ? 'קו חיבור' :
+                        'עריכת אלמנט'
+                    ) : 'עריכת עמוד'}
+                </h3>
                 {!selectedElement && currentPage && (
                     <div className='space-y-4'>
                         <div className='space-y-1 text-right'>
@@ -1351,6 +1077,409 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         onClick={() => deleteElement(selectedElementId!)}>מחק צורה</Button>
                     </div>
                 )}
+                 {selectedElement?.type === 'image' && (
+                    <div className='space-y-3'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת תמונה</h4>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                        <Slider value={[selectedElement.style?.opacity ?? 1]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
+                        min={0} max={1} step={0.05}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עיגול פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
+                        <Slider value={[selectedElement.style?.borderRadius ?? 0]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: val }})}
+                        min={0} max={50} step={1}
+                        />
+                    </div>
+                    <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400 w-full">
+                        <ImageIcon className="w-4 h-4" />
+                        <span>החלף תמונה</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            updateElement(selectedElementId!, { content: ev.target?.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                        }} />
+                    </label>
+                    <Button variant="destructive" size="sm" className="w-full"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק תמונה</Button>
+                    </div>
+                )}
+                {selectedElement?.type === 'connection_line' && (
+                    <div className='space-y-3'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>קו חיבור</h4>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע קו</label>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                        value={selectedElement.style?.color || template.primaryColor}
+                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עובי קו: {selectedElement.style?.borderWidth || 2}px</label>
+                        <Slider value={[selectedElement.style?.borderWidth || 2]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: val }})}
+                        min={1} max={8} step={1}
+                        />
+                    </div>
+                    <Button variant="destructive" size="sm" className="w-full"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
+                    </div>
+                )}
+            </aside>
+            <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+                <div 
+                    className={cn(
+                        "relative overflow-hidden",
+                        canvasAspectRatio === 'free' ? "w-full h-full" : "shadow-2xl",
+                        canvasAspectRatio !== 'free' && {
+                            'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
+                            'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
+                            'aspect-video w-full h-auto max-h-full': canvasAspectRatio === '16:9-landscape',
+                            'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '9/16',
+                            'aspect-square h-full w-auto max-w-full': canvasAspectRatio === '1:1',
+                        }
+                    )}
+                >
+                    <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden" 
+                        style={{
+                            background: (currentPage as any).backgroundImage ? undefined : (currentPage?.backgroundColor || template.backgroundGradient),
+                            backgroundImage: (currentPage as any).backgroundImage ? `url(${(currentPage as any).backgroundImage})` : undefined,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                        }}
+                        onClick={handleCanvasClick}
+                    >
+                         <TemplateDecorations template={template} />
+                        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
+                          <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                              <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
+                            </marker>
+                          </defs>
+                          {currentPage?.elements
+                            .filter(el => el.type === 'connection_line')
+                            .map((el, lineIndex) => {
+                              const fromEl = currentPage.elements.find(e => e.id === el.fromElementId);
+                              const toEl = currentPage.elements.find(e => e.id === el.toElementId);
+                              if (!fromEl || !toEl) return null;
+                              const x1 = fromEl.x + fromEl.width / 2;
+                              const y1 = fromEl.y + fromEl.height;
+                              const x2 = toEl.x + toEl.width / 2;
+                              const y2 = toEl.y;
+                              return (
+                                <line
+                                  key={`svg-line-${lineIndex}-${el.id.slice(-8)}`}
+                                  x1={`${x1}%`} y1={`${y1}%`}
+                                  x2={`${x2}%`} y2={`${y2}%`}
+                                  stroke={selectedElementId === el.id ? '#60a5fa' : (el.style?.color || template.primaryColor)}
+                                  strokeWidth={selectedElementId === el.id ? (el.style?.borderWidth || 2) + 1 : (el.style?.borderWidth || 2)}
+                                  markerEnd="url(#arrowhead)"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
+                                  style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+                                />
+                              );
+                            })
+                          }
+                        </svg>
+                        {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => (
+                           <div 
+                             key={`el-${elIndex}-${el.id.slice(-8)}`}
+                             className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
+                             style={{
+                                 left: `${el.x}%`,
+                                 top: `${el.y}%`,
+                                 width: `${el.width}%`,
+                                 height: `${el.height}%`,
+                                 zIndex: el.zIndex,
+                             }}
+                             onMouseDown={(e) => handleMouseDown(e, el)}
+                           >
+                               {el.type === 'text' && (
+                                editingElementId === el.id ? (
+                                <textarea
+                                    autoFocus
+                                    className="w-full h-full bg-transparent resize-none outline-none border-none p-1"
+                                    style={{
+                                        color: el.style?.color || template.textColor,
+                                        fontSize: el.style?.fontSize,
+                                        fontWeight: el.style?.fontWeight,
+                                        textAlign: el.style?.textAlign || 'right',
+                                        direction: 'rtl',
+                                    }}
+                                    value={el.content || ''}
+                                    onChange={(e) => updateElement(el.id, { content: e.target.value })}
+                                    onBlur={() => setEditingElementId(null)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                />
+                                ) : (
+                                <div
+                                    className="w-full h-full p-1 overflow-hidden"
+                                    style={{
+                                    color: el.style?.color || template.textColor,
+                                    fontSize: el.style?.fontSize,
+                                    fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400,
+                                    textAlign: el.style?.textAlign || 'right',
+                                    direction: 'rtl',
+                                    whiteSpace: 'pre-wrap',
+                                    lineHeight: el.style?.lineHeight || 1.4,
+                                    }}
+                                    onDoubleClick={(e) => { e.stopPropagation(); setEditingElementId(el.id); }}
+                                >
+                                    {el.content}
+                                </div>
+                                )
+                            )}
+                               {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
+                               {el.type === 'image' && el.content && (
+                                <img src={el.content} alt="" className="w-full h-full object-cover"
+                                    style={{
+                                    opacity: el.style?.opacity,
+                                    borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : '4px'
+                                    }}
+                                />
+                               )}
+                               {el.type === 'shape' && (
+                                <div
+                                className="w-full h-full"
+                                style={{
+                                    backgroundColor: el.style?.backgroundColor || template.primaryColor,
+                                    borderRadius: el.style?.shapeType === 'circle' ? '50%' :
+                                                    el.style?.shapeType === 'rounded_rectangle' ? '12px' :
+                                                    el.style?.shapeType === 'diamond' ? '0' : el.style?.borderRadius || 0,
+                                    transform: el.style?.shapeType === 'diamond' ? 'rotate(45deg)' : undefined,
+                                    clipPath: el.style?.shapeType === 'star'
+                                    ? 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)'
+                                    : undefined,
+                                    border: el.style?.borderColor ? `${el.style.borderWidth || 2}px solid ${el.style.borderColor}` : undefined,
+                                    opacity: el.style?.opacity,
+                                }}
+                                />
+                            )}
+                            {el.type === 'icon' && (
+                                <div className="w-full h-full flex items-center justify-center"
+                                style={{ fontSize: el.style?.fontSize || 32 }}>
+                                {el.content}
+                                </div>
+                            )}
+                           </div>
+                        ))}
+                    </div>
+                </div>
+                 {showPersonPicker && (
+                    <div className="absolute right-0 top-0 h-full w-64 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
+                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                            <button onClick={() => { setShowPersonPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
+                            <h3 className="font-bold text-sm">הוסף כרטיס אדם</h3>
+                        </div>
+                        <input
+                            className="m-2 px-3 py-1.5 bg-slate-700 rounded-lg text-sm text-right placeholder:text-slate-500 border border-white/10 focus:outline-none"
+                            placeholder="חפש שם..."
+                            value={personSearch}
+                            onChange={e => setPersonSearch(e.target.value)}
+                        />
+                        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                            {people
+                            .filter(p => `${p.firstName} ${p.lastName}`.toLowerCase().includes(personSearch.toLowerCase()))
+                            .map(person => (
+                                <button
+                                key={person.id}
+                                onClick={() => {
+                                    addElement({
+                                    type: 'person_card',
+                                    personId: person.id,
+                                    x: 20, y: 20, width: 30, height: 28,
+                                    zIndex: 10
+                                    });
+                                    setShowPersonPicker(false);
+                                    setActiveTool('select');
+                                }}
+                                className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-right"
+                                >
+                                <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                                    <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="text-right flex-1 min-w-0">
+                                    <p className="text-xs font-bold truncate">{person.firstName} {person.lastName}</p>
+                                    {person.birthDate && <p className="text-xs text-slate-400">{new Date(person.birthDate).getFullYear()}</p>}
+                                </div>
+                                </button>
+                            ))
+                            }
+                        </div>
+                    </div>
+                )}
+                 {showImagePicker && (
+                    <div className="absolute right-0 top-0 h-full w-72 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
+                        <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                        <button onClick={() => { setShowImagePicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
+                        <h3 className="font-bold text-sm">הוסף תמונה</h3>
+                        </div>
+                        
+                        <div className="p-3 border-b border-white/10">
+                        <label className="cursor-pointer flex flex-col items-center gap-2 p-4 border-2 border-dashed border-white/20 rounded-xl hover:border-indigo-400 transition-colors">
+                            <ImageIcon className="w-8 h-8 text-slate-400" />
+                            <span className="text-xs text-slate-400 text-center">העלה תמונה מהמכשיר</span>
+                            <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = (ev) => {
+                                const dataUrl = ev.target?.result as string;
+                                addElement({
+                                    type: 'image',
+                                    content: dataUrl,
+                                    x: 10, y: 10, width: 40, height: 30,
+                                    zIndex: 5
+                                });
+                                setShowImagePicker(false);
+                                setActiveTool('select');
+                                };
+                                reader.readAsDataURL(file);
+                            }}
+                            />
+                        </label>
+                        </div>
+
+                        <div className="p-3 flex-1 overflow-y-auto">
+                        <p className="text-xs font-bold text-slate-300 text-right mb-2">הקבצים שלי</p>
+                        <MyFilesImageGrid 
+                            treeId={project.treeId} 
+                            onSelectImage={(url) => {
+                            addElement({
+                                type: 'image',
+                                content: url,
+                                x: 10, y: 10, width: 40, height: 30,
+                                zIndex: 5
+                            });
+                            setShowImagePicker(false);
+                            setActiveTool('select');
+                            }} 
+                        />
+                        </div>
+                    </div>
+                )}
+                 {showEmojiPicker && (
+                    <div className="absolute right-0 top-0 h-full w-64 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
+                    <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                        <button onClick={() => { setShowEmojiPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
+                        <h3 className="font-bold text-sm">הוסף אמוג׳י</h3>
+                    </div>
+                    <div className="p-3 border-b border-white/10">
+                        <input
+                        className="w-full px-3 py-1.5 bg-slate-700 rounded-lg text-sm text-center placeholder:text-slate-500 border border-white/10 focus:outline-none"
+                        placeholder="הקלד אמוג׳י..."
+                        value={emojiInput}
+                        onChange={e => setEmojiInput(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-2">
+                        <div className="grid grid-cols-6 gap-1">
+                        {['❤️','⭐','🌟','✨','🔥','💫','🎯','🌈','🌺','🌸','🍀','🌿','🕊️','🦋','🌙','☀️','🏡','👨‍👩‍👧‍👦','👨‍👩‍👦','👪','🤝','💝','🎗️','📖','✡️','🕍','🇮🇱','🗺️','📍','📜','🏺','💎','🎵','🌍','🕰️','🌾'].map(emoji => (
+                            <button key={emoji} className="text-2xl p-1 hover:bg-white/10 rounded-lg transition-colors"
+                            onClick={() => {
+                                addElement({
+                                type: 'icon',
+                                content: emojiInput || emoji,
+                                x: 40, y: 40, width: 10, height: 10,
+                                style: { fontSize: 32, textAlign: 'center' },
+                                zIndex: 15
+                                });
+                                setShowEmojiPicker(false);
+                                setActiveTool('select');
+                            }}
+                            >
+                            {emoji}
+                            </button>
+                        ))}
+                        </div>
+                        {emojiInput && (
+                        <button
+                            className="w-full mt-2 p-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm font-bold"
+                            onClick={() => {
+                            addElement({
+                                type: 'icon',
+                                content: emojiInput,
+                                x: 40, y: 40, width: 10, height: 10,
+                                style: { fontSize: 32, textAlign: 'center' },
+                                zIndex: 15
+                            });
+                            setShowEmojiPicker(false);
+                            setActiveTool('select');
+                            }}
+                        >
+                            הוסף: {emojiInput}
+                        </button>
+                        )}
+                    </div>
+                    </div>
+                )}
+            </main>
+            <aside className="w-32 border-r border-white/10 p-2 flex flex-col gap-2">
+                <div className='flex-1 overflow-y-auto space-y-2'>
+                    {pages.map((page, index) => {
+                        const aspectClass = {
+                            'a4-landscape': 'aspect-[1.414/1]',
+                            'a4-portrait': 'aspect-[1/1.414]',
+                            '16:9-landscape': 'aspect-video',
+                            '9/16': 'aspect-[9/16]',
+                            '1:1': 'aspect-square',
+                            'free': 'aspect-[1.414/1]',
+                        }[canvasAspectRatio] || 'aspect-[1.414/1]';
+                        return (
+                        <div
+                          key={page.id}
+                          onClick={() => setCurrentPageIndex(index)}
+                          className={cn("w-full bg-slate-800/50 rounded-md p-1 cursor-pointer border-2", currentPageIndex === index ? "border-indigo-500" : "border-transparent", aspectClass)}
+                          title={`${page.pageNumber}. ${page.title}`}
+                        >
+                           <div
+                                className='relative w-full h-full overflow-hidden rounded-sm'
+                                style={{
+                                background: page.backgroundImage
+                                    ? undefined
+                                    : (page.backgroundColor || DESIGN_TEMPLATES.find(t => t.id === page.templateId)?.backgroundGradient || '#0a0015'),
+                                backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
+                                backgroundSize: 'cover',
+                                }}
+                            >
+                                {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, i) => (
+                                <div key={el.id} className="absolute overflow-hidden px-0.5"
+                                    style={{
+                                    top: `${el.y}%`, left: `${el.x}%`,
+                                    width: `${el.width}%`,
+                                    fontSize: '3px',
+                                    color: DESIGN_TEMPLATES.find(t => t.id === page.templateId)?.textColor || '#fff',
+                                    fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400,
+                                    lineHeight: 1.2,
+                                    whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {el.content?.slice(0, 20)}
+                                </div>
+                                ))}
+                                <span
+                                className='absolute bottom-0.5 left-0.5 font-bold text-white/60'
+                                style={{ fontSize: '5px' }}
+                                >
+                                {page.pageNumber}
+                                </span>
+                            </div>
+                        </div>
+                    )})}
+                </div>
+                 <Button size="sm" variant="outline" className='bg-transparent w-full mt-2' onClick={addPage}>+ הוסף עמוד</Button>
             </aside>
         </div>
 
