@@ -627,6 +627,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     setIsGenerating(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+
   useEffect(() => {
     setPages(project.projectData?.designData?.pages || []);
   }, [project.projectData?.designData?.pages]);
@@ -653,10 +654,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     setPages(newPages);
     onUpdateProject(proj => ({
       ...proj,
-      projectData: {
-        ...proj.projectData,
-        designData: { ...proj.projectData?.designData, pages: newPages }
-      }
+      projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: newPages } }
     }));
   };
 
@@ -952,7 +950,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                           backgroundSize: 'cover',
                         }}
                       >
-                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el) => (
+                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, i) => (
                           <div key={el.id} className="absolute overflow-hidden px-0.5"
                             style={{
                               top: `${el.y}%`, left: `${el.x}%`,
@@ -1004,10 +1002,14 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 >
                     <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden"
                         style={{
-                            background: (currentPage as any).backgroundImage ? undefined : (currentPage?.backgroundColor || template.backgroundGradient),
-                            backgroundImage: (currentPage as any).backgroundImage ? `url(${(currentPage as any).backgroundImage})` : undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
+                            backgroundImage: (currentPage as any).backgroundImage
+                                ? `url(${(currentPage as any).backgroundImage})`
+                                : (currentPage?.backgroundColor ? 'none' : template.backgroundGradient),
+                            backgroundColor: (currentPage as any).backgroundImage
+                                ? 'transparent'
+                                : (currentPage?.backgroundColor || 'transparent')
                         }}
                         onClick={handleCanvasClick}
                     >
@@ -1638,7 +1640,6 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
               <div className="grid grid-cols-5 gap-3">
                 {DESIGN_TEMPLATES.map(t => (
                     <button key={t.id} onClick={() => {
-                        setSelectedTemplateId(t.id);
                         if (applyTemplateToAll) {
                           updatePages(p => p.map(pg => ({...pg, templateId: t.id})));
                         } else {
