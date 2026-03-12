@@ -309,14 +309,14 @@ function generatePagesFromProject(
     templateId,
     elements: [
       {
-        id: 'cover_title',
+        id: 'page_cover_title',
         type: 'text',
         content: project.projectData?.projectName || 'עבודת שורשים',
         x: 10, y: 30, width: 80, height: 20,
         style: { fontSize: 48, fontWeight: 'extrabold', textAlign: 'center' }
       },
       {
-        id: 'cover_student_name',
+        id: 'page_cover_student_name',
         type: 'text',
         content: student ? `${student.firstName} ${student.lastName}` : '',
         x: 10, y: 50, width: 80, height: 10,
@@ -334,8 +334,8 @@ function generatePagesFromProject(
       title: 'השם שלי',
       templateId,
       elements: [
-        { id: 'name_title', type: 'text', content: 'השם שלי', x: 10, y: 10, width: 80, height: 10, style: { fontSize: 36, fontWeight: 'bold', textAlign: 'center' } },
-        { id: 'name_meaning_text', type: 'text', content: project.projectData.personalStory.nameMeaning, x: 15, y: 25, width: 70, height: 60, style: { fontSize: 16 } },
+        { id: 'page_name_title', type: 'text', content: 'השם שלי', x: 10, y: 10, width: 80, height: 10, style: { fontSize: 36, fontWeight: 'bold', textAlign: 'center' } },
+        { id: 'page_name_meaning_text', type: 'text', content: project.projectData.personalStory.nameMeaning, x: 15, y: 25, width: 70, height: 60, style: { fontSize: 16 } },
       ]
     });
   }
@@ -347,7 +347,7 @@ function generatePagesFromProject(
   const nuclearFamilyElements: DesignElement[] = [];
   if (student) {
     nuclearFamilyElements.push({
-      id: 'nf_student_card',
+      id: 'page_nuclear_family_student_card',
       type: 'person_card',
       personId: student.id,
       x: 35, y: 60, width: 30, height: 15,
@@ -356,7 +356,7 @@ function generatePagesFromProject(
   }
   parents.forEach((parent, index) => {
     nuclearFamilyElements.push({
-      id: `nf_parent_${parent.id}_card`,
+      id: `page_nuclear_family_parent_${parent.id}_card`,
       type: 'person_card',
       personId: parent.id,
       x: 20 + (index * 40), y: 20, width: 30, height: 15,
@@ -364,10 +364,10 @@ function generatePagesFromProject(
     });
     if (student) {
       nuclearFamilyElements.push({
-          id: `nf_conn_${parent.id}`,
+          id: `page_nuclear_family_conn_${parent.id}`,
           type: 'connection_line',
-          fromElementId: `nf_parent_${parent.id}_card`,
-          toElementId: 'nf_student_card',
+          fromElementId: `page_nuclear_family_parent_${parent.id}_card`,
+          toElementId: 'page_nuclear_family_student_card',
           zIndex: 1
       });
     }
@@ -424,7 +424,16 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<'select' | 'text' | 'shape' | 'person' | 'image' | 'icon' | 'line'>('select');
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showPersonPicker, setShowPersonPicker] = useState(false);
+  const [personSearch, setPersonSearch] = useState('');
+  
   const { toast } = useToast();
+
+  const isDragging = useRef(false);
+  const dragElementId = useRef<string | null>(null);
+  const dragStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0 });
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const currentPage = pages[currentPageIndex];
   const template = DESIGN_TEMPLATES.find(t => t.id === selectedTemplateId) || DESIGN_TEMPLATES[0];
@@ -472,21 +481,70 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
     setSelectedElementId(null);
   };
   
+  const addPage = () => {
+    const newPage: DesignPage = {
+      id: `page_custom_${Date.now()}`,
+      pageNumber: pages.length + 1,
+      pageType: 'custom',
+      title: 'עמוד חדש',
+      elements: [],
+      templateId: selectedTemplateId,
+    };
+    setPages(prev => [...prev, newPage]);
+    setCurrentPageIndex(pages.length);
+  };
+
   const handleCanvasClick = (e: React.MouseEvent) => {
-      if (activeTool === 'text') {
+    const target = e.target as HTMLElement;
+    if (target.id !== 'canvas-container') return;
+
+    if (activeTool === 'text') {
         addElement({
             type: 'text',
             content: 'טקסט חדש',
-            x: (e.nativeEvent.offsetX / (e.target as HTMLElement).offsetWidth) * 100,
-            y: (e.nativeEvent.offsetY / (e.target as HTMLElement).offsetHeight) * 100,
+            x: (e.nativeEvent.offsetX / target.offsetWidth) * 100,
+            y: (e.nativeEvent.offsetY / target.offsetHeight) * 100,
             width: 30, height: 10,
             style: { fontSize: 16, color: template.textColor }
         });
         setActiveTool('select');
-      } else {
+    } else {
         setSelectedElementId(null);
-      }
+    }
   }
+
+  const handleMouseDown = (e: React.MouseEvent, el: DesignElement) => {
+    if (activeTool !== 'select' || !canvasRef.current) return;
+    e.stopPropagation();
+    setSelectedElementId(el.id);
+    isDragging.current = true;
+    dragElementId.current = el.id;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    dragStart.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        elX: el.x,
+        elY: el.y,
+    };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging.current || !dragElementId.current || !canvasRef.current) return;
+    const canvasRect = canvasRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - dragStart.current.mouseX) / canvasRect.width) * 100;
+    const dy = ((e.clientY - dragStart.current.mouseY) / canvasRect.height) * 100;
+
+    updateElement(dragElementId.current, (el) => {
+        const newX = Math.max(0, Math.min(100 - el.width, dragStart.current.elX + dx));
+        const newY = Math.max(0, Math.min(100 - el.height, dragStart.current.elY + dy));
+        return { x: newX, y: newY };
+    });
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    dragElementId.current = null;
+  };
 
   if (isGenerating) {
     return (
@@ -505,19 +563,20 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-slate-900 text-white" dir="rtl">
-        {/* Top Toolbar */}
         <header className="h-12 border-b border-white/10 px-4 flex items-center justify-between flex-shrink-0 z-20">
             <div className='flex items-center gap-4'>
-                <Button variant="ghost" size="sm" onClick={() => onBack()}><ArrowLeft className="ml-2 h-4 w-4" />חזור לאשף</Button>
+                <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="ml-2 h-4 w-4" />חזור לאשף</Button>
                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <h1 className='font-bold text-sm'>{project.projectData.projectName}</h1>
             </div>
             <div className='flex items-center gap-2'>
+                <Button variant="outline" size="sm" className="bg-transparent" onClick={() => setShowTemplatePicker(true)}>בחר תבנית</Button>
+                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <TooltipProvider>
-                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'select' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('select')}><MousePointer2 /></Button></TooltipTrigger><TooltipContent><p>Select</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('text')}><Pilcrow /></Button></TooltipTrigger><TooltipContent><p>Text</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'shape' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('shape')}><Square /></Button></TooltipTrigger><TooltipContent><p>Shape</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'person' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('person')}><User /></Button></TooltipTrigger><TooltipContent><p>Person</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'select' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('select')}><MousePointer2 /></Button></TooltipTrigger><TooltipContent><p>בחר</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('text')}><Pilcrow /></Button></TooltipTrigger><TooltipContent><p>טקסט</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'shape' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('shape')}><Square /></Button></TooltipTrigger><TooltipContent><p>צורה</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'person' ? 'secondary' : 'ghost'} size="icon" onClick={() => {setActiveTool('person'); setShowPersonPicker(true);}}><User /></Button></TooltipTrigger><TooltipContent><p>כרטיס אדם</p></TooltipContent></Tooltip>
                 </TooltipProvider>
             </div>
             <div className='flex items-center gap-2'>
@@ -525,32 +584,66 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                 <Button variant="ghost" size="sm" onClick={() => toast({title: "בקרוב..."})}><Redo className="ml-2"/></Button>
                  <Separator orientation="vertical" className='h-6 bg-white/10'/>
                  <Button variant="ghost" size="icon" onClick={() => selectedElementId && deleteElement(selectedElementId)} disabled={!selectedElementId}><Trash2 className="text-red-400"/></Button>
+                 <DropdownMenu>
+                  <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="bg-transparent">ייצא ▾</Button></DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => toast({ title: "ייצוא PDF יהיה זמין בקרוב! 🚀" })}>📄 PDF</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toast({ title: "ייצוא Word יהיה זמין בקרוב! 🚀" })}>📝 Word</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toast({ title: "ייצוא PowerPoint יהיה זמין בקרוב! 🚀" })}>📊 PowerPoint</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </header>
 
         <div className="flex-1 flex min-h-0">
-            {/* Left Panel */}
             <aside className="w-48 border-l border-white/10 p-2 flex flex-col gap-2">
-                <Button size="sm" variant="outline" className='bg-transparent w-full'>+ הוסף עמוד</Button>
                 <div className='flex-1 overflow-y-auto space-y-2'>
                     {pages.map((page, index) => (
                         <div key={page.id} onClick={() => setCurrentPageIndex(index)} className={cn("aspect-[3/4] w-full bg-slate-800/50 rounded-md p-1 cursor-pointer border-2", currentPageIndex === index ? "border-indigo-500" : "border-transparent")}>
                             <div className='relative w-full h-full bg-slate-900/50 overflow-hidden rounded-sm'>
-                                {/* mini preview here */}
                                 <span className='absolute bottom-1 right-1 text-xs font-bold text-white/50'>{page.pageNumber}</span>
                             </div>
                         </div>
                     ))}
                 </div>
+                 <Button size="sm" variant="outline" className='bg-transparent w-full mt-2' onClick={addPage}>+ הוסף עמוד</Button>
             </aside>
             
-            {/* Center Canvas */}
-            <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden">
-                <div id="canvas-container" className="aspect-[3/4] h-full bg-slate-800 shadow-2xl relative" onClick={handleCanvasClick}>
-                    {currentPage?.elements.map(el => (
+            <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+                <div id="canvas-container" ref={canvasRef} className="aspect-[3/4] h-full shadow-2xl relative" style={{ background: currentPage?.backgroundColor || template.backgroundGradient }} onClick={handleCanvasClick}>
+                    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 999 }}>
+                      <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                          <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
+                        </marker>
+                      </defs>
+                      {currentPage?.elements
+                        .filter(el => el.type === 'connection_line')
+                        .map(el => {
+                          const fromEl = currentPage.elements.find(e => e.id === el.fromElementId);
+                          const toEl = currentPage.elements.find(e => e.id === el.toElementId);
+                          if (!fromEl || !toEl) return null;
+                          const x1 = fromEl.x + fromEl.width / 2;
+                          const y1 = fromEl.y + fromEl.height / 2;
+                          const x2 = toEl.x + toEl.width / 2;
+                          const y2 = toEl.y + toEl.height / 2;
+                          return (
+                            <line
+                              key={`svg-line-${el.id}`}
+                              x1={`${x1}%`} y1={`${y1}%`}
+                              x2={`${x2}%`} y2={`${y2}%`}
+                              stroke={template.primaryColor}
+                              strokeWidth="2"
+                              markerEnd="url(#arrowhead)"
+                            />
+                          );
+                        })
+                      }
+                    </svg>
+                    {currentPage?.elements.filter(el => el.type !== 'connection_line').map(el => (
                        <div 
-                         key={el.id}
-                         className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent')}
+                         key={`${currentPage.id}-${el.id}`}
+                         className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
                          style={{
                              left: `${el.x}%`,
                              top: `${el.y}%`,
@@ -563,35 +656,51 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                              fontWeight: el.style?.fontWeight,
                              textAlign: el.style?.textAlign,
                          }}
-                         onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
+                         onMouseDown={(e) => handleMouseDown(e, el)}
                        >
                            {el.type === 'text' && <div>{el.content}</div>}
                            {el.type === 'person_card' && <PersonCardElement element={el} people={people} />}
                        </div>
                     ))}
                 </div>
+                 {showPersonPicker && (
+                  <div className="absolute right-0 top-0 h-full w-64 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
+                    <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                      <button onClick={() => { setShowPersonPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
+                      <h3 className="font-bold text-sm">הוסף כרטיס אדם</h3>
+                    </div>
+                    <input className="m-2 px-3 py-1.5 bg-slate-700 rounded-lg text-sm text-right placeholder:text-slate-500 border border-white/10 focus:outline-none" placeholder="חפש שם..." value={personSearch} onChange={e => setPersonSearch(e.target.value)} />
+                    <div className="flex-1 overflow-y-auto p-2 space-y-1">
+                      {people
+                        .filter(p => `${p.firstName} ${p.lastName}`.includes(personSearch))
+                        .map(person => (
+                          <button key={person.id} onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 30, height: 20, zIndex: 10 }); setShowPersonPicker(false); setActiveTool('select'); }} className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-right">
+                            <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
+                              <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-bold">{person.firstName} {person.lastName}</p>
+                              {person.birthDate && <p className="text-xs text-slate-400">{new Date(person.birthDate).getFullYear()}</p>}
+                            </div>
+                          </button>
+                        ))
+                      }
+                    </div>
+                  </div>
+                )}
             </main>
 
-            {/* Right Panel */}
             <aside className="w-60 border-r border-white/10 p-4 space-y-4 overflow-y-auto">
                 <h3 className='font-bold text-sm text-center'>{selectedElement ? `עריכת ${selectedElement.type}` : 'עריכת עמוד'}</h3>
                 {selectedElement?.type === 'text' && (
                     <div className='space-y-4'>
                         <div className='space-y-1 text-right'>
                             <label className='text-xs text-slate-400'>גודל גופן</label>
-                            <Slider
-                                value={[selectedElement.style?.fontSize || 16]}
-                                onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: val }})}
-                                min={8} max={72} step={1}
-                            />
+                            <Slider value={[selectedElement.style?.fontSize || 16]} onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: val }})} min={8} max={72} step={1} />
                         </div>
                          <div className='space-y-1 text-right'>
                             <label className='text-xs text-slate-400'>צבע טקסט</label>
-                            <Input 
-                                type="color"
-                                value={selectedElement.style?.color || '#ffffff'}
-                                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
-                            />
+                            <Input type="color" value={selectedElement.style?.color || '#ffffff'} onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
                         </div>
                     </div>
                 )}
@@ -599,16 +708,35 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                     <div className='space-y-4'>
                         <div className='space-y-1 text-right'>
                             <label className='text-xs text-slate-400'>צבע רקע עמוד</label>
-                             <Input 
-                                type="color"
-                                value={currentPage.backgroundColor || template.backgroundColor}
-                                onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))}
-                            />
+                             <Input type="color" value={currentPage.backgroundColor || template.backgroundColor} onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
                         </div>
                     </div>
                  )}
             </aside>
         </div>
+
+        {showTemplatePicker && (
+          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={() => setShowTemplatePicker(false)}>
+            <div className="bg-slate-800 rounded-2xl p-6 w-[600px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+              <h2 className="text-xl font-bold text-right mb-4">בחר תבנית עיצוב</h2>
+              <div className="grid grid-cols-5 gap-3">
+                {DESIGN_TEMPLATES.map(t => (
+                  <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setPages(prev => prev.map(p => ({...p, templateId: t.id}))); setShowTemplatePicker(false); }} className={cn("rounded-xl overflow-hidden border-2 transition-all", selectedTemplateId === t.id ? "border-indigo-400 scale-105" : "border-transparent hover:border-white/30" )}>
+                    <div className="h-20 w-full" style={{ background: t.backgroundGradient }} />
+                    <div className="p-1 text-center" style={{ backgroundColor: t.backgroundColor }}>
+                      <p className="text-xs font-bold truncate" style={{ color: t.textColor }}>{t.nameHebrew}</p>
+                      <div className="flex justify-center gap-1 mt-1">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.primaryColor }} />
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.secondaryColor }} />
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: t.accentColor }} />
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
