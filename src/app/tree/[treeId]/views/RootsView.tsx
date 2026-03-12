@@ -6,8 +6,10 @@ import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Recipe, BadgeCheck } from 'lucide-react';
+import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Recipe, BadgeCheck, PlusCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -661,14 +663,11 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
   const parents = useMemo(() => {
     if (!currentStudentId) return [];
     
-    // A person is a parent if they are personA in a 'parent' relationship
-    // where the current student is personB.
     const parentRels = relationships.filter(r => 
       r.personBId === currentStudentId && 
       ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
     );
 
-    // Get the unique IDs of the parents. A Set automatically handles duplicates.
     const parentIds = [...new Set(parentRels.map(r => r.personAId))];
     
     return parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
@@ -732,6 +731,7 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
     </div>
   );
 };
+
 
 // --- Step 5: Family Roots ---
 const AncestorCard = ({ title, person, data, onUpdate, fieldNamePrefix }: {
@@ -880,7 +880,7 @@ const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStud
 const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
   const heritage = projectData.heritage || {};
   
-  const historicalEvents = [
+  const initialHistoricalEvents = [
     { id: 'independence', label: 'מלחמת העצמאות', year: '1948' },
     { id: 'sinai', label: 'מבצע סיני', year: '1956' },
     { id: 'sixdays', label: 'מלחמת ששת הימים', year: '1967' },
@@ -892,6 +892,13 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
     { id: 'herut_habanim', label: 'מבצע חרבות ברזל', year: '2023' },
   ];
 
+  const customEvents = heritage.customHistoricalEvents || [];
+  const combinedEvents = [...initialHistoricalEvents, ...customEvents];
+
+  const [newEventLabel, setNewEventLabel] = useState('');
+  const [newEventYear, setNewEventYear] = useState('');
+  const [isAddEventPopoverOpen, setIsAddEventPopoverOpen] = useState(false);
+
   const selectedEvents: string[] = heritage.selectedEvents || [];
   
   const toggleEvent = (eventId: string) => {
@@ -899,6 +906,21 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       ? selectedEvents.filter(e => e !== eventId)
       : [...selectedEvents, eventId];
     onUpdate(['heritage', 'selectedEvents'], newSelected);
+  };
+  
+  const handleAddNewEvent = () => {
+    if (!newEventLabel || !newEventYear) return;
+    const newId = newEventLabel.toLowerCase().replace(/\s/g, '_').replace(/[^\w-]/g, '') + `_${newEventYear}`;
+    const newEvent = { id: newId, label: newEventLabel, year: newEventYear };
+    
+    const updatedCustomEvents = [...(heritage.customHistoricalEvents || []), newEvent];
+    onUpdate(['heritage', 'customHistoricalEvents'], updatedCustomEvents);
+    
+    toggleEvent(newId);
+    
+    setNewEventLabel('');
+    setNewEventYear('');
+    setIsAddEventPopoverOpen(false);
   };
 
   return (
@@ -936,8 +958,8 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-3">
         <h2 className="text-sm font-bold text-slate-300 text-right">קשר המשפחה להיסטוריה הלאומית</h2>
         <p className="text-xs text-slate-400 text-right">סמן/י אירועים היסטוריים שמשפחתך הייתה קשורה אליהם:</p>
-        <div className="flex flex-wrap gap-2 justify-end">
-          {historicalEvents.map(event => (
+        <div className="flex flex-wrap gap-2 justify-start">
+          {combinedEvents.map(event => (
             <button
               key={event.id}
               type="button"
@@ -952,11 +974,56 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
               {event.label} ({event.year})
             </button>
           ))}
+          <Popover open={isAddEventPopoverOpen} onOpenChange={setIsAddEventPopoverOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border border-dashed",
+                  "border-white/30 text-slate-300 hover:bg-white/10 hover:border-white/50"
+                )}
+              >
+                <PlusCircle className="inline ml-1 h-3 w-3" />
+                הוסף אירוע
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="grid gap-4" dir="rtl">
+                <div className="space-y-2 text-right">
+                  <h4 className="font-medium leading-none">הוספת אירוע היסטורי</h4>
+                  <p className="text-sm text-muted-foreground">
+                    האירוע יתווסף לרשימה עבור פרויקט זה.
+                  </p>
+                </div>
+                <div className="grid gap-2 text-right">
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <Label htmlFor="evt-label">שם האירוע</Label>
+                    <Input
+                      id="evt-label"
+                      value={newEventLabel}
+                      onChange={(e) => setNewEventLabel(e.target.value)}
+                      className="col-span-2 h-8"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 items-center gap-4">
+                    <Label htmlFor="evt-year">שנה</Label>
+                    <Input
+                      id="evt-year"
+                      value={newEventYear}
+                      onChange={(e) => setNewEventYear(e.target.value)}
+                      className="col-span-2 h-8"
+                    />
+                  </div>
+                </div>
+                <Button onClick={handleAddNewEvent}>שמור והוסף</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         
         {/* Text fields for selected events */}
         {selectedEvents.map(eventId => {
-          const event = historicalEvents.find(e => e.id === eventId);
+          const event = combinedEvents.find(e => e.id === eventId);
           if (!event) return null;
           return (
             <div key={eventId} className="space-y-1">

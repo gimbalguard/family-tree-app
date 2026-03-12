@@ -188,6 +188,8 @@ export type PublicTree = {
 
 // --- Roots Project Types ---
 interface CoverPageData {
+  studentPersonId?: string;
+  studentName?: string;
   schoolName?: string;
   city?: string;
   grade?: string;
@@ -207,48 +209,30 @@ interface PersonalStoryData {
 }
 
 interface NuclearFamilyData {
-  parents: {
-    [personId: string]: { bio?: string };
-  };
-  siblings: {
-    [personId: string]: { notes?: string };
-  };
-  introductionStory?: string;
-  includeStatsChart?: boolean;
+  parentsMeetingStory?: string;
+  [key: string]: any; // For dynamic parent/sibling bios
 }
 
 interface GenerationData {
-  [personId: string]: {
-    birthYear?: number;
-    birthplace?: string;
-    countryOfOrigin?: string;
-    immigrationYear?: number;
-    story?: string;
-  };
+  [key: string]: any;
 }
 
 interface HeritageData {
-  heirloom?: string;
+  inheritedObject?: string;
   familyRecipe?: string;
-  surnameOrigin?: string;
-  nationalConnections?: {
-    [eventName: string]: {
-      selected: boolean;
-      story: string;
-    };
-  };
-  includeMigrationMap?: boolean;
+  familyNameOrigin?: string;
+  selectedEvents?: string[];
+  [key: string]: any; // For dynamic event stories
+  customHistoricalEvents?: {id: string; label: string; year: string}[];
 }
 
 
 export interface RootsProjectData {
+  projectName?: string;
   coverPage?: CoverPageData;
   personalStory?: PersonalStoryData;
   nuclearFamily?: NuclearFamilyData;
-  maternalGrandparents?: GenerationData;
-  paternalGrandparents?: GenerationData;
-  maternalGreatGrandparents?: GenerationData;
-  paternalGreatGrandparents?: GenerationData;
+  familyRoots?: GenerationData;
   heritage?: HeritageData;
 }
 
