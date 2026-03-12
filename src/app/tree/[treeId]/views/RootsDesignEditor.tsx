@@ -839,13 +839,13 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={history.undo} disabled={!history.canUndo}><Undo /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => toast({ title: 'ביטול פעולה יהיה זמין בקרוב!' })} disabled={true}><Undo /></Button>
                     </TooltipTrigger>
                     <TooltipContent><p>בטל</p></TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={history.redo} disabled={!history.canRedo}><Redo /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => toast({ title: 'ביטול פעולה יהיה זמין בקרוב!' })} disabled={true}><Redo /></Button>
                     </TooltipTrigger>
                     <TooltipContent><p>בצע שוב</p></TooltipContent>
                   </Tooltip>
@@ -984,7 +984,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 >
                     <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden"
                         style={{
-                          backgroundImage: (currentPage as any).backgroundImage 
+                          backgroundImage: (currentPage as any).backgroundImage
                             ? `url(${(currentPage as any).backgroundImage})`
                             : (currentPage?.backgroundGradient || template.backgroundGradient),
                           backgroundColor: currentPage?.backgroundColor || undefined,
@@ -993,7 +993,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         }}
                         onClick={handleCanvasClick}
                     >
-                         <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'none' }}>
+                         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
                           <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                               <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
