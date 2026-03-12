@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useCallback, useEffect, useMemo, forwardRef } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RootsProject, Person, Relationship } from '@/lib/types';
 import { format } from 'date-fns';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, MessageSquare, MousePointer2, Pilcrow, Plus, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User,
+    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, LayoutPanelTop, MessageSquare, MousePointer2, Pilcrow, Plus, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -18,6 +18,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu"
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
@@ -121,6 +123,8 @@ export interface DesignTemplate {
   backgroundStyle: 'solid' | 'gradient' | 'cosmic' | 'paper' | 'geometric';
   backgroundGradient?: string;
 }
+
+export type CanvasAspectRatio = 'free' | 'a4-landscape' | 'a4-portrait' | '16:9-landscape' | '9/16' | '1:1';
 
 // ============================================================
 // TEMPLATES & GENERATOR
@@ -427,6 +431,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showPersonPicker, setShowPersonPicker] = useState(false);
   const [personSearch, setPersonSearch] = useState('');
+  const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('a4-portrait');
   
   const { toast } = useToast();
 
@@ -568,9 +573,33 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                 <Button variant="ghost" size="sm" onClick={onBack}><ArrowLeft className="ml-2 h-4 w-4" />חזור לאשף</Button>
                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <h1 className='font-bold text-sm'>{project.projectData.projectName}</h1>
+                 <DropdownMenu>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <LayoutPanelTop className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom"><p>יחס תצוגה</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DropdownMenuContent>
+                        <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
+                            <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="9/16">9:16 לגובה</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="free">חופשי</DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
             <div className='flex items-center gap-2'>
-                <Button variant="outline" size="sm" className="bg-transparent" onClick={() => setShowTemplatePicker(true)}>בחר תבנית</Button>
+                 <Button variant="outline" size="sm" className="bg-transparent" onClick={() => setShowTemplatePicker(true)}>בחר תבנית</Button>
                  <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <TooltipProvider>
                     <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'select' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('select')}><MousePointer2 /></Button></TooltipTrigger><TooltipContent><p>בחר</p></TooltipContent></Tooltip>
@@ -610,58 +639,72 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
             </aside>
             
             <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-                <div id="canvas-container" ref={canvasRef} className="aspect-[3/4] h-full shadow-2xl relative" style={{ background: currentPage?.backgroundColor || template.backgroundGradient }} onClick={handleCanvasClick}>
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 999 }}>
-                      <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                          <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
-                        </marker>
-                      </defs>
-                      {currentPage?.elements
-                        .filter(el => el.type === 'connection_line')
-                        .map(el => {
-                          const fromEl = currentPage.elements.find(e => e.id === el.fromElementId);
-                          const toEl = currentPage.elements.find(e => e.id === el.toElementId);
-                          if (!fromEl || !toEl) return null;
-                          const x1 = fromEl.x + fromEl.width / 2;
-                          const y1 = fromEl.y + fromEl.height / 2;
-                          const x2 = toEl.x + toEl.width / 2;
-                          const y2 = toEl.y + toEl.height / 2;
-                          return (
-                            <line
-                              key={`svg-line-${el.id}`}
-                              x1={`${x1}%`} y1={`${y1}%`}
-                              x2={`${x2}%`} y2={`${y2}%`}
-                              stroke={template.primaryColor}
-                              strokeWidth="2"
-                              markerEnd="url(#arrowhead)"
-                            />
-                          );
-                        })
-                      }
-                    </svg>
-                    {currentPage?.elements.filter(el => el.type !== 'connection_line').map(el => (
-                       <div 
-                         key={`${currentPage.id}-${el.id}`}
-                         className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
-                         style={{
-                             left: `${el.x}%`,
-                             top: `${el.y}%`,
-                             width: `${el.width}%`,
-                             height: `${el.height}%`,
-                             zIndex: el.zIndex,
-                             color: el.style?.color || template.textColor,
-                             backgroundColor: el.style?.backgroundColor,
-                             fontSize: el.style?.fontSize,
-                             fontWeight: el.style?.fontWeight,
-                             textAlign: el.style?.textAlign,
-                         }}
-                         onMouseDown={(e) => handleMouseDown(e, el)}
-                       >
-                           {el.type === 'text' && <div>{el.content}</div>}
-                           {el.type === 'person_card' && <PersonCardElement element={el} people={people} />}
-                       </div>
-                    ))}
+                <div 
+                    className={cn(
+                        "relative",
+                        canvasAspectRatio === 'free' ? "w-full h-full" : "shadow-2xl",
+                        canvasAspectRatio !== 'free' && {
+                            'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
+                            'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
+                            'aspect-video w-full h-auto max-h-full': canvasAspectRatio === '16:9-landscape',
+                            'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '9/16',
+                            'aspect-square h-full w-auto max-w-full': canvasAspectRatio === '1:1',
+                        }
+                    )}
+                >
+                    <div id="canvas-container" ref={canvasRef} className="w-full h-full relative" style={{ background: currentPage?.backgroundColor || template.backgroundGradient }} onClick={handleCanvasClick}>
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 999 }}>
+                          <defs>
+                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                              <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
+                            </marker>
+                          </defs>
+                          {currentPage?.elements
+                            .filter(el => el.type === 'connection_line')
+                            .map(el => {
+                              const fromEl = currentPage.elements.find(e => e.id === el.fromElementId);
+                              const toEl = currentPage.elements.find(e => e.id === el.toElementId);
+                              if (!fromEl || !toEl) return null;
+                              const x1 = fromEl.x + fromEl.width / 2;
+                              const y1 = fromEl.y + fromEl.height / 2;
+                              const x2 = toEl.x + toEl.width / 2;
+                              const y2 = toEl.y + toEl.height / 2;
+                              return (
+                                <line
+                                  key={`svg-line-${el.id}`}
+                                  x1={`${x1}%`} y1={`${y1}%`}
+                                  x2={`${x2}%`} y2={`${y2}%`}
+                                  stroke={template.primaryColor}
+                                  strokeWidth="2"
+                                  markerEnd="url(#arrowhead)"
+                                />
+                              );
+                            })
+                          }
+                        </svg>
+                        {currentPage?.elements.filter(el => el.type !== 'connection_line').map(el => (
+                           <div 
+                             key={`${currentPage.id}-${el.id}`}
+                             className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
+                             style={{
+                                 left: `${el.x}%`,
+                                 top: `${el.y}%`,
+                                 width: `${el.width}%`,
+                                 height: `${el.height}%`,
+                                 zIndex: el.zIndex,
+                                 color: el.style?.color || template.textColor,
+                                 backgroundColor: el.style?.backgroundColor,
+                                 fontSize: el.style?.fontSize,
+                                 fontWeight: el.style?.fontWeight,
+                                 textAlign: el.style?.textAlign,
+                             }}
+                             onMouseDown={(e) => handleMouseDown(e, el)}
+                           >
+                               {el.type === 'text' && <div>{el.content}</div>}
+                               {el.type === 'person_card' && <PersonCardElement element={el} people={people} />}
+                           </div>
+                        ))}
+                    </div>
                 </div>
                  {showPersonPicker && (
                   <div className="absolute right-0 top-0 h-full w-64 bg-slate-800 border-l border-white/10 z-40 flex flex-col shadow-2xl">
