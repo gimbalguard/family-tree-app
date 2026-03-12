@@ -1,13 +1,13 @@
 'use client';
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { RootsProject, Person, Relationship, ExportedFile, DesignPage, DesignTemplate, DesignElement, ShapeType, TextAlign, CanvasAspectRatio } from '@/lib/types';
+import type { RootsProject, Person, Relationship, DesignPage, DesignTemplate, DesignElement, ShapeType, TextAlign, CanvasAspectRatio } from '@/lib/types';
 import { format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, LayoutPanelTop, MousePointer2, Pilcrow, Plus, PlusCircle, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User,
+    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, LayoutPanelTop, MousePointer2, Type, Plus, PlusCircle, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User, CaseSensitive,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -706,22 +706,59 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     e.preventDefault();
     isResizing.current = true;
     resizeHandle.current = handle;
-    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, elX: el.x, elY: el.y, elW: el.width, elH: el.height };
+    const canvasRect = canvasRef.current!.getBoundingClientRect();
+    resizeStart.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      elX: el.x,
+      elY: el.y,
+      elW: (el.width / 100) * canvasRect.width,
+      elH: (el.height / 100) * canvasRect.height,
+    };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isResizing.current && resizeHandle.current && selectedElementId && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      const dx = ((e.clientX - resizeStart.current.mouseX) / rect.width) * 100;
-      const dy = ((e.clientY - resizeStart.current.mouseY) / rect.height) * 100;
+      const dx = e.clientX - resizeStart.current.mouseX;
+      const dy = e.clientY - resizeStart.current.mouseY;
       const h = resizeHandle.current;
+      
       updateElementLocal(selectedElementId, (el) => {
-        let { elX: nx, elY: ny, elW: nw, elH: nh } = resizeStart.current;
-        if (h.includes('e')) nw = Math.max(5, resizeStart.current.elW + dx);
-        if (h.includes('s')) nh = Math.max(3, resizeStart.current.elH + dy);
-        if (h.includes('w')) { nw = Math.max(5, resizeStart.current.elW - dx); nx = resizeStart.current.elX + dx; }
-        if (h.includes('n')) { nh = Math.max(3, resizeStart.current.elH - dy); ny = resizeStart.current.elY + dy; }
-        return { x: Math.max(0, nx), y: Math.max(0, ny), width: Math.min(nw, 100 - Math.max(0, nx)), height: Math.min(nh, 100 - Math.max(0, ny)) };
+        let { elX: currentX, elY: currentY, elW: currentW, elH: currentH } = resizeStart.current;
+        let newX = (currentX / 100) * rect.width;
+        let newY = (currentY / 100) * rect.height;
+        let newW = currentW;
+        let newH = currentH;
+
+        if (h.includes('e')) newW = Math.max(20, currentW + dx);
+        if (h.includes('s')) newH = Math.max(20, currentH + dy);
+        if (h.includes('w')) {
+          newW = Math.max(20, currentW - dx);
+          newX = currentX + dx;
+        }
+        if (h.includes('n')) {
+          newH = Math.max(20, currentH - dy);
+          newY = currentY + dy;
+        }
+
+        if (h.length === 2) { // Corner resize
+            const ratio = resizeStart.current.elW / resizeStart.current.elH;
+            if (h === 'se' || h === 'nw') {
+                newH = newW / ratio;
+            } else {
+                newW = newH * ratio;
+            }
+             if (h.includes('n')) newY = (currentY + currentH) - newH;
+             if (h.includes('w')) newX = (currentX + currentW) - newW;
+        }
+
+        return {
+          x: (newX / rect.width) * 100,
+          y: (newY / rect.height) * 100,
+          width: (newW / rect.width) * 100,
+          height: (newH / rect.height) * 100,
+        };
       });
       return;
     }
@@ -738,17 +775,19 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   };
 
   const handleMouseUp = () => {
+    if (isDragging.current || isResizing.current) {
+      onUpdateProject(proj => ({
+        ...proj,
+        projectData: {
+          ...proj.projectData,
+          designData: { ...proj.projectData?.designData, pages: pagesRef.current }
+        }
+      }));
+    }
     isDragging.current = false;
     dragElementId.current = null;
     isResizing.current = false;
     resizeHandle.current = null;
-    onUpdateProject(proj => ({
-      ...proj,
-      projectData: {
-        ...proj.projectData,
-        designData: { ...proj.projectData?.designData, pages: pagesRef.current }
-      }
-    }));
   };
 
   if (isGenerating) {
@@ -814,7 +853,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <TooltipProvider>
                     <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'select' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('select')}><MousePointer2 /></Button></TooltipTrigger><TooltipContent><p>בחר</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('text')}><Pilcrow /></Button></TooltipTrigger><TooltipContent><p>טקסט</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('text')}><Type /></Button></TooltipTrigger><TooltipContent><p>טקסט</p></TooltipContent></Tooltip>
                     <DropdownMenu>
                         <Tooltip>
                         <TooltipTrigger asChild>
@@ -870,19 +909,11 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
               <div className='flex-1 overflow-y-auto space-y-2'>
                 {pages.map((page, index) => {
                   const pageTemplate = DESIGN_TEMPLATES.find(t => t.id === page.templateId);
-                  const aspectClass = {
-                    'a4-landscape': 'aspect-[1.414/1]',
-                    'a4-portrait': 'aspect-[1/1.414]',
-                    '16:9-landscape': 'aspect-video',
-                    '9/16': 'aspect-[9/16]',
-                    '1:1': 'aspect-square',
-                    'free': 'aspect-[1.414/1]',
-                  }[canvasAspectRatio] || 'aspect-[1.414/1]';
                   return (
                     <div
                       key={page.id}
                       title={`${page.pageNumber}. ${page.title}`}
-                      onClick={() => setCurrentPageIndex(index)}
+                      onMouseDown={() => setCurrentPageIndex(index)}
                       className={cn(
                         "w-full rounded-md p-1 cursor-pointer border-2 group relative",
                         currentPageIndex === index ? "border-indigo-500" : "border-transparent hover:border-white/20",
@@ -903,7 +934,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         }}
                       >
                         {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, elIndex) => (
-                          <div key={`thumb-${index}-text-${elIndex}-${el.id}`} className="absolute overflow-hidden px-0.5"
+                          <div key={`thumb-${index}-text-${el.id}`} className="absolute overflow-hidden px-0.5"
                             style={{
                               top: `${el.y}%`, left: `${el.x}%`,
                               width: `${el.width}%`,
@@ -918,7 +949,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                           </div>
                         ))}
                         {page.elements.filter(el => el.type === 'person_card' || el.type === 'image' || el.type === 'shape').map((el, elIndex) => (
-                            <div key={`thumb-${index}-el-${elIndex}-${el.id}`} className="absolute rounded-sm"
+                            <div key={`thumb-${index}-el-${el.id}`} className="absolute rounded-sm"
                               style={{
                                 top: `${el.y}%`, left: `${el.x}%`,
                                 width: `${el.width}%`, height: `${el.height}%`,
@@ -941,6 +972,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                       </div>
                       <button
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           if (pages.length <= 1) { toast({ title: 'לא ניתן למחוק את העמוד האחרון' }); return; }
                           if (window.confirm(`למחוק את "${page.title}"?`)) {
@@ -952,8 +984,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             setSelectedElementId(null);
                           }
                         }}
-                        className="absolute top-0.5 left-0.5 w-4 h-4 bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10"
-                        style={{ fontSize: '8px', lineHeight: 1 }}
+                        className="absolute top-0.5 left-0.5 w-4 h-4 bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20"
+                        style={{ fontSize: '8px', lineHeight: 1, pointerEvents: 'all' }}
                       >✕</button>
                     </div>
                   );
@@ -975,8 +1007,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
             <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                 <div
                     className={cn(
-                        "relative overflow-hidden",
-                        canvasAspectRatio === 'free' ? "w-full h-full" : "shadow-2xl",
+                        "relative shadow-2xl mx-auto max-w-full",
+                        canvasAspectRatio === 'free' ? "w-full h-full" : "",
                         canvasAspectRatio !== 'free' && {
                             'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
                             'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
@@ -1056,7 +1088,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                                         bottom: handle.includes('s') && handle.length > 1 ? '-5px' : undefined,
                                         left: handle.includes('w') ? '-5px' : handle === 'n' || handle === 's' || handle === 'e' ? 'calc(50% - 5px)' : undefined,
                                         right: handle.includes('e') && handle.length > 1 ? '-5px' : undefined,
-                                        cursor: handle === 'nw' || handle === 'se' ? 'nwse-resize' : handle === 'ne' || handle === 'sw' ? 'nesw-resize' : handle === 'n' || handle === 's' ? 'ns-resize' : 'ew-resize',
+                                        cursor: (handle === 'nw' || handle === 'se') ? 'nwse-resize' : (handle === 'ne' || handle === 'sw') ? 'nesw-resize' : (handle === 'n' || handle === 's') ? 'ns-resize' : 'ew-resize',
                                       }}
                                     />
                                   ))}
@@ -1267,7 +1299,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 )}
             </main>
         </div>
-        <div className="h-auto border-t border-white/10 bg-slate-800/80 backdrop-blur flex-shrink-0 px-4 py-2 flex items-center gap-4 overflow-x-auto" style={{ minHeight: '56px', maxHeight: '120px' }}>
+        <div className="h-10 border-t border-white/10 bg-slate-800/95 backdrop-blur flex-shrink-0 px-3 py-1 flex items-center gap-2 overflow-x-auto">
             {/* Context label */}
             <span className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
               {selectedElement ? (
@@ -1276,289 +1308,119 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 selectedElement.type === 'shape' ? '◼ צורה' :
                 selectedElement.type === 'image' ? '🖼 תמונה' :
                 selectedElement.type === 'icon' ? '😊 אמוג׳י' :
-                selectedElement.type === 'connection_line' ? '↔ קו חיבור' :
-                'עריכת אלמנט'
+                selectedElement.type === 'connection_line' ? '↔ קו' : 'עריכת אלמנט'
               ) : '📄 עמוד'}
             </span>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+            <Separator orientation="vertical" className="h-6 bg-white/20" />
 
-            {/* PAGE controls — shown when nothing selected */}
+            {/* PAGE controls */}
             {!selectedElement && currentPage && (<>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">צבע רקע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                  value={currentPage.backgroundColor || template.backgroundColor}
-                  onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">תמונת רקע</label>
-                <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400">
-                  <ImageIcon className="w-3 h-3" />
-                  <span>בחר</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0]; if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
-                    reader.readAsDataURL(file);
-                  }} />
-                </label>
-                {(currentPage as any).backgroundImage && (
-                  <button className="text-xs text-red-400 hover:text-red-300"
-                    onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>✕ הסר</button>
-                )}
-              </div>
+              <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5">
+                    <input type="color" className="w-7 h-7 rounded-md cursor-pointer border-0 bg-transparent"
+                      value={currentPage.backgroundColor || template.backgroundColor}
+                      onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="top"><p>צבע רקע</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <label className="cursor-pointer h-7 w-7 flex items-center justify-center rounded-md hover:bg-white/10">
+                    <ImageIcon className="w-4 h-4 text-slate-300" />
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                      const file = e.target.files?.[0]; if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                </TooltipTrigger>
+                <TooltipContent side="top"><p>תמונת רקע</p></TooltipContent>
+              </Tooltip>
+              {(currentPage as any).backgroundImage && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <button className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-white/10"
+                        onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>
+                        <X className="w-4 h-4 text-red-400"/>
+                    </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>הסר תמונת רקע</p></TooltipContent>
+                </Tooltip>
+              )}
+              </TooltipProvider>
             </>)}
 
             {/* TEXT controls */}
             {selectedElement?.type === 'text' && (<>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <label className="text-xs text-slate-400">גודל</label>
+                <TooltipProvider>
+                <Tooltip><TooltipTrigger asChild>
+                  <div className="flex items-center gap-1 bg-slate-900/50 border border-white/10 rounded-md px-1.5 h-7">
+                    <CaseSensitive className="w-4 h-4 text-slate-400" />
                     <input type="number" min={8} max={96}
-                    className="w-14 text-xs bg-slate-700 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none"
-                    value={selectedElement.style?.fontSize || 16}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
-                </div>
-                <div className="flex gap-1 flex-shrink-0">
-                    {(['normal','bold','extrabold'] as const).map(w => (
-                    <button key={w}
+                      className="w-12 text-xs bg-transparent border-none focus:outline-none text-center text-white"
+                      value={selectedElement.style?.fontSize || 16}
+                      onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
+                  </div>
+                </TooltipTrigger><TooltipContent side="top"><p>גודל גופן</p></TooltipContent></Tooltip>
+
+                <div className="flex gap-1">
+                  {(['normal','bold','extrabold'] as const).map(w => (
+                    <Tooltip key={w}><TooltipTrigger asChild>
+                      <button
                         onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
-                        className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                    >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
-                    ))}
+                        className={cn('text-xs h-7 w-7 rounded-md border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                      >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
+                    </TooltipTrigger><TooltipContent side="top"><p>משקל: {w}</p></TooltipContent></Tooltip>
+                  ))}
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
-                    {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
-                    <button key={a}
+                <div className="flex gap-1">
+                  {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
+                    <Tooltip key={a}><TooltipTrigger asChild>
+                    <button
                         onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: a as TextAlign }})}
-                        className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                        className={cn('text-xs h-7 w-7 rounded-md border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
                     >{l}</button>
-                    ))}
+                    </TooltipTrigger><TooltipContent side="top"><p>יישור {a}</p></TooltipContent></Tooltip>
+                  ))}
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <label className="text-xs text-slate-400">צבע</label>
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <input type="color" className="w-7 h-7 rounded-md cursor-pointer border-0 bg-transparent"
                     value={selectedElement.style?.color || '#ffffff'}
                     onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-                    <div className="flex gap-1">
-                    {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444'].map(c => (
-                        <button key={c} className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform flex-shrink-0"
-                        style={{ backgroundColor: c }}
-                        onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})} />
-                    ))}
-                    </div>
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <label className="text-xs text-slate-400">רקע</label>
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                    value={selectedElement.style?.backgroundColor || '#000000'}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-                    <button className="text-xs text-slate-500 hover:text-red-400"
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>✕</button>
-                </div>
-                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
-                    <label className='text-xs text-slate-400'>סדר שכבות</label>
-                    <div className='flex gap-1'>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >הבא קדימה ↑</button>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >שלח אחורה ↓</button>
-                    </div>
-                </div>
-                <div className='flex gap-2'>
-                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
-                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
-                    <Button variant="destructive" size="sm" className="flex-1"
-                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
-                </div>
-            </>)}
-
-            {/* PERSON CARD controls */}
-            {selectedElement?.type === 'person_card' && (<>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                    <input type="range" min={0} max={1} step={0.05}
-                    className="w-24"
-                    value={selectedElement.style?.opacity ?? 1}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <label className="text-xs text-slate-400">רקע</label>
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                    value={selectedElement.style?.backgroundColor || '#1e293b'}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-                </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <label className="text-xs text-slate-400">טקסט</label>
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                    value={selectedElement.style?.color || '#ffffff'}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-                </div>
-                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
-                    <label className='text-xs text-slate-400'>סדר שכבות</label>
-                    <div className='flex gap-1'>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >הבא קדימה ↑</button>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >שלח אחורה ↓</button>
-                    </div>
-                </div>
-                <div className='flex gap-2'>
-                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
-                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
-                    <Button variant="destructive" size="sm" className="flex-1"
-                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
-                </div>
-            </>)}
-
-            {/* SHAPE controls */}
-            {selectedElement?.type === 'shape' && (<>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                    <label className="text-xs text-slate-400">צבע</label>
-                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                    value={selectedElement.style?.backgroundColor || template.primaryColor}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                    <input type="range" min={0} max={1} step={0.05} className="w-24"
-                    value={selectedElement.style?.opacity ?? 1}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-                </div>
-                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
-                    <label className='text-xs text-slate-400'>סדר שכבות</label>
-                    <div className='flex gap-1'>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >הבא קדימה ↑</button>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >שלח אחורה ↓</button>
-                    </div>
-                </div>
-                <div className='flex gap-2'>
-                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
-                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
-                    <Button variant="destructive" size="sm" className="flex-1"
-                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
-                </div>
-            </>)}
-
-            {/* IMAGE controls */}
-            {selectedElement?.type === 'image' && (<>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                    <input type="range" min={0} max={1} step={0.05} className="w-24"
-                    value={selectedElement.style?.opacity ?? 1}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                    <label className="text-xs text-slate-400 whitespace-nowrap">פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
-                    <input type="range" min={0} max={50} step={1} className="w-24"
-                    value={selectedElement.style?.borderRadius ?? 0}
-                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: Number(e.target.value) }})} />
-                </div>
-                <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400 flex-shrink-0">
-                    <ImageIcon className="w-3 h-3" /><span>החלף</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0]; if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => updateElement(selectedElementId!, { content: ev.target?.result as string });
-                    reader.readAsDataURL(file);
-                    }} />
-                </label>
-                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
-                    <label className='text-xs text-slate-400'>סדר שכבות</label>
-                    <div className='flex gap-1'>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >הבא קדימה ↑</button>
-                    <button
-                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >שלח אחורה ↓</button>
-                    </div>
-                </div>
-                <div className='flex gap-2'>
-                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
-                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
-                    <Button variant="destructive" size="sm" className="flex-1"
-                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
-                </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top"><p>צבע גופן</p></TooltipContent>
+                </Tooltip>
+                </TooltipProvider>
             </>)}
             
-            {/* ICON controls */}
-            {selectedElement?.type === 'icon' && (
-              <div className='space-y-3'>
-                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
-                  <label className='text-xs text-slate-400'>סדר שכבות</label>
-                  <div className='flex gap-1'>
-                    <button
-                      onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                      className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >הבא קדימה ↑</button>
-                    <button
-                      onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                      className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
-                    >שלח אחורה ↓</button>
-                  </div>
+            {/* Z-Index, Duplicate, Delete */}
+            {selectedElement && selectedElement.type !== 'connection_line' && (
+                <>
+                <Separator orientation="vertical" className="h-6 bg-white/20" />
+                <div className='flex gap-1'>
+                    <TooltipProvider>
+                    <Tooltip><TooltipTrigger asChild>
+                        <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='h-7 w-7 flex items-center justify-center rounded-md bg-slate-700 border border-slate-600 hover:border-slate-400'>↑</button>
+                    </TooltipTrigger><TooltipContent side="top"><p>הבא קדימה</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild>
+                        <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='h-7 w-7 flex items-center justify-center rounded-md bg-slate-700 border border-slate-600 hover:border-slate-400'>↓</button>
+                    </TooltipTrigger><TooltipContent side="top"><p>שלח אחורה</p></TooltipContent></Tooltip>
+                    </TooltipProvider>
                 </div>
-                <div className='flex gap-2'>
-                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent"
                     onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
-                    <Button variant="destructive" size="sm" className="flex-1"
-                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
-                </div>
-              </div>
+                <Button variant="destructive" size="icon" className="h-7 w-7"
+                    onClick={() => deleteElement(selectedElementId!)}><Trash2 className="w-3.5 h-3.5"/></Button>
+                </>
             )}
 
-            {/* CONNECTION LINE controls */}
-            {selectedElement?.type === 'connection_line' && (<>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">צבע קו</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                  value={selectedElement.style?.color || template.primaryColor}
-                  onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">עובי: {selectedElement.style?.borderWidth || 2}px</label>
-                <input type="range" min={1} max={8} step={1} className="w-24"
-                  value={selectedElement.style?.borderWidth || 2}
-                  onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) }})} />
-              </div>
-              <Button variant="destructive" size="sm"
-                onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
-            </>)}
-
-            {/* SHARED controls — z-index and duplicate/delete — shown for any non-page selection */}
-            {selectedElement && selectedElement.type !== 'connection_line' && (<>
-              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-            </>)}
-            {selectedElement && (<>
-            </>)}
-
-            {/* ALIGNMENT controls — shown when multi-select (future) or always visible */}
-            {selectedElement && selectedElement.type !== 'connection_line' && (<>
-              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-              <div className="flex gap-1 flex-shrink-0">
-                <button title="יישור לשמאל" onClick={() => updateElement(selectedElementId!, { x: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊣</button>
-                <button title="מרכז אופקי" onClick={() => updateElement(selectedElementId!, el => ({ x: 50 - el.width / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕H</button>
-                <button title="יישור לימין" onClick={() => updateElement(selectedElementId!, el => ({ x: 100 - el.width }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊢</button>
-                <button title="יישור לעליון" onClick={() => updateElement(selectedElementId!, { y: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊤</button>
-                <button title="מרכז אנכי" onClick={() => updateElement(selectedElementId!, el => ({ y: 50 - el.height / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕V</button>
-                <button title="יישור לתחתון" onClick={() => updateElement(selectedElementId!, el => ({ y: 100 - el.height }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊥</button>
-              </div>
-            </>)}
         </div>
         {showTemplatePicker && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={() => setShowTemplatePicker(false)}>
