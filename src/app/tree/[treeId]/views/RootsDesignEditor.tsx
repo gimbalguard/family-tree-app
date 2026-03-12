@@ -1,16 +1,33 @@
 'use client';
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RootsProject, Person, Relationship } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { getPlaceholderImage } from '@/lib/placeholder-images';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, MessageSquare, MousePointer2, Pilcrow, Plus, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 
 // ============================================================
 // TYPES
 // ============================================================
 
-export type ElementType = 
-  | 'text' 
+export type ElementType =
+  | 'text'
   | 'person_card'      // Family tree person card — same design as canvas
   | 'connection_line'  // Line connecting two elements
   | 'shape'            // Rectangle, circle, star, etc.
@@ -61,15 +78,15 @@ export interface DesignElement {
   zIndex?: number;
 }
 
-export type PageType = 
-  | 'cover' 
-  | 'personal' 
-  | 'name' 
-  | 'nuclear_family' 
-  | 'roots_paternal' 
-  | 'roots_maternal' 
-  | 'roots_great' 
-  | 'heritage' 
+export type PageType =
+  | 'cover'
+  | 'personal'
+  | 'name'
+  | 'nuclear_family'
+  | 'roots_paternal'
+  | 'roots_maternal'
+  | 'roots_great'
+  | 'heritage'
   | 'national_history'
   | 'custom';
 
@@ -104,6 +121,10 @@ export interface DesignTemplate {
   backgroundStyle: 'solid' | 'gradient' | 'cosmic' | 'paper' | 'geometric';
   backgroundGradient?: string;
 }
+
+// ============================================================
+// TEMPLATES & GENERATOR
+// ============================================================
 
 export const DESIGN_TEMPLATES: DesignTemplate[] = [
   {
@@ -318,11 +339,11 @@ function generatePagesFromProject(
       ]
     });
   }
-  
+
   // 3. Nuclear Family
   const parentRels = relationships.filter(r => r.personBId === project.studentPersonId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
   const parents = parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
-  
+
   const nuclearFamilyElements: DesignElement[] = [];
   if (student) {
     nuclearFamilyElements.push({
@@ -362,10 +383,34 @@ function generatePagesFromProject(
       elements: nuclearFamilyElements
     });
   }
-  
+
   return pages;
 }
 
+// ============================================================
+// EDITOR COMPONENTS
+// ============================================================
+
+const PersonCardElement = ({ element, people }: { element: DesignElement, people: Person[] }) => {
+    const person = people.find(p => p.id === element.personId);
+    if (!person) return null;
+    return (
+      <div className="w-full h-full bg-white/5 backdrop-blur-xl border border-white/15 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-xl">
+        <div className="w-12 h-12 rounded-full border-2 border-white/30 overflow-hidden flex-shrink-0">
+          {person.photoURL ? (
+            <img src={person.photoURL} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <img src={getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
+          )}
+        </div>
+        <div className="text-center">
+          <p className="text-white font-bold text-xs">{person.firstName} {person.lastName}</p>
+          {person.birthDate && <p className="text-slate-400 text-xs">{format(new Date(person.birthDate), 'yyyy')}</p>}
+          {person.birthPlace && <p className="text-slate-500 text-xs truncate">{person.birthPlace}</p>}
+        </div>
+      </div>
+    );
+};
 
 export function RootsDesignEditor({ project, people, relationships, onBack }: {
   project: RootsProject;
@@ -376,6 +421,13 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   const [pages, setPages] = useState<DesignPage[]>([]);
   const [isGenerating, setIsGenerating] = useState(true);
   const [selectedTemplateId, setSelectedTemplateId] = useState('template_cosmic');
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [activeTool, setActiveTool] = useState<'select' | 'text' | 'shape' | 'person' | 'image' | 'icon' | 'line'>('select');
+  const { toast } = useToast();
+
+  const currentPage = pages[currentPageIndex];
+  const template = DESIGN_TEMPLATES.find(t => t.id === selectedTemplateId) || DESIGN_TEMPLATES[0];
 
   useEffect(() => {
     const generated = generatePagesFromProject(project, people, relationships, selectedTemplateId);
@@ -383,11 +435,62 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
     setIsGenerating(false);
   }, [project, people, relationships, selectedTemplateId]);
 
-  const template = DESIGN_TEMPLATES.find(t => t.id === selectedTemplateId) || DESIGN_TEMPLATES[0];
+  const updateCurrentPage = (updater: (page: DesignPage) => DesignPage) => {
+    setPages(prev => {
+      const newPages = [...prev];
+      newPages[currentPageIndex] = updater(newPages[currentPageIndex]);
+      return newPages;
+    });
+  };
+
+  const addElement = (element: Omit<DesignElement, 'id'>) => {
+    const newElement = { ...element, id: crypto.randomUUID() };
+    updateCurrentPage(page => ({
+      ...page,
+      elements: [...page.elements, newElement]
+    }));
+  };
+
+  const updateElement = (id: string, updates: Partial<DesignElement> | ((el: DesignElement) => Partial<DesignElement>)) => {
+    updateCurrentPage(page => ({
+      ...page,
+      elements: page.elements.map(el => {
+        if (el.id === id) {
+            const finalUpdates = typeof updates === 'function' ? updates(el) : updates;
+            return { ...el, ...finalUpdates };
+        }
+        return el;
+      })
+    }));
+  };
+
+  const deleteElement = (id: string) => {
+    updateCurrentPage(page => ({
+      ...page,
+      elements: page.elements.filter(el => el.id !== id)
+    }));
+    setSelectedElementId(null);
+  };
+  
+  const handleCanvasClick = (e: React.MouseEvent) => {
+      if (activeTool === 'text') {
+        addElement({
+            type: 'text',
+            content: 'טקסט חדש',
+            x: (e.nativeEvent.offsetX / (e.target as HTMLElement).offsetWidth) * 100,
+            y: (e.nativeEvent.offsetY / (e.target as HTMLElement).offsetHeight) * 100,
+            width: 30, height: 10,
+            style: { fontSize: 16, color: template.textColor }
+        });
+        setActiveTool('select');
+      } else {
+        setSelectedElementId(null);
+      }
+  }
 
   if (isGenerating) {
     return (
-      <div 
+      <div
         className="w-full h-full flex flex-col items-center justify-center gap-6"
         style={{ background: template.backgroundGradient }}
       >
@@ -398,13 +501,114 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
     );
   }
 
+  const selectedElement = currentPage?.elements.find(el => el.id === selectedElementId);
+
   return (
-    <div className="w-full h-full flex items-center justify-center" style={{ background: template.backgroundGradient }}>
-      <div className="text-white text-center">
-        <p className="text-2xl font-bold">✅ נוצרו {pages.length} עמודים!</p>
-        <p className="text-slate-400 mt-2">עורך העיצוב יבנה בשלב הבא</p>
-        <button onClick={onBack} className="mt-4 px-6 py-2 bg-indigo-500 rounded-xl text-white">חזור לאשף</button>
-      </div>
+    <div className="h-screen w-screen flex flex-col bg-slate-900 text-white" dir="rtl">
+        {/* Top Toolbar */}
+        <header className="h-12 border-b border-white/10 px-4 flex items-center justify-between flex-shrink-0 z-20">
+            <div className='flex items-center gap-4'>
+                <Button variant="ghost" size="sm" onClick={() => onBack()}><ArrowLeft className="ml-2 h-4 w-4" />חזור לאשף</Button>
+                <Separator orientation="vertical" className='h-6 bg-white/10'/>
+                <h1 className='font-bold text-sm'>{project.projectData.projectName}</h1>
+            </div>
+            <div className='flex items-center gap-2'>
+                <TooltipProvider>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'select' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('select')}><MousePointer2 /></Button></TooltipTrigger><TooltipContent><p>Select</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'text' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('text')}><Pilcrow /></Button></TooltipTrigger><TooltipContent><p>Text</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'shape' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('shape')}><Square /></Button></TooltipTrigger><TooltipContent><p>Shape</p></TooltipContent></Tooltip>
+                    <Tooltip><TooltipTrigger asChild><Button variant={activeTool === 'person' ? 'secondary' : 'ghost'} size="icon" onClick={() => setActiveTool('person')}><User /></Button></TooltipTrigger><TooltipContent><p>Person</p></TooltipContent></Tooltip>
+                </TooltipProvider>
+            </div>
+            <div className='flex items-center gap-2'>
+                <Button variant="ghost" size="sm" onClick={() => toast({title: "בקרוב..."})}><Undo className="ml-2"/></Button>
+                <Button variant="ghost" size="sm" onClick={() => toast({title: "בקרוב..."})}><Redo className="ml-2"/></Button>
+                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
+                 <Button variant="ghost" size="icon" onClick={() => selectedElementId && deleteElement(selectedElementId)} disabled={!selectedElementId}><Trash2 className="text-red-400"/></Button>
+            </div>
+        </header>
+
+        <div className="flex-1 flex min-h-0">
+            {/* Left Panel */}
+            <aside className="w-48 border-l border-white/10 p-2 flex flex-col gap-2">
+                <Button size="sm" variant="outline" className='bg-transparent w-full'>+ הוסף עמוד</Button>
+                <div className='flex-1 overflow-y-auto space-y-2'>
+                    {pages.map((page, index) => (
+                        <div key={page.id} onClick={() => setCurrentPageIndex(index)} className={cn("aspect-[3/4] w-full bg-slate-800/50 rounded-md p-1 cursor-pointer border-2", currentPageIndex === index ? "border-indigo-500" : "border-transparent")}>
+                            <div className='relative w-full h-full bg-slate-900/50 overflow-hidden rounded-sm'>
+                                {/* mini preview here */}
+                                <span className='absolute bottom-1 right-1 text-xs font-bold text-white/50'>{page.pageNumber}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </aside>
+            
+            {/* Center Canvas */}
+            <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden">
+                <div id="canvas-container" className="aspect-[3/4] h-full bg-slate-800 shadow-2xl relative" onClick={handleCanvasClick}>
+                    {currentPage?.elements.map(el => (
+                       <div 
+                         key={el.id}
+                         className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent')}
+                         style={{
+                             left: `${el.x}%`,
+                             top: `${el.y}%`,
+                             width: `${el.width}%`,
+                             height: `${el.height}%`,
+                             zIndex: el.zIndex,
+                             color: el.style?.color || template.textColor,
+                             backgroundColor: el.style?.backgroundColor,
+                             fontSize: el.style?.fontSize,
+                             fontWeight: el.style?.fontWeight,
+                             textAlign: el.style?.textAlign,
+                         }}
+                         onClick={(e) => { e.stopPropagation(); setSelectedElementId(el.id); }}
+                       >
+                           {el.type === 'text' && <div>{el.content}</div>}
+                           {el.type === 'person_card' && <PersonCardElement element={el} people={people} />}
+                       </div>
+                    ))}
+                </div>
+            </main>
+
+            {/* Right Panel */}
+            <aside className="w-60 border-r border-white/10 p-4 space-y-4 overflow-y-auto">
+                <h3 className='font-bold text-sm text-center'>{selectedElement ? `עריכת ${selectedElement.type}` : 'עריכת עמוד'}</h3>
+                {selectedElement?.type === 'text' && (
+                    <div className='space-y-4'>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>גודל גופן</label>
+                            <Slider
+                                value={[selectedElement.style?.fontSize || 16]}
+                                onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: val }})}
+                                min={8} max={72} step={1}
+                            />
+                        </div>
+                         <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>צבע טקסט</label>
+                            <Input 
+                                type="color"
+                                value={selectedElement.style?.color || '#ffffff'}
+                                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
+                            />
+                        </div>
+                    </div>
+                )}
+                 {!selectedElement && currentPage && (
+                    <div className='space-y-4'>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>צבע רקע עמוד</label>
+                             <Input 
+                                type="color"
+                                value={currentPage.backgroundColor || template.backgroundColor}
+                                onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))}
+                            />
+                        </div>
+                    </div>
+                 )}
+            </aside>
+        </div>
     </div>
   );
 }
