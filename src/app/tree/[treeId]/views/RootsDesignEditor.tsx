@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { RootsProject, Person, Relationship } from '@/lib/types';
+import type { RootsProject, Person, Relationship, ExportedFile } from '@/lib/types';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
@@ -24,6 +24,9 @@ import {
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { v4 as uuidv4 } from 'uuid';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+
 
 // ============================================================
 // TYPES
@@ -507,38 +510,42 @@ const TemplateDecorations = ({ template }: { template: DesignTemplate }) => {
 function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string, onSelectImage: (url: string) => void }) {
   const [files, setFiles] = useState<Array<{name: string, url: string, type: string}>>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useUser();
+  const db = useFirestore();
 
   useEffect(() => {
-    // Fetch from Firebase Storage — list files in /trees/{treeId}/files/ and /users/{userId}/files/
-    // Use the same storage path as the My Files feature
     const fetchFiles = async () => {
+      if (!user || !db) {
+          setLoading(false);
+          return;
+      }
       try {
-        const { getStorage, ref, listAll, getDownloadURL } = await import('firebase/storage');
-        const storage = getStorage();
-        
-        // Try to list from the tree's files folder
-        const folderRef = ref(storage, `trees/${treeId}/files`);
-        const result = await listAll(folderRef);
-        
-        const imageFiles = await Promise.all(
-          result.items
-            .filter(item => /\.(png|jpg|jpeg|gif|webp)$/i.test(item.name))
-            .map(async (item) => ({
-              name: item.name,
-              url: await getDownloadURL(item),
-              type: 'image'
-            }))
+        const filesQuery = query(
+            collection(db, 'exportedFiles'), 
+            where('userId', '==', user.uid)
         );
+        const filesSnapshot = await getDocs(filesQuery);
+        const userFiles = filesSnapshot.docs.map(d => d.data() as ExportedFile);
+        
+        const imageFiles = userFiles
+            .filter(file => file.downloadURL && ['png', 'jpg', 'jpeg'].includes(file.fileType))
+            .map(file => ({
+                name: file.fileName,
+                url: file.downloadURL!,
+                type: 'image'
+            }));
+
         setFiles(imageFiles);
+
       } catch (err) {
-        console.error('Could not load files:', err);
+        console.error('Could not load files from Firestore:', err);
         setFiles([]);
       } finally {
         setLoading(false);
       }
     };
     fetchFiles();
-  }, [treeId]);
+  }, [user, db]);
 
   if (loading) return <div className="text-xs text-slate-500 text-center py-4">טוען קבצים...</div>;
   if (files.length === 0) return (
@@ -564,12 +571,14 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string, onSelectI
 }
 
 
-export function RootsDesignEditor({ project, people, relationships, onBack, onUpdateProject }: {
+export function RootsDesignEditor({ project, people, relationships, onBack, onUpdateProject, history, onHistoryChange }: {
   project: RootsProject;
   people: Person[];
   relationships: Relationship[];
   onBack: () => void;
   onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
+  history: any;
+  onHistoryChange: (history: any) => void;
 }) {
   const isGeneratingInitial = !project.projectData?.designData?.pages;
   
@@ -607,12 +616,11 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
         ...proj,
         projectData: {
           ...proj.projectData,
-          designData: { pages: generated, templateId: 'template_cosmic' }
+          designData: { pages: generated }
         }
       }));
-    } else {
-      setIsGenerating(false);
     }
+    setIsGenerating(false);
   }, []);
   
   useEffect(() => {
@@ -887,7 +895,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         onClick={handleCanvasClick}
                     >
                          <TemplateDecorations template={template} />
-                        <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none', zIndex: 1 }}>
+                        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
                           <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                               <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
