@@ -514,10 +514,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   useEffect(() => {
     pagesRef.current = pages;
   }, [pages]);
-
-  const currentPage = pages[currentPageIndex];
-  const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
-
+  
   useEffect(() => {
     const existingPages = project.projectData?.designData?.pages;
     if (!existingPages || existingPages.length === 0) {
@@ -537,12 +534,30 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-
   useEffect(() => {
     if (hasGeneratedRef.current) return;
     setPages(project.projectData?.designData?.pages || []);
   }, [project.projectData?.designData?.pages]);
+  
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId && !editingElementId) {
+        e.preventDefault();
+        deleteElement(selectedElementId);
+      }
+      if (e.key === 'Escape') {
+        setSelectedElementId(null);
+        setEditingElementId(null);
+        setActiveTool('select');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedElementId, editingElementId]);
 
+
+  const currentPage = pages[currentPageIndex];
+  const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
 
   const updatePages = (updater: (currentPages: DesignPage[]) => DesignPage[]) => {
     const newPages = updater(pages);
@@ -880,7 +895,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                       <div
                         className='relative w-full h-full overflow-hidden rounded-sm'
                         style={{
-                            backgroundImage: (page as any).backgroundImage
+                            backgroundImage: (page as any).backgroundImage 
                               ? `url(${(page as any).backgroundImage})`
                               : (page.backgroundColor 
                                   ? undefined 
@@ -905,7 +920,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             {el.content?.slice(0, 20)}
                           </div>
                         ))}
-                        {page.elements.filter(el => el.type === 'person_card' || el.type === 'image' || el.type === 'shape').map((el) => (
+                        {page.elements.filter(el => el.type === 'person_card' || el.type === 'image' || el.type === 'shape').map((el, elIndex) => (
                             <div key={`thumb-${index}-el-${el.id}`} className="absolute rounded-sm"
                               style={{
                                 top: `${el.y}%`, left: `${el.x}%`,
@@ -982,11 +997,11 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             backgroundColor: currentPage?.backgroundColor || undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
-                        }}
+                          }}
                         onClick={handleCanvasClick}
                     >
                          <TemplateDecorations template={template} />
-                         <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
+                         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
                           <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                               <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
@@ -1298,161 +1313,246 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
 
             {/* TEXT controls */}
             {selectedElement?.type === 'text' && (<>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">גודל</label>
-                <input type="number" min={8} max={96}
-                className="w-14 text-xs bg-slate-700 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none"
-                value={selectedElement.style?.fontSize || 16}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-                {(['normal','bold','extrabold'] as const).map(w => (
-                <button key={w}
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
-                    className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
-                ))}
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-                {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
-                <button key={a}
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: a as TextAlign }})}
-                    className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                >{l}</button>
-                ))}
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">צבע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.color || '#ffffff'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-                <div className="flex gap-1">
-                {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444'].map(c => (
-                    <button key={c} className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform flex-shrink-0"
-                    style={{ backgroundColor: c }}
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})} />
-                ))}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">גודל</label>
+                    <input type="number" min={8} max={96}
+                    className="w-14 text-xs bg-slate-700 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none"
+                    value={selectedElement.style?.fontSize || 16}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
                 </div>
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">רקע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.backgroundColor || '#000000'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-                <button className="text-xs text-slate-500 hover:text-red-400"
-                onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>✕</button>
-            </div>
+                <div className="flex gap-1 flex-shrink-0">
+                    {(['normal','bold','extrabold'] as const).map(w => (
+                    <button key={w}
+                        onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
+                        className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                    >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
+                    ))}
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                    {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
+                    <button key={a}
+                        onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: a as TextAlign }})}
+                        className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                    >{l}</button>
+                    ))}
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">צבע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.color || '#ffffff'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
+                    <div className="flex gap-1">
+                    {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444'].map(c => (
+                        <button key={c} className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform flex-shrink-0"
+                        style={{ backgroundColor: c }}
+                        onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})} />
+                    ))}
+                    </div>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">רקע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.backgroundColor || '#000000'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
+                    <button className="text-xs text-slate-500 hover:text-red-400"
+                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>✕</button>
+                </div>
+                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                    <label className='text-xs text-slate-400'>סדר שכבות</label>
+                    <div className='flex gap-1'>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >הבא קדימה ↑</button>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >שלח אחורה ↓</button>
+                    </div>
+                </div>
+                <div className='flex gap-2'>
+                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                    <Button variant="destructive" size="sm" className="flex-1"
+                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                </div>
             </>)}
 
             {/* PERSON CARD controls */}
             {selectedElement?.type === 'person_card' && (<>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                <input type="range" min={0} max={1} step={0.05}
-                className="w-24"
-                value={selectedElement.style?.opacity ?? 1}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">רקע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.backgroundColor || '#1e293b'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">טקסט</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.color || '#ffffff'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-            </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                    <input type="range" min={0} max={1} step={0.05}
+                    className="w-24"
+                    value={selectedElement.style?.opacity ?? 1}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">רקע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.backgroundColor || '#1e293b'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">טקסט</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.color || '#ffffff'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
+                </div>
+                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                    <label className='text-xs text-slate-400'>סדר שכבות</label>
+                    <div className='flex gap-1'>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >הבא קדימה ↑</button>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >שלח אחורה ↓</button>
+                    </div>
+                </div>
+                <div className='flex gap-2'>
+                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                    <Button variant="destructive" size="sm" className="flex-1"
+                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                </div>
             </>)}
 
             {/* SHAPE controls */}
             {selectedElement?.type === 'shape' && (<>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">צבע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.backgroundColor || template.primaryColor}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                <input type="range" min={0} max={1} step={0.05} className="w-24"
-                value={selectedElement.style?.opacity ?? 1}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-            </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">צבע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.backgroundColor || template.primaryColor}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                    <input type="range" min={0} max={1} step={0.05} className="w-24"
+                    value={selectedElement.style?.opacity ?? 1}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
+                </div>
+                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                    <label className='text-xs text-slate-400'>סדר שכבות</label>
+                    <div className='flex gap-1'>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >הבא קדימה ↑</button>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >שלח אחורה ↓</button>
+                    </div>
+                </div>
+                <div className='flex gap-2'>
+                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                    <Button variant="destructive" size="sm" className="flex-1"
+                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                </div>
             </>)}
 
             {/* IMAGE controls */}
             {selectedElement?.type === 'image' && (<>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                <input type="range" min={0} max={1} step={0.05} className="w-24"
-                value={selectedElement.style?.opacity ?? 1}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
-                <input type="range" min={0} max={50} step={1} className="w-24"
-                value={selectedElement.style?.borderRadius ?? 0}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: Number(e.target.value) }})} />
-            </div>
-            <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400 flex-shrink-0">
-                <ImageIcon className="w-3 h-3" /><span>החלף</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => updateElement(selectedElementId!, { content: ev.target?.result as string });
-                reader.readAsDataURL(file);
-                }} />
-            </label>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                    <input type="range" min={0} max={1} step={0.05} className="w-24"
+                    value={selectedElement.style?.opacity ?? 1}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
+                    <input type="range" min={0} max={50} step={1} className="w-24"
+                    value={selectedElement.style?.borderRadius ?? 0}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: Number(e.target.value) }})} />
+                </div>
+                <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400 flex-shrink-0">
+                    <ImageIcon className="w-3 h-3" /><span>החלף</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => updateElement(selectedElementId!, { content: ev.target?.result as string });
+                    reader.readAsDataURL(file);
+                    }} />
+                </label>
+                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                    <label className='text-xs text-slate-400'>סדר שכבות</label>
+                    <div className='flex gap-1'>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >הבא קדימה ↑</button>
+                    <button
+                        onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                        className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >שלח אחורה ↓</button>
+                    </div>
+                </div>
+                <div className='flex gap-2'>
+                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                    <Button variant="destructive" size="sm" className="flex-1"
+                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                </div>
             </>)}
+            
+            {/* ICON controls */}
+            {selectedElement?.type === 'icon' && (
+              <div className='space-y-3'>
+                <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                  <label className='text-xs text-slate-400'>סדר שכבות</label>
+                  <div className='flex gap-1'>
+                    <button
+                      onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                      className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >הבא קדימה ↑</button>
+                    <button
+                      onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                      className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                    >שלח אחורה ↓</button>
+                  </div>
+                </div>
+                <div className='flex gap-2'>
+                    <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                    <Button variant="destructive" size="sm" className="flex-1"
+                    onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                </div>
+              </div>
+            )}
 
             {/* CONNECTION LINE controls */}
             {selectedElement?.type === 'connection_line' && (<>
-            <div className="flex items-center gap-1 flex-shrink-0">
+              <div className="flex items-center gap-1 flex-shrink-0">
                 <label className="text-xs text-slate-400">צבע קו</label>
                 <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.color || template.primaryColor}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+                  value={selectedElement.style?.color || template.primaryColor}
+                  onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <label className="text-xs text-slate-400 whitespace-nowrap">עובי: {selectedElement.style?.borderWidth || 2}px</label>
                 <input type="range" min={1} max={8} step={1} className="w-24"
-                value={selectedElement.style?.borderWidth || 2}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) }})} />
-            </div>
-            </>)}
-
-            {/* SHARED controls — z-index and duplicate/delete — shown for any non-page selection */}
-            {selectedElement && selectedElement.type !== 'connection_line' && (<>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-            <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap">↑ קדימה</button>
-                <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap">↓ אחורה</button>
-            </div>
-            <button onClick={() => duplicateElement(selectedElementId!)}
-                className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap flex-shrink-0">שכפל</button>
-            </>)}
-            {selectedElement && (<>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-            <button onClick={() => deleteElement(selectedElementId!)}
-                className="text-xs px-2 py-1 rounded bg-red-500/20 border border-red-500/40 hover:bg-red-500/40 text-red-300 whitespace-nowrap flex-shrink-0">🗑 מחק</button>
+                  value={selectedElement.style?.borderWidth || 2}
+                  onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) }})} />
+              </div>
+              <Button variant="destructive" size="sm"
+                onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
             </>)}
 
             {/* ALIGNMENT controls — shown when multi-select (future) or always visible */}
             {selectedElement && selectedElement.type !== 'connection_line' && (<>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-            <div className="flex gap-1 flex-shrink-0">
+              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+              <div className="flex gap-1 flex-shrink-0">
                 <button title="יישור לשמאל" onClick={() => updateElement(selectedElementId!, { x: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊣</button>
                 <button title="מרכז אופקי" onClick={() => updateElement(selectedElementId!, el => ({ x: 50 - el.width / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕H</button>
                 <button title="יישור לימין" onClick={() => updateElement(selectedElementId!, el => ({ x: 100 - el.width }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊢</button>
                 <button title="יישור לעליון" onClick={() => updateElement(selectedElementId!, { y: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊤</button>
                 <button title="מרכז אנכי" onClick={() => updateElement(selectedElementId!, el => ({ y: 50 - el.height / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕V</button>
                 <button title="יישור לתחתון" onClick={() => updateElement(selectedElementId!, el => ({ y: 100 - el.height }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊥</button>
-            </div>
+              </div>
             </>)}
         </div>
         {showTemplatePicker && (
