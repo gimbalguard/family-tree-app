@@ -198,6 +198,7 @@ function generatePagesFromProject(
     }
   });
 
+
   if (nuclearFamilyElements.length > 0) {
     pages.push({
       id: uuidv4(),
@@ -507,11 +508,11 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0 });
   const pagesRef = useRef<DesignPage[]>(pages);
   const hasGeneratedRef = useRef(false);
-
+  
   useEffect(() => {
     pagesRef.current = pages;
   }, [pages]);
-
+  
   useEffect(() => {
     const existingPages = project.projectData?.designData?.pages;
     if (!existingPages || existingPages.length === 0) {
@@ -530,7 +531,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
       setIsGenerating(false);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
+  
   useEffect(() => {
     if (hasGeneratedRef.current) return;
     setPages(project.projectData?.designData?.pages || []);
@@ -638,6 +639,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     addElement({ ...rest, x: Math.min(el.x + 3, 70), y: Math.min(el.y + 3, 70) });
   };
 
+
   const addPage = () => {
     const newPage: DesignPage = {
       id: uuidv4(),
@@ -712,53 +714,24 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
       mouseY: e.clientY,
       elX: el.x,
       elY: el.y,
-      elW: (el.width / 100) * canvasRect.width,
-      elH: (el.height / 100) * canvasRect.height,
+      elW: el.width,
+      elH: el.height,
     };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isResizing.current && resizeHandle.current && selectedElementId && canvasRef.current) {
       const rect = canvasRef.current.getBoundingClientRect();
-      const dx = e.clientX - resizeStart.current.mouseX;
-      const dy = e.clientY - resizeStart.current.mouseY;
+      const dx = ((e.clientX - resizeStart.current.mouseX) / rect.width) * 100;
+      const dy = ((e.clientY - resizeStart.current.mouseY) / rect.height) * 100;
       const h = resizeHandle.current;
-      
       updateElementLocal(selectedElementId, (el) => {
-        let { elX: currentX, elY: currentY, elW: currentW, elH: currentH } = resizeStart.current;
-        let newX = (currentX / 100) * rect.width;
-        let newY = (currentY / 100) * rect.height;
-        let newW = currentW;
-        let newH = currentH;
-
-        if (h.includes('e')) newW = Math.max(20, currentW + dx);
-        if (h.includes('s')) newH = Math.max(20, currentH + dy);
-        if (h.includes('w')) {
-          newW = Math.max(20, currentW - dx);
-          newX = currentX + dx;
-        }
-        if (h.includes('n')) {
-          newH = Math.max(20, currentH - dy);
-          newY = currentY + dy;
-        }
-
-        if (h.length === 2) { // Corner resize
-            const ratio = resizeStart.current.elW / resizeStart.current.elH;
-            if (h === 'se' || h === 'nw') {
-                newH = newW / ratio;
-            } else {
-                newW = newH * ratio;
-            }
-             if (h.includes('n')) newY = (currentY + currentH) - newH;
-             if (h.includes('w')) newX = (currentX + currentW) - newW;
-        }
-
-        return {
-          x: (newX / rect.width) * 100,
-          y: (newY / rect.height) * 100,
-          width: (newW / rect.width) * 100,
-          height: (newH / rect.height) * 100,
-        };
+        let { elX: nx, elY: ny, elW: nw, elH: nh } = resizeStart.current;
+        if (h.includes('e')) nw = Math.max(5, resizeStart.current.elW + dx);
+        if (h.includes('s')) nh = Math.max(3, resizeStart.current.elH + dy);
+        if (h.includes('w')) { nw = Math.max(5, resizeStart.current.elW - dx); nx = resizeStart.current.elX + dx; }
+        if (h.includes('n')) { nh = Math.max(3, resizeStart.current.elH - dy); ny = resizeStart.current.elY + dy; }
+        return { x: Math.max(0, nx), y: Math.max(0, ny), width: Math.min(nw, 100 - Math.max(0, nx)), height: Math.min(nh, 100 - Math.max(0, ny)) };
       });
       return;
     }
@@ -1298,129 +1271,206 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                     </div>
                 )}
             </main>
-        </div>
-        <div className="h-10 border-t border-white/10 bg-slate-800/95 backdrop-blur flex-shrink-0 px-3 py-1 flex items-center gap-2 overflow-x-auto">
-            {/* Context label */}
-            <span className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
-              {selectedElement ? (
-                selectedElement.type === 'text' ? '✏️ טקסט' :
-                selectedElement.type === 'person_card' ? '👤 כרטיס אדם' :
-                selectedElement.type === 'shape' ? '◼ צורה' :
-                selectedElement.type === 'image' ? '🖼 תמונה' :
-                selectedElement.type === 'icon' ? '😊 אמוג׳י' :
-                selectedElement.type === 'connection_line' ? '↔ קו' : 'עריכת אלמנט'
-              ) : '📄 עמוד'}
-            </span>
-            <Separator orientation="vertical" className="h-6 bg-white/20" />
+            <div className="h-auto border-t border-white/10 bg-slate-800/80 backdrop-blur flex-shrink-0 px-4 py-2 flex items-center gap-4 overflow-x-auto" style={{ minHeight: '56px', maxHeight: '120px' }}>
+                {/* Context label */}
+                <span className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
+                {selectedElement ? (
+                    selectedElement.type === 'text' ? '✏️ טקסט' :
+                    selectedElement.type === 'person_card' ? '👤 כרטיס אדם' :
+                    selectedElement.type === 'shape' ? '◼ צורה' :
+                    selectedElement.type === 'image' ? '🖼 תמונה' :
+                    selectedElement.type === 'icon' ? '😊 אמוג׳י' :
+                    selectedElement.type === 'connection_line' ? '↔ קו' : ''
+                ) : '📄 עמוד'}
+                </span>
+                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
 
-            {/* PAGE controls */}
-            {!selectedElement && currentPage && (<>
-              <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1.5">
-                    <input type="color" className="w-7 h-7 rounded-md cursor-pointer border-0 bg-transparent"
-                      value={currentPage.backgroundColor || template.backgroundColor}
-                      onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top"><p>צבע רקע</p></TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <label className="cursor-pointer h-7 w-7 flex items-center justify-center rounded-md hover:bg-white/10">
-                    <ImageIcon className="w-4 h-4 text-slate-300" />
+                {/* PAGE controls — shown when nothing selected */}
+                {!selectedElement && currentPage && (<>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">צבע רקע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={currentPage.backgroundColor || template.backgroundColor}
+                    onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">תמונת רקע</label>
+                    <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400">
+                    <ImageIcon className="w-3 h-3" />
+                    <span>בחר</span>
                     <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                      const file = e.target.files?.[0]; if (!file) return;
-                      const reader = new FileReader();
-                      reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
-                      reader.readAsDataURL(file);
+                        const file = e.target.files?.[0]; if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
+                        reader.readAsDataURL(file);
                     }} />
-                  </label>
-                </TooltipTrigger>
-                <TooltipContent side="top"><p>תמונת רקע</p></TooltipContent>
-              </Tooltip>
-              {(currentPage as any).backgroundImage && (
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                    <button className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-white/10"
-                        onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>
-                        <X className="w-4 h-4 text-red-400"/>
-                    </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top"><p>הסר תמונת רקע</p></TooltipContent>
-                </Tooltip>
-              )}
-              </TooltipProvider>
-            </>)}
+                    </label>
+                    {(currentPage as any).backgroundImage && (
+                    <button className="text-xs text-red-400 hover:text-red-300"
+                        onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>✕ הסר</button>
+                    )}
+                </div>
+                </>)}
 
-            {/* TEXT controls */}
-            {selectedElement?.type === 'text' && (<>
-                <TooltipProvider>
-                <Tooltip><TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 bg-slate-900/50 border border-white/10 rounded-md px-1.5 h-7">
-                    <CaseSensitive className="w-4 h-4 text-slate-400" />
+                {/* TEXT controls */}
+                {selectedElement?.type === 'text' && (<>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">גודל</label>
                     <input type="number" min={8} max={96}
-                      className="w-12 text-xs bg-transparent border-none focus:outline-none text-center text-white"
-                      value={selectedElement.style?.fontSize || 16}
-                      onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
-                  </div>
-                </TooltipTrigger><TooltipContent side="top"><p>גודל גופן</p></TooltipContent></Tooltip>
-
-                <div className="flex gap-1">
-                  {(['normal','bold','extrabold'] as const).map(w => (
-                    <Tooltip key={w}><TooltipTrigger asChild>
-                      <button
+                    className="w-14 text-xs bg-slate-700 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none"
+                    value={selectedElement.style?.fontSize || 16}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                    {(['normal','bold','extrabold'] as const).map(w => (
+                    <button key={w}
                         onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
-                        className={cn('text-xs h-7 w-7 rounded-md border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                      >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
-                    </TooltipTrigger><TooltipContent side="top"><p>משקל: {w}</p></TooltipContent></Tooltip>
-                  ))}
+                        className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                    >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
+                    ))}
                 </div>
-                <div className="flex gap-1">
-                  {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
-                    <Tooltip key={a}><TooltipTrigger asChild>
-                    <button
+                <div className="flex gap-1 flex-shrink-0">
+                    {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
+                    <button key={a}
                         onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: a as TextAlign }})}
-                        className={cn('text-xs h-7 w-7 rounded-md border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                        className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
                     >{l}</button>
-                    </TooltipTrigger><TooltipContent side="top"><p>יישור {a}</p></TooltipContent></Tooltip>
-                  ))}
+                    ))}
                 </div>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                    <input type="color" className="w-7 h-7 rounded-md cursor-pointer border-0 bg-transparent"
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">צבע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
                     value={selectedElement.style?.color || '#ffffff'}
                     onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-                    </TooltipTrigger>
-                    <TooltipContent side="top"><p>צבע גופן</p></TooltipContent>
-                </Tooltip>
-                </TooltipProvider>
-            </>)}
-            
-            {/* Z-Index, Duplicate, Delete */}
-            {selectedElement && selectedElement.type !== 'connection_line' && (
-                <>
-                <Separator orientation="vertical" className="h-6 bg-white/20" />
-                <div className='flex gap-1'>
-                    <TooltipProvider>
-                    <Tooltip><TooltipTrigger asChild>
-                        <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                            className='h-7 w-7 flex items-center justify-center rounded-md bg-slate-700 border border-slate-600 hover:border-slate-400'>↑</button>
-                    </TooltipTrigger><TooltipContent side="top"><p>הבא קדימה</p></TooltipContent></Tooltip>
-                    <Tooltip><TooltipTrigger asChild>
-                        <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                            className='h-7 w-7 flex items-center justify-center rounded-md bg-slate-700 border border-slate-600 hover:border-slate-400'>↓</button>
-                    </TooltipTrigger><TooltipContent side="top"><p>שלח אחורה</p></TooltipContent></Tooltip>
-                    </TooltipProvider>
+                    <div className="flex gap-1">
+                    {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444'].map(c => (
+                        <button key={c} className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform flex-shrink-0"
+                        style={{ backgroundColor: c }}
+                        onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})} />
+                    ))}
+                    </div>
                 </div>
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent"
-                    onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
-                <Button variant="destructive" size="icon" className="h-7 w-7"
-                    onClick={() => deleteElement(selectedElementId!)}><Trash2 className="w-3.5 h-3.5"/></Button>
-                </>
-            )}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">רקע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.backgroundColor || '#000000'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
+                    <button className="text-xs text-slate-500 hover:text-red-400"
+                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>✕</button>
+                </div>
+                </>)}
 
+                {/* PERSON CARD controls */}
+                {selectedElement?.type === 'person_card' && (<>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                    <input type="range" min={0} max={1} step={0.05}
+                    className="w-24"
+                    value={selectedElement.style?.opacity ?? 1}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">רקע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.backgroundColor || '#1e293b'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">טקסט</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.color || '#ffffff'}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
+                </div>
+                </>)}
+
+                {/* SHAPE controls */}
+                {selectedElement?.type === 'shape' && (<>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">צבע</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.backgroundColor || template.primaryColor}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                    <input type="range" min={0} max={1} step={0.05} className="w-24"
+                    value={selectedElement.style?.opacity ?? 1}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
+                </div>
+                </>)}
+
+                {/* IMAGE controls */}
+                {selectedElement?.type === 'image' && (<>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                    <input type="range" min={0} max={1} step={0.05} className="w-24"
+                    value={selectedElement.style?.opacity ?? 1}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
+                    <input type="range" min={0} max={50} step={1} className="w-24"
+                    value={selectedElement.style?.borderRadius ?? 0}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: Number(e.target.value) }})} />
+                </div>
+                <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400 flex-shrink-0">
+                    <ImageIcon className="w-3 h-3" /><span>החלף</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0]; if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (ev) => updateElement(selectedElementId!, { content: ev.target?.result as string });
+                    reader.readAsDataURL(file);
+                    }} />
+                </label>
+                </>)}
+
+                {/* CONNECTION LINE controls */}
+                {selectedElement?.type === 'connection_line' && (<>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                    <label className="text-xs text-slate-400">צבע קו</label>
+                    <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
+                    value={selectedElement.style?.color || template.primaryColor}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                    <label className="text-xs text-slate-400 whitespace-nowrap">עובי: {selectedElement.style?.borderWidth || 2}px</label>
+                    <input type="range" min={1} max={8} step={1} className="w-24"
+                    value={selectedElement.style?.borderWidth || 2}
+                    onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) }})} />
+                </div>
+                </>)}
+
+                {/* SHARED controls — z-index and duplicate/delete — shown for any non-page selection */}
+                {selectedElement && selectedElement.type !== 'connection_line' && (<>
+                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                <div className="flex gap-1 flex-shrink-0">
+                    <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                    className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap">↑ קדימה</button>
+                    <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                    className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap">↓ אחורה</button>
+                </div>
+                <button onClick={() => duplicateElement(selectedElementId!)}
+                    className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap flex-shrink-0">שכפל</button>
+                </>)}
+                {selectedElement && (<>
+                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                <button onClick={() => deleteElement(selectedElementId!)}
+                    className="text-xs px-2 py-1 rounded bg-red-500/20 border border-red-500/40 hover:bg-red-500/40 text-red-300 whitespace-nowrap flex-shrink-0">🗑 מחק</button>
+                </>)}
+
+                {/* ALIGNMENT controls — shown when multi-select (future) or always visible */}
+                {selectedElement && selectedElement.type !== 'connection_line' && (<>
+                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                <div className="flex gap-1 flex-shrink-0">
+                    <button title="יישור לשמאל" onClick={() => updateElement(selectedElementId!, { x: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊣</button>
+                    <button title="מרכז אופקי" onClick={() => updateElement(selectedElementId!, el => ({ x: 50 - el.width / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕H</button>
+                    <button title="יישור לימין" onClick={() => updateElement(selectedElementId!, el => ({ x: 100 - el.width }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊢</button>
+                    <button title="יישור לעליון" onClick={() => updateElement(selectedElementId!, { y: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊤</button>
+                    <button title="מרכז אנכי" onClick={() => updateElement(selectedElementId!, el => ({ y: 50 - el.height / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕V</button>
+                    <button title="יישור לתחתון" onClick={() => updateElement(selectedElementId!, el => ({ y: 100 - el.height }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊥</button>
+                </div>
+                </>)}
+            </div>
         </div>
         {showTemplatePicker && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={() => setShowTemplatePicker(false)}>
