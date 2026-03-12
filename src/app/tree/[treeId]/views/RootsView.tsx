@@ -20,6 +20,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { v4 as uuidv4 } from 'uuid';
 
 
 // --- Utility & Base Components ---
@@ -998,7 +999,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
     // Clean up any extra parentheses from year
     year = year.replace(/[()]/g, '');
 
-    const newId = label.toLowerCase().replace(/\s/g, '_').replace(/[^\w-]/g, '') + `_${year}`;
+    const newId = uuidv4();
     const newEvent = { id: newId, label: label, year: year };
     
     const updatedCustomEvents = [...(heritage.customHistoricalEvents || []), newEvent];
