@@ -464,7 +464,6 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
         <div className="space-y-3">
             <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">מעטפת רשמית</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2" dir="rtl">
-                
                 <div className={fieldContainerClass}>
                     <label className={labelClass}>מגיש/ה <User className="inline h-3 w-3 mb-0.5" /></label>
                     <StudentSelector people={people} currentStudentId={currentStudentId} onStudentChange={onStudentChange} />
@@ -655,10 +654,17 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
   
   const parents = useMemo(() => {
     if (!currentStudentId) return [];
+    
+    // A person is a parent if they are personA in a 'parent' relationship
+    // where the current student is personB.
     const parentRels = relationships.filter(r => 
-      r.personBId === currentStudentId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
+      r.personBId === currentStudentId && 
+      ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
     );
-    const parentIds = parentRels.map(r => r.personAId);
+
+    // Get the unique IDs of the parents. A Set automatically handles duplicates.
+    const parentIds = [...new Set(parentRels.map(r => r.personAId))];
+    
     return parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
   }, [relationships, people, currentStudentId]);
   
@@ -849,7 +855,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.inheritedObject || ''} onRephrase={(v) => onUpdate(['heritage', 'inheritedObject'], v)} fieldName="חפץ עובר בירושה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">חפץ עובר בירושה 💎</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
         </div>
         <EditableField asTextarea value={heritage.inheritedObject || ''} onUpdate={(v) => onUpdate(['heritage', 'inheritedObject'], v)} placeholder="תארו חפץ שעבר במשפחה מדור לדור. מה הוא? מאיפה הגיע? מה הוא מסמל?" />
       </div>
@@ -858,7 +864,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyRecipe || ''} onRephrase={(v) => onUpdate(['heritage', 'familyRecipe'], v)} fieldName="מתכון משפחתי" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מתכון משפחתי 🍽️</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
         </div>
         <EditableField asTextarea value={heritage.familyRecipe || ''} onUpdate={(v) => onUpdate(['heritage', 'familyRecipe'], v)} placeholder="מה המנה שכולם מחכים לה בארוחות משפחתיות? מי מכינה אותה? מה הסיפור שלה?" />
       </div>
@@ -867,7 +873,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyNameOrigin || ''} onRephrase={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} fieldName="מקור שם המשפחה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">מקור שם המשפחה</label>
+          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
         </div>
         <EditableField asTextarea value={heritage.familyNameOrigin || ''} onUpdate={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} placeholder="מאיפה מגיע שם המשפחה? מה משמעותו? מתי אומץ שם זה?" />
       </div>
