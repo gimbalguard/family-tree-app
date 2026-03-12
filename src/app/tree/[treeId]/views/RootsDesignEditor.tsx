@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, LayoutPanelTop, MousePointer2, Pilcrow, Plus, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User,
+    ArrowLeft, ChevronDown, Circle, Diamond, GitMerge, Image as ImageIcon, LayoutPanelTop, MousePointer2, Pilcrow, Plus, PlusCircle, Redo, RotateCcw, Smile, Square, Star, Trash2, Undo, User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -625,7 +625,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
       }));
     }
     setIsGenerating(false);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setPages(project.projectData?.designData?.pages || []);
@@ -645,7 +645,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedElementId, editingElementId]);
+  }, [selectedElementId, editingElementId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   const updatePages = (updater: (currentPages: DesignPage[]) => DesignPage[]) => {
@@ -861,7 +861,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             </TooltipTrigger>
                             <TooltipContent side="bottom"><p>יחס תצוגה</p></TooltipContent>
                         </Tooltip>
-                    </DropdownMenuProvider>
+                    </TooltipProvider>
                     <DropdownMenuContent>
                         <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as CanvasAspectRatio)}>
                             <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב (ברירת מחדל)</DropdownMenuRadioItem>
@@ -1196,6 +1196,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         <h3 className="font-bold text-sm">הוסף תמונה</h3>
                         </div>
 
+                        {/* Upload from device */}
                         <div className="p-3 border-b border-white/10">
                         <label className="cursor-pointer flex flex-col items-center gap-2 p-4 border-2 border-dashed border-white/20 rounded-xl hover:border-indigo-400 transition-colors">
                             <ImageIcon className="w-8 h-8 text-slate-400" />
@@ -1225,6 +1226,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         </label>
                         </div>
 
+                        {/* My Files section */}
                         <div className="p-3 flex-1 overflow-y-auto">
                         <p className="text-xs font-bold text-slate-300 text-right mb-2">הקבצים שלי</p>
                         <MyFilesImageGrid
