@@ -1054,11 +1054,11 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
         <h2 className="text-sm font-bold text-slate-300 text-right">קשר המשפחה להיסטוריה הלאומית</h2>
         <p className="text-xs text-slate-400 text-right">סמן/י אירועים היסטוריים שמשפחתך הייתה קשורה אליהם:</p>
         <div className="flex flex-wrap gap-2 justify-end">
-          {combinedEvents.map(event => {
+          {combinedEvents.map((event, index) => {
             const isCustom = !initialHistoricalEvents.some(initial => initial.id === event.id);
             return (
               <EditableEventChip
-                key={event.id}
+                key={`event-${event.id}-${index}`}
                 event={{...event, isCustom}}
                 isSelected={selectedEvents.includes(event.id)}
                 onToggle={toggleEvent}
@@ -1114,11 +1114,11 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
         </div>
         
         {/* Text fields for selected events */}
-        {selectedEvents.map(eventId => {
+        {selectedEvents.map((eventId, index) => {
           const event = combinedEvents.find(e => e.id === eventId);
           if (!event) return null;
           return (
-            <div key={eventId} className="space-y-1">
+            <div key={`selected-event-${eventId}-${index}`} className="space-y-1">
               <div className="flex items-center justify-between">
                 <AiRephraseButton value={heritage[`event_${eventId}`] || ''} onRephrase={(v) => onUpdate(['heritage', `event_${eventId}`], v)} fieldName={event.label} />
                 <label className="text-xs text-slate-300 block w-full text-right">הקשר של משפחתי ל{event.label}:</label>
