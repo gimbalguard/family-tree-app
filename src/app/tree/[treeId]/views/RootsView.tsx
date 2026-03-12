@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -717,7 +718,7 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
         <div className="space-y-1 mt-3">
           <div className="flex items-center justify-between">
             <AiRephraseButton value={family.parentsMeetingStory || ''} onRephrase={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} fieldName="סיפור ההיכרות של ההורים" />
-            <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור ההיכרות של ההורים</label>
+            <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור ההיכרות של ההורים</label>
           </div>
           <EditableField asTextarea value={family.parentsMeetingStory || ''} onUpdate={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} placeholder="איך הכירו ההורים שלך? מה הסיפור שלהם?" />
         </div>
@@ -784,8 +785,8 @@ const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStud
   currentStudentId?: string
 }) => {
   const roots = projectData.familyRoots || {};
-  const [activeSection, setActiveSection] = useState<string | null>('paternal');
-
+  const [activeSection, setActiveSection] = useState<string | null>('paternalGrandparents');
+  
   const ancestors = useMemo(() => {
     const findParents = (personId?: string): Person[] => {
         if (!personId) return [];
@@ -822,48 +823,41 @@ const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStud
     };
   }, [people, relationships, currentStudentId]);
   
+  const sections = [
+    { key: 'paternal', label: 'סבא וסבתא מצד אבא', icon: '👴', content: <>
+        <AncestorCard title="סבא (אבא של אבא)" person={ancestors.paternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandfather" />
+        <AncestorCard title="סבתא (אמא של אבא)" person={ancestors.paternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandmother" />
+    </>},
+    { key: 'maternal', label: 'סבא וסבתא מצד אמא', icon: '👵', content: <>
+        <AncestorCard title="סבא (אבא של אמא)" person={ancestors.maternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandfather" />
+        <AncestorCard title="סבתא (אמא של אמא)" person={ancestors.maternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandmother" />
+    </>},
+    { key: 'paternal-gg', label: 'הורי-סבא מצד אבא', icon: '🌳', content: <>
+        <AncestorCard title="אבא של סבא" person={ancestors.paternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandfather" />
+        <AncestorCard title="אמא של סבתא" person={ancestors.paternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandmother" />
+    </>},
+    { key: 'maternal-gg', label: 'הורי-סבא מצד אמא', icon: '🌳', content: <>
+         <AncestorCard title="אבא של סבא" person={ancestors.maternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandfather" />
+        <AncestorCard title="אמא של סבתא" person={ancestors.maternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandmother" />
+    </>},
+  ];
+  
   return (
     <div className="space-y-4" dir="rtl">
       <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">שורשי המשפחה</h1>
       <p className="text-slate-400 text-xs text-center">4 דורות של זיכרון משפחתי</p>
       
       <Accordion type="single" collapsible className="w-full space-y-2" value={activeSection || ''} onValueChange={setActiveSection}>
-        <AccordionItem value="paternal" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
-            <span className="flex items-center gap-2 text-sm font-bold text-slate-200">סבא וסבתא מצד אבא 👴</span>
-          </AccordionTrigger>
-          <AccordionContent className="p-4 space-y-4 bg-black/20">
-            <AncestorCard title="סבא (אבא של אבא)" person={ancestors.paternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandfather" />
-            <AncestorCard title="סבתא (אמא של אבא)" person={ancestors.paternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandmother" />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="maternal" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
-             <span className="flex items-center gap-2 text-sm font-bold text-slate-200">סבא וסבתא מצד אמא 👵</span>
-          </AccordionTrigger>
-          <AccordionContent className="p-4 space-y-4 bg-black/20">
-            <AncestorCard title="סבא (אבא של אמא)" person={ancestors.maternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandfather" />
-            <AncestorCard title="סבתא (אמא של אמא)" person={ancestors.maternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandmother" />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="paternal-gg" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
-             <span className="flex items-center gap-2 text-sm font-bold text-slate-200">הורי-סבא מצד אבא 🌳</span>
-          </AccordionTrigger>
-          <AccordionContent className="p-4 space-y-4 bg-black/20">
-            <AncestorCard title="אבא של סבא" person={ancestors.paternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandfather" />
-            <AncestorCard title="אמא של סבתא" person={ancestors.paternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandmother" />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="maternal-gg" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
-             <span className="flex items-center gap-2 text-sm font-bold text-slate-200">הורי-סבא מצד אמא 🌳</span>
-          </AccordionTrigger>
-          <AccordionContent className="p-4 space-y-4 bg-black/20">
-            <AncestorCard title="אבא של סבא" person={ancestors.maternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandfather" />
-            <AncestorCard title="אמא של סבתא" person={ancestors.maternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandmother" />
-          </AccordionContent>
-        </AccordionItem>
+        {sections.map(section => (
+          <AccordionItem key={section.key} value={section.key} className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+            <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
+              <span className="flex items-center gap-2 text-sm font-bold text-slate-200">{section.label} {section.icon}</span>
+            </AccordionTrigger>
+            <AccordionContent className="p-4 space-y-4 bg-black/20">
+              {section.content}
+            </AccordionContent>
+          </AccordionItem>
+        ))}
       </Accordion>
 
       <div className="p-4 rounded-2xl bg-indigo-900/20 border border-indigo-500/20">
@@ -1000,6 +994,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
     year = year.replace(/[()]/g, '');
 
     const newId = uuidv4();
+    
     const newEvent = { id: newId, label: label, year: year };
     
     const updatedCustomEvents = [...(heritage.customHistoricalEvents || []), newEvent];
