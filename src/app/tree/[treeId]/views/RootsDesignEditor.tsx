@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -429,7 +430,7 @@ const PersonCardElement = ({ element, people, relationships }: { element: Design
   const birthYear = person.birthDate ? new Date(person.birthDate).getFullYear() : null;
   const deathYear = person.deathDate ? new Date(String(person.deathDate)).getFullYear() : null;
   const age = birthYear ? (deathYear ? deathYear - birthYear : new Date().getFullYear() - birthYear) : null;
-  
+
   const displayName = [
     person.firstName,
     person.nickname ? `"${person.nickname}"` : null,
@@ -441,7 +442,7 @@ const PersonCardElement = ({ element, people, relationships }: { element: Design
   const opacity = element.style?.opacity ?? 1;
 
   return (
-    <div 
+    <div
       className="w-full h-full rounded-2xl p-2 flex flex-col items-center gap-1 shadow-xl overflow-hidden border border-white/15 backdrop-blur-xl"
       style={{ backgroundColor: bgColor, opacity, color: textColor }}
     >
@@ -450,9 +451,9 @@ const PersonCardElement = ({ element, people, relationships }: { element: Design
       </div>
       <p className="font-bold text-xs text-center leading-tight px-1" style={{ color: textColor }}>{displayName}</p>
       {birthYear && (
-        <p className="text-xs text-center opacity-70" style={{ color: textColor }}>
-            {birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` (גיל ${age})` : ''}
-        </p>
+          <p className="text-xs text-center opacity-70" style={{ color: textColor }}>
+              {birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` (גיל ${age})` : ''}
+          </p>
       )}
       {person.birthPlace && (
         <p className="text-xs text-center opacity-60 truncate w-full px-1" style={{ color: textColor }}>📍 {person.birthPlace}</p>
@@ -467,7 +468,7 @@ const PersonCardElement = ({ element, people, relationships }: { element: Design
 
 const TemplateDecorations = ({ template }: { template: DesignTemplate }) => {
   const pattern = template.decorativePattern || 'none';
-  
+
   if (pattern === 'corners') return (
     <>
       {/* Corner decorations */}
@@ -477,7 +478,7 @@ const TemplateDecorations = ({ template }: { template: DesignTemplate }) => {
       <div className="absolute bottom-2 left-2 w-8 h-8 border-b-2 border-l-2 opacity-40" style={{ borderColor: template.primaryColor }} />
     </>
   );
-  
+
   if (pattern === 'border') return (
     <div className="absolute inset-3 border-2 opacity-20 pointer-events-none rounded-sm" style={{ borderColor: template.primaryColor }} />
   );
@@ -519,12 +520,12 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string, onSelectI
       }
       try {
         const filesQuery = query(
-            collection(db, 'exportedFiles'), 
+            collection(db, 'exportedFiles'),
             where('userId', '==', user.uid),
         );
         const filesSnapshot = await getDocs(filesQuery);
         const userFiles = filesSnapshot.docs.map(d => d.data() as ExportedFile);
-        
+
         const imageFiles = userFiles
             .filter(file => file.downloadURL && ['png', 'jpg', 'jpeg'].includes(file.fileType))
             .map(file => ({
@@ -579,7 +580,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   onHistoryChange: (history: any) => void;
 }) {
   const isGeneratingInitial = !project.projectData?.designData?.pages;
-  
+
   const [pages, setPages] = useState<DesignPage[]>(project.projectData?.designData?.pages || []);
   const [isGenerating, setIsGenerating] = useState(isGeneratingInitial);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -595,13 +596,18 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   const [activeShapeType, setActiveShapeType] = useState<ShapeType>('rectangle');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiInput, setEmojiInput] = useState('');
-  
+  const [applyTemplateToAll, setApplyTemplateToAll] = useState(true);
+
   const { toast } = useToast();
 
   const isDragging = useRef(false);
   const dragElementId = useRef<string | null>(null);
   const dragStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  const isResizing = useRef(false);
+  const resizeHandle = useRef<string | null>(null); // 'se' | 'sw' | 'ne' | 'nw'
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0 });
 
   const currentPage = pages[currentPageIndex];
   const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
@@ -620,11 +626,11 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     }
     setIsGenerating(false);
   }, []);
-  
+
   useEffect(() => {
     setPages(project.projectData?.designData?.pages || []);
   }, [project.projectData?.designData?.pages]);
-  
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId && !editingElementId) {
@@ -693,6 +699,16 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     setSelectedElementId(null);
   };
   
+  const duplicateElement = (id: string) => {
+    const el = currentPage?.elements.find(e => e.id === id);
+    if (!el) return;
+    addElement({
+      ...el,
+      x: Math.min(el.x + 3, 70),
+      y: Math.min(el.y + 3, 70),
+    });
+  };
+
   const addPage = () => {
     const newPage: DesignPage = {
       id: `page_custom_${Date.now()}`,
@@ -756,7 +772,33 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
     };
   };
 
+  const handleResizeMouseDown = (e: React.MouseEvent, el: DesignElement, handle: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    isResizing.current = true;
+    resizeHandle.current = handle;
+    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, elX: el.x, elY: el.y, elW: el.width, elH: el.height };
+  };
+
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (isResizing.current && resizeHandle.current && selectedElementId && canvasRef.current) {
+      const canvasRect = canvasRef.current.getBoundingClientRect();
+      const dx = ((e.clientX - resizeStart.current.mouseX) / canvasRect.width) * 100;
+      const dy = ((e.clientY - resizeStart.current.mouseY) / canvasRect.height) * 100;
+      const handle = resizeHandle.current;
+      updateElement(selectedElementId, (el) => {
+        let newX = resizeStart.current.elX;
+        let newY = resizeStart.current.elY;
+        let newW = resizeStart.current.elW;
+        let newH = resizeStart.current.elH;
+        if (handle.includes('e')) newW = Math.max(5, resizeStart.current.elW + dx);
+        if (handle.includes('s')) newH = Math.max(3, resizeStart.current.elH + dy);
+        if (handle.includes('w')) { newW = Math.max(5, resizeStart.current.elW - dx); newX = resizeStart.current.elX + dx; }
+        if (handle.includes('n')) { newH = Math.max(3, resizeStart.current.elH - dy); newY = resizeStart.current.elY + dy; }
+        return { x: newX, y: newY, width: Math.min(newW, 100 - newX), height: Math.min(newH, 100 - newY) };
+      });
+      return;
+    }
     if (!isDragging.current || !dragElementId.current || !canvasRef.current) return;
     const canvasRect = canvasRef.current.getBoundingClientRect();
     const dx = ((e.clientX - dragStart.current.mouseX) / canvasRect.width) * 100;
@@ -772,6 +814,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   const handleMouseUp = () => {
     isDragging.current = false;
     dragElementId.current = null;
+    isResizing.current = false;
+    resizeHandle.current = null;
   };
 
   if (isGenerating) {
@@ -788,7 +832,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   }
 
   const selectedElement = currentPage?.elements.find(el => el.id === selectedElementId);
-  
+
   const aspectClass = {
     'a4-landscape': 'aspect-[1.414/1]',
     'a4-portrait': 'aspect-[1/1.414]',
@@ -817,7 +861,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             </TooltipTrigger>
                             <TooltipContent side="bottom"><p>יחס תצוגה</p></TooltipContent>
                         </Tooltip>
-                    </TooltipProvider>
+                    </DropdownMenuProvider>
                     <DropdownMenuContent>
                         <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as CanvasAspectRatio)}>
                             <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב (ברירת מחדל)</DropdownMenuRadioItem>
@@ -895,12 +939,11 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                       onClick={() => setCurrentPageIndex(index)}
                       className={cn(
                         "w-full rounded-md p-1 cursor-pointer border-2",
-                        currentPageIndex === index ? "border-indigo-500" : "border-transparent hover:border-white/20",
-                        aspectClass
+                        currentPageIndex === index ? "border-indigo-500" : "border-transparent hover:border-white/20"
                       )}
                     >
                       <div
-                        className='relative w-full h-full overflow-hidden rounded-sm'
+                        className={cn('relative w-full h-full overflow-hidden rounded-sm', aspectClass)}
                         style={{
                           background: (page as any).backgroundImage
                             ? undefined
@@ -932,12 +975,21 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                   );
                 })}
               </div>
+              <div className='border-t border-white/10 pt-2 mt-1'>
+                <p className='text-xs text-slate-400 text-center mb-1'>שם עמוד</p>
+                <input
+                  className='w-full text-xs bg-slate-700 border border-white/10 rounded px-2 py-1 text-center text-white focus:outline-none focus:border-indigo-400'
+                  value={currentPage?.title || ''}
+                  onChange={(e) => updateCurrentPage(p => ({ ...p, title: e.target.value }))}
+                  dir="rtl"
+                />
+              </div>
               <Button size="sm" variant="outline" className='bg-transparent w-full mt-2' onClick={addPage}>
                 + הוסף עמוד
               </Button>
             </aside>
             <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
-                <div 
+                <div
                     className={cn(
                         "relative overflow-hidden",
                         canvasAspectRatio === 'free' ? "w-full h-full" : "shadow-2xl",
@@ -950,7 +1002,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         }
                     )}
                 >
-                    <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden" 
+                    <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden"
                         style={{
                             background: (currentPage as any).backgroundImage ? undefined : (currentPage?.backgroundColor || template.backgroundGradient),
                             backgroundImage: (currentPage as any).backgroundImage ? `url(${(currentPage as any).backgroundImage})` : undefined,
@@ -959,8 +1011,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         }}
                         onClick={handleCanvasClick}
                     >
-                         <TemplateDecorations template={template} />
-                        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'none' }}>
+                         <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
                           <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                               <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
@@ -991,8 +1042,9 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             })
                           }
                         </svg>
+                         <TemplateDecorations template={template} />
                         {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => (
-                           <div 
+                           <div
                              key={`el-${elIndex}-${el.id.slice(-8)}`}
                              className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
                              style={{
@@ -1004,6 +1056,24 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                              }}
                              onMouseDown={(e) => handleMouseDown(e, el)}
                            >
+                              {selectedElementId === el.id && activeTool === 'select' && (
+                                <>
+                                  {(['nw','ne','sw','se'] as const).map(handle => (
+                                    <div
+                                      key={handle}
+                                      onMouseDown={(e) => handleResizeMouseDown(e, el, handle)}
+                                      className="absolute w-3 h-3 bg-white border-2 border-blue-500 rounded-sm z-50 cursor-nwse-resize"
+                                      style={{
+                                        top: handle.includes('n') ? '-6px' : undefined,
+                                        bottom: handle.includes('s') ? '-6px' : undefined,
+                                        left: handle.includes('w') ? '-6px' : undefined,
+                                        right: handle.includes('e') ? '-6px' : undefined,
+                                        cursor: (handle === 'nw' || handle === 'se') ? 'nwse-resize' : 'nesw-resize',
+                                      }}
+                                    />
+                                  ))}
+                                </>
+                              )}
                                {el.type === 'text' && (
                                 editingElementId === el.id ? (
                                 <textarea
@@ -1125,14 +1195,14 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         <button onClick={() => { setShowImagePicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
                         <h3 className="font-bold text-sm">הוסף תמונה</h3>
                         </div>
-                        
+
                         <div className="p-3 border-b border-white/10">
                         <label className="cursor-pointer flex flex-col items-center gap-2 p-4 border-2 border-dashed border-white/20 rounded-xl hover:border-indigo-400 transition-colors">
                             <ImageIcon className="w-8 h-8 text-slate-400" />
                             <span className="text-xs text-slate-400 text-center">העלה תמונה מהמכשיר</span>
-                            <input 
-                            type="file" 
-                            accept="image/*" 
+                            <input
+                            type="file"
+                            accept="image/*"
                             className="hidden"
                             onChange={(e) => {
                                 const file = e.target.files?.[0];
@@ -1157,8 +1227,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
 
                         <div className="p-3 flex-1 overflow-y-auto">
                         <p className="text-xs font-bold text-slate-300 text-right mb-2">הקבצים שלי</p>
-                        <MyFilesImageGrid 
-                            treeId={project.treeId} 
+                        <MyFilesImageGrid
+                            treeId={project.treeId}
                             onSelectImage={(url) => {
                             addElement({
                                 type: 'image',
@@ -1168,7 +1238,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             });
                             setShowImagePicker(false);
                             setActiveTool('select');
-                            }} 
+                            }}
                         />
                         </div>
                     </div>
@@ -1275,7 +1345,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                 {selectedElement?.type === 'text' && (
                     <div className='space-y-3'>
                     <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת טקסט</h4>
-                    
+
                     <div className='space-y-1 text-right'>
                         <label className='text-xs text-slate-400'>גודל גופן: {selectedElement.style?.fontSize || 16}px</label>
                         <Slider
@@ -1356,22 +1426,37 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         </button>
                         </div>
                     </div>
+                     <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >הבא קדימה ↑</button>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >שלח אחורה ↓</button>
+                        </div>
+                      </div>
 
-                    <Button variant="destructive" size="sm" className="w-full mt-2"
-                        onClick={() => deleteElement(selectedElementId!)}>
-                        מחק טקסט
-                    </Button>
+                    <div className='flex gap-2'>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                          onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                        <Button variant="destructive" size="sm" className="flex-1"
+                          onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                      </div>
                     </div>
                 )}
                  {selectedElement?.type === 'person_card' && (
                 <div className='space-y-4'>
                     <h4 className='text-xs font-bold text-slate-300 text-right'>כרטיס אדם</h4>
-                    
+
                     <div className='space-y-1 text-right'>
                     <label className='text-xs text-slate-400'>שקיפות כרטיס</label>
                     <Slider
                         value={[selectedElement.style?.opacity ?? 1]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { 
+                        onValueChange={([val]) => updateElement(selectedElementId!, {
                         style: { ...selectedElement.style, opacity: val }
                         })}
                         min={0} max={1} step={0.05}
@@ -1381,10 +1466,10 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
 
                     <div className='space-y-1 text-right'>
                     <label className='text-xs text-slate-400'>צבע רקע כרטיס</label>
-                    <Input 
-                        type="color" 
+                    <Input
+                        type="color"
                         value={selectedElement.style?.backgroundColor || '#1e293b'}
-                        onChange={(e) => updateElement(selectedElementId!, { 
+                        onChange={(e) => updateElement(selectedElementId!, {
                         style: { ...selectedElement.style, backgroundColor: e.target.value }
                         })}
                     />
@@ -1392,21 +1477,34 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
 
                     <div className='space-y-1 text-right'>
                     <label className='text-xs text-slate-400'>צבע טקסט</label>
-                    <Input 
-                        type="color" 
+                    <Input
+                        type="color"
                         value={selectedElement.style?.color || '#ffffff'}
-                        onChange={(e) => updateElement(selectedElementId!, { 
+                        onChange={(e) => updateElement(selectedElementId!, {
                         style: { ...selectedElement.style, color: e.target.value }
                         })}
                     />
                     </div>
+                    <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >הבא קדימה ↑</button>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >שלח אחורה ↓</button>
+                        </div>
+                      </div>
 
-                    <Button 
-                    variant="destructive" size="sm" className="w-full"
-                    onClick={() => deleteElement(selectedElementId!)}
-                    >
-                    מחק כרטיס
-                    </Button>
+                     <div className='flex gap-2'>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                          onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                        <Button variant="destructive" size="sm" className="flex-1"
+                          onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                      </div>
                 </div>
                 )}
                 {selectedElement?.type === 'shape' && (
@@ -1426,8 +1524,25 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         min={0} max={1} step={0.05}
                         />
                     </div>
-                    <Button variant="destructive" size="sm" className="w-full"
-                        onClick={() => deleteElement(selectedElementId!)}>מחק צורה</Button>
+                    <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >הבא קדימה ↑</button>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >שלח אחורה ↓</button>
+                        </div>
+                      </div>
+                     <div className='flex gap-2'>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                          onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                        <Button variant="destructive" size="sm" className="flex-1"
+                          onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                      </div>
                     </div>
                 )}
                  {selectedElement?.type === 'image' && (
@@ -1460,8 +1575,25 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         reader.readAsDataURL(file);
                         }} />
                     </label>
-                    <Button variant="destructive" size="sm" className="w-full"
-                        onClick={() => deleteElement(selectedElementId!)}>מחק תמונה</Button>
+                     <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >הבא קדימה ↑</button>
+                          <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                          >שלח אחורה ↓</button>
+                        </div>
+                      </div>
+                    <div className='flex gap-2'>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                          onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                        <Button variant="destructive" size="sm" className="flex-1"
+                          onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                      </div>
                     </div>
                 )}
                 {selectedElement?.type === 'connection_line' && (
@@ -1492,9 +1624,26 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={() => setShowTemplatePicker(false)}>
             <div className="bg-slate-800 rounded-2xl p-6 w-[600px] max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
               <h2 className="text-xl font-bold text-right mb-4">בחר תבנית עיצוב</h2>
+              <div className='flex items-center gap-2 mb-4 justify-end'>
+                <label className='text-sm text-slate-300'>החל על כל העמודים</label>
+                <button
+                  onClick={() => setApplyTemplateToAll(!applyTemplateToAll)}
+                  className={cn('w-10 h-5 rounded-full transition-colors relative', applyTemplateToAll ? 'bg-indigo-500' : 'bg-slate-600')}
+                >
+                  <div className={cn('absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all', applyTemplateToAll ? 'right-0.5' : 'left-0.5')} />
+                </button>
+              </div>
               <div className="grid grid-cols-5 gap-3">
                 {DESIGN_TEMPLATES.map(t => (
-                    <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); updatePages(p => p.map(pg => ({...pg, templateId: t.id}))); setShowTemplatePicker(false); }}
+                    <button key={t.id} onClick={() => {
+                        setSelectedTemplateId(t.id);
+                        if (applyTemplateToAll) {
+                          updatePages(p => p.map(pg => ({...pg, templateId: t.id})));
+                        } else {
+                          updateCurrentPage(p => ({...p, templateId: t.id}));
+                        }
+                        setShowTemplatePicker(false);
+                      }}
                         className={cn("rounded-xl overflow-hidden border-2 transition-all text-left", selectedTemplateId === t.id ? "border-indigo-400 scale-105" : "border-transparent hover:border-white/30")}
                     >
                         {/* Mini page preview */}
@@ -1513,8 +1662,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         </div>
                         {/* Simulated person card */}
                         <div className="absolute bottom-2 right-2 w-8 h-8 rounded-lg"
-                            style={{ 
-                            backgroundColor: t.cardStyle === 'glass' ? 'rgba(255,255,255,0.1)' : 
+                            style={{
+                            backgroundColor: t.cardStyle === 'glass' ? 'rgba(255,255,255,0.1)' :
                                                 t.cardStyle === 'solid' ? t.cardBackground :
                                                 'transparent',
                             border: t.cardStyle === 'outline' ? `1px solid ${t.primaryColor}` : '1px solid rgba(255,255,255,0.15)'
