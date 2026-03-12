@@ -520,7 +520,7 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string, onSelectI
       try {
         const filesQuery = query(
             collection(db, 'exportedFiles'), 
-            where('userId', '==', user.uid)
+            where('userId', '==', user.uid),
         );
         const filesSnapshot = await getDocs(filesQuery);
         const userFiles = filesSnapshot.docs.map(d => d.data() as ExportedFile);
@@ -543,7 +543,7 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string, onSelectI
       }
     };
     fetchFiles();
-  }, [user, db]);
+  }, [user, db, treeId]);
 
   if (loading) return <div className="text-xs text-slate-500 text-center py-4">טוען קבצים...</div>;
   if (files.length === 0) return (
@@ -609,14 +609,14 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   useEffect(() => {
     const existingPages = project.projectData?.designData?.pages;
     if (!existingPages || existingPages.length === 0) {
-        const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-        onUpdateProject(proj => ({
-            ...proj,
-            projectData: {
-                ...proj.projectData,
-                designData: { pages: generated }
-            }
-        }));
+      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
+      onUpdateProject(proj => ({
+        ...proj,
+        projectData: {
+          ...proj.projectData,
+          designData: { pages: generated }
+        }
+      }));
     }
     setIsGenerating(false);
   }, []);
@@ -876,262 +876,65 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
         </header>
 
         <div className="flex-1 flex min-h-0">
-            <aside className="w-64 min-w-[240px] border-l border-white/10 p-4 space-y-4 overflow-y-auto flex-shrink-0">
-                <h3 className='font-bold text-sm text-center'>
-                     {selectedElement ? (
-                        selectedElement.type === 'text' ? 'עריכת טקסט' :
-                        selectedElement.type === 'person_card' ? 'כרטיס אדם' :
-                        selectedElement.type === 'shape' ? 'עריכת צורה' :
-                        selectedElement.type === 'image' ? 'עריכת תמונה' :
-                        selectedElement.type === 'icon' ? 'עריכת אמוג׳י' :
-                        selectedElement.type === 'connection_line' ? 'קו חיבור' :
-                        'עריכת אלמנט'
-                    ) : 'עריכת עמוד'}
-                </h3>
-                {!selectedElement && currentPage && (
-                    <div className='space-y-4'>
-                        <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>צבע רקע</label>
-                        <Input type="color" value={currentPage.backgroundColor || template.backgroundColor}
-                            onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
-                        </div>
-                        <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>תמונת רקע</label>
-                        <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400">
-                            <ImageIcon className="w-4 h-4" />
-                            <span>בחר תמונה</span>
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.onload = (ev) => {
-                                updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
-                            };
-                            reader.readAsDataURL(file);
-                            }} />
-                        </label>
-                        {(currentPage as any).backgroundImage && (
-                            <button className="text-xs text-red-400 hover:text-red-300 w-full text-right"
-                            onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>
-                            הסר תמונת רקע ✕
-                            </button>
-                        )}
-                        </div>
-                    </div>
-                )}
-                {selectedElement?.type === 'text' && (
-                    <div className='space-y-3'>
-                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת טקסט</h4>
-                    
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>גודל גופן: {selectedElement.style?.fontSize || 16}px</label>
-                        <Slider
-                        value={[selectedElement.style?.fontSize || 16]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: val }})}
-                        min={8} max={96} step={1}
-                        />
-                    </div>
-
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>עובי גופן</label>
-                        <div className='flex gap-1'>
-                        {(['normal', 'bold', 'extrabold'] as const).map(w => (
-                            <button
-                            key={w}
-                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
-                            className={cn('flex-1 text-xs py-1 rounded border transition-colors',
-                                selectedElement.style?.fontWeight === w
-                                ? 'bg-indigo-500 border-indigo-400 text-white'
-                                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-400'
-                            )}
-                            >
-                            {w === 'normal' ? 'רגיל' : w === 'bold' ? 'מודגש' : 'כבד'}
-                            </button>
-                        ))}
-                        </div>
-                    </div>
-
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>יישור</label>
-                        <div className='flex gap-1'>
-                        {([['right','ימין'],['center','מרכז'],['left','שמאל']] as const).map(([align, label]) => (
-                            <button
-                            key={align}
-                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: align as TextAlign }})}
-                            className={cn('flex-1 text-xs py-1 rounded border transition-colors',
-                                selectedElement.style?.textAlign === align
-                                ? 'bg-indigo-500 border-indigo-400 text-white'
-                                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-400'
-                            )}
-                            >
-                            {label}
-                            </button>
-                        ))}
-                        </div>
-                    </div>
-
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>צבע טקסט</label>
-                        <div className='flex gap-2 items-center'>
-                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
-                            value={selectedElement.style?.color || '#ffffff'}
-                            onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
-                        />
-                        <span className='text-xs text-slate-400'>{selectedElement.style?.color || '#ffffff'}</span>
-                        </div>
-                        {/* Quick color presets */}
-                        <div className='flex gap-1 flex-wrap mt-1'>
-                        {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444','#10b981','#f97316'].map(c => (
-                            <button key={c} className='w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform'
-                            style={{ backgroundColor: c }}
-                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})}
-                            />
-                        ))}
-                        </div>
-                    </div>
-
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>צבע רקע</label>
-                        <div className='flex gap-2 items-center'>
-                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
-                            value={selectedElement.style?.backgroundColor || '#00000000'}
-                            onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})}
-                        />
-                        <button className='text-xs text-slate-500 hover:text-red-400'
-                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>
-                            הסר
-                        </button>
-                        </div>
-                    </div>
-
-                    <Button variant="destructive" size="sm" className="w-full mt-2"
-                        onClick={() => deleteElement(selectedElementId!)}>
-                        מחק טקסט
-                    </Button>
-                    </div>
-                )}
-                 {selectedElement?.type === 'person_card' && (
-                <div className='space-y-4'>
-                    <h4 className='text-xs font-bold text-slate-300 text-right'>כרטיס אדם</h4>
-                    
-                    <div className='space-y-1 text-right'>
-                    <label className='text-xs text-slate-400'>שקיפות כרטיס</label>
-                    <Slider
-                        value={[selectedElement.style?.opacity ?? 1]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { 
-                        style: { ...selectedElement.style, opacity: val }
-                        })}
-                        min={0} max={1} step={0.05}
-                    />
-                    <span className='text-xs text-slate-500'>{Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</span>
-                    </div>
-
-                    <div className='space-y-1 text-right'>
-                    <label className='text-xs text-slate-400'>צבע רקע כרטיס</label>
-                    <Input 
-                        type="color" 
-                        value={selectedElement.style?.backgroundColor || '#1e293b'}
-                        onChange={(e) => updateElement(selectedElementId!, { 
-                        style: { ...selectedElement.style, backgroundColor: e.target.value }
-                        })}
-                    />
-                    </div>
-
-                    <div className='space-y-1 text-right'>
-                    <label className='text-xs text-slate-400'>צבע טקסט</label>
-                    <Input 
-                        type="color" 
-                        value={selectedElement.style?.color || '#ffffff'}
-                        onChange={(e) => updateElement(selectedElementId!, { 
-                        style: { ...selectedElement.style, color: e.target.value }
-                        })}
-                    />
-                    </div>
-
-                    <Button 
-                    variant="destructive" size="sm" className="w-full"
-                    onClick={() => deleteElement(selectedElementId!)}
+             <aside className="w-32 flex-shrink-0 border-r border-white/10 p-2 flex flex-col gap-2">
+              <div className='flex-1 overflow-y-auto space-y-2'>
+                {pages.map((page, index) => {
+                  const pageTemplate = DESIGN_TEMPLATES.find(t => t.id === page.templateId);
+                  const aspectClass = {
+                    'a4-landscape': 'aspect-[1.414/1]',
+                    'a4-portrait': 'aspect-[1/1.414]',
+                    '16:9-landscape': 'aspect-video',
+                    '9/16': 'aspect-[9/16]',
+                    '1:1': 'aspect-square',
+                    'free': 'aspect-[1.414/1]',
+                  }[canvasAspectRatio] || 'aspect-[1.414/1]';
+                  return (
+                    <div
+                      key={page.id}
+                      title={`${page.pageNumber}. ${page.title}`}
+                      onClick={() => setCurrentPageIndex(index)}
+                      className={cn(
+                        "w-full rounded-md p-1 cursor-pointer border-2",
+                        currentPageIndex === index ? "border-indigo-500" : "border-transparent hover:border-white/20",
+                        aspectClass
+                      )}
                     >
-                    מחק כרטיס
-                    </Button>
-                </div>
-                )}
-                {selectedElement?.type === 'shape' && (
-                    <div className='space-y-3'>
-                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת צורה</h4>
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>צבע מילוי</label>
-                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
-                        value={selectedElement.style?.backgroundColor || template.primaryColor}
-                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})}
-                        />
+                      <div
+                        className='relative w-full h-full overflow-hidden rounded-sm'
+                        style={{
+                          background: (page as any).backgroundImage
+                            ? undefined
+                            : (page.backgroundColor || pageTemplate?.backgroundGradient || '#0a0015'),
+                          backgroundImage: (page as any).backgroundImage ? `url(${(page as any).backgroundImage})` : undefined,
+                          backgroundSize: 'cover',
+                        }}
+                      >
+                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el) => (
+                          <div key={el.id} className="absolute overflow-hidden px-0.5"
+                            style={{
+                              top: `${el.y}%`, left: `${el.x}%`,
+                              width: `${el.width}%`,
+                              fontSize: '3px',
+                              color: pageTemplate?.textColor || '#fff',
+                              fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400,
+                              lineHeight: 1.2,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {el.content?.slice(0, 20)}
+                          </div>
+                        ))}
+                        <span className='absolute bottom-0.5 left-0.5 font-bold text-white/60' style={{ fontSize: '5px' }}>
+                          {page.pageNumber}
+                        </span>
+                      </div>
                     </div>
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                        <Slider value={[selectedElement.style?.opacity ?? 1]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
-                        min={0} max={1} step={0.05}
-                        />
-                    </div>
-                    <Button variant="destructive" size="sm" className="w-full"
-                        onClick={() => deleteElement(selectedElementId!)}>מחק צורה</Button>
-                    </div>
-                )}
-                 {selectedElement?.type === 'image' && (
-                    <div className='space-y-3'>
-                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת תמונה</h4>
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                        <Slider value={[selectedElement.style?.opacity ?? 1]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
-                        min={0} max={1} step={0.05}
-                        />
-                    </div>
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>עיגול פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
-                        <Slider value={[selectedElement.style?.borderRadius ?? 0]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: val }})}
-                        min={0} max={50} step={1}
-                        />
-                    </div>
-                    <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400 w-full">
-                        <ImageIcon className="w-4 h-4" />
-                        <span>החלף תמונה</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = (ev) => {
-                            updateElement(selectedElementId!, { content: ev.target?.result as string });
-                        };
-                        reader.readAsDataURL(file);
-                        }} />
-                    </label>
-                    <Button variant="destructive" size="sm" className="w-full"
-                        onClick={() => deleteElement(selectedElementId!)}>מחק תמונה</Button>
-                    </div>
-                )}
-                {selectedElement?.type === 'connection_line' && (
-                    <div className='space-y-3'>
-                    <h4 className='text-xs font-bold text-slate-300 text-right'>קו חיבור</h4>
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>צבע קו</label>
-                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
-                        value={selectedElement.style?.color || template.primaryColor}
-                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
-                        />
-                    </div>
-                    <div className='space-y-1 text-right'>
-                        <label className='text-xs text-slate-400'>עובי קו: {selectedElement.style?.borderWidth || 2}px</label>
-                        <Slider value={[selectedElement.style?.borderWidth || 2]}
-                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: val }})}
-                        min={1} max={8} step={1}
-                        />
-                    </div>
-                    <Button variant="destructive" size="sm" className="w-full"
-                        onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
-                    </div>
-                )}
+                  );
+                })}
+              </div>
+              <Button size="sm" variant="outline" className='bg-transparent w-full mt-2' onClick={addPage}>
+                + הוסף עמוד
+              </Button>
             </aside>
             <main className="flex-1 flex items-center justify-center p-8 bg-black/20 overflow-hidden relative" onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                 <div 
@@ -1157,7 +960,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         onClick={handleCanvasClick}
                     >
                          <TemplateDecorations template={template} />
-                        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
+                        <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'none' }}>
                           <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                               <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
@@ -1426,60 +1229,262 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                     </div>
                 )}
             </main>
-            <aside className="w-32 border-r border-white/10 p-2 flex flex-col gap-2">
-                <div className='flex-1 overflow-y-auto space-y-2'>
-                    {pages.map((page, index) => {
-                        const aspectClass = {
-                            'a4-landscape': 'aspect-[1.414/1]',
-                            'a4-portrait': 'aspect-[1/1.414]',
-                            '16:9-landscape': 'aspect-video',
-                            '9/16': 'aspect-[9/16]',
-                            '1:1': 'aspect-square',
-                            'free': 'aspect-[1.414/1]',
-                        }[canvasAspectRatio] || 'aspect-[1.414/1]';
-                        return (
-                        <div
-                          key={page.id}
-                          onClick={() => setCurrentPageIndex(index)}
-                          className={cn("w-full bg-slate-800/50 rounded-md p-1 cursor-pointer border-2", currentPageIndex === index ? "border-indigo-500" : "border-transparent", aspectClass)}
-                          title={`${page.pageNumber}. ${page.title}`}
-                        >
-                           <div
-                                className='relative w-full h-full overflow-hidden rounded-sm'
-                                style={{
-                                background: page.backgroundImage
-                                    ? undefined
-                                    : (page.backgroundColor || DESIGN_TEMPLATES.find(t => t.id === page.templateId)?.backgroundGradient || '#0a0015'),
-                                backgroundImage: page.backgroundImage ? `url(${page.backgroundImage})` : undefined,
-                                backgroundSize: 'cover',
-                                }}
-                            >
-                                {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, i) => (
-                                <div key={el.id} className="absolute overflow-hidden px-0.5"
-                                    style={{
-                                    top: `${el.y}%`, left: `${el.x}%`,
-                                    width: `${el.width}%`,
-                                    fontSize: '3px',
-                                    color: DESIGN_TEMPLATES.find(t => t.id === page.templateId)?.textColor || '#fff',
-                                    fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400,
-                                    lineHeight: 1.2,
-                                    whiteSpace: 'nowrap',
-                                    }}
-                                >
-                                    {el.content?.slice(0, 20)}
-                                </div>
-                                ))}
-                                <span
-                                className='absolute bottom-0.5 left-0.5 font-bold text-white/60'
-                                style={{ fontSize: '5px' }}
-                                >
-                                {page.pageNumber}
-                                </span>
-                            </div>
+             <aside className="w-64 min-w-[240px] border-l border-white/10 p-4 space-y-4 overflow-y-auto flex-shrink-0">
+                <h3 className='font-bold text-sm text-center'>
+                     {selectedElement ? (
+                        selectedElement.type === 'text' ? 'עריכת טקסט' :
+                        selectedElement.type === 'person_card' ? 'כרטיס אדם' :
+                        selectedElement.type === 'shape' ? 'עריכת צורה' :
+                        selectedElement.type === 'image' ? 'עריכת תמונה' :
+                        selectedElement.type === 'icon' ? 'עריכת אמוג׳י' :
+                        selectedElement.type === 'connection_line' ? 'קו חיבור' :
+                        'עריכת אלמנט'
+                    ) : 'עריכת עמוד'}
+                </h3>
+                {!selectedElement && currentPage && (
+                    <div className='space-y-4'>
+                        <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע רקע</label>
+                        <Input type="color" value={currentPage.backgroundColor || template.backgroundColor}
+                            onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
                         </div>
-                    )})}
+                        <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>תמונת רקע</label>
+                        <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400">
+                            <ImageIcon className="w-4 h-4" />
+                            <span>בחר תמונה</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
+                            };
+                            reader.readAsDataURL(file);
+                            }} />
+                        </label>
+                        {(currentPage as any).backgroundImage && (
+                            <button className="text-xs text-red-400 hover:text-red-300 w-full text-right"
+                            onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>
+                            הסר תמונת רקע ✕
+                            </button>
+                        )}
+                        </div>
+                    </div>
+                )}
+                {selectedElement?.type === 'text' && (
+                    <div className='space-y-3'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת טקסט</h4>
+                    
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>גודל גופן: {selectedElement.style?.fontSize || 16}px</label>
+                        <Slider
+                        value={[selectedElement.style?.fontSize || 16]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: val }})}
+                        min={8} max={96} step={1}
+                        />
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עובי גופן</label>
+                        <div className='flex gap-1'>
+                        {(['normal', 'bold', 'extrabold'] as const).map(w => (
+                            <button
+                            key={w}
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
+                            className={cn('flex-1 text-xs py-1 rounded border transition-colors',
+                                selectedElement.style?.fontWeight === w
+                                ? 'bg-indigo-500 border-indigo-400 text-white'
+                                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-400'
+                            )}
+                            >
+                            {w === 'normal' ? 'רגיל' : w === 'bold' ? 'מודגש' : 'כבד'}
+                            </button>
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>יישור</label>
+                        <div className='flex gap-1'>
+                        {([['right','ימין'],['center','מרכז'],['left','שמאל']] as const).map(([align, label]) => (
+                            <button
+                            key={align}
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: align as TextAlign }})}
+                            className={cn('flex-1 text-xs py-1 rounded border transition-colors',
+                                selectedElement.style?.textAlign === align
+                                ? 'bg-indigo-500 border-indigo-400 text-white'
+                                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-400'
+                            )}
+                            >
+                            {label}
+                            </button>
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע טקסט</label>
+                        <div className='flex gap-2 items-center'>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                            value={selectedElement.style?.color || '#ffffff'}
+                            onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
+                        />
+                        <span className='text-xs text-slate-400'>{selectedElement.style?.color || '#ffffff'}</span>
+                        </div>
+                        {/* Quick color presets */}
+                        <div className='flex gap-1 flex-wrap mt-1'>
+                        {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444','#10b981','#f97316'].map(c => (
+                            <button key={c} className='w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform'
+                            style={{ backgroundColor: c }}
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})}
+                            />
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע רקע</label>
+                        <div className='flex gap-2 items-center'>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                            value={selectedElement.style?.backgroundColor || '#00000000'}
+                            onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})}
+                        />
+                        <button className='text-xs text-slate-500 hover:text-red-400'
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>
+                            הסר
+                        </button>
+                        </div>
+                    </div>
+
+                    <Button variant="destructive" size="sm" className="w-full mt-2"
+                        onClick={() => deleteElement(selectedElementId!)}>
+                        מחק טקסט
+                    </Button>
+                    </div>
+                )}
+                 {selectedElement?.type === 'person_card' && (
+                <div className='space-y-4'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>כרטיס אדם</h4>
+                    
+                    <div className='space-y-1 text-right'>
+                    <label className='text-xs text-slate-400'>שקיפות כרטיס</label>
+                    <Slider
+                        value={[selectedElement.style?.opacity ?? 1]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { 
+                        style: { ...selectedElement.style, opacity: val }
+                        })}
+                        min={0} max={1} step={0.05}
+                    />
+                    <span className='text-xs text-slate-500'>{Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</span>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                    <label className='text-xs text-slate-400'>צבע רקע כרטיס</label>
+                    <Input 
+                        type="color" 
+                        value={selectedElement.style?.backgroundColor || '#1e293b'}
+                        onChange={(e) => updateElement(selectedElementId!, { 
+                        style: { ...selectedElement.style, backgroundColor: e.target.value }
+                        })}
+                    />
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                    <label className='text-xs text-slate-400'>צבע טקסט</label>
+                    <Input 
+                        type="color" 
+                        value={selectedElement.style?.color || '#ffffff'}
+                        onChange={(e) => updateElement(selectedElementId!, { 
+                        style: { ...selectedElement.style, color: e.target.value }
+                        })}
+                    />
+                    </div>
+
+                    <Button 
+                    variant="destructive" size="sm" className="w-full"
+                    onClick={() => deleteElement(selectedElementId!)}
+                    >
+                    מחק כרטיס
+                    </Button>
                 </div>
-                 <Button size="sm" variant="outline" className='bg-transparent w-full mt-2' onClick={addPage}>+ הוסף עמוד</Button>
+                )}
+                {selectedElement?.type === 'shape' && (
+                    <div className='space-y-3'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת צורה</h4>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע מילוי</label>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                        value={selectedElement.style?.backgroundColor || template.primaryColor}
+                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                        <Slider value={[selectedElement.style?.opacity ?? 1]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
+                        min={0} max={1} step={0.05}
+                        />
+                    </div>
+                    <Button variant="destructive" size="sm" className="w-full"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק צורה</Button>
+                    </div>
+                )}
+                 {selectedElement?.type === 'image' && (
+                    <div className='space-y-3'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>עריכת תמונה</h4>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                        <Slider value={[selectedElement.style?.opacity ?? 1]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
+                        min={0} max={1} step={0.05}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עיגול פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
+                        <Slider value={[selectedElement.style?.borderRadius ?? 0]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: val }})}
+                        min={0} max={50} step={1}
+                        />
+                    </div>
+                    <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400 w-full">
+                        <ImageIcon className="w-4 h-4" />
+                        <span>החלף תמונה</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                            updateElement(selectedElementId!, { content: ev.target?.result as string });
+                        };
+                        reader.readAsDataURL(file);
+                        }} />
+                    </label>
+                    <Button variant="destructive" size="sm" className="w-full"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק תמונה</Button>
+                    </div>
+                )}
+                {selectedElement?.type === 'connection_line' && (
+                    <div className='space-y-3'>
+                    <h4 className='text-xs font-bold text-slate-300 text-right'>קו חיבור</h4>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע קו</label>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                        value={selectedElement.style?.color || template.primaryColor}
+                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עובי קו: {selectedElement.style?.borderWidth || 2}px</label>
+                        <Slider value={[selectedElement.style?.borderWidth || 2]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: val }})}
+                        min={1} max={8} step={1}
+                        />
+                    </div>
+                    <Button variant="destructive" size="sm" className="w-full"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
+                    </div>
+                )}
             </aside>
         </div>
 
