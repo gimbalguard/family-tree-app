@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -471,14 +470,12 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string, onSelectI
 }
 
 
-export function RootsDesignEditor({ project, people, relationships, onBack, onUpdateProject, history, onHistoryChange }: {
+export function RootsDesignEditor({ project, people, relationships, onBack, onUpdateProject }: {
   project: RootsProject;
   people: Person[];
   relationships: Relationship[];
   onBack: () => void;
   onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
-  history: any;
-  onHistoryChange: (history: any) => void;
 }) {
   const isGeneratingInitial = !project.projectData?.designData?.pages;
 
@@ -514,7 +511,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   useEffect(() => {
     pagesRef.current = pages;
   }, [pages]);
-  
+
   useEffect(() => {
     const existingPages = project.projectData?.designData?.pages;
     if (!existingPages || existingPages.length === 0) {
@@ -577,7 +574,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
         return newPages;
     });
   };
-
+  
   const addElement = (element: Omit<DesignElement, 'id'>) => {
     const newElement = { ...element, id: uuidv4() };
     updateCurrentPage(page => ({
@@ -895,18 +892,18 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                       <div
                         className='relative w-full h-full overflow-hidden rounded-sm'
                         style={{
-                            backgroundImage: (page as any).backgroundImage 
-                              ? `url(${(page as any).backgroundImage})`
-                              : (page.backgroundColor 
-                                  ? undefined 
-                                  : DESIGN_TEMPLATES.find(t => t.id === page.templateId)?.backgroundGradient || 'linear-gradient(135deg, #0a0015, #000d1a)'),
-                            backgroundColor: page.backgroundColor || undefined,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
+                          backgroundImage: (page as any).backgroundImage
+                            ? `url(${(page as any).backgroundImage})`
+                            : (page.backgroundColor
+                                ? undefined
+                                : DESIGN_TEMPLATES.find(t => t.id === page.templateId)?.backgroundGradient || 'linear-gradient(135deg, #0a0015, #000d1a)'),
+                          backgroundColor: page.backgroundColor || undefined,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                        }}
                       >
-                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, i) => (
-                          <div key={`thumb-${index}-text-${el.id}`} className="absolute overflow-hidden px-0.5"
+                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, elIndex) => (
+                          <div key={`thumb-${index}-text-${elIndex}-${el.id}`} className="absolute overflow-hidden px-0.5"
                             style={{
                               top: `${el.y}%`, left: `${el.x}%`,
                               width: `${el.width}%`,
@@ -921,7 +918,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                           </div>
                         ))}
                         {page.elements.filter(el => el.type === 'person_card' || el.type === 'image' || el.type === 'shape').map((el, elIndex) => (
-                            <div key={`thumb-${index}-el-${el.id}`} className="absolute rounded-sm"
+                            <div key={`thumb-${index}-el-${elIndex}-${el.id}`} className="absolute rounded-sm"
                               style={{
                                 top: `${el.y}%`, left: `${el.x}%`,
                                 width: `${el.width}%`, height: `${el.height}%`,
@@ -1001,7 +998,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                         onClick={handleCanvasClick}
                     >
                          <TemplateDecorations template={template} />
-                         <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 1 }}>
+                         <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1 }}>
                           <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                               <polygon points="0 0, 10 3.5, 0 7" fill={template.primaryColor} />
@@ -1273,42 +1270,43 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
         <div className="h-auto border-t border-white/10 bg-slate-800/80 backdrop-blur flex-shrink-0 px-4 py-2 flex items-center gap-4 overflow-x-auto" style={{ minHeight: '56px', maxHeight: '120px' }}>
             {/* Context label */}
             <span className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
-            {selectedElement ? (
+              {selectedElement ? (
                 selectedElement.type === 'text' ? '✏️ טקסט' :
                 selectedElement.type === 'person_card' ? '👤 כרטיס אדם' :
                 selectedElement.type === 'shape' ? '◼ צורה' :
                 selectedElement.type === 'image' ? '🖼 תמונה' :
                 selectedElement.type === 'icon' ? '😊 אמוג׳י' :
-                selectedElement.type === 'connection_line' ? '↔ קו' : ''
-            ) : '📄 עמוד'}
+                selectedElement.type === 'connection_line' ? '↔ קו חיבור' :
+                'עריכת אלמנט'
+              ) : '📄 עמוד'}
             </span>
             <div className="w-px h-8 bg-white/10 flex-shrink-0" />
 
             {/* PAGE controls — shown when nothing selected */}
             {!selectedElement && currentPage && (<>
-            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <label className="text-xs text-slate-400 whitespace-nowrap">צבע רקע</label>
                 <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={currentPage.backgroundColor || template.backgroundColor}
-                onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+                  value={currentPage.backgroundColor || template.backgroundColor}
+                  onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <label className="text-xs text-slate-400 whitespace-nowrap">תמונת רקע</label>
                 <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400">
-                <ImageIcon className="w-3 h-3" />
-                <span>בחר</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                  <ImageIcon className="w-3 h-3" />
+                  <span>בחר</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={(e) => {
                     const file = e.target.files?.[0]; if (!file) return;
                     const reader = new FileReader();
                     reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
                     reader.readAsDataURL(file);
-                }} />
+                  }} />
                 </label>
                 {(currentPage as any).backgroundImage && (
-                <button className="text-xs text-red-400 hover:text-red-300"
+                  <button className="text-xs text-red-400 hover:text-red-300"
                     onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>✕ הסר</button>
                 )}
-            </div>
+              </div>
             </>)}
 
             {/* TEXT controls */}
@@ -1540,6 +1538,13 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
               </div>
               <Button variant="destructive" size="sm"
                 onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
+            </>)}
+
+            {/* SHARED controls — z-index and duplicate/delete — shown for any non-page selection */}
+            {selectedElement && selectedElement.type !== 'connection_line' && (<>
+              <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+            </>)}
+            {selectedElement && (<>
             </>)}
 
             {/* ALIGNMENT controls — shown when multi-select (future) or always visible */}
