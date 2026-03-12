@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
+import { v4 as uuidv4 } from 'uuid';
 
 // ============================================================
 // TYPES
@@ -444,10 +446,10 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   const template = DESIGN_TEMPLATES.find(t => t.id === selectedTemplateId) || DESIGN_TEMPLATES[0];
 
   useEffect(() => {
-    const generated = generatePagesFromProject(project, people, relationships, selectedTemplateId);
+    const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
     setPages(generated);
     setIsGenerating(false);
-  }, [project, people, relationships, selectedTemplateId]);
+  }, []); // empty deps — only run once on mount
 
   const updateCurrentPage = (updater: (page: DesignPage) => DesignPage) => {
     setPages(prev => {
@@ -458,7 +460,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   };
 
   const addElement = (element: Omit<DesignElement, 'id'>) => {
-    const newElement = { ...element, id: crypto.randomUUID() };
+    const newElement = { ...element, id: uuidv4() };
     updateCurrentPage(page => ({
       ...page,
       elements: [...page.elements, newElement]
@@ -661,7 +663,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                           </defs>
                           {currentPage?.elements
                             .filter(el => el.type === 'connection_line')
-                            .map(el => {
+                            .map((el, lineIndex) => {
                               const fromEl = currentPage.elements.find(e => e.id === el.fromElementId);
                               const toEl = currentPage.elements.find(e => e.id === el.toElementId);
                               if (!fromEl || !toEl) return null;
@@ -671,7 +673,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                               const y2 = toEl.y + toEl.height / 2;
                               return (
                                 <line
-                                  key={`svg-line-${el.id}`}
+                                  key={`svg-line-${lineIndex}-${el.id.slice(-8)}`}
                                   x1={`${x1}%`} y1={`${y1}%`}
                                   x2={`${x2}%`} y2={`${y2}%`}
                                   stroke={template.primaryColor}
@@ -682,9 +684,9 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                             })
                           }
                         </svg>
-                        {currentPage?.elements.filter(el => el.type !== 'connection_line').map(el => (
+                        {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => (
                            <div 
-                             key={`${currentPage.id}-${el.id}`}
+                             key={`el-${elIndex}-${el.id.slice(-8)}`}
                              className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
                              style={{
                                  left: `${el.x}%`,
@@ -764,7 +766,18 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
               <h2 className="text-xl font-bold text-right mb-4">בחר תבנית עיצוב</h2>
               <div className="grid grid-cols-5 gap-3">
                 {DESIGN_TEMPLATES.map(t => (
-                  <button key={t.id} onClick={() => { setSelectedTemplateId(t.id); setPages(prev => prev.map(p => ({...p, templateId: t.id}))); setShowTemplatePicker(false); }} className={cn("rounded-xl overflow-hidden border-2 transition-all", selectedTemplateId === t.id ? "border-indigo-400 scale-105" : "border-transparent hover:border-white/30" )}>
+                  <button
+                    key={t.id}
+                    onClick={() => {
+                      setSelectedTemplateId(t.id);
+                      setPages(prev => prev.map(p => ({...p, templateId: t.id})));
+                      setShowTemplatePicker(false);
+                    }}
+                    className={cn(
+                      "rounded-xl overflow-hidden border-2 transition-all",
+                      selectedTemplateId === t.id ? "border-indigo-400 scale-105" : "border-transparent hover:border-white/30"
+                    )}
+                  >
                     <div className="h-20 w-full" style={{ background: t.backgroundGradient }} />
                     <div className="p-1 text-center" style={{ backgroundColor: t.backgroundColor }}>
                       <p className="text-xs font-bold truncate" style={{ color: t.textColor }}>{t.nameHebrew}</p>
