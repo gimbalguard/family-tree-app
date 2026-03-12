@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +21,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { v4 as uuidv4 } from 'uuid';
+import { RootsDesignEditor } from './RootsDesignEditor';
 
 
 // --- Utility & Base Components ---
@@ -1167,8 +1167,8 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
         <MotionButton onClick={() => onStepChange(currentStep - 1)} disabled={currentStep <= 1} className="bg-white/10 backdrop-blur-md">
           ← הקודם
         </MotionButton>
-        <MotionButton onClick={() => onStepChange(currentStep + 1)} disabled={currentStep >= totalSteps}>
-          {currentStep === totalSteps ? 'סיים ושמור 🎉' : 'הבא ←'}
+        <MotionButton onClick={() => onStepChange(currentStep + 1)} disabled={currentStep > totalSteps}>
+          {currentStep === totalSteps ? 'סיים ועצב 🎉' : 'הבא ←'}
         </MotionButton>
       </div>
     </div>
@@ -1186,6 +1186,7 @@ export function RootsView({ project, people, relationships, tree, updateProject,
   setProject: (project: RootsProject) => void;
 }) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [showDesignEditor, setShowDesignEditor] = useState(false);
 
   const steps = [
     { id: 0, label: 'זהות' },
@@ -1226,7 +1227,17 @@ export function RootsView({ project, people, relationships, tree, updateProject,
   };
   
   const handleStepChange = (step: number) => {
-    updateProject(proj => ({ ...proj, currentStep: step }));
+    if (step > steps.length - 1) {
+        setSaveStatus('saving');
+        if (project) {
+          setProject(project); 
+        }
+        setShowDesignEditor(true);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+    } else {
+        updateProject(proj => ({ ...proj, currentStep: step }));
+    }
   };
 
   const handleSelectStudent = (personId: string) => {
@@ -1248,6 +1259,17 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         };
     });
   };
+
+  if (showDesignEditor && project) {
+    return (
+      <RootsDesignEditor
+        project={project}
+        people={people}
+        relationships={relationships}
+        onBack={() => setShowDesignEditor(false)}
+      />
+    );
+  }
 
   if (!project || !tree) {
     return (
