@@ -226,21 +226,21 @@ function generatePagesFromProject(
 
   // 1. Cover Page
   pages.push({
-    id: 'page_cover',
+    id: uuidv4(),
     pageNumber: pageNumber++,
     pageType: 'cover',
     title: 'שער',
     templateId,
     elements: [
       {
-        id: 'page_cover_title',
+        id: uuidv4(),
         type: 'text',
         content: project.projectData?.projectName || 'עבודת שורשים',
         x: 10, y: 30, width: 80, height: 20,
         style: { fontSize: 48, fontWeight: 'extrabold', textAlign: 'center' }
       },
       {
-        id: 'page_cover_student_name',
+        id: uuidv4(),
         type: 'text',
         content: student ? `${student.firstName} ${student.lastName}` : '',
         x: 10, y: 50, width: 80, height: 10,
@@ -252,14 +252,14 @@ function generatePagesFromProject(
   // 2. Name Page
   if (project.projectData?.personalStory?.nameMeaning) {
     pages.push({
-      id: 'page_name',
+      id: uuidv4(),
       pageNumber: pageNumber++,
       pageType: 'name',
       title: 'השם שלי',
       templateId,
       elements: [
-        { id: 'page_name_title', type: 'text', content: 'השם שלי', x: 10, y: 10, width: 80, height: 10, style: { fontSize: 36, fontWeight: 'bold', textAlign: 'center' } },
-        { id: 'page_name_meaning_text', type: 'text', content: project.projectData.personalStory.nameMeaning, x: 15, y: 25, width: 70, height: 60, style: { fontSize: 16 } },
+        { id: uuidv4(), type: 'text', content: 'השם שלי', x: 10, y: 10, width: 80, height: 10, style: { fontSize: 36, fontWeight: 'bold', textAlign: 'center' } },
+        { id: uuidv4(), type: 'text', content: project.projectData.personalStory.nameMeaning, x: 15, y: 25, width: 70, height: 60, style: { fontSize: 16 } },
       ]
     });
   }
@@ -269,37 +269,40 @@ function generatePagesFromProject(
   const parents = parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
 
   const nuclearFamilyElements: DesignElement[] = [];
+  const studentCardId = uuidv4();
   if (student) {
     nuclearFamilyElements.push({
-      id: 'page_nuclear_family_student_card',
+      id: studentCardId,
       type: 'person_card',
       personId: student.id,
       x: 35, y: 60, width: 30, height: 28,
       zIndex: 10
     });
   }
-  parents.forEach((parent, index) => {
+  parents.forEach((parent, pIndex) => {
+    const parentCardId = uuidv4();
     nuclearFamilyElements.push({
-      id: `page_nuclear_family_parent_${parent.id}_card`,
+      id: parentCardId,
       type: 'person_card',
       personId: parent.id,
-      x: 20 + (index * 40), y: 20, width: 30, height: 28,
+      x: 20 + (pIndex * 40), y: 20, width: 30, height: 28,
       zIndex: 10
     });
     if (student) {
       nuclearFamilyElements.push({
-          id: `page_nuclear_family_conn_${parent.id}`,
-          type: 'connection_line',
-          fromElementId: `page_nuclear_family_parent_${parent.id}_card`,
-          toElementId: 'page_nuclear_family_student_card',
-          zIndex: 1
+        id: uuidv4(),
+        type: 'connection_line',
+        fromElementId: parentCardId,
+        toElementId: studentCardId,
+        x: 0, y: 0, width: 0, height: 0,
+        zIndex: 1
       });
     }
   });
 
   if (nuclearFamilyElements.length > 0) {
     pages.push({
-      id: 'page_nuclear_family',
+      id: uuidv4(),
       pageNumber: pageNumber++,
       pageType: 'nuclear_family',
       title: 'המשפחה הגרעינית',
@@ -311,18 +314,18 @@ function generatePagesFromProject(
   // Page 4 — My Story (if birthStory exists):
   if (project.projectData?.personalStory?.birthStory) {
     pages.push({
-      id: 'page_story',
+      id: uuidv4(),
       pageNumber: pageNumber++,
       pageType: 'personal',
       title: 'הסיפור שלי',
       templateId,
       elements: [
-        { id: 'page_story_title', type: 'text', content: 'הסיפור שלי', x: 5, y: 5, width: 90, height: 10, style: { fontSize: 36, fontWeight: 'extrabold', textAlign: 'right' } },
-        { id: 'page_story_birth_label', type: 'text', content: 'סיפור הלידה:', x: 5, y: 18, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-        { id: 'page_story_birth', type: 'text', content: project.projectData.personalStory.birthStory, x: 5, y: 24, width: 90, height: 30, style: { fontSize: 13, textAlign: 'right' } },
+        { id: uuidv4(), type: 'text', content: 'הסיפור שלי', x: 5, y: 5, width: 90, height: 10, style: { fontSize: 36, fontWeight: 'extrabold', textAlign: 'right' } },
+        { id: uuidv4(), type: 'text', content: 'סיפור הלידה:', x: 5, y: 18, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
+        { id: uuidv4(), type: 'text', content: project.projectData.personalStory.birthStory, x: 5, y: 24, width: 90, height: 30, style: { fontSize: 13, textAlign: 'right' } },
         ...(project.projectData.personalStory.personalVision ? [
-          { id: 'page_story_vision_label', type: 'text', content: 'החזון שלי:', x: 5, y: 57, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_story_vision', type: 'text', content: project.projectData.personalStory.personalVision, x: 5, y: 63, width: 90, height: 30, style: { fontSize: 13, textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: 'החזון שלי:', x: 5, y: 57, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: project.projectData.personalStory.personalVision, x: 5, y: 63, width: 90, height: 30, style: { fontSize: 13, textAlign: 'right' } },
         ] as DesignElement[] : []),
       ]
     });
@@ -333,22 +336,22 @@ function generatePagesFromProject(
   const paternalGM = project.projectData?.familyRoots?.paternalGrandmother;
   if (paternalGF || paternalGM) {
     const paternalElements: DesignElement[] = [
-      { id: 'page_paternal_title', type: 'text', content: 'שורשים מצד אבא', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
+      { id: uuidv4(), type: 'text', content: 'שורשים מצד אבא', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
     ];
     if (paternalGF?.personId) {
-      paternalElements.push({ id: 'page_paternal_gf_card', type: 'person_card', personId: paternalGF.personId, x: 5, y: 14, width: 28, height: 28, zIndex: 10 });
+      paternalElements.push({ id: uuidv4(), type: 'person_card', personId: paternalGF.personId, x: 5, y: 14, width: 28, height: 28, zIndex: 10 });
     }
     if (paternalGF?.story) {
-      paternalElements.push({ id: 'page_paternal_gf_story', type: 'text', content: paternalGF.story, x: 35, y: 14, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
+      paternalElements.push({ id: uuidv4(), type: 'text', content: paternalGF.story, x: 35, y: 14, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     if (paternalGM?.personId) {
-      paternalElements.push({ id: 'page_paternal_gm_card', type: 'person_card', personId: paternalGM.personId, x: 5, y: 46, width: 28, height: 28, zIndex: 10 });
+      paternalElements.push({ id: uuidv4(), type: 'person_card', personId: paternalGM.personId, x: 5, y: 46, width: 28, height: 28, zIndex: 10 });
     }
     if (paternalGM?.story) {
-      paternalElements.push({ id: 'page_paternal_gm_story', type: 'text', content: paternalGM.story, x: 35, y: 46, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
+      paternalElements.push({ id: uuidv4(), type: 'text', content: paternalGM.story, x: 35, y: 46, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     pages.push({
-      id: 'page_paternal_roots',
+      id: uuidv4(),
       pageNumber: pageNumber++,
       pageType: 'roots_paternal',
       title: 'שורשים מצד אבא',
@@ -362,22 +365,22 @@ function generatePagesFromProject(
   const maternalGM = project.projectData?.familyRoots?.maternalGrandmother;
   if (maternalGF || maternalGM) {
     const maternalElements: DesignElement[] = [
-        { id: 'page_maternal_title', type: 'text', content: 'שורשים מצד אמא', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
+        { id: uuidv4(), type: 'text', content: 'שורשים מצד אמא', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
     ];
     if (maternalGF?.personId) {
-        maternalElements.push({ id: 'page_maternal_gf_card', type: 'person_card', personId: maternalGF.personId, x: 5, y: 14, width: 28, height: 28, zIndex: 10 });
+        maternalElements.push({ id: uuidv4(), type: 'person_card', personId: maternalGF.personId, x: 5, y: 14, width: 28, height: 28, zIndex: 10 });
     }
     if (maternalGF?.story) {
-        maternalElements.push({ id: 'page_maternal_gf_story', type: 'text', content: maternalGF.story, x: 35, y: 14, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
+        maternalElements.push({ id: uuidv4(), type: 'text', content: maternalGF.story, x: 35, y: 14, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     if (maternalGM?.personId) {
-        maternalElements.push({ id: 'page_maternal_gm_card', type: 'person_card', personId: maternalGM.personId, x: 5, y: 46, width: 28, height: 28, zIndex: 10 });
+        maternalElements.push({ id: uuidv4(), type: 'person_card', personId: maternalGM.personId, x: 5, y: 46, width: 28, height: 28, zIndex: 10 });
     }
     if (maternalGM?.story) {
-        maternalElements.push({ id: 'page_maternal_gm_story', type: 'text', content: maternalGM.story, x: 35, y: 46, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
+        maternalElements.push({ id: uuidv4(), type: 'text', content: maternalGM.story, x: 35, y: 46, width: 60, height: 28, style: { fontSize: 11, textAlign: 'right' } });
     }
     pages.push({
-        id: 'page_maternal_roots',
+        id: uuidv4(),
         pageNumber: pageNumber++,
         pageType: 'roots_maternal',
         title: 'שורשים מצד אמא',
@@ -390,24 +393,24 @@ function generatePagesFromProject(
   const heritage = project.projectData?.heritage;
   if (heritage?.inheritedObject || heritage?.familyRecipe || heritage?.familyNameOrigin) {
     pages.push({
-      id: 'page_heritage',
+      id: uuidv4(),
       pageNumber: pageNumber++,
       pageType: 'heritage',
       title: 'מורשת משפחתית',
       templateId,
       elements: [
-        { id: 'page_heritage_title', type: 'text', content: 'מורשת משפחתית', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
+        { id: uuidv4(), type: 'text', content: 'מורשת משפחתית', x: 5, y: 3, width: 90, height: 8, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right' } },
         ...(heritage.inheritedObject ? [
-          { id: 'page_heritage_obj_label', type: 'text', content: '💎 חפץ עובר בירושה', x: 5, y: 14, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_heritage_obj', type: 'text', content: heritage.inheritedObject, x: 5, y: 20, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: '💎 חפץ עובר בירושה', x: 5, y: 14, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: heritage.inheritedObject, x: 5, y: 20, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
         ] as DesignElement[] : []),
         ...(heritage.familyRecipe ? [
-          { id: 'page_heritage_recipe_label', type: 'text', content: '🍽️ מתכון משפחתי', x: 5, y: 38, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_heritage_recipe', type: 'text', content: heritage.familyRecipe, x: 5, y: 44, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: '🍽️ מתכון משפחתי', x: 5, y: 38, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: heritage.familyRecipe, x: 5, y: 44, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
         ] as DesignElement[] : []),
         ...(heritage.familyNameOrigin ? [
-          { id: 'page_heritage_name_label', type: 'text', content: 'מקור שם המשפחה', x: 5, y: 62, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
-          { id: 'page_heritage_name', type: 'text', content: heritage.familyNameOrigin, x: 5, y: 68, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: 'מקור שם המשפחה', x: 5, y: 62, width: 90, height: 5, style: { fontSize: 14, fontWeight: 'bold', textAlign: 'right' } },
+          { id: uuidv4(), type: 'text', content: heritage.familyNameOrigin, x: 5, y: 68, width: 90, height: 28, style: { fontSize: 12, textAlign: 'right' } },
         ] as DesignElement[] : []),
       ]
     });
@@ -614,16 +617,15 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
   useEffect(() => {
     const existingPages = project.projectData?.designData?.pages;
     if (!existingPages || existingPages.length === 0) {
-        const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-        onUpdateProject(proj => ({
-          ...proj,
-          projectData: {
-            ...proj.projectData,
-            designData: { pages: generated }
-          }
-        }));
+      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
+      onUpdateProject(proj => ({
+        ...proj,
+        projectData: {
+          ...proj.projectData,
+          designData: { pages: generated }
+        }
+      }));
     }
-    setIsGenerating(false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
@@ -705,7 +707,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
 
   const addPage = () => {
     const newPage: DesignPage = {
-      id: `page_custom_${Date.now()}`,
+      id: uuidv4(),
       pageNumber: pages.length + 1,
       pageType: 'custom',
       title: 'עמוד חדש',
@@ -867,7 +869,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
             </div>
             <div className='flex items-center gap-2'>
                 <Button variant="outline" size="sm" className="bg-transparent border-white/20 text-xs" onClick={() => setShowTemplatePicker(true)}>
-                    🎨 תבנית
+                  🎨 תבנית
                 </Button>
                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
                 <TooltipProvider>
@@ -947,8 +949,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             backgroundPosition: 'center',
                           }}
                       >
-                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el) => (
-                          <div key={el.id} className="absolute overflow-hidden px-0.5"
+                        {page.elements.filter(el => el.type === 'text').slice(0, 2).map((el, i) => (
+                          <div key={`thumb-${index}-text-${i}-${el.id}`} className="absolute overflow-hidden px-0.5"
                             style={{
                               top: `${el.y}%`, left: `${el.x}%`,
                               width: `${el.width}%`,
@@ -962,8 +964,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                             {el.content?.slice(0, 20)}
                           </div>
                         ))}
-                        {page.elements.filter(el => el.type === 'person_card' || el.type === 'image' || el.type === 'shape').map((el) => (
-                            <div key={el.id} className="absolute rounded-sm"
+                        {page.elements.filter(el => el.type === 'person_card' || el.type === 'image' || el.type === 'shape').map((el, i) => (
+                            <div key={`thumb-${index}-el-${i}-${el.id}`} className="absolute rounded-sm"
                               style={{
                                 top: `${el.y}%`, left: `${el.x}%`,
                                 width: `${el.width}%`, height: `${el.height}%`,
@@ -1034,12 +1036,12 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                     <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden"
                         style={{
                             backgroundImage: (currentPage as any).backgroundImage
-                                ? `url(${(currentPage as any).backgroundImage})`
-                                : (currentPage?.backgroundGradient || template.backgroundGradient),
+                              ? `url(${(currentPage as any).backgroundImage})`
+                              : (currentPage?.backgroundGradient || template.backgroundGradient),
                             backgroundColor: currentPage?.backgroundColor || undefined,
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
-                        }}
+                          }}
                         onClick={handleCanvasClick}
                     >
                          <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 1, pointerEvents: 'none' }}>
@@ -1060,7 +1062,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                               const y2 = toEl.y;
                               return (
                                 <line
-                                  key={`svg-line-${lineIndex}-${el.id.slice(-8)}`}
+                                  key={`svg-line-${currentPageIndex}-${lineIndex}-${el.id}`}
                                   x1={`${x1}%`} y1={`${y1}%`}
                                   x2={`${x2}%`} y2={`${y2}%`}
                                   stroke={selectedElementId === el.id ? '#60a5fa' : (el.style?.color || template.primaryColor)}
@@ -1076,7 +1078,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                          <TemplateDecorations template={template} />
                         {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => (
                            <div
-                             key={`el-${elIndex}-${el.id.slice(-8)}`}
+                             key={`el-${currentPageIndex}-${elIndex}-${el.id}`}
                              className={cn('absolute border-2', selectedElementId === el.id ? 'border-dashed border-blue-500' : 'border-transparent', activeTool === 'select' && 'cursor-grab', isDragging.current && dragElementId.current === el.id && 'cursor-grabbing')}
                              style={{
                                  left: `${el.x}%`,
@@ -1311,189 +1313,337 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
                     </div>
                 )}
             </main>
-        </div>
-        <div className="h-auto border-t border-white/10 bg-slate-800/80 backdrop-blur flex-shrink-0 px-4 py-2 flex items-center gap-4 overflow-x-auto" style={{ minHeight: '56px', maxHeight: '120px' }}>
-            <span className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
-            {selectedElement ? (
-                selectedElement.type === 'text' ? '✏️ טקסט' :
-                selectedElement.type === 'person_card' ? '👤 כרטיס אדם' :
-                selectedElement.type === 'shape' ? '◼ צורה' :
-                selectedElement.type === 'image' ? '🖼 תמונה' :
-                selectedElement.type === 'icon' ? '😊 אמוג׳י' :
-                selectedElement.type === 'connection_line' ? '↔ קו' : ''
-            ) : '📄 עמוד'}
-            </span>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-            {!selectedElement && currentPage && (<>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">צבע רקע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={currentPage.backgroundColor || template.backgroundColor}
-                onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">תמונת רקע</label>
-                <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400">
-                <ImageIcon className="w-3 h-3" />
-                <span>בחר</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                    const file = e.target.files?.[0]; if (!file) return;
-                    const reader = new FileReader();
-                    reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
-                    reader.readAsDataURL(file);
-                }} />
-                </label>
-                {(currentPage as any).backgroundImage && (
-                <button className="text-xs text-red-400 hover:text-red-300"
-                    onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>✕ הסר</button>
+            <aside className="w-64 min-w-[240px] border-l border-white/10 p-4 space-y-4 overflow-y-auto flex-shrink-0">
+                <h3 className='font-bold text-sm text-center text-slate-300'>
+                    {selectedElement ? (
+                        selectedElement.type === 'text' ? 'עריכת טקסט' :
+                        selectedElement.type === 'person_card' ? 'כרטיס אדם' :
+                        selectedElement.type === 'shape' ? 'עריכת צורה' :
+                        selectedElement.type === 'image' ? 'עריכת תמונה' :
+                        selectedElement.type === 'icon' ? 'עריכת אמוג׳י' :
+                        selectedElement.type === 'connection_line' ? 'קו חיבור' :
+                        'עריכת אלמנט'
+                    ) : 'עריכת עמוד'}
+                </h3>
+                <Separator className='bg-white/10' />
+
+                {!selectedElement && currentPage && (
+                    <div className='space-y-4'>
+                        <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע רקע</label>
+                        <Input type="color" className='w-full h-8 p-1 cursor-pointer'
+                            value={currentPage.backgroundColor || template.backgroundColor}
+                            onChange={(e) => updateCurrentPage(p => ({...p, backgroundColor: e.target.value}))}
+                        />
+                        </div>
+                        <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>תמונת רקע</label>
+                        <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400">
+                            <ImageIcon className="w-4 h-4" />
+                            <span>בחר תמונה</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0]; if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (ev) => updateCurrentPage(p => ({...p, backgroundImage: ev.target?.result as string}));
+                            reader.readAsDataURL(file);
+                            }} />
+                        </label>
+                        {(currentPage as any).backgroundImage && (
+                            <button className="text-xs text-red-400 hover:text-red-300 w-full text-right"
+                            onClick={() => updateCurrentPage(p => ({...p, backgroundImage: undefined}))}>
+                            הסר תמונת רקע ✕
+                            </button>
+                        )}
+                        </div>
+                    </div>
                 )}
-            </div>
-            </>)}
-            {selectedElement?.type === 'text' && (<>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">גודל</label>
-                <input type="number" min={8} max={96}
-                className="w-14 text-xs bg-slate-700 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none"
-                value={selectedElement.style?.fontSize || 16}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) }})} />
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-                {(['normal','bold','extrabold'] as const).map(w => (
-                <button key={w}
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
-                    className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                >{w === 'normal' ? 'R' : w === 'bold' ? 'B' : 'BB'}</button>
-                ))}
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-                {([['right','→'],['center','↔'],['left','←']] as const).map(([a,l]) => (
-                <button key={a}
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: a as TextAlign }})}
-                    className={cn('text-xs px-2 py-1 rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                >{l}</button>
-                ))}
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">צבע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.color || '#ffffff'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-                <div className="flex gap-1">
-                {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444'].map(c => (
-                    <button key={c} className="w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform flex-shrink-0"
-                    style={{ backgroundColor: c }}
-                    onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})} />
-                ))}
-                </div>
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">רקע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.backgroundColor || '#000000'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-                <button className="text-xs text-slate-500 hover:text-red-400"
-                onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>✕</button>
-            </div>
-            </>)}
-            {selectedElement?.type === 'person_card' && (<>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                <input type="range" min={0} max={1} step={0.05}
-                className="w-24"
-                value={selectedElement.style?.opacity ?? 1}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">רקע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.backgroundColor || '#1e293b'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-            </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">טקסט</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.color || '#ffffff'}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-            </div>
-            </>)}
-            {selectedElement?.type === 'shape' && (<>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">צבע</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.backgroundColor || template.primaryColor}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                <input type="range" min={0} max={1} step={0.05} className="w-24"
-                value={selectedElement.style?.opacity ?? 1}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-            </div>
-            </>)}
-            {selectedElement?.type === 'image' && (<>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
-                <input type="range" min={0} max={1} step={0.05} className="w-24"
-                value={selectedElement.style?.opacity ?? 1}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) }})} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
-                <input type="range" min={0} max={50} step={1} className="w-24"
-                value={selectedElement.style?.borderRadius ?? 0}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: Number(e.target.value) }})} />
-            </div>
-            <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-xs text-slate-400 hover:border-indigo-400 flex-shrink-0">
-                <ImageIcon className="w-3 h-3" /><span>החלף</span>
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => {
-                const file = e.target.files?.[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => updateElement(selectedElementId!, { content: ev.target?.result as string });
-                reader.readAsDataURL(file);
-                }} />
-            </label>
-            </>)}
-            {selectedElement?.type === 'connection_line' && (<>
-            <div className="flex items-center gap-1 flex-shrink-0">
-                <label className="text-xs text-slate-400">צבע קו</label>
-                <input type="color" className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent"
-                value={selectedElement.style?.color || template.primaryColor}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})} />
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-                <label className="text-xs text-slate-400 whitespace-nowrap">עובי: {selectedElement.style?.borderWidth || 2}px</label>
-                <input type="range" min={1} max={8} step={1} className="w-24"
-                value={selectedElement.style?.borderWidth || 2}
-                onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) }})} />
-            </div>
-            </>)}
-            {selectedElement && selectedElement.type !== 'connection_line' && (<>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-            <div className="flex gap-1 flex-shrink-0">
-                <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
-                className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap">↑ קדימה</button>
-                <button onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
-                className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap">↓ אחורה</button>
-            </div>
-            <button onClick={() => duplicateElement(selectedElementId!)}
-                className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 whitespace-nowrap flex-shrink-0">שכפל</button>
-            </>)}
-            {selectedElement && (<>
-            <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-                <div className="flex gap-1 flex-shrink-0">
-                    <button title="יישור לשמאל" onClick={() => updateElement(selectedElementId!, { x: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊣</button>
-                    <button title="מרכז אופקי" onClick={() => updateElement(selectedElementId!, el => ({ x: 50 - el.width / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕H</button>
-                    <button title="יישור לימין" onClick={() => updateElement(selectedElementId!, el => ({ x: 100 - el.width }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊢</button>
-                    <button title="יישור לעליון" onClick={() => updateElement(selectedElementId!, { y: 0 })} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊤</button>
-                    <button title="מרכז אנכי" onClick={() => updateElement(selectedElementId!, el => ({ y: 50 - el.height / 2 }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊕V</button>
-                    <button title="יישור לתחתון" onClick={() => updateElement(selectedElementId!, el => ({ y: 100 - el.height }))} className="text-xs px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400">⊥</button>
-                </div>
-            </>)}
-            {selectedElement && (<>
-                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
-                <button onClick={() => deleteElement(selectedElementId!)}
-                className="text-xs px-2 py-1 rounded bg-red-500/20 border border-red-500/40 hover:bg-red-500/40 text-red-300 whitespace-nowrap flex-shrink-0">🗑 מחק</button>
-            </>)}
+                
+                {selectedElement?.type === 'text' && (
+                    <div className='space-y-3'>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>גודל גופן: {selectedElement.style?.fontSize || 16}px</label>
+                        <Slider
+                        value={[selectedElement.style?.fontSize || 16]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontSize: val }})}
+                        min={8} max={96} step={1}
+                        />
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עובי גופן</label>
+                        <div className='flex gap-1'>
+                        {(['normal', 'bold', 'extrabold'] as const).map(w => (
+                            <button
+                            key={w}
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, fontWeight: w }})}
+                            className={cn('flex-1 text-xs py-1 rounded border transition-colors',
+                                selectedElement.style?.fontWeight === w
+                                ? 'bg-indigo-500 border-indigo-400 text-white'
+                                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-400'
+                            )}
+                            >
+                            {w === 'normal' ? 'רגיל' : w === 'bold' ? 'מודגש' : 'כבד'}
+                            </button>
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>יישור</label>
+                        <div className='flex gap-1'>
+                        {([['right','ימין'],['center','מרכז'],['left','שמאל']] as const).map(([align, label]) => (
+                            <button
+                            key={align}
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, textAlign: align as TextAlign }})}
+                            className={cn('flex-1 text-xs py-1 rounded border transition-colors',
+                                selectedElement.style?.textAlign === align
+                                ? 'bg-indigo-500 border-indigo-400 text-white'
+                                : 'bg-slate-700 border-slate-600 text-slate-300 hover:border-slate-400'
+                            )}
+                            >
+                            {label}
+                            </button>
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע טקסט</label>
+                        <div className='flex gap-2 items-center'>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                            value={selectedElement.style?.color || '#ffffff'}
+                            onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
+                        />
+                        <span className='text-xs text-slate-400'>{selectedElement.style?.color || '#ffffff'}</span>
+                        </div>
+                        {/* Quick color presets */}
+                        <div className='flex gap-1 flex-wrap mt-1'>
+                        {['#ffffff','#000000','#6366f1','#14b8a6','#f59e0b','#ef4444','#10b981','#f97316'].map(c => (
+                            <button key={c} className='w-5 h-5 rounded-full border border-white/20 hover:scale-110 transition-transform'
+                            style={{ backgroundColor: c }}
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: c }})}
+                            />
+                        ))}
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע רקע</label>
+                        <div className='flex gap-2 items-center'>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                            value={selectedElement.style?.backgroundColor || '#00000000'}
+                            onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})}
+                        />
+                        <button className='text-xs text-slate-500 hover:text-red-400'
+                            onClick={() => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: undefined }})}>
+                            הסר
+                        </button>
+                        </div>
+                    </div>
+
+                    <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                        <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                        >הבא קדימה ↑</button>
+                        <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                        >שלח אחורה ↓</button>
+                        </div>
+                    </div>
+
+                    <div className='flex gap-2 pt-2'>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                        onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                        <Button variant="destructive" size="sm" className="flex-1"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                    </div>
+                    </div>
+                )}
+                
+                {selectedElement?.type === 'person_card' && (
+                    <div className='space-y-4'>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>שקיפות כרטיס</label>
+                            <Slider
+                                value={[selectedElement.style?.opacity ?? 1]}
+                                onValueChange={([val]) => updateElement(selectedElementId!, { 
+                                style: { ...selectedElement.style, opacity: val }
+                                })}
+                                min={0} max={1} step={0.05}
+                            />
+                        </div>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>צבע רקע כרטיס</label>
+                            <Input 
+                                type="color" 
+                                value={selectedElement.style?.backgroundColor || '#1e293b'}
+                                onChange={(e) => updateElement(selectedElementId!, { 
+                                style: { ...selectedElement.style, backgroundColor: e.target.value }
+                                })}
+                            />
+                        </div>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>צבע טקסט</label>
+                            <Input 
+                                type="color" 
+                                value={selectedElement.style?.color || '#ffffff'}
+                                onChange={(e) => updateElement(selectedElementId!, { 
+                                style: { ...selectedElement.style, color: e.target.value }
+                                })}
+                            />
+                        </div>
+                        <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                            <label className='text-xs text-slate-400'>סדר שכבות</label>
+                            <div className='flex gap-1'>
+                                <button
+                                    onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                                    className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                                >הבא קדימה ↑</button>
+                                <button
+                                    onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                                    className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                                >שלח אחורה ↓</button>
+                            </div>
+                        </div>
+                        <div className='flex gap-2 pt-2'>
+                            <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                                onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                            <Button variant="destructive" size="sm" className="flex-1"
+                                onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                        </div>
+                    </div>
+                )}
+                
+                {selectedElement?.type === 'shape' && (
+                    <div className='space-y-3'>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע מילוי</label>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                        value={selectedElement.style?.backgroundColor || template.primaryColor}
+                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, backgroundColor: e.target.value }})}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                        <Slider value={[selectedElement.style?.opacity ?? 1]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
+                        min={0} max={1} step={0.05}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                        <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                        >הבא קדימה ↑</button>
+                        <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                        >שלח אחורה ↓</button>
+                        </div>
+                    </div>
+                    <div className='flex gap-2 pt-2'>
+                        <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                            onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                        <Button variant="destructive" size="sm" className="flex-1"
+                            onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                    </div>
+                    </div>
+                )}
+
+                 {selectedElement?.type === 'image' && (
+                    <div className='space-y-3'>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>שקיפות: {Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</label>
+                            <Slider value={[selectedElement.style?.opacity ?? 1]}
+                            onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, opacity: val }})}
+                            min={0} max={1} step={0.05}
+                            />
+                        </div>
+                        <div className='space-y-1 text-right'>
+                            <label className='text-xs text-slate-400'>עיגול פינות: {selectedElement.style?.borderRadius ?? 0}px</label>
+                            <Slider value={[selectedElement.style?.borderRadius ?? 0]}
+                            onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderRadius: val }})}
+                            min={0} max={50} step={1}
+                            />
+                        </div>
+                        <label className="cursor-pointer flex items-center justify-center gap-2 p-2 border border-dashed border-white/20 rounded-lg hover:border-indigo-400 text-xs text-slate-400 w-full">
+                            <ImageIcon className="w-4 h-4" />
+                            <span>החלף תמונה</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                                updateElement(selectedElementId!, { content: ev.target?.result as string });
+                            };
+                            reader.readAsDataURL(file);
+                            }} />
+                        </label>
+                         <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                            <label className='text-xs text-slate-400'>סדר שכבות</label>
+                            <div className='flex gap-1'>
+                                <button
+                                    onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                                    className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                                >הבא קדימה ↑</button>
+                                <button
+                                    onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                                    className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                                >שלח אחורה ↓</button>
+                            </div>
+                        </div>
+                        <div className='flex gap-2 pt-2'>
+                            <Button variant="outline" size="sm" className="flex-1 bg-transparent"
+                                onClick={() => duplicateElement(selectedElementId!)}>שכפל</Button>
+                            <Button variant="destructive" size="sm" className="flex-1"
+                                onClick={() => deleteElement(selectedElementId!)}>מחק</Button>
+                        </div>
+                    </div>
+                )}
+
+                {selectedElement?.type === 'icon' && (
+                     <div className='space-y-1 text-right border-t border-white/10 pt-3'>
+                        <label className='text-xs text-slate-400'>סדר שכבות</label>
+                        <div className='flex gap-1'>
+                        <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                        >הבא קדימה ↑</button>
+                        <button
+                            onClick={() => updateElement(selectedElementId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))}
+                            className='flex-1 text-xs py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400'
+                        >שלח אחורה ↓</button>
+                        </div>
+                    </div>
+                )}
+                
+                {selectedElement?.type === 'connection_line' && (
+                    <div className='space-y-3'>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>צבע קו</label>
+                        <Input type="color" className='w-10 h-8 p-0 border-0 cursor-pointer'
+                        value={selectedElement.style?.color || template.primaryColor}
+                        onChange={(e) => updateElement(selectedElementId!, { style: { ...selectedElement.style, color: e.target.value }})}
+                        />
+                    </div>
+                    <div className='space-y-1 text-right'>
+                        <label className='text-xs text-slate-400'>עובי קו: {selectedElement.style?.borderWidth || 2}px</label>
+                        <Slider value={[selectedElement.style?.borderWidth || 2]}
+                        onValueChange={([val]) => updateElement(selectedElementId!, { style: { ...selectedElement.style, borderWidth: val }})}
+                        min={1} max={8} step={1}
+                        />
+                    </div>
+                    <Button variant="destructive" size="sm" className="w-full"
+                        onClick={() => deleteElement(selectedElementId!)}>מחק קו</Button>
+                    </div>
+                )}
+            </aside>
         </div>
         {showTemplatePicker && (
           <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center" onClick={() => setShowTemplatePicker(false)}>
@@ -1511,12 +1661,12 @@ export function RootsDesignEditor({ project, people, relationships, onBack, onUp
               <div className="grid grid-cols-5 gap-3">
                 {DESIGN_TEMPLATES.map(t => (
                     <button key={t.id} onClick={() => {
+                        setSelectedTemplateId(t.id);
                         if (applyTemplateToAll) {
                           updatePages(p => p.map(pg => ({...pg, templateId: t.id})));
                         } else {
                           updateCurrentPage(p => ({...p, templateId: t.id}));
                         }
-                        setSelectedTemplateId(t.id);
                         setShowTemplatePicker(false);
                       }}
                         className={cn("rounded-xl overflow-hidden border-2 transition-all text-left", selectedTemplateId === t.id ? "border-indigo-400 scale-105" : "border-transparent hover:border-white/30")}
