@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -475,38 +476,62 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
             <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">מעטפת רשמית</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2" dir="rtl">
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>מגיש/ה <User className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <User className="inline h-3 w-3 mb-0.5 ml-1" />
+                        מגיש/ה
+                    </label>
                     <StudentSelector people={people} currentStudentId={currentStudentId} onStudentChange={onStudentChange} />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>שם בית הספר <School className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <School className="inline h-3 w-3 mb-0.5 ml-1" />
+                        שם בית הספר
+                    </label>
                     <EditableField value={coverPage.schoolName || ''} onUpdate={(v) => onUpdate(['coverPage', 'schoolName'], v)} placeholder="לדוגמה: עירוני א'" isMagical={!!coverPage.schoolName} />
                 </div>
 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>עיר <MapPin className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <MapPin className="inline h-3 w-3 mb-0.5 ml-1" />
+                        עיר
+                    </label>
                     <EditableField value={coverPage.city || ''} onUpdate={(v) => onUpdate(['coverPage', 'city'], v)} placeholder="לדוגמה: תל אביב" isMagical={!!coverPage.city} />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>כיתה <User className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <User className="inline h-3 w-3 mb-0.5 ml-1" />
+                        כיתה
+                    </label>
                     <EditableField value={coverPage.grade || ''} onUpdate={(v) => onUpdate(['coverPage', 'grade'], v)} placeholder="לדוגמה: ז'3" isMagical={!!coverPage.grade} />
                 </div>
                 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>שם המורה <User className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <User className="inline h-3 w-3 mb-0.5 ml-1" />
+                        שם המורה
+                    </label>
                     <EditableField value={coverPage.teacherName || ''} onUpdate={(v) => onUpdate(['coverPage', 'teacherName'], v)} placeholder="לדוגמה: ישראל ישראלי" isMagical={!!coverPage.teacherName} />
                 </div>
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>שם המנהל/ת <User className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <User className="inline h-3 w-3 mb-0.5 ml-1" />
+                        שם המנהל/ת
+                    </label>
                     <EditableField value={coverPage.principalName || ''} onUpdate={(v) => onUpdate(['coverPage', 'principalName'], v)} placeholder="לדוגמה: דנה לוי" />
                 </div>
                 
                 <div className={fieldContainerClass}>
-                    <label className={labelClass}>תאריך הגשה <Calendar className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <Calendar className="inline h-3 w-3 mb-0.5 ml-1" />
+                        תאריך הגשה
+                    </label>
                     <EditableField value={coverPage.submissionDate || ''} onUpdate={(v) => onUpdate(['coverPage', 'submissionDate'], v)} placeholder="DD/MM/YYYY" />
                 </div>
                  <div className={fieldContainerClass}>
-                    <label className={labelClass}>שנה עברית <Flag className="inline h-3 w-3 mb-0.5" /></label>
+                    <label className={labelClass}>
+                        <Flag className="inline h-3 w-3 mb-0.5 ml-1" />
+                        שנה עברית
+                    </label>
                     <EditableField value={coverPage.hebrewYear || ''} onUpdate={(v) => onUpdate(['coverPage', 'hebrewYear'], v)} placeholder="תחושב אוטומטית" isMagical={!!coverPage.hebrewYear} />
                 </div>
             </div>
@@ -785,7 +810,7 @@ const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStud
   currentStudentId?: string
 }) => {
   const roots = projectData.familyRoots || {};
-  const [activeSection, setActiveSection] = useState<string | null>('paternalGrandparents');
+  const [activeSection, setActiveSection] = useState<string | null>('paternal');
   
   const ancestors = useMemo(() => {
     const findParents = (personId?: string): Person[] => {
@@ -1260,6 +1285,12 @@ export function RootsView({ project, people, relationships, tree, updateProject,
     });
   };
 
+  const onUpdateProjectForEditor = useCallback((updater: (p: RootsProject) => RootsProject) => {
+    setSaveStatus('saving');
+    updateProject(updater);
+    // The debounced save will be triggered by the main updateProject effect
+  }, [updateProject]);
+
   if (showDesignEditor && project) {
     return (
       <RootsDesignEditor
@@ -1267,6 +1298,7 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         people={people}
         relationships={relationships}
         onBack={() => setShowDesignEditor(false)}
+        onUpdateProject={onUpdateProjectForEditor}
       />
     );
   }

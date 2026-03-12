@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
@@ -535,7 +536,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const relsRef = collection(db, basePath, 'relationships');
       const posRef = collection(db, basePath, 'canvasPositions');
       const manualEventsRef = collection(db, basePath, 'manualEvents');
-      const rootsProjectRef = doc(db, basePath, 'rootsProjects/main');
+      const rootsProjectRef = doc(db, basePath, 'rootsProjects', 'main');
 
       const treeSnap = await getDoc(treeDetailsRef);
       if (!treeSnap.exists()) {
@@ -600,11 +601,28 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         });
     }, 2000);
 
-    useEffect(() => {
-        if (rootsProject) {
-            debouncedSaveRootsProject(rootsProject);
-        }
-    }, [rootsProject, debouncedSaveRootsProject]);
+    const handleUpdateRootsProject = useCallback(
+      (updater: (project: RootsProject) => RootsProject) => {
+        if (readOnly) return;
+        recordHistory();
+        setRootsProject((prev) => {
+          const newState = prev ? updater(prev) : null;
+          if (newState) debouncedSaveRootsProject(newState);
+          return newState;
+        });
+      },
+      [readOnly, recordHistory, debouncedSaveRootsProject]
+    );
+
+    const handleSetRootsProject = useCallback(
+      (newProject: RootsProject) => {
+        if (readOnly) return;
+        recordHistory();
+        setRootsProject(newProject);
+        debouncedSaveRootsProject(newProject);
+      },
+      [readOnly, recordHistory, debouncedSaveRootsProject]
+    );
 
   const runSiblingDetection = useCallback(async (
     personIdsForCheck: string[], 
@@ -1838,24 +1856,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     requestAnimationFrame(() => setIsImageExportModalOpen(true));
   }, []);
-
-  const handleUpdateRootsProject = useCallback(
-    (updater: (project: RootsProject) => RootsProject) => {
-      if (readOnly) return;
-      recordHistory();
-      setRootsProject((prev) => (prev ? updater(prev) : null));
-    },
-    [readOnly, recordHistory]
-  );
-  
-  const handleSetRootsProject = useCallback(
-    (newProjectState: RootsProject) => {
-      if (readOnly) return;
-      recordHistory();
-      setRootsProject(newProjectState);
-    },
-    [readOnly, recordHistory]
-  );
 
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 

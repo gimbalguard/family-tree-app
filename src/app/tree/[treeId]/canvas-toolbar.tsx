@@ -171,7 +171,7 @@ export function CanvasToolbar({
               <Tooltip>
                   <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" disabled={viewMode === 'roots'}>
                               <LayoutPanelTop className="h-5 w-5" />
                           </Button>
                       </DropdownMenuTrigger>
@@ -339,9 +339,8 @@ export function CanvasToolbar({
       <Separator className="my-2 w-full" />
 
       <div className="flex w-full flex-col items-center gap-2">
-        {!readOnly && viewMode !== 'trivia' && (
-          <div className="flex gap-2">
-            <Tooltip>
+        <div className="flex gap-2">
+          <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
@@ -356,25 +355,25 @@ export function CanvasToolbar({
               <TooltipContent side="right">
                 <p>בצע שוב</p>
               </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={onUndo}
-                    disabled={!canUndo}
-                  >
-                    <Undo2 className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  <p>בטל</p>
-                </TooltipContent>
-            </Tooltip>
-          </div>
-        )}
+          </Tooltip>
+          <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                >
+                  <Undo2 className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>בטל</p>
+              </TooltipContent>
+          </Tooltip>
+        </div>
+        
         {viewMode !== 'trivia' && (
           <Popover>
             <PopoverTrigger asChild>

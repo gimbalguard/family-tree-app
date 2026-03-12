@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserProfile = {
@@ -234,6 +235,7 @@ export interface RootsProjectData {
   nuclearFamily?: NuclearFamilyData;
   familyRoots?: GenerationData;
   heritage?: HeritageData;
+  designData?: any;
 }
 
 

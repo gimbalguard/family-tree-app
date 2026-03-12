@@ -418,14 +418,16 @@ const PersonCardElement = ({ element, people }: { element: DesignElement, people
     );
 };
 
-export function RootsDesignEditor({ project, people, relationships, onBack }: {
+export function RootsDesignEditor({ project, people, relationships, onBack, onUpdateProject }: {
   project: RootsProject;
   people: Person[];
   relationships: Relationship[];
   onBack: () => void;
+  onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
 }) {
-  const [pages, setPages] = useState<DesignPage[]>([]);
-  const [isGenerating, setIsGenerating] = useState(true);
+  const pages = useMemo(() => project.projectData?.designData?.pages || [], [project.projectData?.designData?.pages]);
+  const isGenerating = !project.projectData?.designData?.pages;
+
   const [selectedTemplateId, setSelectedTemplateId] = useState('template_cosmic');
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
@@ -433,7 +435,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showPersonPicker, setShowPersonPicker] = useState(false);
   const [personSearch, setPersonSearch] = useState('');
-  const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('a4-portrait');
+  const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('a4-landscape');
   
   const { toast } = useToast();
 
@@ -446,16 +448,42 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
   const template = DESIGN_TEMPLATES.find(t => t.id === selectedTemplateId) || DESIGN_TEMPLATES[0];
 
   useEffect(() => {
-    const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-    setPages(generated);
-    setIsGenerating(false);
-  }, []); // empty deps — only run once on mount
+    if (!project.projectData?.designData?.pages) {
+        const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
+        onUpdateProject(proj => ({
+            ...proj,
+            projectData: {
+                ...proj.projectData,
+                designData: { pages: generated }
+            }
+        }));
+    }
+  }, []);
+
+  const updatePages = (updater: (currentPages: DesignPage[]) => DesignPage[]) => {
+    onUpdateProject(proj => {
+        const currentPages = proj.projectData?.designData?.pages || [];
+        const newPages = updater(currentPages);
+        return {
+            ...proj,
+            projectData: {
+                ...proj.projectData,
+                designData: {
+                    ...proj.projectData?.designData,
+                    pages: newPages
+                }
+            }
+        };
+    });
+  };
 
   const updateCurrentPage = (updater: (page: DesignPage) => DesignPage) => {
-    setPages(prev => {
-      const newPages = [...prev];
-      newPages[currentPageIndex] = updater(newPages[currentPageIndex]);
-      return newPages;
+    updatePages(currentPages => {
+        const newPages = [...currentPages];
+        if (newPages[currentPageIndex]) {
+            newPages[currentPageIndex] = updater(newPages[currentPageIndex]);
+        }
+        return newPages;
     });
   };
 
@@ -497,7 +525,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
       elements: [],
       templateId: selectedTemplateId,
     };
-    setPages(prev => [...prev, newPage]);
+    updatePages(currentPages => [...currentPages, newPage]);
     setCurrentPageIndex(pages.length);
   };
 
@@ -590,8 +618,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                     </TooltipProvider>
                     <DropdownMenuContent>
                         <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
-                            <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
+                            <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="9/16">9:16 לגובה</DropdownMenuRadioItem>
                             <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
@@ -611,9 +639,6 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                 </TooltipProvider>
             </div>
             <div className='flex items-center gap-2'>
-                <Button variant="ghost" size="sm" onClick={() => toast({title: "בקרוב..."})}><Undo className="ml-2"/></Button>
-                <Button variant="ghost" size="sm" onClick={() => toast({title: "בקרוב..."})}><Redo className="ml-2"/></Button>
-                 <Separator orientation="vertical" className='h-6 bg-white/10'/>
                  <Button variant="ghost" size="icon" onClick={() => selectedElementId && deleteElement(selectedElementId)} disabled={!selectedElementId}><Trash2 className="text-red-400"/></Button>
                  <DropdownMenu>
                   <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="bg-transparent">ייצא ▾</Button></DropdownMenuTrigger>
@@ -646,8 +671,8 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                         "relative",
                         canvasAspectRatio === 'free' ? "w-full h-full" : "shadow-2xl",
                         canvasAspectRatio !== 'free' && {
-                            'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
                             'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
+                            'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
                             'aspect-video w-full h-auto max-h-full': canvasAspectRatio === '16:9-landscape',
                             'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '9/16',
                             'aspect-square h-full w-auto max-w-full': canvasAspectRatio === '1:1',
@@ -770,7 +795,7 @@ export function RootsDesignEditor({ project, people, relationships, onBack }: {
                     key={t.id}
                     onClick={() => {
                       setSelectedTemplateId(t.id);
-                      setPages(prev => prev.map(p => ({...p, templateId: t.id})));
+                      updatePages(currentPages => currentPages.map(p => ({...p, templateId: t.id})));
                       setShowTemplatePicker(false);
                     }}
                     className={cn(
