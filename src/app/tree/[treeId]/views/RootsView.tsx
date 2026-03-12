@@ -12,6 +12,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { rephraseText } from '@/ai/flows/rephrase-text-flow';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 
 // --- Utility & Base Components ---
@@ -711,7 +717,7 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
         <div className="space-y-1 mt-3">
           <div className="flex items-center justify-between">
             <AiRephraseButton value={family.parentsMeetingStory || ''} onRephrase={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} fieldName="סיפור ההיכרות של ההורים" />
-            <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור ההיכרות של ההורים</label>
+            <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור ההיכרות של ההורים</label>
           </div>
           <EditableField asTextarea value={family.parentsMeetingStory || ''} onUpdate={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} placeholder="איך הכירו ההורים שלך? מה הסיפור שלהם?" />
         </div>
@@ -728,6 +734,48 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
 };
 
 // --- Step 5: Family Roots ---
+const AncestorCard = ({ title, person, data, onUpdate, fieldNamePrefix }: {
+    title: string,
+    person?: Person,
+    data: any,
+    onUpdate: (key: string, value: any) => void,
+    fieldNamePrefix: string
+}) => {
+    const fields = [
+        { key: 'name', label: 'שם מלא', placeholder: 'שם פרטי ושם משפחה', initialValue: person ? `${person.firstName} ${person.lastName}` : '', isTextarea: false },
+        { key: 'birthYear', label: 'שנת לידה', placeholder: 'לדוגמה: 1920', initialValue: person?.birthDate?.substring(0, 4), isTextarea: false },
+        { key: 'birthPlace', label: 'מקום לידה ומדינת מוצא', placeholder: 'לדוגמה: ורשה, פולין', initialValue: person?.birthPlace, isTextarea: false },
+        { key: 'aliyahYear', label: 'שנת עלייה לישראל', placeholder: 'אם עלה/תה לישראל', isTextarea: false },
+        { key: 'story', label: 'סיפור קצר', placeholder: 'מה אתה יודע על אותו/אותה? מה הסיפור שלהם?', isTextarea: true },
+    ];
+
+    return (
+        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
+            <h3 className="font-bold text-slate-200 text-right">{title}</h3>
+            {fields.map(field => (
+                <div key={field.key} className="space-y-1">
+                    <div className="flex items-center justify-between">
+                        {field.isTextarea && (
+                            <AiRephraseButton 
+                                value={data[`${fieldNamePrefix}_${field.key}`] ?? field.initialValue ?? ''} 
+                                onRephrase={(v) => onUpdate(`${fieldNamePrefix}_${field.key}`, v)} 
+                                fieldName={`${title}: ${field.label}`}
+                            />
+                        )}
+                        <label className="text-xs text-slate-400 block text-right w-full">{field.label}</label>
+                    </div>
+                    <EditableField
+                        asTextarea={field.isTextarea}
+                        value={data[`${fieldNamePrefix}_${field.key}`] ?? field.initialValue ?? ''} 
+                        onUpdate={(v) => onUpdate(`${fieldNamePrefix}_${field.key}`, v)} 
+                        placeholder={field.placeholder}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+};
+
 const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStudentId }: {
   projectData: any,
   onUpdate: (path: (string|number)[], value: any) => void,
@@ -736,82 +784,88 @@ const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStud
   currentStudentId?: string
 }) => {
   const roots = projectData.familyRoots || {};
-  const [activeSection, setActiveSection] = useState<string | null>('paternalGrandparents');
+  const [activeSection, setActiveSection] = useState<string | null>('paternal');
+
+  const ancestors = useMemo(() => {
+    const findParents = (personId?: string): Person[] => {
+        if (!personId) return [];
+        const parentRels = relationships.filter(r => r.personBId === personId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
+        return parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
+    };
+    
+    const parents = findParents(currentStudentId);
+    const father = parents.find(p => p.gender === 'male');
+    const mother = parents.find(p => p.gender === 'female');
+    
+    const paternalGrandparents = findParents(father?.id);
+    const maternalGrandparents = findParents(mother?.id);
+    
+    const paternalGrandfather = paternalGrandparents.find(p => p.gender === 'male');
+    const paternalGrandmother = paternalGrandparents.find(p => p.gender === 'female');
+    
+    const maternalGrandfather = maternalGrandparents.find(p => p.gender === 'male');
+    const maternalGrandmother = maternalGrandparents.find(p => p.gender === 'female');
+    
+    const paternalGGFs = findParents(paternalGrandfather?.id);
+    const paternalGGMs = findParents(paternalGrandmother?.id);
+
+    const maternalGGFs = findParents(maternalGrandfather?.id);
+    const maternalGGMs = findParents(maternalGrandmother?.id);
+
+    return {
+      paternalGrandfather, paternalGrandmother,
+      maternalGrandfather, maternalGrandmother,
+      paternalGreatGrandfather: paternalGGFs.find(p => p.gender === 'male'),
+      paternalGreatGrandmother: paternalGGMs.find(p => p.gender === 'female'),
+      maternalGreatGrandfather: maternalGGFs.find(p => p.gender === 'male'),
+      maternalGreatGrandmother: maternalGGMs.find(p => p.gender === 'female'),
+    };
+  }, [people, relationships, currentStudentId]);
   
-  const sections = [
-    { key: 'paternalGrandparents', label: 'סבא וסבתא מצד אבא', icon: '👴' },
-    { key: 'maternalGrandparents', label: 'סבא וסבתא מצד אמא', icon: '👵' },
-    { key: 'paternalGreatGrandparents', label: 'הורי-סבא מצד אבא', icon: '🌳' },
-    { key: 'maternalGreatGrandparents', label: 'הורי-סבא מצד אמא', icon: '🌳' },
-  ];
-
-  const fields = [
-    { key: 'name', label: 'שם מלא', placeholder: 'שם פרטי ושם משפחה', isTextarea: false },
-    { key: 'birthYear', label: 'שנת לידה', placeholder: 'לדוגמה: 1920', isTextarea: false },
-    { key: 'birthPlace', label: 'מקום לידה ומדינת מוצא', placeholder: 'לדוגמה: ורשה, פולין', isTextarea: false },
-    { key: 'aliyahYear', label: 'שנת עלייה לישראל', placeholder: 'אם עלה/תה לישראל', isTextarea: false },
-    { key: 'story', label: 'סיפור קצר', placeholder: 'מה אתה יודע על אותו/אותה? מה הסיפור שלהם?', isTextarea: true },
-  ];
-
   return (
     <div className="space-y-4" dir="rtl">
       <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">שורשי המשפחה</h1>
       <p className="text-slate-400 text-xs text-center">4 דורות של זיכרון משפחתי</p>
       
-      {/* Accordion sections */}
-      {sections.map(section => (
-        <div key={section.key} className="rounded-2xl overflow-hidden border border-white/10">
-          <button
-            type="button"
-            onClick={() => setActiveSection(activeSection === section.key ? null : section.key)}
-            className="w-full flex items-center justify-between px-4 py-3 bg-white/5 hover:bg-white/10 transition-colors"
-          >
-            <svg className={cn("h-4 w-4 text-slate-400 transition-transform", activeSection === section.key && "rotate-180")} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-            <span className="flex items-center gap-2 text-sm font-bold text-slate-200">
-              {section.label} {section.icon}
-            </span>
-          </button>
-          
-          <AnimatePresence>
-            {activeSection === section.key && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="overflow-hidden"
-              >
-                <div className="p-4 space-y-3 bg-black/20">
-                  {fields.map(field => (
-                    <div key={field.key} className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        {field.isTextarea && (
-                          <AiRephraseButton 
-                            value={roots[`${section.key}_${field.key}`] || ''} 
-                            onRephrase={(v) => onUpdate(['familyRoots', `${section.key}_${field.key}`], v)} 
-                            fieldName={field.label}
-                          />
-                        )}
-                        <label className="text-xs text-slate-400 block text-right">{field.label}</label>
-                      </div>
-                      <EditableField 
-                        asTextarea={field.isTextarea}
-                        value={roots[`${section.key}_${field.key}`] || ''} 
-                        onUpdate={(v) => onUpdate(['familyRoots', `${section.key}_${field.key}`], v)} 
-                        placeholder={field.placeholder}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      ))}
+      <Accordion type="single" collapsible className="w-full space-y-2" value={activeSection || ''} onValueChange={setActiveSection}>
+        <AccordionItem value="paternal" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
+            <span className="flex items-center gap-2 text-sm font-bold text-slate-200">סבא וסבתא מצד אבא 👴</span>
+          </AccordionTrigger>
+          <AccordionContent className="p-4 space-y-4 bg-black/20">
+            <AncestorCard title="סבא (אבא של אבא)" person={ancestors.paternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandfather" />
+            <AncestorCard title="סבתא (אמא של אבא)" person={ancestors.paternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandmother" />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="maternal" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
+             <span className="flex items-center gap-2 text-sm font-bold text-slate-200">סבא וסבתא מצד אמא 👵</span>
+          </AccordionTrigger>
+          <AccordionContent className="p-4 space-y-4 bg-black/20">
+            <AncestorCard title="סבא (אבא של אמא)" person={ancestors.maternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandfather" />
+            <AncestorCard title="סבתא (אמא של אמא)" person={ancestors.maternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandmother" />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="paternal-gg" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
+             <span className="flex items-center gap-2 text-sm font-bold text-slate-200">הורי-סבא מצד אבא 🌳</span>
+          </AccordionTrigger>
+          <AccordionContent className="p-4 space-y-4 bg-black/20">
+            <AncestorCard title="אבא של סבא" person={ancestors.paternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandfather" />
+            <AncestorCard title="אמא של סבתא" person={ancestors.paternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandmother" />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="maternal-gg" className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
+             <span className="flex items-center gap-2 text-sm font-bold text-slate-200">הורי-סבא מצד אמא 🌳</span>
+          </AccordionTrigger>
+          <AccordionContent className="p-4 space-y-4 bg-black/20">
+            <AncestorCard title="אבא של סבא" person={ancestors.maternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandfather" />
+            <AncestorCard title="אמא של סבתא" person={ancestors.maternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandmother" />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
-      {/* Map hint */}
       <div className="p-4 rounded-2xl bg-indigo-900/20 border border-indigo-500/20">
         <p className="text-xs text-indigo-300 text-right">
           🗺️ <strong>טיפ:</strong> אם מילאת מקומות לידה מחוץ לישראל, בשלב עיצוב העבודה תוכל/י לייצא מפת הגירה משפחתית אוטומטית מתוך מודול המפות במערכת.
@@ -855,7 +909,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.inheritedObject || ''} onRephrase={(v) => onUpdate(['heritage', 'inheritedObject'], v)} fieldName="חפץ עובר בירושה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
         </div>
         <EditableField asTextarea value={heritage.inheritedObject || ''} onUpdate={(v) => onUpdate(['heritage', 'inheritedObject'], v)} placeholder="תארו חפץ שעבר במשפחה מדור לדור. מה הוא? מאיפה הגיע? מה הוא מסמל?" />
       </div>
@@ -864,7 +918,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyRecipe || ''} onRephrase={(v) => onUpdate(['heritage', 'familyRecipe'], v)} fieldName="מתכון משפחתי" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
         </div>
         <EditableField asTextarea value={heritage.familyRecipe || ''} onUpdate={(v) => onUpdate(['heritage', 'familyRecipe'], v)} placeholder="מה המנה שכולם מחכים לה בארוחות משפחתיות? מי מכינה אותה? מה הסיפור שלה?" />
       </div>
@@ -873,7 +927,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <AiRephraseButton value={heritage.familyNameOrigin || ''} onRephrase={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} fieldName="מקור שם המשפחה" />
-          <label className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
+          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
         </div>
         <EditableField asTextarea value={heritage.familyNameOrigin || ''} onUpdate={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} placeholder="מאיפה מגיע שם המשפחה? מה משמעותו? מתי אומץ שם זה?" />
       </div>
