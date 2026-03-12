@@ -166,7 +166,7 @@ export function CanvasToolbar({
   return (
     <aside className="flex flex-col items-center gap-4 border-l bg-card p-2" data-export-hide>
       <div className="flex w-full justify-center gap-2">
-         {(viewMode === 'tree' || viewMode === 'roots') && (
+         {viewMode === 'tree' && (
           <DropdownMenu>
               <Tooltip>
                   <TooltipTrigger asChild>
