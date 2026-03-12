@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { RootsProject, Person, FamilyTree, Relationship } from '@/lib/types';
-import { format, isValid } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
@@ -732,7 +732,6 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
   );
 };
 
-
 // --- Step 5: Family Roots ---
 const AncestorCard = ({ title, person, data, onUpdate, fieldNamePrefix }: {
     title: string,
@@ -743,7 +742,7 @@ const AncestorCard = ({ title, person, data, onUpdate, fieldNamePrefix }: {
 }) => {
     const fields = [
         { key: 'name', label: 'שם מלא', placeholder: 'שם פרטי ושם משפחה', initialValue: person ? `${person.firstName} ${person.lastName}` : '', isTextarea: false },
-        { key: 'birthYear', label: 'שנת לידה', placeholder: 'לדוגמה: 1920', initialValue: person?.birthDate?.substring(0, 4), isTextarea: false },
+        { key: 'birthYear', label: 'שנת לידה', placeholder: 'לדוגמה: 1920', initialValue: person?.birthDate ? format(parseISO(person.birthDate), 'yyyy') : '', isTextarea: false },
         { key: 'birthPlace', label: 'מקום לידה ומדינת מוצא', placeholder: 'לדוגמה: ורשה, פולין', initialValue: person?.birthPlace, isTextarea: false },
         { key: 'aliyahYear', label: 'שנת עלייה לישראל', placeholder: 'אם עלה/תה לישראל', isTextarea: false },
         { key: 'story', label: 'סיפור קצר', placeholder: 'מה אתה יודע על אותו/אותה? מה הסיפור שלהם?', isTextarea: true },
@@ -877,6 +876,74 @@ const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStud
 
 
 // --- Step 6: Heritage ---
+const EditableEventChip = ({ event, isSelected, onToggle, onUpdate }: { 
+    event: { id: string; label: string; year: string; isCustom: boolean; };
+    isSelected: boolean;
+    onToggle: (id: string) => void;
+    onUpdate: (id: string, newValues: { label: string; year: string; }) => void;
+}) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editText, setEditText] = useState(`${event.label} (${event.year})`);
+
+    const handleDoubleClick = () => {
+        if (!event.isCustom) return; // Only allow editing custom events
+        setIsEditing(true);
+    };
+
+    const handleBlur = () => {
+        setIsEditing(false);
+        const text = editText.trim();
+        let label = text;
+        let year = '';
+        const yearMatch = text.match(/\(([^)]+)\)/);
+        if (yearMatch) {
+            year = yearMatch[1].trim();
+            label = text.replace(yearMatch[0], '').trim();
+        }
+        if (label !== event.label || year !== event.year) {
+            onUpdate(event.id, { label, year });
+        }
+    };
+    
+    useEffect(() => {
+        setEditText(`${event.label} (${event.year})`);
+    }, [event.label, event.year]);
+
+    if (isEditing) {
+        return (
+            <Input
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onBlur={handleBlur}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleBlur();
+                    if (e.key === 'Escape') setIsEditing(false);
+                }}
+                autoFocus
+                className="h-8 text-xs bg-slate-700/90 border-indigo-400 ring-4 ring-indigo-500/40"
+            />
+        );
+    }
+
+    return (
+        <button
+            type="button"
+            onDoubleClick={handleDoubleClick}
+            onClick={() => onToggle(event.id)}
+            className={cn(
+                "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border",
+                isSelected
+                  ? "bg-indigo-500/30 border-indigo-400 text-indigo-200"
+                  : "bg-white/5 border-white/10 text-slate-400 hover:border-white/30",
+                event.isCustom && "cursor-pointer hover:border-indigo-400/50"
+            )}
+            title={event.isCustom ? "לחץ לחיצה כפולה לעריכה" : ""}
+        >
+            {event.label} ({event.year})
+        </button>
+    );
+};
+
 const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
   const heritage = projectData.heritage || {};
   
@@ -909,18 +976,50 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
   };
   
   const handleAddNewEvent = () => {
-    if (!newEventLabel || !newEventYear) return;
-    const newId = newEventLabel.toLowerCase().replace(/\s/g, '_').replace(/[^\w-]/g, '') + `_${newEventYear}`;
-    const newEvent = { id: newId, label: newEventLabel, year: newEventYear };
+    if (!newEventLabel) return;
+    
+    let label = newEventLabel.trim();
+    let year = newEventYear.trim();
+
+    // Try to extract year from label if year input is empty
+    if (!year) {
+        const yearMatch = label.match(/\(([^)]+)\)/);
+        if (yearMatch) {
+            year = yearMatch[1];
+            label = label.replace(yearMatch[0], '').trim();
+        }
+    }
+
+    if (!label || !year) {
+        // Maybe show a toast message
+        return;
+    }
+
+    // Clean up any extra parentheses from year
+    year = year.replace(/[()]/g, '');
+
+    const newId = label.toLowerCase().replace(/\s/g, '_').replace(/[^\w-]/g, '') + `_${year}`;
+    const newEvent = { id: newId, label: label, year: year };
     
     const updatedCustomEvents = [...(heritage.customHistoricalEvents || []), newEvent];
     onUpdate(['heritage', 'customHistoricalEvents'], updatedCustomEvents);
     
-    toggleEvent(newId);
+    // Automatically select the newly added event
+    if (!selectedEvents.includes(newId)) {
+        const newSelected = [...selectedEvents, newId];
+        onUpdate(['heritage', 'selectedEvents'], newSelected);
+    }
     
     setNewEventLabel('');
     setNewEventYear('');
     setIsAddEventPopoverOpen(false);
+  };
+  
+  const handleUpdateCustomEvent = (eventId: string, newValues: { label: string; year: string; }) => {
+    const updatedCustomEvents = (heritage.customHistoricalEvents || []).map((e: {id: string}) => 
+        e.id === eventId ? { ...e, ...newValues } : e
+    );
+    onUpdate(['heritage', 'customHistoricalEvents'], updatedCustomEvents);
   };
 
   return (
@@ -929,7 +1028,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       
       {/* Inherited object */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={heritage.inheritedObject || ''} onRephrase={(v) => onUpdate(['heritage', 'inheritedObject'], v)} fieldName="חפץ עובר בירושה" />
           <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
         </div>
@@ -938,7 +1037,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       
       {/* Family recipe */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={heritage.familyRecipe || ''} onRephrase={(v) => onUpdate(['heritage', 'familyRecipe'], v)} fieldName="מתכון משפחתי" />
           <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
         </div>
@@ -947,7 +1046,7 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       
       {/* Family name origin */}
       <div className="space-y-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={heritage.familyNameOrigin || ''} onRephrase={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} fieldName="מקור שם המשפחה" />
           <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
         </div>
@@ -958,22 +1057,19 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
       <div className="space-y-3">
         <h2 className="text-sm font-bold text-slate-300 text-right">קשר המשפחה להיסטוריה הלאומית</h2>
         <p className="text-xs text-slate-400 text-right">סמן/י אירועים היסטוריים שמשפחתך הייתה קשורה אליהם:</p>
-        <div className="flex flex-wrap gap-2 justify-start">
-          {combinedEvents.map(event => (
-            <button
-              key={event.id}
-              type="button"
-              onClick={() => toggleEvent(event.id)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border",
-                selectedEvents.includes(event.id)
-                  ? "bg-indigo-500/30 border-indigo-400 text-indigo-200"
-                  : "bg-white/5 border-white/10 text-slate-400 hover:border-white/30"
-              )}
-            >
-              {event.label} ({event.year})
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2 justify-end">
+          {combinedEvents.map(event => {
+            const isCustom = !initialHistoricalEvents.some(initial => initial.id === event.id);
+            return (
+              <EditableEventChip
+                key={event.id}
+                event={{...event, isCustom}}
+                isSelected={selectedEvents.includes(event.id)}
+                onToggle={toggleEvent}
+                onUpdate={handleUpdateCustomEvent}
+              />
+            );
+          })}
           <Popover open={isAddEventPopoverOpen} onOpenChange={setIsAddEventPopoverOpen}>
             <PopoverTrigger asChild>
               <button
