@@ -9,7 +9,7 @@ import { getPlaceholderImage } from '@/lib/placeholder-images';
 import {
   Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School,
   User, Calendar, MapPin, Edit, Flag, Utensils, BadgeCheck, PlusCircle,
-  BarChart2, Map, CalendarDays, X, RefreshCw
+  BarChart2, Map, CalendarDays, X, RefreshCw, CheckCircle2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,9 @@ import { RootsDesignEditor } from './RootsDesignEditor';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { MapSelectionModal } from './roots/MapSelectionModal';
+import { StatsSelectionModal } from './roots/StatsSelectionModal';
+import { CalendarSelectionModal } from './roots/CalendarSelectionModal';
 
 
 // --- Utility & Base Components ---
@@ -1138,12 +1141,17 @@ const Step11_NationalHistory = ({ projectData, onUpdate }: { projectData: any, o
 
 
 // --- Step 13: Final Touches ---
-const Step13_FinalTouches = ({ project, projectData, onUpdate, people, onEditPerson }: {
+const Step13_FinalTouches = ({ 
+    project, projectData, onUpdate, people,
+    onOpenMap, onOpenStats, onOpenCalendar
+}: {
   project: RootsProject;
   projectData: any,
   onUpdate: (path: (string|number)[], value: any) => void,
   people: Person[],
-  onEditPerson?: (personId: string) => void;
+  onOpenMap: () => void;
+  onOpenStats: () => void;
+  onOpenCalendar: () => void;
 }) => {
     const finalizationData = projectData.finalPresentation || {};
     const [isAdding, setIsAdding] = useState(false);
@@ -1200,14 +1208,10 @@ const Step13_FinalTouches = ({ project, projectData, onUpdate, people, onEditPer
         onUpdate(['finalPresentation', 'extraPeople'], currentExtra.filter((id: string) => id !== personId));
     };
 
-    const toggleExtraContent = (key: string) => {
-        onUpdate(['finalPresentation', key], !finalizationData[key]);
-    };
-
     const extras = [
-        { key: 'includeMap', label: 'מפת נדידה משפחתית', icon: <Map className="h-4 w-4" /> },
-        { key: 'includeStats', label: 'גרפים סטטיסטיים', icon: <BarChart2 className="h-4 w-4" /> },
-        { key: 'includeCalendar', label: 'אירועים חשובים מלוח השנה', icon: <CalendarDays className="h-4 w-4" /> },
+        { key: 'map', label: 'מפת נדידה משפחתית', icon: <Map className="h-4 w-4" />, onClick: onOpenMap, selected: !!finalizationData.mapScreenshotUrl },
+        { key: 'stats', label: 'גרפים סטטיסטיים', icon: <BarChart2 className="h-4 w-4" />, onClick: onOpenStats, selected: (finalizationData.selectedStats || []).length > 0 },
+        { key: 'calendar', label: 'אירועים חשובים מלוח השנה', icon: <CalendarDays className="h-4 w-4" />, onClick: onOpenCalendar, selected: (finalizationData.selectedEvents || []).length > 0 },
     ];
     
     return (
@@ -1248,10 +1252,15 @@ const Step13_FinalTouches = ({ project, projectData, onUpdate, people, onEditPer
             <div className="p-4 bg-black/20 rounded-2xl space-y-3">
                  <h2 className="text-sm font-bold text-slate-300 text-right">תוכן נוסף למצגת</h2>
                  <div className="space-y-2">
-                    {extras.map(({ key, label, icon }) => (
-                         <div key={key} className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/50">
-                            <Checkbox id={key} checked={!!finalizationData[key]} onCheckedChange={() => toggleExtraContent(key)} />
-                            <Label htmlFor={key} className="flex items-center gap-2 cursor-pointer text-slate-300">{icon}{label}</Label>
+                    {extras.map(({ key, label, icon, onClick, selected }) => (
+                         <div key={key} className="flex items-center justify-between gap-3 p-2 rounded-lg bg-slate-800/50">
+                            <div className="flex items-center gap-2 text-slate-300">
+                               {icon}{label}
+                            </div>
+                             <Button size="sm" variant="outline" onClick={onClick}>
+                                {selected ? <CheckCircle2 className="h-4 w-4 text-green-400 ml-2" /> : null}
+                                בחר
+                            </Button>
                         </div>
                     ))}
                  </div>
@@ -1308,8 +1317,13 @@ export function RootsView({ project, people, relationships, tree, updateProject,
   setProject: (project: RootsProject) => void;
   onEditPerson?: (personId: string) => void;
 }) {
+  const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showDesignEditor, setShowDesignEditor] = useState(false);
+  
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [calendarModalOpen, setCalendarModalOpen] = useState(false);
 
   const steps = [
     { id: 0, label: 'זהות' }, // Identity
@@ -1379,7 +1393,6 @@ export function RootsView({ project, people, relationships, tree, updateProject,
             coverPage: {
                 ...proj.projectData?.coverPage,
                 studentName: studentName,
-                studentPersonId: personId,
             }
         };
         return { 
@@ -1395,6 +1408,24 @@ export function RootsView({ project, people, relationships, tree, updateProject,
     updateProject(updater);
     // The debounced save will be triggered by the main updateProject effect
   }, [updateProject]);
+
+    const handleMapConfirm = (dataUrl: string) => {
+        handleProjectUpdate(['finalPresentation', 'mapScreenshotUrl'], dataUrl);
+        setMapModalOpen(false);
+        toast({ title: 'תמונת המפה נשמרה!' });
+    };
+
+    const handleStatsConfirm = (selectedIds: string[]) => {
+        handleProjectUpdate(['finalPresentation', 'selectedStats'], selectedIds);
+        setStatsModalOpen(false);
+        toast({ title: `${selectedIds.length} גרפים נבחרו.` });
+    };
+
+    const handleCalendarConfirm = (selectedIds: string[]) => {
+        handleProjectUpdate(['finalPresentation', 'selectedEvents'], selectedIds);
+        setCalendarModalOpen(false);
+        toast({ title: `${selectedIds.length} אירועים נבחרו.` });
+    };
 
   if (showDesignEditor && project) {
     return (
@@ -1433,15 +1464,53 @@ export function RootsView({ project, people, relationships, tree, updateProject,
       case 10: return <HeritageStep title="מקור שם המשפחה" icon={<BookOpen />} fieldKey="familyNameOrigin" placeholder="מאיפה מגיע שם המשפחה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 11: return <Step11_NationalHistory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 12: return <HeritageStep title="סיכום ורפלקציה" icon={<Star />} fieldKey="conclusion" placeholder="מה למדתי על עצמי ועל משפחתי..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
-      case 13: return <Step13_FinalTouches project={project} projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onEditPerson={onEditPerson} />;
+      case 13: return <Step13_FinalTouches project={project} projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onOpenMap={() => setMapModalOpen(true)} onOpenStats={() => setStatsModalOpen(true)} onOpenCalendar={() => setCalendarModalOpen(true)} />;
       default: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onConfirm={() => handleStepChange(1)} />;
     }
   };
+  
+    const involvedPeopleIds = useMemo(() => {
+        const ids = new Set<string>();
+        if (project.studentPersonId) ids.add(project.studentPersonId);
+        // This is a simplified version, you'd need a recursive function to get all involved people.
+        // For now, let's just use the student.
+        return Array.from(ids);
+    }, [project.studentPersonId]);
 
   return (
     <div className="w-full h-full flex flex-col bg-gradient-to-br from-[#0a0015] to-[#000d1a] text-slate-100 overflow-hidden" dir="rtl">
       <WizardBackground />
       <SaveIndicator status={saveStatus} />
+      
+      {mapModalOpen && 
+        <MapSelectionModal 
+            isOpen={mapModalOpen} 
+            onClose={() => setMapModalOpen(false)} 
+            people={people}
+            onConfirm={handleMapConfirm}
+        />}
+
+      {statsModalOpen && 
+        <StatsSelectionModal 
+            isOpen={statsModalOpen} 
+            onClose={() => setStatsModalOpen(false)} 
+            people={people}
+            relationships={relationships}
+            onConfirm={handleStatsConfirm}
+            initialSelected={project.projectData.finalPresentation?.selectedStats || []}
+        />}
+
+      {calendarModalOpen && 
+        <CalendarSelectionModal
+            isOpen={calendarModalOpen}
+            onClose={() => setCalendarModalOpen(false)}
+            people={people}
+            relationships={relationships}
+            manualEvents={project.projectData.manualEvents || []} // assuming manual events are here
+            involvedPeopleIds={involvedPeopleIds}
+            onConfirm={handleCalendarConfirm}
+            initialSelected={project.projectData.finalPresentation?.selectedEvents || []}
+        />}
 
       <div className="flex-1 flex items-center justify-center p-2 sm:p-4 min-h-0 max-h-[90vh]">
         <AnimatePresence mode="wait">

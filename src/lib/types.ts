@@ -229,6 +229,13 @@ interface HeritageData {
   customHistoricalEvents?: {id: string; label: string; year: string}[];
 }
 
+interface FinalPresentationData {
+    mapScreenshotUrl?: string;
+    selectedStats?: string[];
+    selectedEvents?: string[];
+    extraPeople?: string[];
+}
+
 export type ShapeType = 'rectangle' | 'rounded_rectangle' | 'circle' | 'ellipse' | 'triangle' | 'star' | 'star6' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon' | 'heart' | 'arrow_right' | 'arrow_left' | 'speech_bubble' | 'banner' | 'cross' | 'parallelogram' | 'trapezoid' | 'line_h';
 export type TextAlign = 'left' | 'center' | 'right';
 
@@ -304,10 +311,12 @@ export interface RootsProjectData {
   nuclearFamily?: NuclearFamilyData;
   familyRoots?: GenerationData;
   heritage?: HeritageData;
+  finalPresentation?: FinalPresentationData;
   designData?: {
     pages: DesignPage[];
     templateId?: string;
   };
+  manualEvents?: ManualEvent[];
 }
 
 
