@@ -8,7 +8,7 @@ import { parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import {
-  ArrowLeft, Type, MousePointer2,
+  ArrowLeft, ArrowRight, Type, MousePointer2,
   Smile, Trash2, User, Image as ImageIcon,
   Copy, AlignLeft, AlignCenter, AlignRight, ChevronUp, ChevronDown,
   Scissors, Clipboard, RefreshCw, Maximize2, Square, Upload, Layers,
