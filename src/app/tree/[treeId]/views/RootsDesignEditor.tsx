@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type {
@@ -9,12 +8,11 @@ import { parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import {
-  ArrowLeft, ArrowRight, Type, MousePointer2,
+  ArrowLeft, Type, MousePointer2,
   Smile, Trash2, User, Image as ImageIcon,
   Copy, AlignLeft, AlignCenter, AlignRight, ChevronUp, ChevronDown,
   Scissors, Clipboard, RefreshCw, Maximize2, Square, Upload, Layers,
   CropIcon,
-  Baby, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -215,7 +213,7 @@ export const DESIGN_TEMPLATES: DesignTemplate[] = [
 ];
 
 // ============================================================
-// PAGE GENERATOR — comprehensive (12+ pages)
+// PAGE GENERATOR — full 40+ page comprehensive document
 // ============================================================
 function generatePagesFromProject(
   project: RootsProject, people: Person[], relationships: Relationship[], templateId: string
@@ -226,299 +224,632 @@ function generatePagesFromProject(
   const tmpl = DESIGN_TEMPLATES.find(t => t.id === templateId) || DESIGN_TEMPLATES[0];
   const P = tmpl.primaryColor;
   const accent = tmpl.accentColor;
+  const pd = project.projectData || {};
 
   const mk = (type: DesignElement['type'], extra: Partial<DesignElement> & { x: number; y: number; width: number; height: number }): DesignElement =>
     ({ id: uuidv4(), type, zIndex: 1, ...extra } as DesignElement);
 
-  const header = (title: string, emoji?: string): DesignElement[] => [
-    mk('shape', { x: 0, y: 0, width: 100, height: 13, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.15 } }),
-    mk('text', { x: 5, y: 1.5, width: 85, height: 11, content: `${emoji ? emoji + ' ' : ''}${title}`, style: { fontSize: 34, fontWeight: 'extrabold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
-    mk('shape', { x: 0, y: 12.5, width: 100, height: 0.4, zIndex: 2, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.3 } }),
-  ];
+  // Small header bar (13% height) with title
+  const header = (title: string, emoji?: string, chapterLabel?: string): DesignElement[] => {
+    const els: DesignElement[] = [
+      mk('shape', { x: 0, y: 0, width: 100, height: 13, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.18 } }),
+      mk('text', { x: 5, y: 1, width: 85, height: 12, content: `${emoji ? emoji + ' ' : ''}${title}`, style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
+      mk('shape', { x: 0, y: 12.5, width: 100, height: 0.4, zIndex: 2, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.35 } }),
+    ];
+    if (chapterLabel) {
+      els.push(mk('text', { x: 5, y: 1, width: 90, height: 6, content: chapterLabel, style: { fontSize: 9, textAlign: 'left', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }));
+    }
+    return els;
+  };
 
+  // Colored pill label
   const pill = (x: number, y: number, w: number, h: number, text: string, icon: string, colorP: string): DesignElement[] => [
-    mk('shape', { x, y, width: w, height: h, zIndex: 1, style: { shapeType: 'rounded_rectangle', backgroundColor: colorP, opacity: 0.25 } }),
-    mk('text', { x, y, width: w, height: h, content: `${icon} ${text}`, style: { fontSize: 13, fontWeight: 'bold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
+    mk('shape', { x, y, width: w, height: h, zIndex: 1, style: { shapeType: 'rounded_rectangle', backgroundColor: colorP, opacity: 0.22 } }),
+    mk('text', { x: x + 0.5, y: y + 0.5, width: w - 1, height: h - 1, content: `${icon} ${text}`, style: { fontSize: 12, fontWeight: 'bold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
   ];
 
+  // Photo placeholder
   const photoPlaceholder = (x: number, y: number, w: number, h: number, label = '📷 הוסף תמונה'): DesignElement[] => [
     mk('photo_placeholder', { x, y, width: w, height: h, zIndex: 5, content: label,
       style: { borderColor: P, borderWidth: 2, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', opacity: 0.85 } }),
   ];
 
+  // Text block with content or placeholder
+  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 13): DesignElement[] => [
+    mk('text', { x, y, width: w, height: h, content: content || placeholder,
+      style: { fontSize: fs, textAlign: 'right', color: content ? tmpl.textColor : tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.65, opacity: content ? 1 : 0.55 } }),
+  ];
+
+  // Push a page helper
+  const addPage = (title: string, type: DesignPage['pageType'], elements: DesignElement[]) => {
+    pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: type, title, templateId, elements });
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // PART 0 — FRONT MATTER
+  // ═══════════════════════════════════════════════════════════
+
   // ─── 1. COVER ───────────────────────────────────────────────
+  const cp = pd.coverPage || {};
   const coverEls: DesignElement[] = [
     mk('shape', { x: -15, y: -20, width: 55, height: 80, zIndex: 0, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.07 } }),
     mk('shape', { x: 65, y: 50, width: 45, height: 65, zIndex: 0, style: { shapeType: 'circle', backgroundColor: accent, opacity: 0.06 } }),
-    mk('shape', { x: 10, y: 47, width: 80, height: 0.4, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.4 } }),
-    mk('text', { x: 5, y: 16, width: 90, height: 17, content: `משפחת ${student?.lastName || ''}`, style: { fontSize: 58, fontWeight: 'extrabold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
-    mk('text', { x: 5, y: 50, width: 90, height: 9, content: student ? `${student.firstName} ${student.lastName}` : 'עבודת שורשים', style: { fontSize: 22, fontWeight: 'normal', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, opacity: 0.75 } }),
-    mk('text', { x: 30, y: 61, width: 40, height: 7, content: `שנת ${new Date().getFullYear()}`, style: { fontSize: 15, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+    mk('shape', { x: 8, y: 43, width: 84, height: 0.5, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
+    mk('text', { x: 5, y: 12, width: 90, height: 16, content: `משפחת ${student?.lastName || cp.studentName?.split(' ').pop() || ''}`, style: { fontSize: 56, fontWeight: 'extrabold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
+    mk('text', { x: 5, y: 29, width: 90, height: 8, content: 'עבודת שורשים', style: { fontSize: 20, fontWeight: 'normal', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }),
+    mk('text', { x: 5, y: 47, width: 90, height: 8, content: cp.studentName || (student ? `${student.firstName} ${student.lastName}` : ''), style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 55, width: 90, height: 6, content: [cp.schoolName, cp.grade, cp.teacherName].filter(Boolean).join(' | '), style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.75 } }),
+    mk('text', { x: 5, y: 62, width: 90, height: 6, content: cp.submissionDate || cp.hebrewYear || `שנת ${new Date().getFullYear()}`, style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
   if (student?.photoURL) {
-    coverEls.push(mk('image', { content: student.photoURL, x: 36, y: 70, width: 28, height: 25, zIndex: 5, style: { borderRadius: 50, opacity: 1, borderColor: P, borderWidth: 3 } }));
+    coverEls.push(mk('image', { content: student.photoURL, x: 36, y: 70, width: 28, height: 25, zIndex: 5, style: { borderRadius: 60, opacity: 1, borderColor: P, borderWidth: 3 } }));
   } else {
     coverEls.push(...photoPlaceholder(36, 70, 28, 24, '📷 תמונת התלמיד/ה'));
   }
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'cover', title: 'שער', templateId, elements: coverEls });
+  addPage('שער', 'cover', coverEls);
 
-  // ─── 2. TABLE OF CONTENTS ──────────────────────────────────
+  // ─── 2. WORK ID CARD ────────────────────────────────────────
+  const idEls: DesignElement[] = [
+    ...header('תעודת זהות של העבודה', '🪪'),
+    ...pill(5, 15, 90, 7, 'פרטים טכניים', '📋', P),
+    mk('text', { x: 5, y: 24, width: 90, height: 65, content: [
+      `שם התלמיד/ה: ${cp.studentName || (student ? `${student.firstName} ${student.lastName}` : '_______________')}`,
+      `בית ספר: ${cp.schoolName || '_______________'}`,
+      `כיתה: ${cp.grade || '_______________'}`,
+      `מורה מלווה: ${cp.teacherName || '_______________'}`,
+      `מנהל/ת: ${cp.principalName || '_______________'}`,
+      `עיר: ${cp.city || '_______________'}`,
+      `תאריך הגשה: ${cp.submissionDate || '_______________'}`,
+      `שנה עברית: ${cp.hebrewYear || '_______________'}`,
+    ].join('\n'), style: { fontSize: 15, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2.1 } }),
+  ];
+  addPage('תעודת זהות של העבודה', 'cover', idEls);
+
+  // ─── 3. TABLE OF CONTENTS (built dynamically after pages known — use placeholder) ──
+  // We'll add a real TOC placeholder now and can update after
+  const tocTitles: string[] = [];
+  const tocPageIdx = pages.length; // remember position
   const tocEls: DesignElement[] = [
     ...header('תוכן עניינים', '📋'),
-    mk('text', { x: 5, y: 16, width: 90, height: 75, content:
-      '1. שער\n2. אני — הזהות האישית\n3. השם שלי\n4. המשפחה הגרעינית\n5. הסיפור שלי\n6. שורשים מצד אבא\n7. שורשים מצד אמא\n8. אילן יוחסין\n9. מורשת משפחתית\n10. ציר זמן היסטורי\n11. מפת מסע המשפחה\n12. סיכום ורפלקציה',
-      style: { fontSize: 15, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 } }),
+    mk('text', { x: 5, y: 15, width: 90, height: 78, content:
+      'תוכן העניינים יוצג כאן לאחר יצירת כל העמודים.\nניתן לערוך ולעדכן ידנית.',
+      style: { fontSize: 13, textAlign: 'right', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8, opacity: 0.6 } }),
   ];
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'custom', title: 'תוכן עניינים', templateId, elements: tocEls });
+  addPage('תוכן עניינים', 'custom', tocEls);
 
-  // ─── 3. NAME PAGE ──────────────────────────────────────────
-  const nm = project.projectData?.personalStory?.nameMeaning;
-  const nameEls: DesignElement[] = [
-    mk('shape', { x: 0, y: 0, width: 7, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
-    mk('text', { x: 11, y: 4, width: 84, height: 13, content: 'השם שלי', style: { fontSize: 46, fontWeight: 'extrabold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
-    mk('text', { x: 11, y: 20, width: 84, height: 60, content: nm || 'כאן יופיע הסבר על משמעות השם שלי, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', style: { fontSize: 16, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.7 } }),
-    mk('text', { x: 72, y: 16, width: 20, height: 16, content: '❝', style: { fontSize: 60, textAlign: 'right', color: P, opacity: 0.15, fontFamily: 'serif' } }),
+  // ─── 4. PERSONAL INTRO ──────────────────────────────────────
+  const intro = pd.introduction || {};
+  const introEls: DesignElement[] = [
+    ...header('מבוא אישי', '✍️'),
+    ...pill(55, 15, 41, 6.5, 'מבוא', '📝', P),
+    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 14),
   ];
-  if (student?.photoURL) {
-    nameEls.push(mk('image', { content: student.photoURL, x: 66, y: 55, width: 30, height: 38, zIndex: 5, style: { borderRadius: 10, opacity: 0.9 } }));
-  } else {
-    nameEls.push(...photoPlaceholder(66, 55, 30, 38));
-  }
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'name', title: 'השם שלי', templateId, elements: nameEls });
+  introEls.push(...photoPlaceholder(62, 72, 33, 22, '📷 תמונה אישית'));
+  addPage('מבוא אישי', 'personal', introEls);
 
-  // ─── 4. PERSONAL IDENTITY ──────────────────────────────────
-  const ps = project.projectData?.personalStory;
-  const identityEls: DesignElement[] = [
-    ...header('אני — הזהות האישית', '🪪'),
-    ...pill(68, 15, 28, 6.5, 'פרטים אישיים', '👤', P),
-    mk('text', { x: 5, y: 15, width: 62, height: 35, content: [
-      student ? `שם מלא: ${student.firstName} ${student.lastName}` : '',
-      student?.birthDate ? `תאריך לידה: ${student.birthDate.slice(0,10)}` : '',
-      student?.birthPlace ? `מקום לידה: ${student.birthPlace}` : '',
-      ps?.nameMeaning ? '' : '',
-    ].filter(Boolean).join('\n') || 'פרטים אישיים יופיעו כאן', style: { fontSize: 14, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }),
-    ...pill(5, 53, 45, 6.5, 'תחביבים ואישיות', '🎯', accent),
-    mk('text', { x: 5, y: 61, width: 90, height: 28, content: ps?.personalVision || 'כאן יופיע מידע על תחביבים, תכונות אופי ו"אני מאמין" שלי.', style: { fontSize: 14, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.7 } }),
-  ];
-  identityEls.push(...photoPlaceholder(55, 15, 38, 35, '📷 תמונה אישית'));
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'personal', title: 'אני — הזהות האישית', templateId, elements: identityEls });
-
-  // ─── 5. PERSONAL STORY ─────────────────────────────────────
-  if (ps?.birthStory || ps?.personalVision) {
-    const storyEls: DesignElement[] = [
-      ...header('הסיפור שלי', '📖'),
+  // ─── 5. DEDICATION (if filled) ──────────────────────────────
+  if (intro.dedication) {
+    const dedicationEls: DesignElement[] = [
+      mk('shape', { x: 0, y: 0, width: 100, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.04 } }),
+      mk('text', { x: 10, y: 10, width: 80, height: 12, content: '❝', style: { fontSize: 80, textAlign: 'center', color: P, opacity: 0.12, fontFamily: 'serif' } }),
+      mk('text', { x: 10, y: 25, width: 80, height: 50, content: intro.dedication, style: { fontSize: 20, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont, lineHeight: 1.9, fontWeight: 'bold' } }),
+      mk('text', { x: 10, y: 78, width: 80, height: 8, content: '— הקדשה', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
     ];
-    let y = 15;
-    if (ps.birthStory) {
-      storyEls.push(...pill(68, y, 28, 6.5, 'סיפור הלידה', '🍼', P));
-      storyEls.push(mk('text', { x: 5, y: y + 7.5, width: 90, height: 28, content: ps.birthStory, style: { fontSize: 13, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.6 } }));
-      storyEls.push(...photoPlaceholder(63, y + 7.5, 34, 28));
-      y += 38;
-    }
-    if (ps.personalVision && y < 85) {
-      storyEls.push(...pill(65, y, 31, 6.5, 'החזון שלי', '🌟', accent));
-      storyEls.push(mk('text', { x: 5, y: y + 7.5, width: 90, height: 84 - y - 8, content: ps.personalVision, style: { fontSize: 13, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.6 } }));
-    }
-    pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'personal', title: 'הסיפור שלי', templateId, elements: storyEls });
+    addPage('הקדשה', 'custom', dedicationEls);
   }
 
-  // ─── 6. NUCLEAR FAMILY ─────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // PART 2 — "I" PERSONAL IDENTITY
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── PERSONAL ID CARD ───────────────────────────────────────
+  const personalIdEls: DesignElement[] = [
+    ...header('תעודת זהות אישית', '👤', 'חלק 2: אני — הזהות האישית'),
+    ...pill(55, 15, 41, 6.5, 'פרטים אישיים', '📋', P),
+    mk('text', { x: 5, y: 23, width: 48, height: 55, content: [
+      `שם מלא: ${student ? `${student.firstName} ${student.lastName}` : '_______________'}`,
+      student?.nickname ? `כינוי: ${student.nickname}` : '',
+      `תאריך לידה: ${student?.birthDate?.slice(0,10) || '_______________'}`,
+      `מקום לידה: ${student?.birthPlace || '_______________'}`,
+      student?.countryOfResidence ? `מדינה: ${student.countryOfResidence}` : '',
+      student?.cityOfResidence ? `עיר: ${student.cityOfResidence}` : '',
+      student?.religion ? `דת: ${student.religion}` : '',
+    ].filter(Boolean).join('\n'), style: { fontSize: 13, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 } }),
+    ...photoPlaceholder(55, 23, 40, 52),
+  ];
+  addPage('תעודת זהות אישית', 'personal', personalIdEls);
+
+  // ─── NAME STORY ─────────────────────────────────────────────
+  const ps = pd.personalStory || {};
+  const nameEls: DesignElement[] = [
+    ...header('סיפור השם שלי', '✍️', 'חלק 2: אני'),
+    mk('shape', { x: 0, y: 0, width: 6, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
+    mk('text', { x: 72, y: 14, width: 22, height: 18, content: '❝', style: { fontSize: 70, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
+    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 15),
+    ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 13)] : []),
+  ];
+  if (student?.photoURL) nameEls.push(mk('image', { content: student.photoURL, x: 66, y: 75, width: 28, height: 22, zIndex: 5, style: { borderRadius: 12 } }));
+  else nameEls.push(...photoPlaceholder(66, 75, 28, 20));
+  addPage('סיפור השם שלי', 'name', nameEls);
+
+  // ─── DAY I WAS BORN ─────────────────────────────────────────
+  if (ps.dayIWasBorn) {
+    const birthDayEls: DesignElement[] = [
+      ...header('ביום שנולדתי', '🗓️', 'חלק 2: אני'),
+      ...pill(55, 15, 41, 6.5, student?.birthDate?.slice(0,10) || '', '🎂', P),
+      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 14),
+    ];
+    birthDayEls.push(...photoPlaceholder(55, 70, 40, 24, '📰 כותרות עיתון מיום הלידה'));
+    addPage('ביום שנולדתי', 'personal', birthDayEls);
+  }
+
+  // ─── EARLY CHILDHOOD ────────────────────────────────────────
+  const childhoodEls: DesignElement[] = [
+    ...header('זיכרונות ילדות מוקדמים', '🧸', 'חלק 2: אני'),
+    ...textBlock(5, 15, 58, 75, ps.earlyChildhood, 'כאן יופיעו זיכרונות מהילדות המוקדמת — גיל 0 עד 5, סיפורים וחוויות שנחרטו בזיכרון.', 13),
+    ...photoPlaceholder(65, 15, 30, 40, '📷 תמונה מהילדות'),
+    ...photoPlaceholder(65, 57, 30, 33, '📷 עוד תמונה'),
+  ];
+  addPage('זיכרונות ילדות מוקדמים', 'personal', childhoodEls);
+
+  // ─── ELEMENTARY SCHOOL ──────────────────────────────────────
+  const elemEls: DesignElement[] = [
+    ...header('היסודי שלי', '🏫', 'חלק 2: אני'),
+    ...textBlock(5, 15, 58, 75, ps.elementarySchool, 'כאן יופיע סיפור על שנות בית הספר היסודי — מורים, חברים, חוויות בלתי נשכחות ורגעים מיוחדים.', 13),
+    ...photoPlaceholder(65, 15, 30, 35, '📷 תמונה מבית הספר'),
+    ...photoPlaceholder(65, 52, 30, 38, '📷 עם חברים'),
+  ];
+  addPage('היסודי שלי', 'personal', elemEls);
+
+  // ─── HOBBIES ────────────────────────────────────────────────
+  const hobbiesEls: DesignElement[] = [
+    ...header('התחביבים שלי', '🎯', 'חלק 2: אני'),
+    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 14),
+    ...photoPlaceholder(5, 57, 28, 35, '📷 תחביב 1'),
+    ...photoPlaceholder(35, 57, 28, 35, '📷 תחביב 2'),
+    ...photoPlaceholder(65, 57, 30, 35, '📷 תחביב 3'),
+  ];
+  addPage('התחביבים שלי', 'personal', hobbiesEls);
+
+  // ─── TALENTS (if filled) ─────────────────────────────────────
+  if (ps.talents) {
+    const talentsEls: DesignElement[] = [
+      ...header('הכישרונות שלי', '⭐', 'חלק 2: אני'),
+      ...textBlock(5, 15, 90, 55, ps.talents, '', 14),
+      ...photoPlaceholder(5, 72, 43, 22, '📷 הכישרון שלי בפעולה'),
+      ...photoPlaceholder(52, 72, 43, 22, '📷 עוד דוגמה'),
+    ];
+    addPage('הכישרונות שלי', 'personal', talentsEls);
+  }
+
+  // ─── MY BELIEFS ─────────────────────────────────────────────
+  const beliefsEls: DesignElement[] = [
+    ...header('אני מאמין', '💡', 'חלק 2: אני'),
+    mk('text', { x: 8, y: 13, width: 15, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
+    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 15),
+  ];
+  if (ps.futureLetter) {
+    beliefsEls.push(...pill(55, 72, 41, 6.5, 'מכתב לעתיד', '📮', accent));
+    beliefsEls.push(...textBlock(5, 72, 48, 22, ps.futureLetter, '', 12));
+  } else {
+    beliefsEls.push(...photoPlaceholder(5, 72, 90, 22, '📷 גלריה אישית'));
+  }
+  addPage('אני מאמין', 'personal', beliefsEls);
+
+  // ─── PHOTO GALLERY (if provided) ────────────────────────────
+  const galleryPhotos: string[] = Array.isArray(ps.gallery) ? ps.gallery.filter(Boolean) : [];
+  if (galleryPhotos.length > 0 || true) { // always add, with placeholders
+    const galEls: DesignElement[] = [
+      ...header('גלריית "אני"', '🖼️', 'חלק 2: אני'),
+      mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'קולאז׳ תמונות מתחנות שונות בחיי', style: { fontSize: 13, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+    ];
+    const slots = [
+      [5,22,28,35],[35,22,28,35],[65,22,30,35],
+      [5,59,28,35],[35,59,28,35],[65,59,30,35],
+    ];
+    slots.forEach(([x, y, w, h], i) => {
+      const url = galleryPhotos[i];
+      if (url) galEls.push(mk('image', { content: url, x, y, width: w, height: h, zIndex: 5, style: { borderRadius: 8, opacity: 1 } }));
+      else galEls.push(...photoPlaceholder(x, y, w, h, `📷 תמונה ${i + 1}`));
+    });
+    addPage('גלריית "אני"', 'personal', galEls);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // PART 3 — NUCLEAR FAMILY
+  // ═══════════════════════════════════════════════════════════
+
+  const nf = pd.nuclearFamily || {};
   const parentRels = relationships.filter(r => r.personBId === project.studentPersonId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
   const parents = parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
   const sibRels = relationships.filter(r => (r.personAId === project.studentPersonId || r.personBId === project.studentPersonId) && r.relationshipType === 'sibling');
-  const siblings = sibRels.map(r => people.find(p => p.id === (r.personAId === project.studentPersonId ? r.personBId : r.personAId))).filter(Boolean).slice(0, 6) as Person[];
+  const siblings = sibRels.map(r => people.find(p => p.id === (r.personAId === project.studentPersonId ? r.personBId : r.personAId))).filter(Boolean) as Person[];
 
-  if (parents.length || student) {
-    const totalMembers = parents.length + (student ? 1 : 0) + siblings.length;
-    // Calculate smart card dimensions based on total members
-    const cardW = totalMembers > 6 ? 18 : totalMembers > 4 ? 22 : 26;
-    const cardH = totalMembers > 6 ? 28 : totalMembers > 4 ? 32 : 36;
+  // ─── OUR HOME ───────────────────────────────────────────────
+  const homeEls: DesignElement[] = [
+    ...header('הבית שלנו', '🏡', 'חלק 3: המשפחה הגרעינית'),
+    ...textBlock(5, 15, 58, 75, nf.ourHome, 'תאר את הבית הפיזי, השכונה, האווירה בבית — מה מיוחד בבית שלכם, איך הוא נראה ומרגיש.', 13),
+    ...photoPlaceholder(65, 15, 30, 35, '📷 הבית שלנו'),
+    ...photoPlaceholder(65, 52, 30, 38, '📷 השכונה'),
+  ];
+  addPage('הבית שלנו', 'nuclear_family', homeEls);
 
-    const nucEls: DesignElement[] = [...header('המשפחה הגרעינית', '👨‍👩‍👧')];
-    const studentCardId = uuidv4();
-
-    // Parents row — centered
-    const parentTotal = parents.length;
+  // ─── NUCLEAR FAMILY DIAGRAM ─────────────────────────────────
+  const totalMembers = parents.length + (student ? 1 : 0) + siblings.length;
+  const cardW = totalMembers > 6 ? 18 : totalMembers > 4 ? 20 : 24;
+  const cardH = totalMembers > 6 ? 27 : totalMembers > 4 ? 30 : 34;
+  const nucEls: DesignElement[] = [...header('המשפחה הגרעינית', '👨‍👩‍👧', 'חלק 3: המשפחה הגרעינית')];
+  const studentCardId = uuidv4();
+  const parentTotal = parents.length;
+  if (parentTotal > 0) {
     const parentRowW = parentTotal * cardW + (parentTotal - 1) * 4;
-    let parentStartX = (100 - parentRowW) / 2;
+    const parentStartX = (100 - parentRowW) / 2;
     const parentCardIds: string[] = [];
     parents.forEach((parent, idx) => {
       const parentCardId = uuidv4();
       parentCardIds.push(parentCardId);
-      nucEls.push(mk('person_card', { id: parentCardId, personId: parent.id, x: parentStartX + idx * (cardW + 4), y: 15, width: cardW, height: cardH, zIndex: 10 }));
+      const pCard = mk('person_card', { personId: parent.id, x: parentStartX + idx * (cardW + 4), y: 15, width: cardW, height: cardH, zIndex: 10 });
+      pCard.id = parentCardId;
+      nucEls.push(pCard);
     });
-
-    // Student card — center
     if (student) {
-      nucEls.push({ ...mk('person_card', { personId: student.id, x: (100 - cardW) / 2, y: 55, width: cardW, height: cardH, zIndex: 10 }), id: studentCardId });
-      parentCardIds.forEach(pid => {
-        nucEls.push(mk('connection_line', { fromElementId: pid, toElementId: studentCardId, x: 0, y: 0, width: 0, height: 0, zIndex: 1, style: { color: P, borderWidth: 2 } }));
-      });
+      const sCard = mk('person_card', { personId: student.id, x: (100 - cardW) / 2, y: 55, width: cardW, height: cardH, zIndex: 10 });
+      sCard.id = studentCardId;
+      nucEls.push(sCard);
+      parentCardIds.forEach(pid => nucEls.push(mk('connection_line', { fromElementId: pid, toElementId: studentCardId, x: 0, y: 0, width: 0, height: 0, zIndex: 1, style: { color: P, borderWidth: 2 } })));
     }
-
-    // Siblings row
-    if (siblings.length > 0) {
-      const sibTotalW = siblings.length * cardW + (siblings.length - 1) * 3;
-      const sibStartX = (100 + cardW + 4) / 2;
-      siblings.forEach((sib, idx) => {
-        if (sibStartX + idx * (cardW + 3) + cardW <= 100) {
-          nucEls.push(mk('person_card', { personId: sib.id, x: Math.min(sibStartX + idx * (cardW + 3), 100 - cardW), y: 55, width: cardW, height: cardH, zIndex: 9 }));
-        }
-      });
-    }
-    pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'nuclear_family', title: 'המשפחה הגרעינית', templateId, elements: nucEls });
   }
-
-  // ─── 7+8. ROOTS PAGES (paternal / maternal) ────────────────
-  const rootSides: Array<{ key: 'paternalGrandfather' | 'paternalGrandmother' | 'maternalGrandfather' | 'maternalGrandmother'; title: string; emoji: string; pageType: DesignPage['pageType'] }[]> = [
-    [
-      { key: 'paternalGrandfather', title: 'סבא מצד אבא', emoji: '👴', pageType: 'roots_paternal' },
-      { key: 'paternalGrandmother', title: 'סבתא מצד אבא', emoji: '👵', pageType: 'roots_paternal' },
-    ],
-    [
-      { key: 'maternalGrandfather', title: 'סבא מצד אמא', emoji: '👴', pageType: 'roots_maternal' },
-      { key: 'maternalGrandmother', title: 'סבתא מצד אמא', emoji: '👵', pageType: 'roots_maternal' },
-    ],
-  ];
-  const rootTitles = ['שורשים מצד אבא', 'שורשים מצד אמא'];
-
-  rootSides.forEach((side, sIdx) => {
-    const hasAny = side.some(s => {
-      const d = (project.projectData?.familyRoots as any)?.[s.key];
-      return d?.personId || d?.story;
+  if (siblings.length > 0) {
+    const sibStartX = (100 + cardW + 4) / 2 + 2;
+    siblings.slice(0, 4).forEach((sib, idx) => {
+      const sx = Math.min(sibStartX + idx * (cardW + 3), 100 - cardW);
+      nucEls.push(mk('person_card', { personId: sib.id, x: sx, y: 55, width: cardW, height: cardH, zIndex: 9 }));
     });
-    if (!hasAny) return;
-    const rootEls: DesignElement[] = [...header(rootTitles[sIdx], sIdx === 0 ? '👨' : '👩')];
-    side.forEach((s, sRowIdx) => {
-      const data = (project.projectData?.familyRoots as any)?.[s.key];
-      if (!data) return;
-      const rowY = 15 + sRowIdx * 42;
-      rootEls.push(...pill(55, rowY, 41, 6.5, s.title, s.emoji, sRowIdx === 0 ? P : accent));
-      if (data.personId) {
-        rootEls.push(mk('person_card', { personId: data.personId, x: 5, y: rowY, width: 24, height: 36, zIndex: 10 }));
-      } else {
-        rootEls.push(...photoPlaceholder(5, rowY, 24, 36, `📷 ${s.title}`));
-      }
-      if (data.story) {
-        rootEls.push(mk('text', { x: 31, y: rowY + 7.5, width: 65, height: 30, content: data.story, style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.55 } }));
-      } else {
-        rootEls.push(mk('text', { x: 31, y: rowY + 7.5, width: 65, height: 8, content: 'הוסף כאן סיפור על הסב/ה', style: { fontSize: 12, textAlign: 'right', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.45 } }));
-      }
-    });
-    pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: side[0].pageType, title: rootTitles[sIdx], templateId, elements: rootEls });
+  }
+  addPage('המשפחה הגרעינית', 'nuclear_family', nucEls);
+
+  // ─── PARENT PAGES (one per parent) ──────────────────────────
+  const parentBios: Array<{ personId?: string; bio?: string; militaryService?: string; profession?: string }> = (nf.parents as any[]) || [];
+  parents.forEach((parent, idx) => {
+    const bio = parentBios.find(b => b.personId === parent.id) || {};
+    const role = parent.gender === 'female' ? 'אמא' : 'אבא';
+    const parentEls: DesignElement[] = [
+      ...header(`${role} — ${parent.firstName} ${parent.lastName}`, parent.gender === 'female' ? '👩' : '👨', 'חלק 3: המשפחה הגרעינית'),
+      mk('person_card', { personId: parent.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
+    ];
+    let y = 15;
+    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 12)); y += 24; }
+    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 12)); y += 17; }
+    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 12)); }
+    if (!bio.bio && !bio.militaryService && !bio.profession) {
+      parentEls.push(...textBlock(5, 15, 59, 78, undefined, `כאן יופיע סיפורו של ${parent.firstName} — ילדות, שירות צבאי, מקצוע ועוד.`, 13));
+    }
+    parentEls.push(...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${parent.firstName}`));
+    addPage(`${role} — ${parent.firstName}`, 'nuclear_family', parentEls);
   });
 
-  // ─── FAMILY TREE CHART PAGE ─────────────────────────────────
+  // ─── PARENTS MEETING STORY ──────────────────────────────────
+  const meetingEls: DesignElement[] = [
+    ...header('סיפור ההיכרות', '💑', 'חלק 3: המשפחה הגרעינית'),
+    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 14),
+    ...photoPlaceholder(5, 72, 43, 22, '📷 תמונת חתונה'),
+    ...photoPlaceholder(52, 72, 43, 22, '📷 תמונה נוספת'),
+  ];
+  addPage('סיפור ההיכרות של ההורים', 'nuclear_family', meetingEls);
+
+  // ─── SIBLING PAGES (one per sibling) ────────────────────────
+  const sibBios: Array<{ personId?: string; relationshipDescription?: string }> = (nf.siblings as any[]) || [];
+  siblings.forEach((sib, idx) => {
+    const sibBio = sibBios.find(b => b.personId === sib.id) || {};
+    const sibEls: DesignElement[] = [
+      ...header(`${sib.firstName} ${sib.lastName}`, sib.gender === 'female' ? '👧' : '👦', 'חלק 3: אחים ואחיות'),
+      mk('person_card', { personId: sib.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
+      ...pill(5, 15, 59, 6.5, 'אח/ות שלי', '💙', P),
+      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 13),
+      ...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${sib.firstName}`),
+    ];
+    addPage(`${sib.firstName} — אח/ות`, 'nuclear_family', sibEls);
+  });
+
+  // ─── FAMILY LIFE ─────────────────────────────────────────────
+  const familyLifeEls: DesignElement[] = [
+    ...header('הווי משפחתי', '🎉', 'חלק 3: המשפחה הגרעינית'),
+    ...textBlock(5, 15, 58, 40, nf.familyLife, 'תאר את הבילויים, הטיולים, הפעילויות המשותפות של המשפחה — מה עושים יחד ומה מחבר אתכם.', 13),
+    ...photoPlaceholder(65, 15, 30, 40, '📷 ביחד'),
+    ...pill(5, 57, 90, 7, 'חגים ומנהגים', '🕍', accent),
+    ...textBlock(5, 66, 90, 28, nf.holidaysAndCustoms, 'כאן יופיעו מסורות המשפחה בחגים — מה עושים בחנוכה, פסח, שבת...', 13),
+  ];
+  addPage('הווי משפחתי וחגים', 'nuclear_family', familyLifeEls);
+
+  // Optional extras
+  if (nf.ourPets) {
+    const petsEls: DesignElement[] = [
+      ...header('חיות המחמד שלנו', '🐾', 'חלק 3: המשפחה הגרעינית'),
+      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 14),
+      ...photoPlaceholder(5, 72, 43, 22, '📷 חיות המחמד שלנו'),
+      ...photoPlaceholder(52, 72, 43, 22, '📷 עוד תמונה'),
+    ];
+    addPage('חיות המחמד שלנו', 'nuclear_family', petsEls);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // PART 4+5 — GRANDPARENTS (PATERNAL + MATERNAL)
+  // ═══════════════════════════════════════════════════════════
+  const fr = pd.familyRoots || {} as any;
+
+  const grandparentGroups = [
+    {
+      label: 'מצד אבא', chapterLabel: 'חלק 4: שורשים — דור הסבים מצד אבא',
+      pageType: 'roots_paternal' as const, emoji: '👨',
+      grandfather: { key: 'paternalGrandfather', title: 'סבא מצד אבא', emoji: '👴' },
+      grandmother: { key: 'paternalGrandmother', title: 'סבתא מצד אבא', emoji: '👵' },
+      meetingKey: 'paternalGrandparentsMeetingStory',
+      treeImageKey: 'paternalTreeImage',
+    },
+    {
+      label: 'מצד אמא', chapterLabel: 'חלק 5: שורשים — דור הסבים מצד אמא',
+      pageType: 'roots_maternal' as const, emoji: '👩',
+      grandfather: { key: 'maternalGrandfather', title: 'סבא מצד אמא', emoji: '👴' },
+      grandmother: { key: 'maternalGrandmother', title: 'סבתא מצד אמא', emoji: '👵' },
+      meetingKey: 'maternalGrandparentsMeetingStory',
+      treeImageKey: 'maternalTreeImage',
+    },
+  ];
+
+  grandparentGroups.forEach(group => {
+    [group.grandfather, group.grandmother].forEach(gp => {
+      const data: any = (fr as any)[gp.key] || {};
+      const gPerson = data.personId ? people.find(p => p.id === data.personId) : null;
+      const gpName = gPerson ? `${gPerson.firstName} ${gPerson.lastName}` : gp.title;
+
+      // ID Card page
+      const idCardEls: DesignElement[] = [
+        ...header(`${gp.title} — תעודת זהות`, gp.emoji, group.chapterLabel),
+        ...(gPerson ? [mk('person_card', { personId: gPerson.id, x: 66, y: 15, width: 29, height: 44, zIndex: 10 })] : [...photoPlaceholder(66, 15, 29, 44, `📷 ${gp.title}`)]),
+        ...pill(5, 15, 59, 6.5, 'פרטים בסיסיים', '📋', P),
+        ...textBlock(5, 23, 59, 45, data.idCardStory,
+          gPerson ? [
+            `שם: ${gPerson.firstName} ${gPerson.lastName}`,
+            gPerson.birthDate ? `נולד/ה: ${gPerson.birthDate.slice(0,10)}` : '',
+            gPerson.birthPlace ? `מקום לידה: ${gPerson.birthPlace}` : '',
+            gPerson.countryOfResidence ? `מדינה: ${gPerson.countryOfResidence}` : '',
+          ].filter(Boolean).join('\n') : 'פרטים אישיים יופיעו כאן', 13),
+      ];
+      addPage(`${gp.title} — פרטים`, group.pageType, idCardEls);
+
+      // Aliyah / Coming to Israel story
+      const aliyahEls: DesignElement[] = [
+        ...header(`${gp.title} — עלייה וקליטה`, '✈️', group.chapterLabel),
+        ...textBlock(5, 15, 90, 55, data.aliyahStory, `כאן יופיע סיפור העלייה וההגעה לישראל של ${gpName} — מאיפה הגיע/ה, מה עבר/ה בדרך, ואיך הסתגל/ה לחיים בארץ.`, 13),
+        ...photoPlaceholder(5, 72, 43, 22, '📷 תמונה מתקופת העלייה'),
+        ...photoPlaceholder(52, 72, 43, 22, '📷 תעודות / מסמכים'),
+      ];
+      addPage(`${gp.title} — עלייה`, group.pageType, aliyahEls);
+
+      // Adulthood / Military / Career
+      const adulthoodEls: DesignElement[] = [
+        ...header(`${gp.title} — בגרות וקריירה`, '🌱', group.chapterLabel),
+        ...textBlock(5, 15, 58, 75, data.adulthoodStory || data.story, `כאן יופיע סיפור הבגרות של ${gpName} — שירות צבאי, עבודה, הקמת משפחה וחיים בישראל.`, 13),
+        ...photoPlaceholder(65, 15, 30, 35, '📷 תמונות בגרות'),
+        ...photoPlaceholder(65, 52, 30, 38, '📷 משפחה'),
+      ];
+      addPage(`${gp.title} — בגרות`, group.pageType, adulthoodEls);
+    });
+
+    // Grandparents meeting story
+    const meetingStory: string | undefined = (fr as any)[group.meetingKey];
+    if (meetingStory) {
+      const gpMeetingEls: DesignElement[] = [
+        ...header(`סיפור ההיכרות — ${group.label}`, '💕', group.chapterLabel),
+        ...textBlock(5, 15, 90, 65, meetingStory, '', 14),
+        ...photoPlaceholder(5, 82, 43, 13, '📷 תמונה'),
+        ...photoPlaceholder(52, 82, 43, 13, '📷 חתונה'),
+      ];
+      addPage(`ההיכרות — ${group.label}`, group.pageType, gpMeetingEls);
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════
+  // PART 6 — RESEARCH & CHARTS
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── FAMILY TREE CHART ──────────────────────────────────────
   const treeEls: DesignElement[] = [
-      ...header('אילן יוחסין', '🌳'),
-      mk('text', { x: 5, y: 16, width: 90, height: 12, content: 'תרשים אילן היוחסין המשפחתי — לפחות 3-4 דורות', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+    ...header('אילן יוחסין גרפי', '🌳', 'חלק 6: נתונים ומחקר'),
+    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'תרשים 3-4 דורות — גרור ועדכן כרטיסי אנשים', style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
-  const cardElementsMap = new Map<string, string>(); // personId -> elementId
-
-  // Auto-place person cards in tree layout and create connection lines
-  const findParents = (personId?: string): Person[] => {
-    if (!personId) return [];
-    const parentRels = relationships.filter(r => r.personBId === personId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
-    return parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
-  };
-
-  const studentParents = findParents(student?.id);
-  const paternalGrandparents = findParents(studentParents.find(p => p.gender === 'male')?.id);
-  const maternalGrandparents = findParents(studentParents.find(p => p.gender === 'female')?.id);
-
-  const placePerson = (person: Person, x: number, y: number, w: number, h: number) => {
-    const elId = uuidv4();
-    cardElementsMap.set(person.id, elId);
-    treeEls.push(mk('person_card', { id: elId, personId: person.id, x, y, width: w, height: h, zIndex: 10, style: { scale: 1 } }));
-  };
-
-  // Place generations
-  if (paternalGrandparents.length > 0) paternalGrandparents.forEach((p, i) => placePerson(p, 5 + i * 23, 30, 20, 26));
-  if (maternalGrandparents.length > 0) maternalGrandparents.forEach((p, i) => placePerson(p, 52 + i * 23, 30, 20, 26));
-  if (studentParents.length > 0) studentParents.forEach((p, i) => placePerson(p, 16 + i * 48, 60, 22, 28));
-  if (student) placePerson(student, 39, 86, 22, 12);
-  
-  // Create connection lines
-  relationships.forEach(rel => {
-    if (['parent', 'adoptive_parent', 'step_parent'].includes(rel.relationshipType)) {
-      const parentCardId = cardElementsMap.get(rel.personAId);
-      const childCardId = cardElementsMap.get(rel.personBId);
-      if (parentCardId && childCardId) {
-        treeEls.push(mk('connection_line', { 
-          fromElementId: parentCardId, 
-          toElementId: childCardId, 
-          x: 0, y: 0, width: 0, height: 0, 
-          zIndex: 1, 
-          style: { color: P, borderWidth: 1.5, lineType: 'pcb' } 
-        }));
-      }
-    }
-  });
-
-
-  if (cardElementsMap.size === 0) { // Fallback if no hierarchy found
-    treeEls.push(...photoPlaceholder(5, 30, 90, 55, '🌳 הוסף כאן תרשים אילן יוחסין — גרור כרטיסי אנשים'));
-  }
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'roots_great', title: 'אילן יוחסין', templateId, elements: treeEls });
-
-
-  // ─── HERITAGE PAGE ──────────────────────────────────────────
-  const h = project.projectData?.heritage;
-  if (h?.inheritedObject || h?.familyRecipe || h?.familyNameOrigin) {
-    const herEls: DesignElement[] = [
-      ...header('מורשת משפחתית', '🏺'),
-    ];
-    let y2 = 15;
-    const sections = [
-      { exists: !!h.inheritedObject, icon: '💎', label: 'חפץ עובר בירושה', content: h.inheritedObject, needsPhoto: true },
-      { exists: !!h.familyRecipe, icon: '🍽️', label: 'מתכון משפחתי', content: h.familyRecipe, needsPhoto: false },
-      { exists: !!h.familyNameOrigin, icon: '📜', label: 'מקור שם המשפחה', content: h.familyNameOrigin, needsPhoto: false },
-    ];
-    sections.filter(s => s.exists).forEach((sec, i) => {
-      const colW = sec.needsPhoto ? 55 : 90;
-      herEls.push(...pill(5, y2, colW, 6.5, sec.label, sec.icon, i % 2 === 0 ? P : accent));
-      herEls.push(mk('text', { x: 5, y: y2 + 7.5, width: colW, height: 15, content: sec.content!, style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.6 } }));
-      if (sec.needsPhoto) herEls.push(...photoPlaceholder(62, y2, 34, 24, '📷 תמונת החפץ'));
-      y2 += 28;
+  const researchData = pd.research || {} as any;
+  if (researchData.familyTreeGraphic) {
+    treeEls.push(mk('image', { content: researchData.familyTreeGraphic, x: 5, y: 22, width: 90, height: 72, zIndex: 5, style: { borderRadius: 4 } }));
+  } else {
+    // Place all known people in a tree layout
+    const gpKeys = ['paternalGrandfather', 'paternalGrandmother', 'maternalGrandfather', 'maternalGrandmother'];
+    const gpIds = gpKeys.map(k => (fr as any)[k]?.personId).filter(Boolean);
+    gpIds.forEach((pid: string, i: number) => {
+      treeEls.push(mk('person_card', { personId: pid, x: 3 + i * 24, y: 22, width: 21, height: 28, zIndex: 10 }));
     });
-    pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'heritage', title: 'מורשת משפחתית', templateId, elements: herEls });
+    if (parents.length > 0) {
+      parents.forEach((p2, i) => {
+        treeEls.push(mk('person_card', { personId: p2.id, x: 15 + i * 48, y: 54, width: 21, height: 26, zIndex: 10 }));
+      });
+    }
+    if (student) {
+      treeEls.push(mk('person_card', { personId: student.id, x: 40, y: 83, width: 20, height: 13, zIndex: 10 }));
+    }
+    if (gpIds.length === 0 && parents.length === 0) {
+      treeEls.push(...photoPlaceholder(5, 22, 90, 72, '🌳 הוסף כאן תרשים אילן יוחסין'));
+    }
+  }
+  addPage('אילן יוחסין', 'roots_great', treeEls);
+
+  // ─── MIGRATION MAP ───────────────────────────────────────────
+  const mapEls: DesignElement[] = [
+    ...header('מפת נדודים משפחתית', '🗺️', 'חלק 6: נתונים ומחקר'),
+  ];
+  if (researchData.migrationMaps) {
+    mapEls.push(mk('image', { content: researchData.migrationMaps, x: 5, y: 15, width: 90, height: 72, zIndex: 5, style: { borderRadius: 4 } }));
+  } else {
+    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ הוסף מפה של מסלול נדידת המשפחה ממדינות המוצא לישראל'));
+  }
+  mapEls.push(mk('text', { x: 5, y: 82, width: 90, height: 12, content: 'מדינות מוצא המשפחה: ________________________\nמסלול ההגירה: ________________________ ← ישראל', style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }));
+  addPage('מפת נדודים', 'custom', mapEls);
+
+  // ─── FAMILY NAME ORIGIN ──────────────────────────────────────
+  const h = pd.heritage || {} as any;
+  if (h.familyNameOrigin) {
+    const nameOriginEls: DesignElement[] = [
+      ...header('מקור שם המשפחה', '📜', 'חלק 6: נתונים ומחקר'),
+      mk('text', { x: 8, y: 13, width: 18, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
+      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 15),
+      ...photoPlaceholder(5, 77, 90, 17, '📜 מסמך או תמונה הקשורה לשם המשפחה'),
+    ];
+    addPage('מקור שם המשפחה', 'custom', nameOriginEls);
   }
 
-  // ─── TIMELINE PAGE ──────────────────────────────────────────
-  const timelineEls: DesignElement[] = [
-    ...header('ציר זמן היסטורי', '🕰️'),
-    mk('shape', { x: 48, y: 15, width: 4, height: 80, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.3 } }),
-    mk('text', { x: 5, y: 15, width: 42, height: 8, content: '1948 — הקמת מדינת ישראל', style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
-    mk('shape', { x: 46, y: 17, width: 8, height: 4, zIndex: 3, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.9 } }),
-    mk('text', { x: 54, y: 25, width: 42, height: 8, content: '1967 — מלחמת ששת הימים', style: { fontSize: 12, textAlign: 'left', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
-    mk('shape', { x: 46, y: 27, width: 8, height: 4, zIndex: 3, style: { shapeType: 'circle', backgroundColor: accent, opacity: 0.9 } }),
-    mk('text', { x: 5, y: 35, width: 42, height: 8, content: '1973 — מלחמת יום כיפור', style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
-    mk('shape', { x: 46, y: 37, width: 8, height: 4, zIndex: 3, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.9 } }),
-    mk('text', { x: 5, y: 15, width: 42, height: 8, content: 'ערוך את הציר עם אירועים מחיי המשפחה ←', style: { fontSize: 11, textAlign: 'right', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.6 } }),
-    mk('text', { x: 5, y: 50, width: 90, height: 40, content: 'הוסף כאן אירועים מהיסטוריית המשפחה ואירועים לאומיים מקבילים — ציר זמן משולב המחבר את הסיפור המשפחתי לתולדות עם ישראל.', style: { fontSize: 13, textAlign: 'right', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.6, opacity: 0.7 } }),
-  ];
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'national_history', title: 'ציר זמן היסטורי', templateId, elements: timelineEls });
+  // ─── CITY/TOWN ORIGIN ─────────────────────────────────────
+  if (researchData.cityOriginStory) {
+    const cityEls: DesignElement[] = [
+      ...header('גלגולה של עיר', '🏙️', 'חלק 6: נתונים ומחקר'),
+      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 14),
+      ...photoPlaceholder(5, 77, 43, 17, '📷 תמונת העיר'),
+      ...photoPlaceholder(52, 77, 43, 17, '🗺️ מפה'),
+    ];
+    addPage('גלגולה של עיר', 'custom', cityEls);
+  }
 
-  // ─── MIGRATION MAP PAGE ─────────────────────────────────────
-  const mapEls: DesignElement[] = [
-    ...header('מפת מסע המשפחה', '🗺️'),
-    mk('text', { x: 5, y: 16, width: 90, height: 10, content: 'הוסף מפה של מסלול נדידת המשפחה ממדינות המוצא לישראל', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
-    ...photoPlaceholder(5, 28, 90, 60, '🗺️ הוסף כאן מפת נדידה — מדינות המוצא → ישראל'),
-    mk('shape', { x: 30, y: 25, width: 3, height: 3, zIndex: 3, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.9 } }),
-    mk('text', { x: 5, y: 90, width: 90, height: 8, content: 'ציין מדינות מוצא: ________________________ | נקודת יעד: ישראל', style: { fontSize: 12, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, opacity: 0.8 } }),
+  // ─── STATISTICS PAGE ─────────────────────────────────────────
+  const statsEls: DesignElement[] = [
+    ...header('סטטיסטיקה משפחתית', '📊', 'חלק 6: נתונים ומחקר'),
+    mk('text', { x: 5, y: 15, width: 90, height: 8, content: `סה"כ אנשים בעץ המשפחה: ${people.length} | דורות: ${3} | ארצות מוצא שונות: ${new Set(people.map(p => (p as any).countryOfResidence).filter(Boolean)).size}`, style: { fontSize: 14, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, fontWeight: 'bold' } }),
+    ...photoPlaceholder(5, 25, 43, 65, '📊 גרף מוצא'),
+    ...photoPlaceholder(52, 25, 43, 65, '📊 גרף מקצועות / דורות'),
   ];
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'custom', title: 'מפת מסע המשפחה', templateId, elements: mapEls });
+  addPage('סטטיסטיקה משפחתית', 'custom', statsEls);
 
-  // ─── CONCLUSION PAGE ─────────────────────────────────────────
-  const conclusionEls: DesignElement[] = [
-    ...header('סיכום ורפלקציה', '💭'),
-    ...pill(55, 15, 41, 6.5, 'מה למדתי?', '🔍', P),
-    mk('text', { x: 5, y: 23, width: 90, height: 28, content: ps?.personalVision || 'כאן אכתוב מה למדתי על עצמי ועל משפחתי, מה הפתיע אותי, ומה גיליתי בתהליך העבודה.', style: { fontSize: 13, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.7 } }),
-    ...pill(55, 54, 41, 6.5, 'ביבליוגרפיה', '📚', accent),
-    mk('text', { x: 5, y: 62, width: 90, height: 28, content: 'מקורות:\n• ראיונות עם סבא וסבתא\n• תמונות ומסמכים משפחתיים\n• ___________________________\n• ___________________________', style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }),
-    mk('text', { x: 5, y: 90, width: 90, height: 8, content: `נכתב בשנת ${new Date().getFullYear()} | ${student ? student.firstName + ' ' + student.lastName : ''}`, style: { fontSize: 11, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.6 } }),
+  // ═══════════════════════════════════════════════════════════
+  // PART 7 — HERITAGE
+  // ═══════════════════════════════════════════════════════════
+
+  // ─── INHERITED OBJECT ────────────────────────────────────────
+  if (h.inheritedObject) {
+    const inheritedEls: DesignElement[] = [
+      ...header('חפץ עובר בירושה', '💎', 'חלק 7: מורשת'),
+      mk('text', { x: 8, y: 13, width: 16, height: 20, content: '🏺', style: { fontSize: 50, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
+      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 14),
+      ...photoPlaceholder(65, 15, 30, 55, '📷 תמונת החפץ'),
+      ...photoPlaceholder(5, 72, 90, 22, '📷 החפץ בהקשרו'),
+    ];
+    addPage('חפץ עובר בירושה', 'heritage', inheritedEls);
+  }
+
+  // ─── FAMILY RECIPE ────────────────────────────────────────────
+  if (h.familyRecipe) {
+    const recipeEls: DesignElement[] = [
+      ...header('הטעם של פעם', '🍽️', 'חלק 7: מורשת'),
+      ...pill(55, 15, 41, 6.5, 'מתכון משפחתי מסורתי', '👩‍🍳', P),
+      ...textBlock(5, 23, 90, 60, h.familyRecipe, '', 13),
+      ...photoPlaceholder(5, 85, 43, 11, '📷 התבשיל המוכן'),
+      ...photoPlaceholder(52, 85, 43, 11, '📷 המבשלת/ת'),
+    ];
+    addPage('הטעם של פעם — מתכון', 'heritage', recipeEls);
+  }
+
+  // ─── FAMILY & HISTORY ─────────────────────────────────────────
+  const historyContent = h.familyAndHistory;
+  const historyEls: DesignElement[] = [
+    ...header('המשפחה שלי וההיסטוריה', '🇮🇱', 'חלק 7: מורשת'),
+    ...textBlock(5, 15, 90, 55, historyContent, 'כאן יופיע הקשר בין הסיפור המשפחתי לאירועים לאומיים ומלחמות ישראל — "סבא היה בכיכר כשהכריזו על המדינה".', 13),
+    // Timeline decoration
+    mk('shape', { x: 48, y: 72, width: 4, height: 24, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.3 } }),
+    mk('text', { x: 5, y: 72, width: 41, height: 8, content: '1948 — הקמת המדינה', style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('shape', { x: 46, y: 74, width: 8, height: 3, zIndex: 3, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.9 } }),
+    mk('text', { x: 54, y: 80, width: 41, height: 8, content: '1967 — ששת הימים', style: { fontSize: 11, textAlign: 'left', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('shape', { x: 46, y: 82, width: 8, height: 3, zIndex: 3, style: { shapeType: 'circle', backgroundColor: accent, opacity: 0.9 } }),
+    mk('text', { x: 5, y: 88, width: 41, height: 8, content: '1973 — יום כיפור', style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
   ];
-  pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'custom', title: 'סיכום', templateId, elements: conclusionEls });
+  addPage('המשפחה שלי וההיסטוריה', 'national_history', historyEls);
+
+  // ─── ROLE MODELS ─────────────────────────────────────────────
+  if (h.roleModels) {
+    const roleModelEls: DesignElement[] = [
+      ...header('דמויות מופת במשפחה', '⭐', 'חלק 7: מורשת'),
+      ...textBlock(5, 15, 90, 60, h.roleModels, '', 14),
+      ...photoPlaceholder(5, 77, 43, 18, '📷 תמונת הדמות'),
+      ...photoPlaceholder(52, 77, 43, 18, '📷 עוד תמונה'),
+    ];
+    addPage('דמויות מופת', 'heritage', roleModelEls);
+  }
+
+  // ─── PARENTS LETTER ──────────────────────────────────────────
+  if (h.parentsLetter) {
+    const parentsLetterEls: DesignElement[] = [
+      ...header('מכתב אישי מההורים', '💌', 'חלק 7: מורשת'),
+      mk('text', { x: 8, y: 13, width: 16, height: 20, content: '❝', style: { fontSize: 80, textAlign: 'right', color: accent, opacity: 0.15, fontFamily: 'serif' } }),
+      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 15),
+      mk('text', { x: 5, y: 87, width: 90, height: 8, content: '— אמא ואבא, באהבה', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.titleFont, fontWeight: 'bold' } }),
+    ];
+    addPage('מכתב מההורים', 'heritage', parentsLetterEls);
+  }
+
+  // ─── DOCUMENTATION PAGE ──────────────────────────────────────
+  const docPhotos: string[] = Array.isArray(h.documentationPage) ? h.documentationPage.filter(Boolean) : [];
+  const docEls: DesignElement[] = [
+    ...header('עמוד התיעוד', '📜', 'חלק 7: מורשת'),
+    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'מסמכים מקוריים, תעודות לידה, דרכונים ישנים ותמונות נדירות', style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+  ];
+  const docSlots = [[5,22,43,35],[52,22,43,35],[5,59,43,35],[52,59,43,35]];
+  docSlots.forEach(([x, y, w, hh], i) => {
+    const url = docPhotos[i];
+    if (url) docEls.push(mk('image', { content: url, x, y, width: w, height: hh, zIndex: 5, style: { borderRadius: 4 } }));
+    else docEls.push(...photoPlaceholder(x, y, w, hh, `📜 מסמך ${i + 1}`));
+  });
+  addPage('עמוד התיעוד', 'heritage', docEls);
+
+  // ═══════════════════════════════════════════════════════════
+  // PART 8 — CONCLUSION
+  // ═══════════════════════════════════════════════════════════
+
+  const conc = pd.conclusion || {} as any;
+
+  // ─── PERSONAL REFLECTION ─────────────────────────────────────
+  const reflectionEls: DesignElement[] = [
+    ...header('רפלקציה אישית', '💭', 'חלק 8: סיכום'),
+    mk('text', { x: 8, y: 13, width: 16, height: 20, content: '💭', style: { fontSize: 60, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
+    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 14),
+    ...photoPlaceholder(5, 85, 90, 10, '📷 תמונה מסכמת'),
+  ];
+  addPage('רפלקציה אישית', 'custom', reflectionEls);
+
+  // ─── THANKS ──────────────────────────────────────────────────
+  const thanksEls: DesignElement[] = [
+    ...header('תודות', '🙏', 'חלק 8: סיכום'),
+    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 15),
+    mk('text', { x: 5, y: 87, width: 90, height: 8, content: '❤️', style: { fontSize: 30, textAlign: 'center', fontFamily: tmpl.bodyFont } }),
+  ];
+  addPage('תודות', 'custom', thanksEls);
+
+  // ─── BIBLIOGRAPHY ────────────────────────────────────────────
+  const biblioEls: DesignElement[] = [
+    ...header('ביבליוגרפיה', '📚', 'חלק 8: סיכום'),
+    ...textBlock(5, 15, 90, 75, conc.bibliography,
+      'מקורות המידע שהשתמשתי בהם:\n\n• ראיונות אישיים:\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n\n• מסמכים:\n  — תמונות משפחתיות\n  — תעודות לידה / נישואין\n\n• אתרים:\n  — _______________\n  — _______________', 13),
+    mk('text', { x: 5, y: 91, width: 90, height: 7, content: `${student ? student.firstName + ' ' + student.lastName : ''} | שנת ${new Date().getFullYear()}`, style: { fontSize: 11, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.65 } }),
+  ];
+  addPage('ביבליוגרפיה', 'custom', biblioEls);
+
+  // ═══════════════════════════════════════════════════════════
+  // UPDATE TABLE OF CONTENTS with actual page titles
+  // ═══════════════════════════════════════════════════════════
+  const tocLines = pages.map((pg, i) => `${i + 1}.  ${pg.title}`);
+  // Split into two columns if many pages
+  const half = Math.ceil(tocLines.length / 2);
+  const col1 = tocLines.slice(0, half).join('\n');
+  const col2 = tocLines.slice(half).join('\n');
+  pages[tocPageIdx].elements = [
+    ...header('תוכן עניינים', '📋'),
+    mk('text', { x: 52, y: 15, width: 44, height: 80, content: col1, style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
+    mk('text', { x: 5, y: 15, width: 44, height: 80, content: col2, style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
+  ];
 
   return pages;
 }
@@ -555,8 +886,10 @@ function TemplateDecorations({ template }: { template: DesignTemplate }) {
 // ============================================================
 // PERSON CARD ELEMENT
 // ============================================================
-const PersonCardElement = ({ element, people, relationships }: {
-  element: DesignElement; people: Person[]; relationships: Relationship[];
+const PersonCardElement = ({
+  element, people, relationships, scaleFactor,
+}: {
+  element: DesignElement; people: Person[]; relationships: Relationship[]; scaleFactor: number;
 }) => {
   const person = people.find(p => p.id === element.personId);
   if (!person) return (
@@ -566,62 +899,64 @@ const PersonCardElement = ({ element, people, relationships }: {
     </div>
   );
 
-  const getLifeYearsDisplay = () => {
-    const birthYear = person.birthDate && isValid(parseISO(person.birthDate)) ? new Date(person.birthDate).getFullYear() : null;
-    const deathYear = person.deathDate && isValid(parseISO(String(person.deathDate))) ? new Date(String(person.deathDate)).getFullYear() : null;
-    if(birthYear && deathYear) return `${birthYear}–${deathYear}`;
-    if(birthYear) return `${birthYear}–`;
-    return '';
-  };
-  
-  const displayName = [person.firstName, person.nickname ? `(${person.nickname})` : null, person.lastName, person.status === 'deceased' ? '(ז"ל)' : null].filter(Boolean).join(' ');
+  const childRels = relationships.filter(r => r.personAId === person.id && r.relationshipType === 'parent');
+  const siblingRels = relationships.filter(r => (r.personAId === person.id || r.personBId === person.id) && r.relationshipType === 'sibling');
+  const spouseRel = relationships.find(r => (r.personAId === person.id || r.personBId === person.id) && r.relationshipType === 'spouse');
+  const spousePerson = spouseRel ? people.find(p => p.id === (spouseRel.personAId === person.id ? spouseRel.personBId : spouseRel.personAId)) : null;
 
-  const childRels = relationships.filter(r => r.personAId === person.id && ['parent', 'adoptive_parent'].includes(r.relationshipType));
-  const siblingRels = relationships.filter(r => (r.personAId === person.id || r.personBId === person.id) && ['sibling', 'twin'].includes(r.relationshipType));
-  
-  const descendantCounts = [
-    { count: childRels.length, label: 'ילדים', icon: Baby },
-    { count: siblingRels.length, label: 'אחים', icon: Users },
-  ].filter(item => (item.count || 0) > 0);
+  const p = person as any;
+  const birthYear = person.birthDate && isValid(parseISO(person.birthDate)) ? new Date(person.birthDate).getFullYear() : null;
+  const deathYear = person.deathDate && isValid(parseISO(String(person.deathDate))) ? new Date(String(person.deathDate)).getFullYear() : null;
+  const age = birthYear ? (deathYear ? deathYear - birthYear : new Date().getFullYear() - birthYear) : null;
+  const displayName = [person.firstName, person.nickname ? `"${person.nickname}"` : null, person.lastName].filter(Boolean).join(' ');
 
   const bgColor = element.style?.backgroundColor || 'rgba(255,255,255,0.08)';
   const textColor = element.style?.color || '#ffffff';
   const opacity = element.style?.opacity ?? 1;
-  const scale = element.style?.scale ?? 1;
-  
-  const fs = (base: number) => Math.max(6, base * scale);
-  const pad = Math.max(2, 6 * scale);
-  const avatarSize = Math.max(16, 40 * scale);
+  const sf = Math.max(0.45, scaleFactor);
+  const fs = (base: number) => Math.max(6, Math.round(base * sf));
+  // Tighter padding — 4px minimum
+  const pad = Math.max(4, Math.round(6 * Math.max(0.5, sf)));
+  const avatarSize = Math.max(24, Math.round(38 * Math.max(0.55, sf)));
+
+  const infoRows: Array<{ icon: string; value: string }> = [];
+  if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
+  if (person.birthPlace) infoRows.push({ icon: '📍', value: person.birthPlace });
+  if (deathYear) infoRows.push({ icon: '✝', value: String(deathYear) });
+  if (p.originCountry || p.countryOfOrigin) infoRows.push({ icon: '🌍', value: p.originCountry || p.countryOfOrigin });
+  if (p.religion) infoRows.push({ icon: '✡️', value: p.religion });
+  if (person.profession) infoRows.push({ icon: '💼', value: person.profession });
+  if (spousePerson) infoRows.push({ icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
+  if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
+  if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
 
   return (
     <div
-      className="w-full h-full rounded-xl overflow-hidden border border-white/15 backdrop-blur-sm shadow-lg flex flex-col"
-      style={{ backgroundColor: bgColor, opacity, color: textColor, padding: 0, boxSizing: 'border-box' }}
+      className="w-full h-full rounded-xl overflow-hidden border border-white/15 backdrop-blur-sm shadow-lg"
+      style={{ backgroundColor: bgColor, opacity, color: textColor, padding: `${pad}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '2px' }}
       dir="rtl"
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: pad / 2, flexShrink: 0, padding: pad }}>
+      {/* Header: avatar + name */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
         <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.25)' }}>
           <img src={person.photoURL || getPlaceholderImage(person.gender)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-          <div style={{ fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(13), color: textColor }}>{displayName}</div>
-          <div style={{ opacity: 0.65, fontSize: fs(10), lineHeight: 1.2 }}>{getLifeYearsDisplay()}</div>
+          <div style={{ fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(12), color: textColor }}>{displayName}</div>
+          {birthYear && <div style={{ opacity: 0.65, fontSize: fs(9), lineHeight: 1.2 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
+          {person.gender && <div style={{ opacity: 0.45, fontSize: fs(8), lineHeight: 1.2 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status || p.lifeStatus}` : ''}</div>}
         </div>
       </div>
-      {descendantCounts.length > 0 && (
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5" style={{ paddingLeft: pad, paddingRight: pad, paddingBottom: pad }}>
-             {descendantCounts.map(({ count, label, icon: Icon }) => (
-                  <div key={label} className="flex items-center justify-end gap-1.5" style={{ fontSize: fs(10), opacity: 0.8 }}>
-                    <span>{count} {label}</span>
-                    <Icon style={{ width: fs(12), height: fs(12) }} />
-                  </div>
-              ))}
-          </div>
-      )}
+      {/* Info rows */}
+      {infoRows.slice(0, Math.floor(sf * 8)).map((row, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+          <span style={{ fontSize: fs(8), lineHeight: 1 }}>{row.icon}</span>
+          <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: fs(9), color: textColor }}>{row.value}</span>
+        </div>
+      ))}
     </div>
   );
 };
-
 
 // ============================================================
 // PHOTO PLACEHOLDER ELEMENT
@@ -917,10 +1252,65 @@ export function RootsDesignEditor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
   const resizeHandle = useRef<string | null>(null);
-  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, elScale: 1 });
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, aspectRatio: 1 });
   const pagesRef = useRef<DesignPage[]>(pages);
   const hasGeneratedRef = useRef(false);
   useEffect(() => { pagesRef.current = pages; }, [pages]);
+
+  // ── Init ──
+  useEffect(() => {
+    const existing = project.projectData?.designData?.pages;
+    if (!existing || existing.length === 0) {
+      hasGeneratedRef.current = true;
+      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
+      setPages(generated);
+      setIsGenerating(false);
+      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
+    } else { setIsGenerating(false); }
+  }, []); // eslint-disable-line
+  useEffect(() => { if (hasGeneratedRef.current) return; setPages(project.projectData?.designData?.pages || []); }, [project.projectData?.designData?.pages]);
+
+  // ── Keyboard ──
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      const isInput = document.activeElement && ['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement).tagName);
+      if (isInput && editingElementId) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length && !editingElementId) {
+        e.preventDefault(); selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]);
+      }
+      if (e.key === 'Escape') { setSelectedIds([]); setEditingElementId(null); setActiveTool('select'); setCtxMenu(null); }
+      if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
+        const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === selectedIds[0]);
+        if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); }
+      }
+      if ((e.key === 'x' || e.key === 'X') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
+        const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === selectedIds[0]);
+        if (el) { _clipboard = el; deleteElementById(el.id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); }
+      }
+      if ((e.key === 'v' || e.key === 'V') && (e.ctrlKey || e.metaKey) && _clipboard) {
+        e.preventDefault();
+        const { id: _id, ...rest } = _clipboard;
+        addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) });
+        toast({ title: 'הודבק ✓' });
+      }
+      if (e.key === 'd' && (e.ctrlKey || e.metaKey) && selectedIds.length) { e.preventDefault(); selectedIds.forEach(id => duplicateElementById(id)); }
+    };
+    window.addEventListener('keydown', down);
+    return () => window.removeEventListener('keydown', down);
+  }, [selectedIds, editingElementId, currentPageIndex]); // eslint-disable-line
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-ctx-menu]')) setCtxMenu(null); };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, []);
+
+  // ── Derived ──
+  const currentPage = pages[currentPageIndex];
+  const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
+  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
+  const selectedElement = selectedId ? currentPage?.elements.find(el => el.id === selectedId) : undefined;
+  const getScaleFactor = (el: DesignElement) => Math.max(0.4, el.width / 28);
 
   // ── Mutations ──
   const updatePages = useCallback((updater: (p: DesignPage[]) => DesignPage[]) => {
@@ -986,60 +1376,6 @@ export function RootsDesignEditor({
     addElement({ ...rest, x: Math.min(el.x + 3, 70), y: Math.min(el.y + 3, 70) });
   }, [addElement, currentPageIndex]);
 
-  // ── Init ──
-  useEffect(() => {
-    const existing = project.projectData?.designData?.pages;
-    if (!existing || existing.length === 0) {
-      hasGeneratedRef.current = true;
-      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-      setPages(generated);
-      setIsGenerating(false);
-      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
-    } else { setIsGenerating(false); }
-  }, []); // eslint-disable-line
-  useEffect(() => { if (hasGeneratedRef.current) return; setPages(project.projectData?.designData?.pages || []); }, [project.projectData?.designData?.pages]);
-
-  // ── Keyboard ──
-  useEffect(() => {
-    const down = (e: KeyboardEvent) => {
-      const isInput = document.activeElement && ['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement).tagName);
-      if (isInput && editingElementId) return;
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length && !editingElementId) {
-        e.preventDefault(); selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]);
-      }
-      if (e.key === 'Escape') { setSelectedIds([]); setEditingElementId(null); setActiveTool('select'); setCtxMenu(null); }
-      if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
-        const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === selectedIds[0]);
-        if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); }
-      }
-      if ((e.key === 'x' || e.key === 'X') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
-        const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === selectedIds[0]);
-        if (el) { _clipboard = el; deleteElementById(el.id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); }
-      }
-      if ((e.key === 'v' || e.key === 'V') && (e.ctrlKey || e.metaKey) && _clipboard) {
-        e.preventDefault();
-        const { id: _id, ...rest } = _clipboard;
-        addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) });
-        toast({ title: 'הודבק ✓' });
-      }
-      if (e.key === 'd' && (e.ctrlKey || e.metaKey) && selectedIds.length) { e.preventDefault(); selectedIds.forEach(id => duplicateElementById(id)); }
-    };
-    window.addEventListener('keydown', down);
-    return () => window.removeEventListener('keydown', down);
-  }, [selectedIds, editingElementId, currentPageIndex, deleteElementById, duplicateElementById, addElementDirect]); // eslint-disable-line
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-ctx-menu]')) setCtxMenu(null); };
-    window.addEventListener('mousedown', handler);
-    return () => window.removeEventListener('mousedown', handler);
-  }, []);
-
-  // ── Derived ──
-  const currentPage = pages[currentPageIndex];
-  const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
-  const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
-  const selectedElement = selectedId ? currentPage?.elements.find(el => el.id === selectedId) : undefined;
-  
   const addPage = () => {
     const newPage: DesignPage = { id: uuidv4(), pageNumber: pages.length + 1, pageType: 'custom', title: 'עמוד חדש', elements: [], templateId: selectedTemplateId };
     updatePages(ps => [...ps, newPage]);
@@ -1083,12 +1419,7 @@ export function RootsDesignEditor({
   const handleResizeMouseDown = (e: React.MouseEvent, el: DesignElement, handle: string) => {
     e.stopPropagation(); e.preventDefault();
     isResizing.current = true; resizeHandle.current = handle;
-    resizeStart.current = { 
-        mouseX: e.clientX, 
-        mouseY: e.clientY, 
-        elX: el.x, elY: el.y, elW: el.width, elH: el.height,
-        elScale: el.style?.scale || 1
-    };
+    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, elX: el.x, elY: el.y, elW: el.width, elH: el.height, aspectRatio: el.width / Math.max(1, el.height) };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -1098,36 +1429,24 @@ export function RootsDesignEditor({
       const dx = ((e.clientX - resizeStart.current.mouseX) / rect.width) * 100;
       const dy = ((e.clientY - resizeStart.current.mouseY) / rect.height) * 100;
       const h = resizeHandle.current;
-      
-      updateElementLocal(selectedId, (el) => {
-        let { elX: nx, elY: ny, elW: nw, elH: nh, elScale: ns } = resizeStart.current;
-        const isCorner = h.length === 2;
-
+      const isCorner = h.length === 2;
+      updateElementLocal(selectedId, () => {
+        let { elX: nx, elY: ny, elW: nw, elH: nh } = resizeStart.current;
+        const ar = resizeStart.current.aspectRatio;
         if (isCorner) {
-            // Proportional scaling for corners.
-            let newWidth;
-            if (h === 'se' || h === 'ne') {
-                newWidth = Math.max(5, resizeStart.current.elW + dx);
-            } else { // sw, nw
-                newWidth = Math.max(5, resizeStart.current.elW - dx);
-            }
-            
-            const newScale = (newWidth / resizeStart.current.elW) * resizeStart.current.elScale;
-            const newHeight = newWidth / (resizeStart.current.elW / resizeStart.current.elH);
-
-            if (h === 'sw' || h === 'nw') nx = resizeStart.current.elX + (resizeStart.current.elW - newWidth);
-            if (h === 'ne' || h === 'nw') ny = resizeStart.current.elY + (resizeStart.current.elH - newHeight);
-
-            return { x: nx, y: ny, width: newWidth, height: newHeight, style: { ...el.style, scale: newScale }};
+          // Corners: maintain aspect ratio
+          if (h === 'se') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / ar; }
+          else if (h === 'sw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / ar; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); }
+          else if (h === 'ne') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / ar; ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
+          else if (h === 'nw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / ar; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
         } else {
-            // Freeform scaling for sides. Does NOT change scale.
-            if (h === 'e') nw = Math.max(5, nw + dx);
-            if (h === 's') nh = Math.max(3, nh + dy);
-            if (h === 'w') { nw = Math.max(5, nw - dx); nx = nx + dx; }
-            if (h === 'n') { nh = Math.max(3, nh - dy); ny = ny + dy; }
-            
-            return { x: nx, y: ny, width: nw, height: nh };
+          // Sides: crop only that side, no aspect ratio lock
+          if (h === 'e') nw = Math.max(5, resizeStart.current.elW + dx);
+          if (h === 's') nh = Math.max(3, resizeStart.current.elH + dy);
+          if (h === 'w') { nw = Math.max(5, resizeStart.current.elW - dx); nx = resizeStart.current.elX + dx; }
+          if (h === 'n') { nh = Math.max(3, resizeStart.current.elH - dy); ny = resizeStart.current.elY + dy; }
         }
+        return { x: Math.max(0, nx), y: Math.max(0, ny), width: Math.min(nw, 100 - Math.max(0, nx)), height: Math.min(nh, 100 - Math.max(0, ny)) };
       });
       return;
     }
@@ -1186,7 +1505,7 @@ export function RootsDesignEditor({
   const copyElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); } };
   const cutElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; deleteElementById(id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); } };
   const pasteElement = () => { if (!_clipboard) return; const { id: _id, ...rest } = _clipboard; addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) }); toast({ title: 'הודבק ✓' }); };
-  const resetSize = (id: string) => { updateElement(id, { width: 30, height: 30, style: { ...(pages.find(p => p.elements.some(e => e.id === id))?.elements.find(e => e.id === id)?.style || {}), scale: 1 } }); toast({ title: 'גודל אופס' }); };
+  const resetSize = (id: string) => { updateElement(id, { width: 30, height: 30 }); toast({ title: 'גודל אופס' }); };
 
   // Open image picker for placeholder element
   const openImagePickerForPlaceholder = (elementId: string) => {
@@ -1284,19 +1603,6 @@ export function RootsDesignEditor({
             </TooltipTrigger><TooltipContent side="bottom"><p>חזור לאשף עבודת השורשים</p></TooltipContent></Tooltip>
             <span className="text-sm font-bold truncate hidden sm:block">עורך העיצוב</span>
           </div>
-          
-          <div className="flex items-center gap-1">
-            <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({ title: 'ביטול פעולה יהיה זמין בקרוב!' })} disabled={true}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger><TooltipContent side="bottom"><p>בטל (Ctrl+Z)</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toast({ title: 'ביצוע מחדש יהיה זמין בקרוב!' })} disabled={true}>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger><TooltipContent side="bottom"><p>חזור (Ctrl+Y)</p></TooltipContent></Tooltip>
-          </div>
 
           {/* Aspect ratio */}
           <div className="flex items-center flex-shrink-0">
@@ -1387,25 +1693,25 @@ export function RootsDesignEditor({
               {pages.map((page, index) => {
                 const pt = DESIGN_TEMPLATES.find(t => t.id === page.templateId) || template;
                 return (
-                  <div key={`thumb-${index}-${page.id}`} title={`עמוד ${index + 1}: ${page.title}`}
+                  <div key={page.id} title={`עמוד ${index + 1}: ${page.title}`}
                     className={cn('relative w-full rounded cursor-pointer border-2 group overflow-hidden transition-all', currentPageIndex === index ? 'border-indigo-500' : 'border-transparent hover:border-white/20')}
                     style={{ aspectRatio: canvasAspectRatio === 'a4-portrait' ? '1/1.414' : canvasAspectRatio === '9/16' ? '9/16' : canvasAspectRatio === '1:1' ? '1/1' : '1.414/1' }}
                     onClick={() => setCurrentPageIndex(index)}>
                     <div className="absolute inset-0" style={getPageBackground(page, pt)} />
                     {page.elements.filter(el => el.type === 'text').slice(0, 3).map((el, i) => (
-                      <div key={`thumb-${index}-text-${el.id}-${i}`} className="absolute overflow-hidden"
+                      <div key={`t-${page.id}-${el.id}-${i}`} className="absolute overflow-hidden"
                         style={{ top: `${el.y}%`, left: `${el.x}%`, width: `${el.width}%`, fontSize: 3, color: pt.textColor, fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
                         {(el.content || '').slice(0, 20)}
                       </div>
                     ))}
                     {page.elements.filter(el => ['person_card', 'shape', 'image'].includes(el.type)).map((el, i) => (
-                      <div key={`thumb-${index}-el-${el.id}-${i}`} className="absolute rounded-sm"
+                      <div key={`e-${page.id}-${el.id}-${i}`} className="absolute rounded-sm"
                         style={{ top: `${el.y}%`, left: `${el.x}%`, width: `${el.width}%`, height: `${el.height}%`, backgroundColor: el.type === 'person_card' ? (el.style?.backgroundColor || pt.cardBackground) : el.type === 'shape' ? (el.style?.backgroundColor || pt.primaryColor) : 'rgba(255,255,255,0.2)', backgroundImage: el.type === 'image' && el.content ? `url(${el.content})` : undefined, backgroundSize: 'cover', opacity: 0.8 }} />
                     ))}
                     <span className="absolute bottom-0.5 left-0.5 text-white/50 font-bold" style={{ fontSize: 5 }}>{page.pageNumber}</span>
                     <button title={`מחק עמוד "${page.title}"`} aria-label={`מחק עמוד ${index + 1}`}
                       className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 hover:bg-red-600"
-                      style={{ fontSize: 8, pointerEvents: 'all' }}
+                      style={{ fontSize: 8 }}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
                       onClick={e => { e.stopPropagation(); e.preventDefault(); deletePage(index); }}>✕</button>
                   </div>
@@ -1419,7 +1725,7 @@ export function RootsDesignEditor({
           </aside>
 
           {/* Canvas */}
-          <main className="flex-1 flex items-center justify-center bg-[#13131f] overflow-hidden relative max-w-full mx-auto"
+          <main className="flex-1 flex items-center justify-center bg-[#13131f] overflow-hidden relative"
             style={{ order: 0 }}
             onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
             onContextMenu={e => handleContextMenu(e, null)}>
@@ -1444,7 +1750,7 @@ export function RootsDesignEditor({
               />
             )}
 
-            <div className="relative shadow-2xl max-w-full mx-auto" style={{ ...getCanvasStyle(), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="relative shadow-2xl" style={{ ...getCanvasStyle(), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden"
                 style={getPageBackground(currentPage, template)} onClick={handleCanvasClick} onContextMenu={e => handleContextMenu(e, null)}>
 
@@ -1457,7 +1763,7 @@ export function RootsDesignEditor({
                       <polygon points="0 0,8 3,0 6" fill={template.primaryColor} />
                     </marker>
                   </defs>
-                  {currentPage?.elements.filter(el => el.type === 'connection_line').map((el) => {
+                  {currentPage?.elements.filter(el => el.type === 'connection_line').map(el => {
                     const from = currentPage.elements.find(e => e.id === el.fromElementId);
                     const to = currentPage.elements.find(e => e.id === el.toElementId);
                     if (!from || !to) return null;
@@ -1466,7 +1772,7 @@ export function RootsDesignEditor({
                 </svg>
 
                 {/* Elements */}
-                {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el) => {
+                {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => {
                   const isSel = selectedIds.includes(el.id);
                   return (
                     <div key={`el-${currentPageIndex}-${el.id}`}
@@ -1500,7 +1806,7 @@ export function RootsDesignEditor({
                         )
                       )}
 
-                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
+                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} scaleFactor={getScaleFactor(el)} />}
 
                       {el.type === 'image' && el.content && (
                         <div className="w-full h-full overflow-hidden" style={{ borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : 0, border: el.style?.borderWidth ? `${el.style.borderWidth}px solid ${el.style.borderColor || '#fff'}` : undefined }}>
@@ -1536,7 +1842,7 @@ export function RootsDesignEditor({
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
                   {people.filter(p => `${p.firstName} ${p.lastName}`.toLowerCase().includes(personSearch.toLowerCase())).map(person => (
                     <button key={person.id} title={`הוסף כרטיס של ${person.firstName} ${person.lastName}`}
-                      onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 28, height: 36, zIndex: 10, style: { scale: 1 } }); setShowPersonPicker(false); setActiveTool('select'); }}
+                      onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 28, height: 36, zIndex: 10 }); setShowPersonPicker(false); setActiveTool('select'); }}
                       className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-white/10 text-right">
                       <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
                         <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
