@@ -12,7 +12,7 @@ import {
   Smile, Trash2, User, Image as ImageIcon,
   Copy, AlignLeft, AlignCenter, AlignRight, ChevronUp, ChevronDown,
   Scissors, Clipboard, RefreshCw, Maximize2, Square, Upload, Layers,
-  CropIcon,
+  CropIcon, Redo2, Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -563,7 +563,7 @@ const PersonCardElement = ({
   if (deathYear) infoRows.push({ icon: '✝', value: String(deathYear) });
   if (p.originCountry || p.countryOfOrigin) infoRows.push({ icon: '🌍', value: p.originCountry || p.countryOfOrigin });
   if (p.religion) infoRows.push({ icon: '✡️', value: p.religion });
-  if (person.occupation) infoRows.push({ icon: '💼', value: person.occupation });
+  if (person.profession) infoRows.push({ icon: '💼', value: person.profession });
   if (spousePerson) infoRows.push({ icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
   if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
   if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
@@ -895,6 +895,13 @@ export function RootsDesignEditor({
   const hasGeneratedRef = useRef(false);
   useEffect(() => { pagesRef.current = pages; }, [pages]);
 
+  // Undo/Redo State
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  type HistoryState = { pages: DesignPage[] };
+  const historyRef = useRef<{ past: HistoryState[]; future: HistoryState[] }>({ past: [], future: [] });
+  const HISTORY_LIMIT = 50;
+
   // ── Init ──
   useEffect(() => {
     const existing = project.projectData?.designData?.pages;
@@ -908,13 +915,86 @@ export function RootsDesignEditor({
   }, []); // eslint-disable-line
   useEffect(() => { if (hasGeneratedRef.current) return; setPages(project.projectData?.designData?.pages || []); }, [project.projectData?.designData?.pages]);
 
+  // ── History Functions ──
+  const recordHistory = useCallback(() => {
+    const currentPast = historyRef.current.past;
+    const currentState = { pages: pagesRef.current };
+
+    if (currentPast.length > 0) {
+      if (JSON.stringify(currentPast[currentPast.length - 1]) === JSON.stringify(currentState)) {
+        return;
+      }
+    }
+    
+    const newPast = [...currentPast, currentState];
+    if (newPast.length > HISTORY_LIMIT) {
+      newPast.shift();
+    }
+    historyRef.current = { past: newPast, future: [] };
+    setCanUndo(true);
+    setCanRedo(false);
+  }, []);
+
+  const handleUndo = useCallback(() => {
+    if (historyRef.current.past.length === 0) return;
+
+    const newPast = [...historyRef.current.past];
+    const presentState = newPast.pop();
+
+    if (presentState) {
+      historyRef.current.future.unshift({ pages: pagesRef.current });
+      historyRef.current.past = newPast;
+        
+      setPages(presentState.pages);
+      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: presentState.pages } } }));
+
+      setCanUndo(newPast.length > 0);
+      setCanRedo(true);
+    }
+  }, [onUpdateProject]);
+
+  const handleRedo = useCallback(() => {
+    if (historyRef.current.future.length === 0) return;
+
+    const newFuture = [...historyRef.current.future];
+    const nextState = newFuture.shift();
+
+    if (nextState) {
+      historyRef.current.past.push({ pages: pagesRef.current });
+      historyRef.current.future = newFuture;
+
+      setPages(nextState.pages);
+      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: nextState.pages } } }));
+
+      setCanUndo(true);
+      setCanRedo(newFuture.length > 0);
+    }
+  }, [onUpdateProject]);
+
   // ── Keyboard ──
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       const isInput = document.activeElement && ['INPUT', 'TEXTAREA'].includes((document.activeElement as HTMLElement).tagName);
       if (isInput && editingElementId) return;
+
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if (e.key === 'y' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleRedo();
+      }
+      if (e.key === 'Z' && e.shiftKey && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        handleRedo();
+      }
+
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length && !editingElementId) {
-        e.preventDefault(); selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]);
+        e.preventDefault(); 
+        recordHistory();
+        selectedIds.forEach(id => deleteElementById(id)); 
+        setSelectedIds([]);
       }
       if (e.key === 'Escape') { setSelectedIds([]); setEditingElementId(null); setActiveTool('select'); setCtxMenu(null); }
       if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
@@ -923,19 +1003,20 @@ export function RootsDesignEditor({
       }
       if ((e.key === 'x' || e.key === 'X') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
         const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === selectedIds[0]);
-        if (el) { _clipboard = el; deleteElementById(el.id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); }
+        if (el) { _clipboard = el; recordHistory(); deleteElementById(el.id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); }
       }
       if ((e.key === 'v' || e.key === 'V') && (e.ctrlKey || e.metaKey) && _clipboard) {
         e.preventDefault();
+        recordHistory();
         const { id: _id, ...rest } = _clipboard;
         addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) });
         toast({ title: 'הודבק ✓' });
       }
-      if (e.key === 'd' && (e.ctrlKey || e.metaKey) && selectedIds.length) { e.preventDefault(); selectedIds.forEach(id => duplicateElementById(id)); }
+      if (e.key === 'd' && (e.ctrlKey || e.metaKey) && selectedIds.length) { e.preventDefault(); recordHistory(); selectedIds.forEach(id => duplicateElementById(id)); }
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
-  }, [selectedIds, editingElementId, currentPageIndex]); // eslint-disable-line
+  }, [selectedIds, editingElementId, currentPageIndex, recordHistory, deleteElementById, handleUndo, handleRedo, duplicateElementById, addElementDirect]); // eslint-disable-line
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-ctx-menu]')) setCtxMenu(null); };
@@ -972,16 +1053,18 @@ export function RootsDesignEditor({
   }, [currentPageIndex]);
 
   const updateElement = useCallback((id: string, updates: Partial<DesignElement> | ((el: DesignElement) => Partial<DesignElement>)) => {
+    recordHistory();
     updatePages(ps => {
       const np = [...ps];
       if (!np[currentPageIndex]) return ps;
       np[currentPageIndex] = { ...np[currentPageIndex], elements: np[currentPageIndex].elements.map(el => { if (el.id !== id) return el; const u = typeof updates === 'function' ? updates(el) : updates; return { ...el, ...u }; }) };
       return np;
     });
-  }, [updatePages, currentPageIndex]);
+  }, [updatePages, currentPageIndex, recordHistory]);
 
   // Multi-update — batch updates all selected elements in one pass
   const updateMultipleElements = useCallback((ids: string[], updater: (el: DesignElement) => Partial<DesignElement>) => {
+    recordHistory();
     updatePages(ps => {
       const np = [...ps];
       if (!np[currentPageIndex]) return ps;
@@ -994,14 +1077,17 @@ export function RootsDesignEditor({
       };
       return np;
     });
-  }, [updatePages, currentPageIndex]);
+  }, [updatePages, currentPageIndex, recordHistory]);
 
   const addElementDirect = useCallback((newEl: DesignElement) => {
     updatePages(ps => { const np = [...ps]; if (np[currentPageIndex]) np[currentPageIndex] = { ...np[currentPageIndex], elements: [...np[currentPageIndex].elements, newEl] }; return np; });
     setSelectedIds([newEl.id]);
   }, [updatePages, currentPageIndex]);
 
-  const addElement = useCallback((element: Omit<DesignElement, 'id'>) => { addElementDirect({ ...element, id: uuidv4() }); }, [addElementDirect]);
+  const addElement = useCallback((element: Omit<DesignElement, 'id'>) => { 
+    recordHistory();
+    addElementDirect({ ...element, id: uuidv4() });
+  }, [addElementDirect, recordHistory]);
 
   const deleteElementById = useCallback((id: string) => {
     updatePages(ps => { const np = [...ps]; if (np[currentPageIndex]) np[currentPageIndex] = { ...np[currentPageIndex], elements: np[currentPageIndex].elements.filter(el => el.id !== id) }; return np; });
@@ -1015,18 +1101,21 @@ export function RootsDesignEditor({
   }, [addElement, currentPageIndex]);
 
   const addPage = () => {
+    recordHistory();
     const newPage: DesignPage = { id: uuidv4(), pageNumber: pages.length + 1, pageType: 'custom', title: 'עמוד חדש', elements: [], templateId: selectedTemplateId };
     updatePages(ps => [...ps, newPage]);
     setCurrentPageIndex(pages.length);
   };
 
   const deletePage = (index: number) => {
+    recordHistory();
     updatePages(ps => ps.filter((_, i) => i !== index).map((p, i) => ({ ...p, pageNumber: i + 1 })));
     setCurrentPageIndex(prev => Math.max(0, Math.min(prev, pages.length - 2)));
     setSelectedIds([]);
   };
 
   const handleResetPages = () => {
+    recordHistory();
     hasGeneratedRef.current = true;
     const generated = generatePagesFromProject(project, people, relationships, selectedTemplateId);
     setPages(generated); setCurrentPageIndex(0); setSelectedIds([]);
@@ -1038,6 +1127,7 @@ export function RootsDesignEditor({
   // ── Drag ──
   const handleMouseDown = (e: React.MouseEvent, el: DesignElement) => {
     if (editingElementId || activeTool !== 'select' || !canvasRef.current) return;
+    recordHistory();
     e.stopPropagation();
     if (e.ctrlKey || e.metaKey) {
       const toggled = selectedIds.includes(el.id) ? selectedIds.filter(id => id !== el.id) : [...selectedIds, el.id];
@@ -1056,6 +1146,7 @@ export function RootsDesignEditor({
 
   const handleResizeMouseDown = (e: React.MouseEvent, el: DesignElement, handle: string) => {
     e.stopPropagation(); e.preventDefault();
+    recordHistory();
     isResizing.current = true; resizeHandle.current = handle;
     resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, elX: el.x, elY: el.y, elW: el.width, elH: el.height, aspectRatio: el.width / Math.max(1, el.height) };
   };
@@ -1141,8 +1232,8 @@ export function RootsDesignEditor({
 
   // ctx menu helpers
   const copyElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); } };
-  const cutElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; deleteElementById(id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); } };
-  const pasteElement = () => { if (!_clipboard) return; const { id: _id, ...rest } = _clipboard; addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) }); toast({ title: 'הודבק ✓' }); };
+  const cutElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; recordHistory(); deleteElementById(id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); } };
+  const pasteElement = () => { if (!_clipboard) return; recordHistory(); const { id: _id, ...rest } = _clipboard; addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) }); toast({ title: 'הודבק ✓' }); };
   const resetSize = (id: string) => { updateElement(id, { width: 30, height: 30 }); toast({ title: 'גודל אופס' }); };
 
   // Open image picker for placeholder element
@@ -1240,6 +1331,19 @@ export function RootsDesignEditor({
               </Button>
             </TooltipTrigger><TooltipContent side="bottom"><p>חזור לאשף עבודת השורשים</p></TooltipContent></Tooltip>
             <span className="text-sm font-bold truncate hidden sm:block">עורך העיצוב</span>
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <Tooltip><TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="בטל" onClick={handleUndo} disabled={!canUndo}>
+                <Undo2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger><TooltipContent side="bottom"><p>בטל (Ctrl+Z)</p></TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="חזור" onClick={handleRedo} disabled={!canRedo}>
+                <Redo2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger><TooltipContent side="bottom"><p>חזור (Ctrl+Y)</p></TooltipContent></Tooltip>
           </div>
 
           {/* Aspect ratio */}
@@ -1349,7 +1453,7 @@ export function RootsDesignEditor({
                     <span className="absolute bottom-0.5 left-0.5 text-white/50 font-bold" style={{ fontSize: 5 }}>{page.pageNumber}</span>
                     <button title={`מחק עמוד "${page.title}"`} aria-label={`מחק עמוד ${index + 1}`}
                       className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 hover:bg-red-600"
-                      style={{ fontSize: 8 }}
+                      style={{ fontSize: 8, pointerEvents: 'all' }}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
                       onClick={e => { e.stopPropagation(); e.preventDefault(); deletePage(index); }}>✕</button>
                   </div>
@@ -1363,7 +1467,7 @@ export function RootsDesignEditor({
           </aside>
 
           {/* Canvas */}
-          <main className="flex-1 flex items-center justify-center bg-[#13131f] overflow-hidden relative"
+          <main className="flex-1 flex items-center justify-center bg-[#13131f] overflow-hidden relative max-w-full mx-auto"
             style={{ order: 0 }}
             onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
             onContextMenu={e => handleContextMenu(e, null)}>
@@ -1382,13 +1486,13 @@ export function RootsDesignEditor({
                 page={currentPage}
                 selectedIds={selectedIds}
                 onSelect={id => setSelectedIds([id])}
-                onDelete={id => { deleteElementById(id); setSelectedIds(s => s.filter(x => x !== id)); }}
+                onDelete={id => { recordHistory(); deleteElementById(id); setSelectedIds(s => s.filter(x => x !== id)); }}
                 onToggleVisibility={() => {}}
                 onClose={() => setShowLayers(false)}
               />
             )}
 
-            <div className="relative shadow-2xl" style={{ ...getCanvasStyle(), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="relative shadow-2xl max-w-full mx-auto" style={{ ...getCanvasStyle(), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div id="canvas-container" ref={canvasRef} className="w-full h-full relative overflow-hidden"
                 style={getPageBackground(currentPage, template)} onClick={handleCanvasClick} onContextMenu={e => handleContextMenu(e, null)}>
 
@@ -1401,7 +1505,7 @@ export function RootsDesignEditor({
                       <polygon points="0 0,8 3,0 6" fill={template.primaryColor} />
                     </marker>
                   </defs>
-                  {currentPage?.elements.filter(el => el.type === 'connection_line').map(el => {
+                  {currentPage?.elements.filter(el => el.type === 'connection_line').map((el, lineIndex) => {
                     const from = currentPage.elements.find(e => e.id === el.fromElementId);
                     const to = currentPage.elements.find(e => e.id === el.toElementId);
                     if (!from || !to) return null;
@@ -1540,7 +1644,7 @@ export function RootsDesignEditor({
                     <div className="my-1 border-t border-white/10" />
                     <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { resetSize(ctxMenu.elementId!); setCtxMenu(null); }}><RefreshCw className="w-3.5 h-3.5" />אפס גודל</button>
                     <div className="my-1 border-t border-white/10" />
-                    <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-red-500/20 text-red-400 flex items-center gap-2" onClick={() => { deleteElementById(ctxMenu.elementId!); setSelectedIds([]); setCtxMenu(null); }}><Trash2 className="w-3.5 h-3.5" />מחק</button>
+                    <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-red-500/20 text-red-400 flex items-center gap-2" onClick={() => { recordHistory(); deleteElementById(ctxMenu.elementId!); setSelectedIds([]); setCtxMenu(null); }}><Trash2 className="w-3.5 h-3.5" />מחק</button>
                   </>
                 ) : (
                   <>
@@ -1608,12 +1712,12 @@ export function RootsDesignEditor({
           {selectedIds.length > 1 && (<>
             <Tooltip><TooltipTrigger asChild>
               <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-red-500 text-red-300 flex-shrink-0"
-                onClick={() => { selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]); }}>
+                onClick={() => { recordHistory(); selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]); }}>
                 🗑 מחק ({selectedIds.length})
               </button>
             </TooltipTrigger><TooltipContent side="top"><p>מחק כל האלמנטים הנבחרים</p></TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild>
-              <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => selectedIds.forEach(id => duplicateElementById(id))}>⎘ שכפל</button>
+              <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => { recordHistory(); selectedIds.forEach(id => duplicateElementById(id))}}>⎘ שכפל</button>
             </TooltipTrigger><TooltipContent side="top"><p>שכפל כל האלמנטים הנבחרים</p></TooltipContent></Tooltip>
 
             {/* Alignment — all use updateMultipleElements to batch-update ALL selected */}
@@ -1809,7 +1913,7 @@ export function RootsDesignEditor({
               <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
             </TooltipTrigger><TooltipContent side="top"><p>שכפל אלמנט</p></TooltipContent></Tooltip>
             <Tooltip><TooltipTrigger asChild>
-              <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={() => { recordHistory(); deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
             </TooltipTrigger><TooltipContent side="top"><p>מחק אלמנט</p></TooltipContent></Tooltip>
           </>)}
         </div>
