@@ -24,10 +24,24 @@ export function MapSelectionModal({ isOpen, onClose, onConfirm, people }: MapSel
         if (!mapRef.current) return;
         setIsLoading(true);
         try {
+            // This filter function excludes external stylesheets to prevent CORS errors with html-to-image.
+            const filter = (node: HTMLElement) => {
+                if (
+                    node.tagName === 'LINK' &&
+                    node.rel === 'stylesheet' &&
+                    node.hasAttribute('href') &&
+                    node.getAttribute('href')?.startsWith('https://')
+                ) {
+                    return false;
+                }
+                return true;
+            };
+
             const dataUrl = await toPng(mapRef.current, { 
                 quality: 0.95, 
                 pixelRatio: 2,
-                backgroundColor: '#f1f5f9' // same as stats view bg
+                backgroundColor: '#f1f5f9', // same as stats view bg
+                filter: filter,
             });
             onConfirm(dataUrl);
         } catch (error) {
