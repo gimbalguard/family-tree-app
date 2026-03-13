@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1427,6 +1428,53 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         toast({ title: `${selectedIds.length} אירועים נבחרו.` });
     };
 
+  const student = useMemo(() => {
+    if (!project) return undefined;
+    return people.find(p => p.id === project.studentPersonId);
+  }, [project, people]);
+
+  const involvedPeopleIds = useMemo(() => {
+    if (!project) return [];
+
+    const projectData = project.projectData || {};
+    const finalizationData = projectData.finalPresentation || {};
+    
+    const ids = new Set<string>();
+    if (project.studentPersonId) ids.add(project.studentPersonId);
+    
+    const getIds = (obj: any) => {
+        if (!obj) return;
+        if (typeof obj === 'string' && people.some(p => p.id === obj)) {
+            ids.add(obj);
+        } else if (obj.personId && typeof obj.personId === 'string' && people.some(p => p.id === obj.personId)) {
+            ids.add(obj.personId);
+        }
+
+        if (Array.isArray(obj)) {
+            obj.forEach(v => getIds(v));
+        } else if (typeof obj === 'object') {
+            Object.values(obj).forEach(v => getIds(v));
+        }
+    };
+    getIds(projectData.familyRoots);
+    
+    const nuclearFamily = projectData.nuclearFamily || {};
+    const parentKeys = Object.keys(nuclearFamily).filter(k => k.startsWith('parent_'));
+    parentKeys.forEach(key => {
+        const personId = key.split('_')[1];
+        if (people.some(p => p.id === personId)) ids.add(personId);
+    });
+
+    const siblingKeys = Object.keys(nuclearFamily).filter(k => k.startsWith('sibling_'));
+    siblingKeys.forEach(key => {
+        const personId = key.split('_')[1];
+        if (people.some(p => p.id === personId)) ids.add(personId);
+    });
+
+    (finalizationData.extraPeople || []).forEach((id: string) => ids.add(id));
+    return Array.from(ids);
+  }, [project, people]);
+
   if (showDesignEditor && project) {
     return (
       <RootsDesignEditor
@@ -1447,8 +1495,6 @@ export function RootsView({ project, people, relationships, tree, updateProject,
     );
   }
 
-  const student = people.find(p => p.id === project.studentPersonId);
-
   const renderStepContent = () => {
     switch (project.currentStep) {
       case 0: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onConfirm={() => handleStepChange(1)} />;
@@ -1468,14 +1514,6 @@ export function RootsView({ project, people, relationships, tree, updateProject,
       default: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onConfirm={() => handleStepChange(1)} />;
     }
   };
-  
-    const involvedPeopleIds = useMemo(() => {
-        const ids = new Set<string>();
-        if (project.studentPersonId) ids.add(project.studentPersonId);
-        // This is a simplified version, you'd need a recursive function to get all involved people.
-        // For now, let's just use the student.
-        return Array.from(ids);
-    }, [project.studentPersonId]);
 
   return (
     <div className="w-full h-full flex flex-col bg-gradient-to-br from-[#0a0015] to-[#000d1a] text-slate-100 overflow-hidden" dir="rtl">
