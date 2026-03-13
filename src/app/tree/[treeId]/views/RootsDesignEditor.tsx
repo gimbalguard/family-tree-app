@@ -429,7 +429,7 @@ function generatePagesFromProject(
   const placePerson = (person: Person, x: number, y: number, w: number, h: number) => {
     const elId = uuidv4();
     cardElementsMap.set(person.id, elId);
-    treeEls.push(mk('person_card', { id: elId, personId: person.id, x, y, width: w, height: h, zIndex: 10 }));
+    treeEls.push(mk('person_card', { id: elId, personId: person.id, x, y, width: w, height: h, zIndex: 10, style: { scale: 1 } }));
   };
 
   // Place generations
@@ -439,18 +439,22 @@ function generatePagesFromProject(
   if (student) placePerson(student, 39, 86, 22, 12);
   
   // Create connection lines
-  [...studentParents, ...paternalGrandparents, ...maternalGrandparents].forEach(p => {
-      const childCardId = cardElementsMap.get(p.id);
-      if(childCardId) {
-          const parentsOfP = findParents(p.id);
-          parentsOfP.forEach(parent => {
-              const parentCardId = cardElementsMap.get(parent.id);
-              if (parentCardId) {
-                  treeEls.push(mk('connection_line', { fromElementId: parentCardId, toElementId: childCardId, x: 0, y: 0, width: 0, height: 0, zIndex: 1, style: { color: P, borderWidth: 1.5 } }));
-              }
-          });
+  relationships.forEach(rel => {
+    if (['parent', 'adoptive_parent', 'step_parent'].includes(rel.relationshipType)) {
+      const parentCardId = cardElementsMap.get(rel.personAId);
+      const childCardId = cardElementsMap.get(rel.personBId);
+      if (parentCardId && childCardId) {
+        treeEls.push(mk('connection_line', { 
+          fromElementId: parentCardId, 
+          toElementId: childCardId, 
+          x: 0, y: 0, width: 0, height: 0, 
+          zIndex: 1, 
+          style: { color: P, borderWidth: 1.5, lineType: 'pcb' } 
+        }));
       }
+    }
   });
+
 
   if (cardElementsMap.size === 0) { // Fallback if no hierarchy found
     treeEls.push(...photoPlaceholder(5, 30, 90, 55, '🌳 הוסף כאן תרשים אילן יוחסין — גרור כרטיסי אנשים'));
@@ -551,10 +555,8 @@ function TemplateDecorations({ template }: { template: DesignTemplate }) {
 // ============================================================
 // PERSON CARD ELEMENT
 // ============================================================
-const PersonCardElement = ({
-  element, people, relationships, scaleFactor,
-}: {
-  element: DesignElement; people: Person[]; relationships: Relationship[]; scaleFactor: number;
+const PersonCardElement = ({ element, people, relationships }: {
+  element: DesignElement; people: Person[]; relationships: Relationship[];
 }) => {
   const person = people.find(p => p.id === element.personId);
   if (!person) return (
@@ -585,10 +587,11 @@ const PersonCardElement = ({
   const bgColor = element.style?.backgroundColor || 'rgba(255,255,255,0.08)';
   const textColor = element.style?.color || '#ffffff';
   const opacity = element.style?.opacity ?? 1;
-  const sf = Math.max(0.45, scaleFactor);
-  const fs = (base: number) => Math.max(6, Math.round(base * sf));
-  const pad = Math.max(4, Math.round(6 * sf));
-  const avatarSize = Math.max(24, Math.round(48 * sf));
+  const scale = element.style?.scale ?? 1;
+  
+  const fs = (base: number) => Math.max(6, base * scale);
+  const pad = Math.max(2, 6 * scale);
+  const avatarSize = Math.max(16, 40 * scale);
 
   return (
     <div
@@ -606,7 +609,7 @@ const PersonCardElement = ({
         </div>
       </div>
       {descendantCounts.length > 0 && (
-          <div className="flex-1 min-h-0 space-y-0.5 overflow-hidden" style={{ paddingLeft: pad, paddingRight: pad, paddingBottom: pad }}>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-0.5" style={{ paddingLeft: pad, paddingRight: pad, paddingBottom: pad }}>
              {descendantCounts.map(({ count, label, icon: Icon }) => (
                   <div key={label} className="flex items-center justify-end gap-1.5" style={{ fontSize: fs(10), opacity: 0.8 }}>
                     <span>{count} {label}</span>
@@ -914,28 +917,10 @@ export function RootsDesignEditor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
   const resizeHandle = useRef<string | null>(null);
-  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, aspectRatio: 1 });
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, elScale: 1 });
   const pagesRef = useRef<DesignPage[]>(pages);
   const hasGeneratedRef = useRef(false);
   useEffect(() => { pagesRef.current = pages; }, [pages]);
-
-  const getScaleFactor = (el: DesignElement) => {
-    if (el.type !== 'person_card') return 1;
-    // Natural aspect ratio from when the card is first created
-    const naturalAspectRatio = 28 / 36;
-    const currentAspectRatio = el.width / Math.max(1, el.height);
-
-    // To prevent content from stretching, we base the scale on the "constraining" dimension.
-    if (currentAspectRatio > naturalAspectRatio) {
-        // The container is WIDER than it should be for its height.
-        // So, scale should be based on height to prevent vertical stretching.
-        return el.height / 36;
-    } else {
-        // The container is TALLER or proportional.
-        // Scale should be based on width to prevent horizontal stretching.
-        return el.width / 28;
-    }
-  };
 
   // ── Mutations ──
   const updatePages = useCallback((updater: (p: DesignPage[]) => DesignPage[]) => {
@@ -1098,7 +1083,12 @@ export function RootsDesignEditor({
   const handleResizeMouseDown = (e: React.MouseEvent, el: DesignElement, handle: string) => {
     e.stopPropagation(); e.preventDefault();
     isResizing.current = true; resizeHandle.current = handle;
-    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, elX: el.x, elY: el.y, elW: el.width, elH: el.height, aspectRatio: el.width / Math.max(1, el.height) };
+    resizeStart.current = { 
+        mouseX: e.clientX, 
+        mouseY: e.clientY, 
+        elX: el.x, elY: el.y, elW: el.width, elH: el.height,
+        elScale: el.style?.scale || 1
+    };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -1108,20 +1098,36 @@ export function RootsDesignEditor({
       const dx = ((e.clientX - resizeStart.current.mouseX) / rect.width) * 100;
       const dy = ((e.clientY - resizeStart.current.mouseY) / rect.height) * 100;
       const h = resizeHandle.current;
-      updateElementLocal(selectedId, () => {
-        let { elX: nx, elY: ny, elW: nw, elH: nh } = resizeStart.current;
-        if (h.length === 2) { // Corner handle
-          if (h === 'se') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / resizeStart.current.aspectRatio; }
-          else if (h === 'sw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / resizeStart.current.aspectRatio; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); }
-          else if (h === 'ne') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / resizeStart.current.aspectRatio; ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
-          else if (h === 'nw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / resizeStart.current.aspectRatio; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
-        } else { // Side handle
-          if (h === 'e') nw = Math.max(5, resizeStart.current.elW + dx);
-          if (h === 's') nh = Math.max(3, resizeStart.current.elH + dy);
-          if (h === 'w') { nw = Math.max(5, resizeStart.current.elW - dx); nx = resizeStart.current.elX + dx; }
-          if (h === 'n') { nh = Math.max(3, resizeStart.current.elH - dy); ny = resizeStart.current.elY + dy; }
+      
+      updateElementLocal(selectedId, (el) => {
+        let { elX: nx, elY: ny, elW: nw, elH: nh, elScale: ns } = resizeStart.current;
+        const isCorner = h.length === 2;
+
+        if (isCorner) {
+            // Proportional scaling for corners.
+            let newWidth;
+            if (h === 'se' || h === 'ne') {
+                newWidth = Math.max(5, resizeStart.current.elW + dx);
+            } else { // sw, nw
+                newWidth = Math.max(5, resizeStart.current.elW - dx);
+            }
+            
+            const newScale = (newWidth / resizeStart.current.elW) * resizeStart.current.elScale;
+            const newHeight = newWidth / (resizeStart.current.elW / resizeStart.current.elH);
+
+            if (h === 'sw' || h === 'nw') nx = resizeStart.current.elX + (resizeStart.current.elW - newWidth);
+            if (h === 'ne' || h === 'nw') ny = resizeStart.current.elY + (resizeStart.current.elH - newHeight);
+
+            return { x: nx, y: ny, width: newWidth, height: newHeight, style: { ...el.style, scale: newScale }};
+        } else {
+            // Freeform scaling for sides. Does NOT change scale.
+            if (h === 'e') nw = Math.max(5, nw + dx);
+            if (h === 's') nh = Math.max(3, nh + dy);
+            if (h === 'w') { nw = Math.max(5, nw - dx); nx = nx + dx; }
+            if (h === 'n') { nh = Math.max(3, nh - dy); ny = ny + dy; }
+            
+            return { x: nx, y: ny, width: nw, height: nh };
         }
-        return { x: Math.max(0, nx), y: Math.max(0, ny), width: Math.min(nw, 100 - Math.max(0, nx)), height: Math.min(nh, 100 - Math.max(0, ny)) };
       });
       return;
     }
@@ -1180,7 +1186,7 @@ export function RootsDesignEditor({
   const copyElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); } };
   const cutElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; deleteElementById(id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); } };
   const pasteElement = () => { if (!_clipboard) return; const { id: _id, ...rest } = _clipboard; addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) }); toast({ title: 'הודבק ✓' }); };
-  const resetSize = (id: string) => { updateElement(id, { width: 30, height: 30 }); toast({ title: 'גודל אופס' }); };
+  const resetSize = (id: string) => { updateElement(id, { width: 30, height: 30, style: { ...(pages.find(p => p.elements.some(e => e.id === id))?.elements.find(e => e.id === id)?.style || {}), scale: 1 } }); toast({ title: 'גודל אופס' }); };
 
   // Open image picker for placeholder element
   const openImagePickerForPlaceholder = (elementId: string) => {
@@ -1451,7 +1457,7 @@ export function RootsDesignEditor({
                       <polygon points="0 0,8 3,0 6" fill={template.primaryColor} />
                     </marker>
                   </defs>
-                  {currentPage?.elements.filter(el => el.type === 'connection_line').map((el, lineIndex) => {
+                  {currentPage?.elements.filter(el => el.type === 'connection_line').map((el) => {
                     const from = currentPage.elements.find(e => e.id === el.fromElementId);
                     const to = currentPage.elements.find(e => e.id === el.toElementId);
                     if (!from || !to) return null;
@@ -1460,10 +1466,10 @@ export function RootsDesignEditor({
                 </svg>
 
                 {/* Elements */}
-                {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => {
+                {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el) => {
                   const isSel = selectedIds.includes(el.id);
                   return (
-                    <div key={`el-${currentPageIndex}-${el.id}-${elIndex}`}
+                    <div key={`el-${currentPageIndex}-${el.id}`}
                       title={el.type === 'text' ? (el.content || '').slice(0, 40) : el.type === 'person_card' ? `כרטיס: ${people.find(p => p.id === el.personId)?.firstName || 'אדם'}` : el.type}
                       className={cn('absolute', isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '', activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '')}
                       style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, height: `${el.height}%`, zIndex: (el.zIndex || 1) + 3 }}
@@ -1494,7 +1500,7 @@ export function RootsDesignEditor({
                         )
                       )}
 
-                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} scaleFactor={getScaleFactor(el)} />}
+                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
 
                       {el.type === 'image' && el.content && (
                         <div className="w-full h-full overflow-hidden" style={{ borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : 0, border: el.style?.borderWidth ? `${el.style.borderWidth}px solid ${el.style.borderColor || '#fff'}` : undefined }}>
@@ -1530,7 +1536,7 @@ export function RootsDesignEditor({
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
                   {people.filter(p => `${p.firstName} ${p.lastName}`.toLowerCase().includes(personSearch.toLowerCase())).map(person => (
                     <button key={person.id} title={`הוסף כרטיס של ${person.firstName} ${person.lastName}`}
-                      onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 28, height: 36, zIndex: 10 }); setShowPersonPicker(false); setActiveTool('select'); }}
+                      onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 28, height: 36, zIndex: 10, style: { scale: 1 } }); setShowPersonPicker(false); setActiveTool('select'); }}
                       className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-white/10 text-right">
                       <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
                         <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
