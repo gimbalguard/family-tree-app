@@ -92,7 +92,7 @@ export function AiChatPanel({
   const panelRef = useRef<HTMLDivElement>(null);
 
   const handlePanelDragStart = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
+    if ((e.target as HTMLElement).closest('button, textarea, input')) return;
     setIsPanelDragging(true);
     if (!panelRef.current) return;
     const rect = panelRef.current.getBoundingClientRect();
@@ -215,6 +215,7 @@ export function AiChatPanel({
             id: Date.now().toString(),
             role: 'assistant',
             content: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
+            textContent: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
         };
         setChatHistory([...chatHistory, assistantMessage]);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
@@ -357,6 +358,7 @@ export function AiChatPanel({
       id: Date.now().toString(),
       role: 'user',
       content: userMessageContent,
+      textContent: messageContent,
     };
     
     setStory(''); // Clear input immediately
@@ -373,7 +375,7 @@ export function AiChatPanel({
            treeName: treeName,
            chatHistory: newHistory.map(m => ({
            role: m.role,
-           content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
+           content: m.textContent,
            })),
            existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
        };
@@ -417,6 +419,7 @@ export function AiChatPanel({
            id: (Date.now() + 1).toString(),
            role: 'assistant',
            content: assistantMessageContent,
+           textContent: result.summary,
            data: result.isComplete ? result : null,
        };
        
@@ -426,6 +429,7 @@ export function AiChatPanel({
       console.error('AI assistant error:', error);
       const errorMessage: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant',
         content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?',
+        textContent: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?',
       };
       setChatHistory([...newHistory, errorMessage]);
       toast({ variant: 'destructive', title: 'שגיאת AI', description: 'לא ניתן היה לעבד את הבקשה.' });

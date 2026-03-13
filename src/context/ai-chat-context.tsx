@@ -7,6 +7,7 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: React.ReactNode;
+  textContent: string;
   data?: GenerateTreeOutput | null;
 }
 

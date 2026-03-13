@@ -284,6 +284,7 @@ export function AiBuildClient() {
             id: Date.now().toString(),
             role: 'assistant',
             content: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
+            textContent: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
         };
         setChatHistory(prev => [...prev, assistantMessage]);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
@@ -444,6 +445,7 @@ export function AiBuildClient() {
       id: Date.now().toString(),
       role: 'user',
       content: userMessageContent,
+      textContent: messageContent,
     };
     
     setStory(''); // Clear input immediately
@@ -460,7 +462,7 @@ export function AiBuildClient() {
         treeName: treeName,
         chatHistory: newHistory.map(m => ({
           role: m.role,
-          content: typeof m.content === 'string' ? m.content : 'משתמש סיפק תגובה מורכבת.',
+          content: m.textContent,
         })),
         existingPeople: [], // No existing people on the build page
       };
@@ -505,6 +507,7 @@ export function AiBuildClient() {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: assistantMessageContent,
+        textContent: result.summary,
         data: result.isComplete ? result : null,
       };
 
@@ -517,6 +520,7 @@ export function AiBuildClient() {
         role: 'assistant',
         content:
           'מצטער, נתקלתי בשגיאה בעת ניתוח הסיפור שלך. נסה לנסח מחדש או נסה שוב מאוחר יותר.',
+        textContent: 'מצטער, נתקלתי בשגיאה בעת ניתוח הסיפור שלך. נסה לנסח מחדש או נסה שוב מאוחר יותר.',
       };
       setChatHistory((prev) => [...prev, errorMessage]);
       toast({

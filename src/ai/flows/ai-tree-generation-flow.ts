@@ -37,7 +37,7 @@ const prompt = ai.definePrompt({
     {{{json existingPeople}}}
     \`\`\`
 
-2.  **Conversation History:** The full back-and-forth so far.
+2.  **Conversation History:** The full back-and-forth so far. This is your memory.
     \`\`\`json
     {{{json chatHistory}}}
     \`\`\`
@@ -51,31 +51,28 @@ const prompt = ai.definePrompt({
 
 ---
 
-**Output Generation Rules (Follow Strictly):**
+**CRITICAL RULE: Always Maintain Context!**
+Your most important task is to behave like a single, continuous agent. The user expects you to remember the entire conversation.
 
-You **MUST** produce a JSON object that follows the \`GenerateTreeOutput\` schema.
+1.  **On every turn, you MUST review the full \`chatHistory\`**. This is your memory.
 
-**CRITICAL RULE: Deduplication & Context**
-Before identifying any new person from the user's message, you MUST check if a person with a similar first and last name already exists in the \`existingPeople\` list.
+2.  **When you ask a question:**
+    *   Your next turn will likely be the user's answer to that specific question.
+    *   If the last message in \`chatHistory\` is from you (\`role: 'assistant'\`) and it contains a question, and the \`newUserMessage\` is a short answer like "כן", "לא", "זו שושנה", you MUST interpret that answer in the context of your question.
+    *   **DO NOT** respond with "Great, who are you talking about?". Acknowledge the answer (e.g., "הבנתי, תודה!") and then decide your next move.
 
-1.  **If a likely duplicate is found:**
-    *   DO NOT add them to the \`people\` array in your output.
-    *   Instead, you MUST ask a clarification question. For example: "מצאתי אדם בשם 'משה כהן' שכבר קיים בעץ. האם מדובר באותו אדם?"
-    *   Set \`isComplete\` to \`false\`.
-    *   In the \`clarificationQuestions\` array, add a question object. Provide suggested answers like "כן, זה אותו אדם" and "לא, זה אדם חדש".
+3.  **After getting an answer:**
+    *   Re-evaluate all the information you have (from the whole chat).
+    *   Decide if you need to ask another question or if you now have a complete picture.
+    *   If you need more info, ask your *next* question (e.g., "מי האמא?").
+    *   If you have everything, set \`isComplete\` to \`true\` and summarize your findings.
 
-2.  **If the user's message is a direct response to your question (e.g., "כן, זה אותו אדם"):**
-    *   You MUST understand this in the context of the last question you asked in the \`chatHistory\`.
-    *   Do NOT ask "which person do you mean?".
-    *   Acknowledge their answer (e.g., "מעולה, הבנתי.") and then proceed with further analysis or ask your next question.
-
-3.  **If the person is clearly new:**
-    *   Proceed with the standard analysis as described below.
-    
 **File Content Analysis**
 *   If the \`newUserMessage\` starts with "[קובץ מצורף:", treat the text after "[תוכן:]" as the primary user input. This text may be structured (from Excel) or unstructured. Parse it to find as many people and relationships as possible.
 
-**Standard Analysis and Output Generation:**
+**Output Generation Rules (Follow Strictly):**
+
+You **MUST** produce a JSON object that follows the \`GenerateTreeOutput\` schema.
 
 1.  **Analyze and Decide:**
     *   Read the new message and compare it with the history and existing people.
