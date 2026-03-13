@@ -9,6 +9,7 @@ import { Search } from 'lucide-react';
 import type { Person, Relationship, ManualEvent } from '@/lib/types';
 import { format, getMonth, getDate, getYear, parseISO, isValid } from 'date-fns';
 import { he } from 'date-fns/locale';
+import { Label } from '@/components/ui/label';
 
 // --- Event Processing Logic (from CalendarView) ---
 type CalendarEventType = 'birth' | 'death' | 'marriage' | 'divorce' | 'custom';
