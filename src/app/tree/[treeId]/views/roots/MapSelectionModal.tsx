@@ -42,6 +42,7 @@ export function MapSelectionModal({ isOpen, onClose, onConfirm, people }: MapSel
                 pixelRatio: 2,
                 backgroundColor: '#f1f5f9', // same as stats view bg
                 filter: filter,
+                skipFonts: true,
             });
             onConfirm(dataUrl);
         } catch (error) {
