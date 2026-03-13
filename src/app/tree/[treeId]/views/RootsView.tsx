@@ -7,7 +7,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Recipe, BadgeCheck, PlusCircle } from 'lucide-react';
+import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Recipe, BadgeCheck, PlusCircle, BarChart2, Map, CalendarDays, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/accordion"
 import { v4 as uuidv4 } from 'uuid';
 import { RootsDesignEditor } from './RootsDesignEditor';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 // --- Utility & Base Components ---
@@ -616,13 +617,12 @@ const AiRephraseButton = ({ value, onRephrase, fieldName }: {
 };
 
 
-// --- Step 2: My Name ---
-const Step2_MyName = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
+// --- Step 2: My Story (Combined) ---
+const Step2_MyStory = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
   const myStory = projectData.personalStory || {};
   return (
     <div className="space-y-5" dir="rtl">
-      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">השם שלי</h1>
-      <p className="text-slate-400 text-sm text-center">הכל מתחיל בשם — ספר/י לנו על השם שלך</p>
+      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור שלי</h1>
       
       <div className="space-y-1">
         <div className="flex items-center justify-between w-full">
@@ -639,98 +639,129 @@ const Step2_MyName = ({ projectData, onUpdate }: { projectData: any, onUpdate: (
         </div>
         <EditableField asTextarea value={myStory.nameChoiceStory || ''} onUpdate={(v) => onUpdate(['personalStory', 'nameChoiceStory'], v)} placeholder="מי החליט על השם? האם זה על שם מישהו? מה הסיפור?" />
       </div>
-    </div>
-  );
-};
 
-// --- Step 3: My Story ---
-const Step3_MyStory = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
-  const myStory = projectData.personalStory || {};
-  return (
-    <div className="space-y-5" dir="rtl">
-      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הסיפור שלי</h1>
-      
-      <div className="space-y-1">
+       <div className="space-y-1">
         <div className="flex items-center justify-between w-full">
           <AiRephraseButton value={myStory.birthStory || ''} onRephrase={(v) => onUpdate(['personalStory', 'birthStory'], v)} fieldName="סיפור הלידה שלי" />
           <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">סיפור הלידה שלי</label>
         </div>
         <EditableField asTextarea value={myStory.birthStory || ''} onUpdate={(v) => onUpdate(['personalStory', 'birthStory'], v)} placeholder="תארו את סיפור לידתכם כפי שסופר ע״י ההורים. איפה נולדתם? מה היה מיוחד?" />
       </div>
-      
-      <div className="space-y-1">
-        <div className="flex items-center justify-between w-full">
-          <AiRephraseButton value={myStory.personalVision || ''} onRephrase={(v) => onUpdate(['personalStory', 'personalVision'], v)} fieldName="חזון אישי" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חזון אישי — אני מאמין/ה ש...</label>
-        </div>
-        <EditableField asTextarea value={myStory.personalVision || ''} onUpdate={(v) => onUpdate(['personalStory', 'personalVision'], v)} placeholder="מהם הערכים שמנחים אותך? מה השאיפות שלך לעתיד?" />
-      </div>
-
-      {/* Life Events hint card */}
-      <div className="mt-4 p-4 rounded-2xl bg-indigo-900/20 border border-indigo-500/20">
-        <p className="text-xs text-indigo-300 text-right">
-          💡 <strong>טיפ:</strong> בשלב עיצוב העבודה תוכל/י לצרף תמונות וצילומי מסך מלוח השנה המשפחתי כדי להמחיש את "תחנות החיים" שלך.
-        </p>
-      </div>
     </div>
   );
 };
 
 
-// --- Step 4: Nuclear Family ---
-const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, currentStudentId }: { 
+// --- Ancestor Card ---
+const AncestorCard = ({
+  person,
+  title,
+  fields,
+  data,
+  onUpdate,
+  onEditPerson,
+}: {
+  person?: Person;
+  title: string;
+  fields: { key: string; label: string; placeholder: string; isTextarea?: boolean }[];
+  data: any;
+  onUpdate: (key: string, value: any) => void;
+  onEditPerson?: (personId: string) => void;
+}) => (
+  <GlassmorphicCard className="p-4 rounded-2xl space-y-3">
+    <div
+      className="flex items-center gap-3 justify-end cursor-pointer"
+      onClick={() => person && onEditPerson && onEditPerson(person.id)}
+    >
+      <div className="text-right">
+        <p className="font-bold text-white text-sm">{person ? `${person.firstName} ${person.lastName}` : title}</p>
+        <p className="text-xs text-slate-400">
+          {person?.birthDate ? `נולד/ה: ${format(parseISO(person.birthDate), 'yyyy')}` : title}
+          {person?.birthPlace ? ` · ${person.birthPlace}` : ''}
+        </p>
+      </div>
+      <Avatar className="h-10 w-10 border-2 border-white/20">
+        <AvatarImage src={person?.photoURL || undefined} />
+        <AvatarFallback className="bg-slate-700">
+          <img src={getPlaceholderImage(person?.gender)} alt="" />
+        </AvatarFallback>
+      </Avatar>
+    </div>
+    {fields.map(field => (
+      <div key={field.key} className="space-y-1">
+        <div className="flex items-center justify-between">
+          <AiRephraseButton 
+            value={data[field.key] ?? ''} 
+            onRephrase={(v) => onUpdate(field.key, v)} 
+            fieldName={`${title}: ${field.label}`}
+          />
+          <label className="text-xs text-slate-400 block w-full text-right">{field.label}</label>
+        </div>
+        <EditableField
+          asTextarea={field.isTextarea}
+          value={data[field.key] ?? ''} 
+          onUpdate={(v) => onUpdate(field.key, v)} 
+          placeholder={field.placeholder}
+        />
+      </div>
+    ))}
+  </GlassmorphicCard>
+);
+
+// --- Step 3: Nuclear Family ---
+const Step3_NuclearFamily = ({ projectData, onUpdate, people, relationships, currentStudentId, onEditPerson }: { 
   projectData: any, 
   onUpdate: (path: (string|number)[], value: any) => void,
   people: Person[],
   relationships: Relationship[],
-  currentStudentId?: string
+  currentStudentId?: string,
+  onEditPerson?: (personId: string) => void
 }) => {
   const family = projectData.nuclearFamily || {};
   
-  const parents = useMemo(() => {
-    if (!currentStudentId) return [];
+  const familyMembers = useMemo(() => {
+    if (!currentStudentId) return { parents: [], siblings: [] };
     
+    const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent'];
     const parentRels = relationships.filter(r => 
-      r.personBId === currentStudentId && 
-      ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
+      r.personBId === currentStudentId && PARENT_REL_TYPES.includes(r.relationshipType)
     );
-
     const parentIds = [...new Set(parentRels.map(r => r.personAId))];
+    const parents = parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
     
-    return parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
+    const studentParents = relationships.filter(r => r.personBId === currentStudentId && PARENT_REL_TYPES.includes(r.relationshipType)).map(r => r.personAId);
+    if (studentParents.length === 0) return { parents, siblings: [] };
+
+    const siblingIds = new Set<string>();
+    studentParents.forEach(parentId => {
+      const childrenOfParent = relationships.filter(r => r.personAId === parentId && PARENT_REL_TYPES.includes(r.relationshipType)).map(r => r.personBId);
+      childrenOfParent.forEach(childId => {
+        if (childId !== currentStudentId) siblingIds.add(childId);
+      });
+    });
+    
+    const siblings = Array.from(siblingIds).map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
+
+    return { parents, siblings };
   }, [relationships, people, currentStudentId]);
   
   return (
     <div className="space-y-5" dir="rtl">
       <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">המשפחה הגרעינית</h1>
       
-      {/* Parents section */}
       <div className="space-y-3">
         <h2 className="text-sm font-bold text-slate-300 text-right border-b border-white/10 pb-2">ההורים שלי</h2>
-        
-        {parents.length > 0 ? (
-          parents.map((parent) => (
-            <GlassmorphicCard key={parent.id} className="p-4 rounded-2xl space-y-2">
-              <div className="flex items-center gap-3 justify-end">
-                <div className="text-right">
-                  <p className="font-bold text-white text-sm">{parent.firstName} {parent.lastName}</p>
-                  <p className="text-xs text-slate-400">{parent.birthDate ? `נולד/ה: ${format(new Date(parent.birthDate), 'yyyy')}` : ''}{parent.birthPlace ? ` · ${parent.birthPlace}` : ''}</p>
-                </div>
-                <Avatar className="h-10 w-10 border-2 border-white/20">
-                  <AvatarImage src={parent.photoURL || undefined} />
-                  <AvatarFallback className="bg-slate-700">
-                    <img src={getPlaceholderImage(parent.gender)} alt="" />
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <AiRephraseButton value={family[`parent_${parent.id}_bio`] || ''} onRephrase={(v) => onUpdate(['nuclearFamily', `parent_${parent.id}_bio`], v)} fieldName={`סיפור על ${parent.firstName}`} />
-                  <label className="text-xs text-slate-400 block w-full text-right">ספר/י על {parent.firstName} במשפחה</label>
-                </div>
-                <EditableField asTextarea value={family[`parent_${parent.id}_bio`] || ''} onUpdate={(v) => onUpdate(['nuclearFamily', `parent_${parent.id}_bio`], v)} placeholder={`מי זה/זו ${parent.firstName}? מה הוא/היא עושה? מה מיוחד בו/בה?`} />
-              </div>
-            </GlassmorphicCard>
+        {familyMembers.parents.length > 0 ? (
+          familyMembers.parents.map((parent) => (
+            <AncestorCard 
+              key={parent.id}
+              person={parent}
+              title={`סיפור על ${parent.firstName}`}
+              fields={[{ key: `parent_${parent.id}_bio`, label: `ספר/י על ${parent.firstName} במשפחה`, placeholder: `מה הוא/היא עושה? מה מיוחד בו/בה?`, isTextarea: true }]}
+              data={family}
+              onUpdate={(key, val) => onUpdate(['nuclearFamily', key], val)}
+              onEditPerson={onEditPerson}
+            />
           ))
         ) : (
           <div className="text-center py-6 text-slate-500 text-sm bg-white/5 rounded-2xl">
@@ -739,7 +770,6 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
           </div>
         )}
         
-        {/* Parents meeting story */}
         <div className="space-y-1 mt-3">
           <div className="flex items-center justify-between">
             <AiRephraseButton value={family.parentsMeetingStory || ''} onRephrase={(v) => onUpdate(['nuclearFamily', 'parentsMeetingStory'], v)} fieldName="סיפור ההיכרות של ההורים" />
@@ -749,7 +779,27 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
         </div>
       </div>
 
-      {/* Tip card */}
+      <div className="space-y-3">
+        <h2 className="text-sm font-bold text-slate-300 text-right border-b border-white/10 pb-2">אחים ואחיות</h2>
+        {familyMembers.siblings.length > 0 ? (
+          familyMembers.siblings.map((sibling) => (
+             <AncestorCard 
+              key={sibling.id}
+              person={sibling}
+              title={`סיפור על ${sibling.firstName}`}
+              fields={[{ key: `sibling_${sibling.id}_bio`, label: `ספר/י על ${sibling.firstName}`, placeholder: `מה הקשר שלכם? מה הוא/היא אוהב/ת לעשות?`, isTextarea: true }]}
+              data={family}
+              onUpdate={(key, val) => onUpdate(['nuclearFamily', key], val)}
+              onEditPerson={onEditPerson}
+            />
+          ))
+        ) : (
+           <div className="text-center py-6 text-slate-500 text-sm bg-white/5 rounded-2xl">
+            <p>לא נמצאו אחים/אחיות.</p>
+          </div>
+        )}
+      </div>
+
       <div className="p-4 rounded-2xl bg-teal-900/20 border border-teal-500/20">
         <p className="text-xs text-teal-300 text-right">
           💡 <strong>טיפ:</strong> בשלב עיצוב העבודה תוכל/י לצרף צילום מסך מהעץ המשפחתי המציג את תמונת המשפחה הגרעינית שלך.
@@ -759,215 +809,157 @@ const Step4_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
   );
 };
 
-// --- Step 5: Family Roots ---
-const AncestorCard = ({ title, person, data, onUpdate, fieldNamePrefix }: {
-    title: string,
-    person?: Person,
-    data: any,
-    onUpdate: (key: string, value: any) => void,
-    fieldNamePrefix: string
-}) => {
-    const fields = [
-        { key: 'name', label: 'שם מלא', placeholder: 'שם פרטי ושם משפחה', initialValue: person ? `${person.firstName} ${person.lastName}` : '', isTextarea: false },
-        { key: 'birthYear', label: 'שנת לידה', placeholder: 'לדוגמה: 1920', initialValue: person?.birthDate ? format(parseISO(person.birthDate), 'yyyy') : '', isTextarea: false },
-        { key: 'birthPlace', label: 'מקום לידה ומדינת מוצא', placeholder: 'לדוגמה: ורשה, פולין', initialValue: person?.birthPlace, isTextarea: false },
-        { key: 'aliyahYear', label: 'שנת עלייה לישראל', placeholder: 'אם עלה/תה לישראל', isTextarea: false },
-        { key: 'story', label: 'סיפור קצר', placeholder: 'מה אתה יודע על אותו/אותה? מה הסיפור שלהם?', isTextarea: true },
-    ];
 
-    return (
-        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-3">
-            <h3 className="font-bold text-slate-200 text-right">{title}</h3>
-            {fields.map(field => (
-                <div key={field.key} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                        {field.isTextarea && (
-                            <AiRephraseButton 
-                                value={data[`${fieldNamePrefix}_${field.key}`] ?? field.initialValue ?? ''} 
-                                onRephrase={(v) => onUpdate(`${fieldNamePrefix}_${field.key}`, v)} 
-                                fieldName={`${title}: ${field.label}`}
-                            />
-                        )}
-                        <label className="text-xs text-slate-400 block text-right w-full">{field.label}</label>
-                    </div>
-                    <EditableField
-                        asTextarea={field.isTextarea}
-                        value={data[`${fieldNamePrefix}_${field.key}`] ?? field.initialValue ?? ''} 
-                        onUpdate={(v) => onUpdate(`${fieldNamePrefix}_${field.key}`, v)} 
-                        placeholder={field.placeholder}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-};
-
-const Step5_Roots = ({ projectData, onUpdate, people, relationships, currentStudentId }: {
-  projectData: any,
-  onUpdate: (path: (string|number)[], value: any) => void,
-  people: Person[],
-  relationships: Relationship[],
-  currentStudentId?: string
+// --- Step 4 & 5: Grandparents ---
+const GrandparentsStep = ({ side, projectData, onUpdate, people, relationships, currentStudentId, onEditPerson }: {
+  side: 'paternal' | 'maternal';
+  projectData: any;
+  onUpdate: (path: (string|number)[], value: any) => void;
+  people: Person[];
+  relationships: Relationship[];
+  currentStudentId?: string;
+  onEditPerson?: (personId: string) => void;
 }) => {
   const roots = projectData.familyRoots || {};
-  const [activeSection, setActiveSection] = useState<string | null>('paternal');
   
   const ancestors = useMemo(() => {
     const findParents = (personId?: string): Person[] => {
-        if (!personId) return [];
-        const parentRels = relationships.filter(r => r.personBId === personId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
-        return parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
+      if (!personId) return [];
+      const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent'];
+      const parentRels = relationships.filter(r => r.personBId === personId && PARENT_REL_TYPES.includes(r.relationshipType));
+      return parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
     };
     
     const parents = findParents(currentStudentId);
-    const father = parents.find(p => p.gender === 'male');
-    const mother = parents.find(p => p.gender === 'female');
+    const relevantParent = parents.find(p => side === 'paternal' ? p.gender === 'male' : p.gender === 'female');
     
-    const paternalGrandparents = findParents(father?.id);
-    const maternalGrandparents = findParents(mother?.id);
+    const grandparents = findParents(relevantParent?.id);
+    const grandfather = grandparents.find(p => p.gender === 'male');
+    const grandmother = grandparents.find(p => p.gender === 'female');
     
-    const paternalGrandfather = paternalGrandparents.find(p => p.gender === 'male');
-    const paternalGrandmother = paternalGrandparents.find(p => p.gender === 'female');
-    
-    const maternalGrandfather = maternalGrandparents.find(p => p.gender === 'male');
-    const maternalGrandmother = maternalGrandparents.find(p => p.gender === 'female');
-    
-    const paternalGGFs = findParents(paternalGrandfather?.id);
-    const paternalGGMs = findParents(paternalGrandmother?.id);
-
-    const maternalGGFs = findParents(maternalGrandfather?.id);
-    const maternalGGMs = findParents(maternalGrandmother?.id);
-
-    return {
-      paternalGrandfather, paternalGrandmother,
-      maternalGrandfather, maternalGrandmother,
-      paternalGreatGrandfather: paternalGGFs.find(p => p.gender === 'male'),
-      paternalGreatGrandmother: paternalGGMs.find(p => p.gender === 'female'),
-      maternalGreatGrandfather: maternalGGFs.find(p => p.gender === 'male'),
-      maternalGreatGrandmother: maternalGGMs.find(p => p.gender === 'female'),
-    };
-  }, [people, relationships, currentStudentId]);
+    return { grandfather, grandmother };
+  }, [people, relationships, currentStudentId, side]);
   
-  const sections = [
-    { key: 'paternal', label: 'סבא וסבתא מצד אבא', icon: '👴', content: <>
-        <AncestorCard title="סבא (אבא של אבא)" person={ancestors.paternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandfather" />
-        <AncestorCard title="סבתא (אמא של אבא)" person={ancestors.paternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGrandmother" />
-    </>},
-    { key: 'maternal', label: 'סבא וסבתא מצד אמא', icon: '👵', content: <>
-        <AncestorCard title="סבא (אבא של אמא)" person={ancestors.maternalGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandfather" />
-        <AncestorCard title="סבתא (אמא של אמא)" person={ancestors.maternalGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGrandmother" />
-    </>},
-    { key: 'paternal-gg', label: 'הורי-סבא מצד אבא', icon: '🌳', content: <>
-        <AncestorCard title="אבא של סבא" person={ancestors.paternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandfather" />
-        <AncestorCard title="אמא של סבתא" person={ancestors.paternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="paternalGreatGrandmother" />
-    </>},
-    { key: 'maternal-gg', label: 'הורי-סבא מצד אמא', icon: '🌳', content: <>
-         <AncestorCard title="אבא של סבא" person={ancestors.maternalGreatGrandfather} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandfather" />
-        <AncestorCard title="אמא של סבתא" person={ancestors.maternalGreatGrandmother} data={roots} onUpdate={(k, v) => onUpdate(['familyRoots', k], v)} fieldNamePrefix="maternalGreatGrandmother" />
-    </>},
+  const fields = [
+    { key: 'birthYear', label: 'שנת לידה', placeholder: 'לדוגמה: 1950' },
+    { key: 'birthPlace', label: 'מקום לידה ומדינת מוצא', placeholder: 'לדוגמה: קזבלנקה, מרוקו' },
+    { key: 'aliyahYear', label: 'שנת עלייה לישראל', placeholder: 'אם רלוונטי' },
+    { key: 'story', label: 'סיפור חיים', placeholder: 'ספר/י בקצרה על חייהם, מהיכן עלו, זיכרונות ילדות, אירועים מיוחדים וכו\'...', isTextarea: true },
   ];
   
   return (
     <div className="space-y-4" dir="rtl">
-      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">שורשי המשפחה</h1>
-      <p className="text-slate-400 text-xs text-center">4 דורות של זיכרון משפחתי</p>
-      
-      <Accordion type="single" collapsible className="w-full space-y-2" value={activeSection || ''} onValueChange={setActiveSection}>
-        {sections.map(section => (
-          <AccordionItem key={section.key} value={section.key} className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-            <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-white/10">
-              <span className="flex items-center gap-2 text-sm font-bold text-slate-200">{section.label} {section.icon}</span>
-            </AccordionTrigger>
-            <AccordionContent className="p-4 space-y-4 bg-black/20">
-              {section.content}
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
-
-      <div className="p-4 rounded-2xl bg-indigo-900/20 border border-indigo-500/20">
-        <p className="text-xs text-indigo-300 text-right">
-          🗺️ <strong>טיפ:</strong> אם מילאת מקומות לידה מחוץ לישראל, בשלב עיצוב העבודה תוכל/י לייצא מפת הגירה משפחתית אוטומטית מתוך מודול המפות במערכת.
-        </p>
-      </div>
+      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">
+        סבא וסבתא: צד ה{side === 'paternal' ? 'אב' : 'אם'}
+      </h1>
+      <AncestorCard 
+        title={`סבא (אבא של ${side === 'paternal' ? 'אבא' : 'אמא'})`}
+        person={ancestors.grandfather}
+        fields={fields}
+        data={roots}
+        onUpdate={(key, val) => onUpdate(['familyRoots', `${side}Grandfather_${key}`], val)}
+        onEditPerson={onEditPerson}
+      />
+      <AncestorCard 
+        title={`סבתא (אמא של ${side === 'paternal' ? 'אבא' : 'אמא'})`}
+        person={ancestors.grandmother}
+        fields={fields}
+        data={roots}
+        onUpdate={(key, val) => onUpdate(['familyRoots', `${side}Grandmother_${key}`], val)}
+        onEditPerson={onEditPerson}
+      />
     </div>
   );
 };
 
 
-// --- Step 6: Heritage ---
-const EditableEventChip = ({ event, isSelected, onToggle, onUpdate }: { 
-    event: { id: string; label: string; year: string; isCustom: boolean; };
-    isSelected: boolean;
-    onToggle: (id: string) => void;
-    onUpdate: (id: string, newValues: { label: string; year: string; }) => void;
+// --- Step 6 & 7: Great-Grandparents ---
+const GreatGrandparentsStep = ({ side, projectData, onUpdate, people, relationships, currentStudentId, onEditPerson }: {
+  side: 'paternal' | 'maternal';
+  projectData: any;
+  onUpdate: (path: (string|number)[], value: any) => void;
+  people: Person[];
+  relationships: Relationship[];
+  currentStudentId?: string;
+  onEditPerson?: (personId: string) => void;
 }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editText, setEditText] = useState(`${event.label} (${event.year})`);
-
-    const handleDoubleClick = () => {
-        if (!event.isCustom) return; // Only allow editing custom events
-        setIsEditing(true);
-    };
-
-    const handleBlur = () => {
-        setIsEditing(false);
-        const text = editText.trim();
-        let label = text;
-        let year = '';
-        const yearMatch = text.match(/\(([^)]+)\)/);
-        if (yearMatch) {
-            year = yearMatch[1].trim();
-            label = text.replace(yearMatch[0], '').trim();
-        }
-        if (label !== event.label || year !== event.year) {
-            onUpdate(event.id, { label, year });
-        }
+   const roots = projectData.familyRoots || {};
+  
+  const ancestors = useMemo(() => {
+    const findParents = (personId?: string): Person[] => {
+      if (!personId) return [];
+      const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent'];
+      const parentRels = relationships.filter(r => r.personBId === personId && PARENT_REL_TYPES.includes(r.relationshipType));
+      return parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
     };
     
-    useEffect(() => {
-        setEditText(`${event.label} (${event.year})`);
-    }, [event.label, event.year]);
+    const parents = findParents(currentStudentId);
+    const relevantParent = parents.find(p => side === 'paternal' ? p.gender === 'male' : p.gender === 'female');
+    const grandparents = findParents(relevantParent?.id);
+    const grandfather = grandparents.find(p => p.gender === 'male');
+    const grandmother = grandparents.find(p => p.gender === 'female');
 
-    if (isEditing) {
-        return (
-            <Input
-                value={editText}
-                onChange={(e) => setEditText(e.target.value)}
-                onBlur={handleBlur}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleBlur();
-                    if (e.key === 'Escape') setIsEditing(false);
-                }}
-                autoFocus
-                className="h-8 text-xs bg-slate-700/90 border-indigo-400 ring-4 ring-indigo-500/40"
-            />
-        );
-    }
+    const ggf_p = findParents(grandfather?.id);
+    const ggm_p = findParents(grandmother?.id);
+    
+    return { 
+      ggf_f: ggf_p.find(p => p.gender === 'male'),
+      ggm_f: ggf_p.find(p => p.gender === 'female'),
+      ggf_m: ggm_p.find(p => p.gender === 'male'),
+      ggm_m: ggm_p.find(p => p.gender === 'female'),
+    };
+  }, [people, relationships, currentStudentId, side]);
 
-    return (
-        <button
-            type="button"
-            onDoubleClick={handleDoubleClick}
-            onClick={() => onToggle(event.id)}
-            className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border",
-                isSelected
-                  ? "bg-indigo-500/30 border-indigo-400 text-indigo-200"
-                  : "bg-white/5 border-white/10 text-slate-400 hover:border-white/30",
-                event.isCustom && "cursor-pointer hover:border-indigo-400/50"
-            )}
-            title={event.isCustom ? "לחץ לחיצה כפולה לעריכה" : ""}
-        >
-            {event.label} ({event.year})
-        </button>
-    );
+  const fields = [
+    { key: 'story', label: 'מה ידוע על דור זה?', placeholder: 'שמות, מקומות, סיפורים שעברו במשפחה...', isTextarea: true },
+  ];
+
+  return (
+    <div className="space-y-4" dir="rtl">
+      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">
+        הדור של סבא-רבא: צד ה{side === 'paternal' ? 'אב' : 'אם'}
+      </h1>
+      <AncestorCard title="אבא של סבא" person={ancestors.ggf_f} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGF_${k}`],v)} onEditPerson={onEditPerson} />
+      <AncestorCard title="אמא של סבא" person={ancestors.ggm_f} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMf_${k}`],v)} onEditPerson={onEditPerson} />
+      <AncestorCard title="אבא של סבתא" person={ancestors.ggf_m} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMm_${k}`],v)} onEditPerson={onEditPerson} />
+      <AncestorCard title="אמא של סבתא" person={ancestors.ggm_m} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMm_${k}`],v)} onEditPerson={onEditPerson} />
+    </div>
+  );
 };
 
-const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
+
+// --- Step 8-12: Heritage Steps ---
+const HeritageStep = ({ 
+  title, icon, fieldKey, placeholder, projectData, onUpdate 
+}: { 
+  title: string;
+  icon: React.ReactNode;
+  fieldKey: string;
+  placeholder: string;
+  projectData: any;
+  onUpdate: (path: (string|number)[], value: any) => void;
+}) => {
   const heritage = projectData.heritage || {};
-  
-  const initialHistoricalEvents = [
+  return (
+    <div className="space-y-3" dir="rtl">
+      <h1 className="flex items-center justify-center gap-3 text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">
+        {icon} {title}
+      </h1>
+      <div className="space-y-1">
+        <div className="flex items-center justify-between w-full">
+          <AiRephraseButton value={heritage[fieldKey] || ''} onRephrase={(v) => onUpdate(['heritage', fieldKey], v)} fieldName={title} />
+        </div>
+        <EditableField asTextarea value={heritage[fieldKey] || ''} onUpdate={(v) => onUpdate(['heritage', fieldKey], v)} placeholder={placeholder} />
+      </div>
+    </div>
+  );
+};
+
+// --- Step 11: National History ---
+const Step11_NationalHistory = ({ projectData, onUpdate }: { projectData: any, onUpdate: (path: (string|number)[], value: any) => void }) => {
+  // Same as old Step6, just isolated.
+  const heritage = projectData.heritage || {};
+  const initialHistoricalEvents = useMemo(() => [
     { id: 'independence', label: 'מלחמת העצמאות', year: '1948' },
     { id: 'sinai', label: 'מבצע סיני', year: '1956' },
     { id: 'sixdays', label: 'מלחמת ששת הימים', year: '1967' },
@@ -977,15 +969,18 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
     { id: 'aliyah_ethiopia', label: 'עלייה מאתיופיה', year: '1984/1991' },
     { id: 'aliyah_russia', label: 'עלייה מחבר המדינות', year: '1990s' },
     { id: 'herut_habanim', label: 'מבצע חרבות ברזל', year: '2023' },
-  ];
+  ], []);
 
-  const customEvents = heritage.customHistoricalEvents || [];
-  const combinedEvents = [...initialHistoricalEvents, ...customEvents];
-
+  const [customEvents, setCustomEvents] = useState(heritage.customHistoricalEvents || []);
   const [newEventLabel, setNewEventLabel] = useState('');
   const [newEventYear, setNewEventYear] = useState('');
   const [isAddEventPopoverOpen, setIsAddEventPopoverOpen] = useState(false);
 
+  useEffect(() => {
+    onUpdate(['heritage', 'customHistoricalEvents'], customEvents);
+  }, [customEvents]);
+
+  const allEvents = useMemo(() => [...initialHistoricalEvents, ...customEvents], [initialHistoricalEvents, customEvents]);
   const selectedEvents: string[] = heritage.selectedEvents || [];
   
   const toggleEvent = (eventId: string) => {
@@ -996,171 +991,177 @@ const Step6_Heritage = ({ projectData, onUpdate }: { projectData: any, onUpdate:
   };
   
   const handleAddNewEvent = () => {
-    if (!newEventLabel) return;
-    
-    let label = newEventLabel.trim();
-    let year = newEventYear.trim();
-
-    // Try to extract year from label if year input is empty
-    if (!year) {
-        const yearMatch = label.match(/\(([^)]+)\)/);
-        if (yearMatch) {
-            year = yearMatch[1];
-            label = label.replace(yearMatch[0], '').trim();
-        }
-    }
-
-    if (!label || !year) {
-        // Maybe show a toast message
-        return;
-    }
-
-    // Clean up any extra parentheses from year
-    year = year.replace(/[()]/g, '');
-
-    const newId = uuidv4();
-    
-    const newEvent = { id: newId, label: label, year: year };
-    
-    const updatedCustomEvents = [...(heritage.customHistoricalEvents || []), newEvent];
-    onUpdate(['heritage', 'customHistoricalEvents'], updatedCustomEvents);
-    
-    // Automatically select the newly added event
-    if (!selectedEvents.includes(newId)) {
-        const newSelected = [...selectedEvents, newId];
-        onUpdate(['heritage', 'selectedEvents'], newSelected);
-    }
-    
+    if (!newEventLabel || !newEventYear) return;
+    const newEvent = { id: uuidv4(), label: newEventLabel.trim(), year: newEventYear.trim() };
+    setCustomEvents([...customEvents, newEvent]);
+    toggleEvent(newEvent.id);
     setNewEventLabel('');
     setNewEventYear('');
     setIsAddEventPopoverOpen(false);
   };
   
   const handleUpdateCustomEvent = (eventId: string, newValues: { label: string; year: string; }) => {
-    const updatedCustomEvents = (heritage.customHistoricalEvents || []).map((e: {id: string}) => 
+    setCustomEvents(prev => prev.map((e: {id: string}) => 
         e.id === eventId ? { ...e, ...newValues } : e
-    );
-    onUpdate(['heritage', 'customHistoricalEvents'], updatedCustomEvents);
+    ));
   };
-
+  
   return (
-    <div className="space-y-5" dir="rtl">
-      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">מורשת והיסטוריה לאומית</h1>
-      
-      {/* Inherited object */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between w-full">
-          <AiRephraseButton value={heritage.inheritedObject || ''} onRephrase={(v) => onUpdate(['heritage', 'inheritedObject'], v)} fieldName="חפץ עובר בירושה" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">חפץ עובר בירושה 💎</label>
-        </div>
-        <EditableField asTextarea value={heritage.inheritedObject || ''} onUpdate={(v) => onUpdate(['heritage', 'inheritedObject'], v)} placeholder="תארו חפץ שעבר במשפחה מדור לדור. מה הוא? מאיפה הגיע? מה הוא מסמל?" />
-      </div>
-      
-      {/* Family recipe */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between w-full">
-          <AiRephraseButton value={heritage.familyRecipe || ''} onRephrase={(v) => onUpdate(['heritage', 'familyRecipe'], v)} fieldName="מתכון משפחתי" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מתכון משפחתי 🍽️</label>
-        </div>
-        <EditableField asTextarea value={heritage.familyRecipe || ''} onUpdate={(v) => onUpdate(['heritage', 'familyRecipe'], v)} placeholder="מה המנה שכולם מחכים לה בארוחות משפחתיות? מי מכינה אותה? מה הסיפור שלה?" />
-      </div>
-      
-      {/* Family name origin */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between w-full">
-          <AiRephraseButton value={heritage.familyNameOrigin || ''} onRephrase={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} fieldName="מקור שם המשפחה" />
-          <label className="font-bold text-sm text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400 block w-full text-right">מקור שם המשפחה</label>
-        </div>
-        <EditableField asTextarea value={heritage.familyNameOrigin || ''} onUpdate={(v) => onUpdate(['heritage', 'familyNameOrigin'], v)} placeholder="מאיפה מגיע שם המשפחה? מה משמעותו? מתי אומץ שם זה?" />
-      </div>
-
-      {/* Historical events */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-bold text-slate-300 text-right">קשר המשפחה להיסטוריה הלאומית</h2>
-        <p className="text-xs text-slate-400 text-right">סמן/י אירועים היסטוריים שמשפחתך הייתה קשורה אליהם:</p>
-        <div className="flex flex-wrap gap-2 justify-end">
-          {combinedEvents.map((event, index) => {
-            const isCustom = !initialHistoricalEvents.some(initial => initial.id === event.id);
-            return (
-              <EditableEventChip
-                key={`event-${event.id}-${index}`}
-                event={{...event, isCustom}}
-                isSelected={selectedEvents.includes(event.id)}
-                onToggle={toggleEvent}
-                onUpdate={handleUpdateCustomEvent}
-              />
-            );
-          })}
-          <Popover open={isAddEventPopoverOpen} onOpenChange={setIsAddEventPopoverOpen}>
+    <div className="space-y-4" dir="rtl">
+      <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">מורשת והיסטוריה</h1>
+      <p className="text-xs text-slate-400 text-center">סמן/י אירועים היסטוריים שמשפחתך הייתה קשורה אליהם וספר/י על כך:</p>
+      <div className="flex flex-wrap gap-2 justify-end p-2 bg-black/20 rounded-xl">
+        {allEvents.map((event, index) => (
+          <EditableEventChip
+            key={`event-${event.id}-${index}`}
+            event={{...event, isCustom: !initialHistoricalEvents.some(initial => initial.id === event.id)}}
+            isSelected={selectedEvents.includes(event.id)}
+            onToggle={toggleEvent}
+            onUpdate={handleUpdateCustomEvent}
+          />
+        ))}
+        <Popover open={isAddEventPopoverOpen} onOpenChange={setIsAddEventPopoverOpen}>
             <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border border-dashed",
-                  "border-white/30 text-slate-300 hover:bg-white/10 hover:border-white/50"
-                )}
-              >
-                <PlusCircle className="inline ml-1 h-3 w-3" />
-                הוסף אירוע
+              <button type="button" className="px-3 py-1.5 rounded-full text-xs font-medium border border-dashed border-white/30 text-slate-300 hover:bg-white/10 hover:border-white/50">
+                <PlusCircle className="inline ml-1 h-3 w-3" /> הוסף אירוע
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
               <div className="grid gap-4" dir="rtl">
-                <div className="space-y-2 text-right">
-                  <h4 className="font-medium leading-none">הוספת אירוע היסטורי</h4>
-                  <p className="text-sm text-muted-foreground">
-                    האירוע יתווסף לרשימה עבור פרויקט זה.
-                  </p>
-                </div>
+                <div className="space-y-2 text-right"><h4 className="font-medium leading-none">הוספת אירוע היסטורי</h4><p className="text-sm text-muted-foreground">האירוע יתווסף לרשימה.</p></div>
                 <div className="grid gap-2 text-right">
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <Label htmlFor="evt-label">שם האירוע</Label>
-                    <Input
-                      id="evt-label"
-                      value={newEventLabel}
-                      onChange={(e) => setNewEventLabel(e.target.value)}
-                      className="col-span-2 h-8"
-                    />
-                  </div>
-                  <div className="grid grid-cols-3 items-center gap-4">
-                    <Label htmlFor="evt-year">שנה</Label>
-                    <Input
-                      id="evt-year"
-                      value={newEventYear}
-                      onChange={(e) => setNewEventYear(e.target.value)}
-                      className="col-span-2 h-8"
-                    />
-                  </div>
+                  <div className="grid grid-cols-3 items-center gap-4"><Label htmlFor="evt-label">שם האירוע</Label><Input id="evt-label" value={newEventLabel} onChange={(e) => setNewEventLabel(e.target.value)} className="col-span-2 h-8" /></div>
+                  <div className="grid grid-cols-3 items-center gap-4"><Label htmlFor="evt-year">שנה</Label><Input id="evt-year" value={newEventYear} onChange={(e) => setNewEventYear(e.target.value)} className="col-span-2 h-8" /></div>
                 </div>
                 <Button onClick={handleAddNewEvent}>שמור והוסף</Button>
               </div>
             </PopoverContent>
           </Popover>
-        </div>
+      </div>
         
-        {/* Text fields for selected events */}
-        {selectedEvents.map((eventId, index) => {
-          const event = combinedEvents.find(e => e.id === eventId);
-          if (!event) return null;
-          return (
-            <div key={`selected-event-${eventId}-${index}`} className="space-y-1">
-              <div className="flex items-center justify-between">
-                <AiRephraseButton value={heritage[`event_${eventId}`] || ''} onRephrase={(v) => onUpdate(['heritage', `event_${eventId}`], v)} fieldName={event.label} />
-                <label className="text-xs text-slate-300 block w-full text-right">הקשר של משפחתי ל{event.label}:</label>
-              </div>
-              <EditableField asTextarea value={heritage[`event_${eventId}`] || ''} onUpdate={(v) => onUpdate(['heritage', `event_${eventId}`], v)} placeholder={`ספר/י על הקשר של משפחתך ל${event.label}...`} />
+      {selectedEvents.map((eventId, index) => {
+        const event = allEvents.find(e => e.id === eventId);
+        if (!event) return null;
+        return (
+          <div key={`selected-event-${eventId}-${index}`} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <AiRephraseButton value={heritage[`event_${eventId}`] || ''} onRephrase={(v) => onUpdate(['heritage', `event_${eventId}`], v)} fieldName={event.label} />
+              <label className="text-xs text-slate-300 block w-full text-right">הקשר של משפחתי ל{event.label}:</label>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Final completion card */}
-      <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-900/40 to-violet-900/40 border border-indigo-500/30 text-center">
-        <p className="text-sm text-slate-200 font-bold">🎉 כמעט סיימת!</p>
-        <p className="text-xs text-slate-400 mt-1">לאחר השמירה, כל המידע יהיה מוכן לייצוא לעיצוב הסופי של העבודה.</p>
-      </div>
+            <EditableField asTextarea value={heritage[`event_${eventId}`] || ''} onUpdate={(v) => onUpdate(['heritage', `event_${eventId}`], v)} placeholder={`ספר/י על הקשר של משפחתך ל${event.label}...`} />
+          </div>
+        );
+      })}
     </div>
   );
+};
+
+
+// --- Step 13: Final Touches ---
+const Step13_FinalTouches = ({ projectData, onUpdate, people, onEditPerson }: {
+  projectData: any,
+  onUpdate: (path: (string|number)[], value: any) => void,
+  people: Person[],
+  onEditPerson?: (personId: string) => void;
+}) => {
+    const finalizationData = projectData.finalPresentation || {};
+    const [isAdding, setIsAdding] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const involvedIds = useMemo(() => {
+        const ids = new Set<string>();
+        if (project.studentPersonId) ids.add(project.studentPersonId);
+        const getIds = (obj: any) => {
+            if (!obj) return;
+            if (typeof obj === 'string' && people.some(p => p.id === obj)) {
+                ids.add(obj);
+            }
+            if (Array.isArray(obj)) {
+                obj.forEach(v => getIds(v));
+            } else if (typeof obj === 'object') {
+                Object.values(obj).forEach(v => getIds(v));
+            }
+        };
+        getIds(projectData.familyRoots);
+        (projectData.nuclearFamily?.parents || []).forEach((p: Person) => ids.add(p.id));
+        (projectData.nuclearFamily?.siblings || []).forEach((p: Person) => ids.add(p.id));
+        (finalizationData.extraPeople || []).forEach((id: string) => ids.add(id));
+        return Array.from(ids);
+    }, [projectData, finalizationData.extraPeople]);
+
+    const involvedPeople = useMemo(() => people.filter(p => involvedIds.includes(p.id)), [involvedIds, people]);
+    const availablePeople = useMemo(() => people.filter(p => !involvedIds.includes(p.id) && `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())), [involvedIds, people, searchTerm]);
+
+    const handleAddPerson = (personId: string) => {
+        const currentExtra = finalizationData.extraPeople || [];
+        onUpdate(['finalPresentation', 'extraPeople'], [...currentExtra, personId]);
+        setSearchTerm('');
+        setIsAdding(false);
+    };
+
+    const handleRemovePerson = (personId: string) => {
+        const currentExtra = finalizationData.extraPeople || [];
+        onUpdate(['finalPresentation', 'extraPeople'], currentExtra.filter((id: string) => id !== personId));
+    };
+
+    const toggleExtraContent = (key: string) => {
+        onUpdate(['finalPresentation', key], !finalizationData[key]);
+    };
+
+    const extras = [
+        { key: 'includeMap', label: 'מפת נדידה משפחתית', icon: <Map className="h-4 w-4" /> },
+        { key: 'includeStats', label: 'גרפים סטטיסטיים', icon: <BarChart2 className="h-4 w-4" /> },
+        { key: 'includeCalendar', label: 'אירועים חשובים מלוח השנה', icon: <CalendarDays className="h-4 w-4" /> },
+    ];
+    
+    return (
+        <div className="space-y-6" dir="rtl">
+            <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">הכנה לייצוא המצגת</h1>
+            
+            <div className="p-4 bg-black/20 rounded-2xl space-y-3">
+                <h2 className="text-sm font-bold text-slate-300 text-right">אנשים שיופיעו במצגת ({involvedPeople.length})</h2>
+                <ScrollArea className="h-40 border rounded-lg bg-slate-900/50">
+                    {involvedPeople.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 p-1.5 border-b border-white/5">
+                            <Avatar className="h-7 w-7"><AvatarImage src={p.photoURL || undefined} /><AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="" /></AvatarFallback></Avatar>
+                            <span className="text-xs font-medium text-slate-200 flex-1">{p.firstName} {p.lastName}</span>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={() => handleRemovePerson(p.id)}><X className="h-3.5 w-3.5" /></Button>
+                        </div>
+                    ))}
+                </ScrollArea>
+                 <Popover open={isAdding} onOpenChange={setIsAdding}>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full border-dashed">
+                            <PlusCircle className="ml-2 h-4 w-4" /> הוסף אדם מהעץ
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80 p-0" align="center">
+                        <div className="p-2 border-b"><Input placeholder="חיפוש..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+                        <ScrollArea className="h-60">
+                           {availablePeople.map(p => (
+                                <button key={p.id} onClick={() => handleAddPerson(p.id)} className="w-full text-right p-2 hover:bg-slate-700 flex items-center gap-2">
+                                     <Avatar className="h-7 w-7"><AvatarImage src={p.photoURL || undefined} /><AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="" /></AvatarFallback></Avatar>
+                                     <span className="text-xs">{p.firstName} {p.lastName}</span>
+                                </button>
+                           ))}
+                        </ScrollArea>
+                    </PopoverContent>
+                </Popover>
+            </div>
+
+            <div className="p-4 bg-black/20 rounded-2xl space-y-3">
+                 <h2 className="text-sm font-bold text-slate-300 text-right">תוכן נוסף למצגת</h2>
+                 <div className="space-y-2">
+                    {extras.map(({ key, label, icon }) => (
+                         <div key={key} className="flex items-center gap-3 p-2 rounded-lg bg-slate-800/50">
+                            <Checkbox id={key} checked={!!finalizationData[key]} onCheckedChange={() => toggleExtraContent(key)} />
+                            <Label htmlFor={key} className="flex items-center gap-2 cursor-pointer text-slate-300">{icon}{label}</Label>
+                        </div>
+                    ))}
+                 </div>
+            </div>
+        </div>
+    );
 };
 
 
@@ -1202,25 +1203,33 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
 
 
 // --- Main View Component ---
-export function RootsView({ project, people, relationships, tree, updateProject, setProject }: {
+export function RootsView({ project, people, relationships, tree, updateProject, setProject, onEditPerson }: {
   project: RootsProject | null;
   people: Person[];
   relationships: Relationship[];
   tree: FamilyTree | null;
   updateProject: (updater: (project: RootsProject) => RootsProject) => void;
   setProject: (project: RootsProject) => void;
+  onEditPerson?: (personId: string) => void;
 }) {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showDesignEditor, setShowDesignEditor] = useState(false);
 
   const steps = [
-    { id: 0, label: 'זהות' },
-    { id: 1, label: 'שער' },
-    { id: 2, label: 'השם שלי' },
-    { id: 3, label: 'הסיפור שלי' },
-    { id: 4, label: 'משפחה גרעינית' },
-    { id: 5, label: 'שורשים' },
-    { id: 6, label: 'מורשת' },
+    { id: 0, label: 'זהות' }, // Identity
+    { id: 1, label: 'שער' }, // Cover Page
+    { id: 2, label: 'הסיפור שלי' }, // My Story
+    { id: 3, label: 'משפחה גרעינית' }, // Nuclear Family
+    { id: 4, label: 'סבא וסבתא: צד האב' },
+    { id: 5, label: 'סבא וסבתא: צד האם' },
+    { id: 6, label: 'סבא-רבא: צד האב' },
+    { id: 7, label: 'סבא-רבא: צד האם' },
+    { id: 8, label: 'מורשת: חפץ' },
+    { id: 9, label: 'מורשת: מתכון' },
+    { id: 10, label: 'מורשת: שם משפחה' },
+    { id: 11, label: 'מורשת: היסטוריה' },
+    { id: 12, label: 'סיכום' },
+    { id: 13, label: 'הכנה' },
   ];
 
   // Debounced save logic
@@ -1317,11 +1326,18 @@ export function RootsView({ project, people, relationships, tree, updateProject,
     switch (project.currentStep) {
       case 0: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onConfirm={() => handleStepChange(1)} />;
       case 1: return <Step1_FormalInfo projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onStudentChange={handleSelectStudent} currentStudentId={project.studentPersonId} />;
-      case 2: return <Step2_MyName projectData={project.projectData} onUpdate={handleProjectUpdate} />;
-      case 3: return <Step3_MyStory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
-      case 4: return <Step4_NuclearFamily projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} />;
-      case 5: return <Step5_Roots projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} />;
-      case 6: return <Step6_Heritage projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 2: return <Step2_MyStory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 3: return <Step3_NuclearFamily projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
+      case 4: return <GrandparentsStep side="paternal" projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
+      case 5: return <GrandparentsStep side="maternal" projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
+      case 6: return <GreatGrandparentsStep side="paternal" projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
+      case 7: return <GreatGrandparentsStep side="maternal" projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
+      case 8: return <HeritageStep title="חפץ משפחתי" icon={<Gem />} fieldKey="inheritedObject" placeholder="תארו חפץ שעבר במשפחה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 9: return <HeritageStep title="מתכון משפחתי" icon={<Recipe />} fieldKey="familyRecipe" placeholder="מה המנה שכולם מחכים לה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 10: return <HeritageStep title="מקור שם המשפחה" icon={<BookOpen />} fieldKey="familyNameOrigin" placeholder="מאיפה מגיע שם המשפחה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 11: return <Step11_NationalHistory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 12: return <HeritageStep title="סיכום ורפלקציה" icon={<Star />} fieldKey="conclusion" placeholder="מה למדתי על עצמי ועל משפחתי..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 13: return <Step13_FinalTouches projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onEditPerson={onEditPerson} />;
       default: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onConfirm={() => handleStepChange(1)} />;
     }
   };

@@ -1910,7 +1910,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           onEditPerson={handleEditPerson}
         />;
       case 'statistics':
-        return <StatisticsView people={people} relationships={relationships} onEditPerson={handleEditPerson} />;
+        return <StatisticsView people={people} relationships={relationships} onEditPerson={onEditPerson} />;
       case 'trivia':
         return <TriviaView people={people} relationships={relationships} setViewMode={setViewMode} />;
       case 'roots':
@@ -1921,6 +1921,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             people={people}
             relationships={relationships}
             tree={tree}
+            onEditPerson={handleEditPerson}
         />;
       default:
         return null;
