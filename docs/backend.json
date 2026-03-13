@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -178,6 +179,10 @@
           "type": "string",
           "description": "The place where the person was born."
         },
+        "aliyahDate": {
+          "type": "string",
+          "description": "The date the person immigrated to Israel (Aliyah date) in YYYY-MM-DD format."
+        },
         "status": {
           "type": "string",
           "description": "The current status of the person (alive, deceased, or unknown)."
@@ -277,7 +282,8 @@
             "separated",
             "partner",
             "ex_partner",
-            "step_sibling"
+            "step_sibling",
+            "widowed"
           ]
         },
         "startDate": {

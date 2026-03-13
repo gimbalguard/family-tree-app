@@ -153,7 +153,7 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     }
 
     const parentTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
-    const spouseTypes = ['spouse', 'ex_spouse', 'separated', 'partner', 'ex_partner'];
+    const spouseTypes = ['spouse', 'ex_spouse', 'separated', 'partner', 'ex_partner', 'widowed'];
     const siblingTypes = ['sibling', 'twin', 'step_sibling'];
 
     if (parentTypes.includes(rel.relationshipType)) {
@@ -459,6 +459,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     relLabelMap.set('separated', 'פרודים');
     relLabelMap.set('partner', 'בן/בת זוג');
     relLabelMap.set('ex_partner', 'בן/בת זוג לשעבר');
+    relLabelMap.set('widowed', 'אלמן/אלמנה');
 
     const newEdges = relsData.map(rel => {
       const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, newNodes);
@@ -1133,13 +1134,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const {
         firstName, lastName, middleName, previousFirstName, maidenName, nickname,
         gender, birthDate, birthPlace, deathDate, cityOfResidence,
-        countryOfResidence, religion, profession, hobby, status, description, photoURL
+        countryOfResidence, religion, profession, hobby, status, description, photoURL, aliyahDate
     } = personData;
 
     const dataToUpdate: Partial<Person> = {
         firstName, lastName, middleName, previousFirstName, maidenName, nickname,
         gender, birthDate, birthPlace, deathDate, cityOfResidence,
-        countryOfResidence, religion, profession, hobby, status, description, photoURL,
+        countryOfResidence, religion, profession, hobby, status, description, photoURL, aliyahDate,
         updatedAt: serverTimestamp() as any,
     };
   

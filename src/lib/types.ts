@@ -56,6 +56,7 @@ export type Person = {
   birthDate?: string;
   deathDate?: string;
   birthPlace?: string;
+  aliyahDate?: string;
   status: 'alive' | 'deceased' | 'unknown';
   religion?: 'jewish' | 'christian' | 'muslim' | 'buddhist' | 'other' | '';
   countryOfResidence?: string;
@@ -108,7 +109,8 @@ export type Relationship = {
     | 'separated'
     | 'partner'
     | 'ex_partner'
-    | 'step_sibling';
+    | 'step_sibling'
+    | 'widowed';
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;

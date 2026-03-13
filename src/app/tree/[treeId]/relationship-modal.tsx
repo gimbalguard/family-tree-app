@@ -59,6 +59,7 @@ export const relationshipOptions = [
 
     // Spousal (upper side handles)
     { value: 'married', label: 'נשואים', type: 'spouse', category: 'spousal', dates: 'both' },
+    { value: 'widowed', label: 'אלמן/אלמנה', type: 'widowed', category: 'spousal', dates: 'end' },
     { value: 'divorced', label: 'גרושים', type: 'ex_spouse', category: 'spousal', dates: 'both' },
     { value: 'separated', label: 'פרודים', type: 'separated', category: 'spousal', dates: 'both' },
     { value: 'partner', label: 'בן/בת זוג', type: 'partner', category: 'spousal', dates: 'both' },

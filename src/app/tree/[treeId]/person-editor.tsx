@@ -67,6 +67,7 @@ const personSchema = z.object({
   birthDate: z.string().optional(),
   deathDate: z.string().optional(),
   birthPlace: z.string().optional(),
+  aliyahDate: z.string().optional(),
   photoURL: z.string().url('חייב להיות URL חוקי.').optional().or(z.literal('')),
   description: z.string().max(2000, 'התיאור לא יכול לעלות על 2000 תווים.').optional(),
   socialLinks: z.array(socialLinkSchema).optional(),
@@ -126,7 +127,7 @@ export function PersonEditor({
     resolver: zodResolver(personSchema),
     defaultValues: {
       firstName: '', lastName: '', gender: 'other', status: 'alive',
-      birthDate: '', deathDate: '', birthPlace: '', photoURL: '',
+      birthDate: '', deathDate: '', birthPlace: '', aliyahDate: '', photoURL: '',
       description: '', socialLinks: [], middleName: '',
       previousFirstName: '', maidenName: '', nickname: '',
       religion: '', countryOfResidence: '', cityOfResidence: '',
@@ -155,7 +156,7 @@ export function PersonEditor({
     if (isOpen) {
         const defaultValues = {
             firstName: '', lastName: '', gender: 'other' as const, status: 'alive' as const,
-            birthDate: '', deathDate: '', birthPlace: '', photoURL: '',
+            birthDate: '', deathDate: '', birthPlace: '', aliyahDate: '', photoURL: '',
             description: '', socialLinks: [], middleName: '',
             previousFirstName: '', maidenName: '', nickname: '',
             religion: '' as const, countryOfResidence: '', cityOfResidence: '',
@@ -171,6 +172,7 @@ export function PersonEditor({
                 birthDate: person.birthDate || '',
                 deathDate: person.deathDate || '',
                 birthPlace: person.birthPlace || '',
+                aliyahDate: person.aliyahDate || '',
                 photoURL: person.photoURL || '',
                 description: person.description || '',
                 middleName: person.middleName || '',
@@ -466,11 +468,20 @@ export function PersonEditor({
                    <FormField control={form.control} name="birthDate" render={({ field }) => (
                     <FormItem className="text-right"><FormLabel>תאריך לידה</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
                   )}/>
-                  <FormField control={form.control} name="birthPlace" render={({ field }) => (
-                    <FormItem className="text-right"><FormLabel>מקום לידה</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
-                  )}/>
+                  {statusValue === 'deceased' && (
+                     <FormField control={form.control} name="deathDate" render={({ field }) => (
+                        <FormItem className="text-right"><FormLabel>תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                  )}
                 </div>
-
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField control={form.control} name="birthPlace" render={({ field }) => (
+                        <FormItem className="text-right"><FormLabel>מקום לידה</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <FormField control={form.control} name="aliyahDate" render={({ field }) => (
+                        <FormItem className="text-right"><FormLabel>תאריך עלייה</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="gender" render={({ field }) => (
                     <FormItem className="text-right"><FormLabel>מין</FormLabel><Select onValueChange={field.onChange} value={field.value} dir="rtl"><FormControl><SelectTrigger className="bg-card"><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="male">זכר</SelectItem><SelectItem value="female">נקבה</SelectItem><SelectItem value="other">אחר</SelectItem></SelectContent></Select><FormMessage /></FormItem>
@@ -496,12 +507,6 @@ export function PersonEditor({
                   )}/>
                 </div>
                
-                {statusValue === 'deceased' && (
-                     <FormField control={form.control} name="deathDate" render={({ field }) => (
-                        <FormItem className="text-right"><FormLabel>תאריך פטירה</FormLabel><FormControl><Input type="date" {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                )}
-                
                  <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="countryOfResidence" render={({ field }) => (
                         <FormItem className="text-right"><FormLabel>ארץ מגורים</FormLabel><FormControl><Input {...field} value={field.value || ''} className="bg-card" /></FormControl><FormMessage /></FormItem>
