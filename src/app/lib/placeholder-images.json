@@ -1,0 +1,64 @@
+{
+  "placeholderImages": [
+    {
+      "id": "male-avatar",
+      "description": "Placeholder avatar for a male person",
+      "imageUrl": "https://picsum.photos/seed/male-avatar/400/400",
+      "imageHint": "male portrait"
+    },
+    {
+      "id": "female-avatar",
+      "description": "Placeholder avatar for a female person",
+      "imageUrl": "https://picsum.photos/seed/female-avatar/400/400",
+      "imageHint": "female portrait"
+    },
+    {
+      "id": "other-avatar",
+      "description": "Placeholder avatar for a person of other gender",
+      "imageUrl": "https://picsum.photos/seed/other-avatar/400/400",
+      "imageHint": "abstract portrait"
+    },
+    {
+        "id": "feature-ai-build",
+        "description": "Feature showcase for AI tree building",
+        "imageUrl": "https://picsum.photos/seed/f1/600/400",
+        "imageHint": "AI mind map"
+    },
+    {
+        "id": "feature-canvas",
+        "description": "Feature showcase for interactive canvas",
+        "imageUrl": "https://picsum.photos/seed/f2/600/400",
+        "imageHint": "interactive screen"
+    },
+    {
+        "id": "feature-views",
+        "description": "Feature showcase for multiple data views",
+        "imageUrl": "https://picsum.photos/seed/f3/600/400",
+        "imageHint": "data dashboard"
+    },
+    {
+        "id": "feature-profiles",
+        "description": "Feature showcase for detailed person profiles",
+        "imageUrl": "https://picsum.photos/seed/f4/600/400",
+        "imageHint": "personal profile"
+    },
+    {
+        "id": "feature-stats",
+        "description": "Feature showcase for statistics",
+        "imageUrl": "https://picsum.photos/seed/f5/600/400",
+        "imageHint": "charts graphs"
+    },
+    {
+        "id": "feature-roots",
+        "description": "Feature showcase for Shoreshim project wizard",
+        "imageUrl": "https://picsum.photos/seed/f6/600/400",
+        "imageHint": "book history"
+    },
+    {
+        "id": "feature-export",
+        "description": "Feature showcase for exporting and sharing",
+        "imageUrl": "https://picsum.photos/seed/f7/600/400",
+        "imageHint": "sharing sending"
+    }
+  ]
+}

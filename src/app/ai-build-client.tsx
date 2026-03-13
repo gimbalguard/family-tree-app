@@ -46,16 +46,78 @@ import * as XLSX from 'xlsx';
 import type { PublicTree } from '@/lib/types';
 import { TreeCard } from './dashboard/tree-card';
 import Link from 'next/link';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
 
+const features = [
+  {
+    title: "בנייה באמצעות AI",
+    description: "ספרו את סיפור משפחתכם בטקסט או בקול, והבינה המלאכותית תשרטט עבורכם את העץ הראשוני.",
+    imageId: "feature-ai-build"
+  },
+  {
+    title: "קנבס אינטראקטיבי",
+    description: "סדרו, קבצו וחברו בין בני משפחה על קנבס ויזואלי אינטואיטיבי.",
+    imageId: "feature-canvas"
+  },
+  {
+    title: "תצוגות מרובות",
+    description: "חקרו את הנתונים שלכם דרך ציר זמן, מפה גיאוגרפית, טבלה דינמית ועוד.",
+    imageId: "feature-views"
+  },
+  {
+    title: "פרופילים עשירים",
+    description: "הוסיפו תמונות, סיפורי חיים, קישורים ומידע מפורט לכל אדם בעץ.",
+    imageId: "feature-profiles"
+  },
+  {
+    title: "ניתוחים סטטיסטיים",
+    description: "גלו תובנות מרתקות על המשפחה שלכם עם דשבורד סטטיסטיקות אוטומטי.",
+    imageId: "feature-stats"
+  },
+  {
+    title: "אשף עבודת שורשים",
+    description: "צרו עבודת שורשים מרשימה למצגת בית ספרית בעזרת מדריך AI צעד-אחר-צעד.",
+    imageId: "feature-roots"
+  },
+  {
+    title: "שיתוף וייצוא",
+    description: "שתפו את העץ לצפייה עם קרובים וייצאו את המידע ל-PDF, Excel ועוד.",
+    imageId: "feature-export"
+  }
+];
+
+const FeatureCard = ({ title, description, imageId }: { title: string, description: string, imageId: string }) => {
+    const image = PlaceHolderImages.find(img => img.id === imageId);
+    if (!image) return null;
+
+    return (
+        <div className="group relative overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+            <Image
+                src={image.imageUrl}
+                alt={title}
+                width={600}
+                height={400}
+                className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+                data-ai-hint={image.imageHint}
+            />
+            <div className="p-4">
+                <h3 className="font-bold text-lg text-foreground">{title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{description}</p>
+            </div>
+        </div>
+    );
+};
 
 function SeparatorWithText({ text }: { text: string }) {
   return (
-    <div className="relative my-8">
-      <div className="absolute inset-0 flex items-center">
-        <span className="w-full border-t" />
+    <div className="relative my-12">
+      <div className="absolute inset-0 flex items-center" aria-hidden="true">
+        <div className="w-full border-t" />
       </div>
-      <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-background px-2 text-muted-foreground">
+      <div className="relative flex justify-center">
+        <span className="bg-background px-4 text-lg font-medium text-muted-foreground">
           {text}
         </span>
       </div>
@@ -537,184 +599,213 @@ export function AiBuildClient() {
   const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
 
   return (
-    <div className="container mx-auto max-w-4xl py-12 px-4">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl">
-          צור את עץ המשפחה שלך
-        </h1>
-        <p className="mt-4 text-xl text-muted-foreground">
-          הסבר בטקסט, בהודעה קולית, או העלה מסמכים, והבינה המלאכותית תבנה עבורך
-          את הבסיס.
-        </p>
-      </div>
+    <div className="w-full overflow-x-hidden">
+      <div className="relative bg-gradient-to-b from-blue-50 to-blue-100/10 pt-24 pb-20 text-center">
+        <div
+            aria-hidden="true"
+            className="absolute inset-0 top-20 m-auto h-[420px] w-[420px] scale-150 rounded-full bg-blue-200/20 blur-3xl"
+        />
+        <div className="container mx-auto max-w-4xl px-4">
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 lg:text-5xl">
+              צור את עץ המשפחה שלך
+            </h1>
+            <p className="mt-4 text-xl text-slate-600">
+              הסבר בטקסט, בהודעה קולית, או העלה מסמכים, והבינה המלאכותית תבנה עבורך
+              את הבסיס.
+            </p>
 
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>בניית עץ משפחה עם AI</CardTitle>
-          <CardDescription>
-            תן שם לעץ שלך, ספר את סיפור המשפחה, וה-AI יעשה את השאר.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <Input
-            placeholder="שם עץ המשפחה (לדוגמה: משפחת כהן)"
-            value={treeName}
-            onChange={(e) => setTreeName(e.target.value)}
-            className="text-lg"
-            disabled={disabledWhileBusy}
-          />
-
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>איך מתחילים?</AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc pr-5 mt-2 space-y-1">
-                <li>התחילו מעצמכם: "שמי [שם], תאריך הלידה שלי הוא...".</li>
-                <li>המשיכו להורים: "ההורים שלי הם [שם האב] ו[שם האם]".</li>
-                <li>פרטו על אחים, בני זוג וילדים.</li>
-                <li>
-                  ככל שתספקו יותר פרטים (תאריכים, מקומות), כך העץ יהיה מדויק
-                  יותר.
-                </li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-
-          <div
-            className="flex h-96 flex-col space-y-4 rounded-lg border bg-muted/20 p-4"
-            onDragEnter={handleDragOver}
-            onDragOver={handleDragOver}
-          >
-            {isDragging && (
-                <div 
-                    className="absolute inset-0 z-10 border-2 border-dashed border-primary rounded-lg bg-primary/10 flex items-center justify-center m-4"
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                >
-                    <span className="font-bold text-primary">שחרר קובץ כאן</span>
-                </div>
-            )}
-            <ScrollArea className="flex-1" ref={scrollAreaRef}>
-              <div className="pr-4 space-y-6">
-                {chatHistory.length === 0 && !isTranscribing && (
-                  <div className="flex h-full items-center justify-center text-muted-foreground">
-                    <p>הודעות הצ'אט יופיעו כאן...</p>
-                  </div>
-                )}
-                {chatHistory.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex items-start gap-4 ${
-                      message.role === 'user' ? 'justify-end' : ''
-                    }`}
-                  >
-                    {message.role === 'assistant' && (
-                      <Avatar className="h-8 w-8 border">
-                        <AvatarFallback>
-                          <Bot className="h-5 w-5" />
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
-                    <div
-                      className={`max-w-[75%] rounded-lg p-3 break-words ${
-                        message.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background'
-                      }`}
-                    >
-                      {message.content}
-                      {message.data?.isComplete && (
-                        <div className="pt-2 text-right">
-                          <Button onClick={() => handleCreateTreeFromAI(message.data)} disabled={isCreating}>
-                            {isCreating ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
-                            צור את העץ
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {(isGenerating || isTranscribing) && (
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-8 w-8 border">
-                      <AvatarFallback>
-                        <Bot className="h-5 w-5" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="max-w-[75%] rounded-lg bg-background p-3 flex items-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>{isTranscribing ? 'מתמלל הקלטה...' : 'חושב...'}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ScrollArea>
-             <div className="relative mt-4">
-                {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
-                <Textarea
-                    placeholder="רשום כאן את סיפור המשפחה או העלה קבצים..."
-                    className="pr-28 pl-12 h-20"
-                    value={story}
-                    onChange={(e) => setStory(e.target.value)}
-                    onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSend(story);
-                    }
-                    }}
+            <Card className="mt-12 text-left shadow-2xl shadow-blue-500/10">
+                <CardHeader>
+                <CardTitle>בניית עץ משפחה עם AI</CardTitle>
+                <CardDescription>
+                    תן שם לעץ שלך, ספר את סיפור המשפחה, וה-AI יעשה את השאר.
+                </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                <Input
+                    placeholder="שם עץ המשפחה (לדוגמה: משפחת כהן)"
+                    value={treeName}
+                    onChange={(e) => setTreeName(e.target.value)}
+                    className="text-lg"
                     disabled={disabledWhileBusy}
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)}
-                        className="hidden"
-                        accept="image/*,.pdf,.xlsx,.xls,.pptx,.mp3,.wav,.m4a,.ogg"
-                        disabled={disabledWhileBusy}
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={disabledWhileBusy}>
-                        <Paperclip className="h-5 w-5" />
-                        <span className="sr-only">צרף קובץ</span>
-                    </Button>
-                    <Button variant={isRecording ? 'destructive' : 'ghost'} size="icon" onClick={handleMicClick} disabled={isTranscribing || isGenerating}>
-                        {isRecording ? <StopCircle className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                        <span className="sr-only">{isRecording ? 'עצור הקלטה' : 'הקלט הודעה'}</span>
-                    </Button>
-                </div>
-                <Button
-                    variant="default"
-                    size="icon"
-                    className="absolute left-3 top-1/2 -translate-y-1/2"
-                    onClick={() => handleSend(story)}
-                    disabled={disabledWhileBusy || (!story.trim() && !attachment)}
+
+                <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>איך מתחילים?</AlertTitle>
+                    <AlertDescription>
+                    <ul className="list-disc pr-5 mt-2 space-y-1">
+                        <li>התחילו מעצמכם: "שמי [שם], תאריך הלידה שלי הוא...".</li>
+                        <li>המשיכו להורים: "ההורים שלי הם [שם האב] ו[שם האם]".</li>
+                        <li>פרטו על אחים, בני זוג וילדים.</li>
+                        <li>
+                        ככל שתספקו יותר פרטים (תאריכים, מקומות), כך העץ יהיה מדויק
+                        יותר.
+                        </li>
+                    </ul>
+                    </AlertDescription>
+                </Alert>
+
+                <div
+                    className="flex h-96 flex-col space-y-4 rounded-lg border bg-muted/20 p-4"
+                    onDragEnter={handleDragOver}
+                    onDragOver={handleDragOver}
                 >
-                    <Send className="h-5 w-5" />
-                    <span className="sr-only">שלח</span>
-                </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <SeparatorWithText text="או" />
-
-      <div className="text-center mt-8">
-        <Button
-          size="lg"
-          onClick={handleManualCreate}
-          disabled={isCreatingManually || disabledWhileBusy}
-        >
-          {isCreatingManually ? (
-            <Loader2 className="ml-2 h-4 w-4 animate-spin" />
-          ) : (
-            <ArrowLeft className="ml-2 h-4 w-4" />
-          )}
-          התחל יצירה באופן ידני
-        </Button>
+                    {isDragging && (
+                        <div 
+                            className="absolute inset-0 z-10 border-2 border-dashed border-primary rounded-lg bg-primary/10 flex items-center justify-center m-4"
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                        >
+                            <span className="font-bold text-primary">שחרר קובץ כאן</span>
+                        </div>
+                    )}
+                    <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                    <div className="pr-4 space-y-6">
+                        {chatHistory.length === 0 && !isTranscribing && (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                            <p>הודעות הצ'אט יופיעו כאן...</p>
+                        </div>
+                        )}
+                        {chatHistory.map((message) => (
+                        <div
+                            key={message.id}
+                            className={`flex items-start gap-4 ${
+                            message.role === 'user' ? 'justify-end' : ''
+                            }`}
+                        >
+                            {message.role === 'assistant' && (
+                            <Avatar className="h-8 w-8 border">
+                                <AvatarFallback>
+                                <Bot className="h-5 w-5" />
+                                </AvatarFallback>
+                            </Avatar>
+                            )}
+                            <div
+                            className={`max-w-[75%] rounded-lg p-3 break-words ${
+                                message.role === 'user'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-background'
+                            }`}
+                            >
+                            {message.content}
+                            {message.data?.isComplete && (
+                                <div className="pt-2 text-right">
+                                <Button onClick={() => handleCreateTreeFromAI(message.data)} disabled={isCreating}>
+                                    {isCreating ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
+                                    צור את העץ
+                                </Button>
+                                </div>
+                            )}
+                            </div>
+                        </div>
+                        ))}
+                        {(isGenerating || isTranscribing) && (
+                        <div className="flex items-start gap-4">
+                            <Avatar className="h-8 w-8 border">
+                            <AvatarFallback>
+                                <Bot className="h-5 w-5" />
+                            </AvatarFallback>
+                            </Avatar>
+                            <div className="max-w-[75%] rounded-lg bg-background p-3 flex items-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>{isTranscribing ? 'מתמלל הקלטה...' : 'חושב...'}</span>
+                            </div>
+                        </div>
+                        )}
+                    </div>
+                    </ScrollArea>
+                    <div className="relative mt-4">
+                        {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
+                        <Textarea
+                            placeholder="רשום כאן את סיפור המשפחה או העלה קבצים..."
+                            className="pr-28 pl-12 h-20"
+                            value={story}
+                            onChange={(e) => setStory(e.target.value)}
+                            onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend(story);
+                            }
+                            }}
+                            disabled={disabledWhileBusy}
+                        />
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)}
+                                className="hidden"
+                                accept="image/*,.pdf,.xlsx,.xls,.pptx,.mp3,.wav,.m4a,.ogg"
+                                disabled={disabledWhileBusy}
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={disabledWhileBusy}>
+                                <Paperclip className="h-5 w-5" />
+                                <span className="sr-only">צרף קובץ</span>
+                            </Button>
+                            <Button variant={isRecording ? 'destructive' : 'ghost'} size="icon" onClick={handleMicClick} disabled={isTranscribing || isGenerating}>
+                                {isRecording ? <StopCircle className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                                <span className="sr-only">{isRecording ? 'עצור הקלטה' : 'הקלט הודעה'}</span>
+                            </Button>
+                        </div>
+                        <Button
+                            variant="default"
+                            size="icon"
+                            className="absolute left-3 top-1/2 -translate-y-1/2"
+                            onClick={() => handleSend(story)}
+                            disabled={disabledWhileBusy || (!story.trim() && !attachment)}
+                        >
+                            <Send className="h-5 w-5" />
+                            <span className="sr-only">שלח</span>
+                        </Button>
+                    </div>
+                </div>
+                </CardContent>
+            </Card>
+        </div>
       </div>
 
-        <div className="mt-20">
+      <section className="py-20 bg-background">
+        <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+                <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">פלטפורמה אחת, יכולות אין-סוף</h2>
+                <p className="mt-4 text-lg text-slate-600">כל מה שצריך כדי לחקור, לבנות, לנתח ולשתף את הסיפור המשפחתי שלך.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {features.map((feature, index) => (
+                    <motion.div
+                        key={feature.imageId}
+                        initial={{ opacity: 0, y: 50 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, amount: 0.3 }}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                    >
+                        <FeatureCard {...feature} />
+                    </motion.div>
+                ))}
+            </div>
+        </div>
+      </section>
+
+      <div className="container mx-auto px-4">
+        <SeparatorWithText text="או" />
+        <div className="text-center my-12">
+            <Button
+            size="lg"
+            variant="secondary"
+            onClick={handleManualCreate}
+            disabled={isCreatingManually || disabledWhileBusy}
+            >
+            {isCreatingManually ? (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+            ) : (
+                <ArrowLeft className="ml-2 h-4 w-4" />
+            )}
+            התחל יצירה באופן ידני
+            </Button>
+        </div>
+
+        <div className="my-20">
             <div className="relative mb-12">
                 <div className="absolute inset-0 flex items-center" aria-hidden="true">
                     <div className="w-full border-t" />
@@ -745,6 +836,8 @@ export function AiBuildClient() {
                 </div>
             )}
         </div>
+      </div>
+
 
       <AlertDialog open={isAuthModalOpen} onOpenChange={setIsAuthModalOpen}>
         <AlertDialogContent>
