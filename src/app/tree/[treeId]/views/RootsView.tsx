@@ -6,7 +6,11 @@ import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Utensils, BadgeCheck, PlusCircle, BarChart2, Map, CalendarDays, X } from 'lucide-react';
+import {
+  Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School,
+  User, Calendar, MapPin, Edit, Flag, Utensils, BadgeCheck, PlusCircle,
+  BarChart2, Map, CalendarDays, X, RefreshCw
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -23,6 +27,8 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { RootsDesignEditor } from './RootsDesignEditor';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 // --- Utility & Base Components ---
@@ -659,6 +665,7 @@ const AncestorCard = ({
   data,
   onUpdate,
   onEditPerson,
+  isSyncable,
 }: {
   person?: Person;
   title: string;
@@ -666,46 +673,104 @@ const AncestorCard = ({
   data: any;
   onUpdate: (key: string, value: any) => void;
   onEditPerson?: (personId: string) => void;
-}) => (
-  <GlassmorphicCard className="p-4 rounded-2xl space-y-3">
-    <div
-      className="flex items-center gap-3 justify-end cursor-pointer"
-      onClick={() => person && onEditPerson && onEditPerson(person.id)}
-    >
-      <div className="text-right">
-        <p className="font-bold text-white text-sm">{person ? `${person.firstName} ${person.lastName}` : title}</p>
-        <p className="text-xs text-slate-400">
-          {person?.birthDate ? `נולד/ה: ${format(parseISO(person.birthDate), 'yyyy')}` : title}
-          {person?.birthPlace ? ` · ${person.birthPlace}` : ''}
-        </p>
-      </div>
-      <Avatar className="h-10 w-10 border-2 border-white/20">
-        <AvatarImage src={person?.photoURL || undefined} />
-        <AvatarFallback className="bg-slate-700">
-          <img src={getPlaceholderImage(person?.gender)} alt="" />
-        </AvatarFallback>
-      </Avatar>
-    </div>
-    {fields.map(field => (
-      <div key={field.key} className="space-y-1">
-        <div className="flex items-center justify-between">
-          <AiRephraseButton 
-            value={data[field.key] ?? ''} 
-            onRephrase={(v) => onUpdate(field.key, v)} 
-            fieldName={`${title}: ${field.label}`}
-          />
-          <label className="text-xs text-slate-400 block w-full text-right">{field.label}</label>
+  isSyncable?: boolean;
+}) => {
+  const { toast } = useToast();
+
+  const handleSync = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!person) return;
+    let syncedCount = 0;
+
+    fields.forEach(field => {
+      let valueToSync: any = undefined;
+      switch (field.key) {
+        case 'birthYear':
+          if (person.birthDate && isValid(parseISO(person.birthDate))) {
+            valueToSync = new Date(person.birthDate).getFullYear().toString();
+          }
+          break;
+        case 'birthPlace':
+          valueToSync = person.birthPlace;
+          break;
+        case 'story':
+          valueToSync = person.description;
+          break;
+      }
+
+      if (valueToSync !== undefined && data[field.key] !== valueToSync) {
+        onUpdate(field.key, valueToSync);
+        syncedCount++;
+      }
+    });
+
+    if (syncedCount > 0) {
+      toast({ title: `סונכרנו ${syncedCount} שדות מכרטיס האדם`, duration: 2000 });
+    } else {
+      toast({ title: "הפרטים כבר מסונכרנים", duration: 2000 });
+    }
+  };
+
+  return (
+    <GlassmorphicCard className="p-4 rounded-2xl space-y-3">
+      <div
+        className="flex w-full items-center gap-3 justify-end cursor-pointer"
+        onClick={() => person && onEditPerson && onEditPerson(person.id)}
+      >
+        {person && isSyncable && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-slate-400 hover:text-white mr-auto flex-shrink-0"
+                  onClick={handleSync}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>סנכרן פרטים מכרטיס האדם</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        <div className="text-right">
+          <p className="font-bold text-white text-sm">{person ? `${person.firstName} ${person.lastName}` : title}</p>
+          <p className="text-xs text-slate-400">
+            {person?.birthDate ? `נולד/ה: ${format(parseISO(person.birthDate), 'yyyy')}` : title}
+            {person?.birthPlace ? ` · ${person.birthPlace}` : ''}
+          </p>
         </div>
-        <EditableField
-          asTextarea={field.isTextarea}
-          value={data[field.key] ?? ''} 
-          onUpdate={(v) => onUpdate(field.key, v)} 
-          placeholder={field.placeholder}
-        />
+        <Avatar className="h-10 w-10 border-2 border-white/20">
+          <AvatarImage src={person?.photoURL || undefined} />
+          <AvatarFallback className="bg-slate-700">
+            <img src={getPlaceholderImage(person?.gender)} alt="" />
+          </AvatarFallback>
+        </Avatar>
       </div>
-    ))}
-  </GlassmorphicCard>
-);
+      {fields.map(field => (
+        <div key={field.key} className="space-y-1">
+          <div className="flex items-center justify-between">
+            <AiRephraseButton 
+              value={data[field.key] ?? ''} 
+              onRephrase={(v) => onUpdate(field.key, v)} 
+              fieldName={`${title}: ${field.label}`}
+            />
+            <label className="text-xs text-slate-400 block w-full text-right">{field.label}</label>
+          </div>
+          <EditableField
+            asTextarea={field.isTextarea}
+            value={data[field.key] ?? ''} 
+            onUpdate={(v) => onUpdate(field.key, v)} 
+            placeholder={field.placeholder}
+          />
+        </div>
+      ))}
+    </GlassmorphicCard>
+  );
+};
 
 // --- Step 3: Nuclear Family ---
 const Step3_NuclearFamily = ({ projectData, onUpdate, people, relationships, currentStudentId, onEditPerson }: { 
@@ -722,21 +787,35 @@ const Step3_NuclearFamily = ({ projectData, onUpdate, people, relationships, cur
     if (!currentStudentId) return { parents: [], siblings: [] };
     
     const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent'];
+    const SIBLING_REL_TYPES = ['sibling', 'twin', 'step_sibling'];
+
+    // Find Parents
     const parentRels = relationships.filter(r => 
       r.personBId === currentStudentId && PARENT_REL_TYPES.includes(r.relationshipType)
     );
     const parentIds = [...new Set(parentRels.map(r => r.personAId))];
     const parents = parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
     
-    const studentParents = relationships.filter(r => r.personBId === currentStudentId && PARENT_REL_TYPES.includes(r.relationshipType)).map(r => r.personAId);
-    if (studentParents.length === 0) return { parents, siblings: [] };
-
+    // Find Siblings
     const siblingIds = new Set<string>();
-    studentParents.forEach(parentId => {
+
+    // 1. Through common parents
+    parentIds.forEach(parentId => {
       const childrenOfParent = relationships.filter(r => r.personAId === parentId && PARENT_REL_TYPES.includes(r.relationshipType)).map(r => r.personBId);
       childrenOfParent.forEach(childId => {
         if (childId !== currentStudentId) siblingIds.add(childId);
       });
+    });
+    
+    // 2. Through direct sibling relationships
+    relationships.forEach(r => {
+      if (SIBLING_REL_TYPES.includes(r.relationshipType)) {
+        if (r.personAId === currentStudentId) {
+          siblingIds.add(r.personBId);
+        } else if (r.personBId === currentStudentId) {
+          siblingIds.add(r.personAId);
+        }
+      }
     });
     
     const siblings = Array.from(siblingIds).map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
@@ -852,19 +931,21 @@ const GrandparentsStep = ({ side, projectData, onUpdate, people, relationships, 
         סבא וסבתא: צד ה{side === 'paternal' ? 'אב' : 'אם'}
       </h1>
       <AncestorCard 
+        isSyncable
         title={`סבא (אבא של ${side === 'paternal' ? 'אבא' : 'אמא'})`}
         person={ancestors.grandfather}
         fields={fields}
-        data={roots}
-        onUpdate={(key, val) => onUpdate(['familyRoots', `${side}Grandfather_${key}`], val)}
+        data={roots[`${side}Grandfather`] || {}}
+        onUpdate={(key, val) => onUpdate(['familyRoots', `${side}Grandfather`, key], val)}
         onEditPerson={onEditPerson}
       />
       <AncestorCard 
+        isSyncable
         title={`סבתא (אמא של ${side === 'paternal' ? 'אבא' : 'אמא'})`}
         person={ancestors.grandmother}
         fields={fields}
-        data={roots}
-        onUpdate={(key, val) => onUpdate(['familyRoots', `${side}Grandmother_${key}`], val)}
+        data={roots[`${side}Grandmother`] || {}}
+        onUpdate={(key, val) => onUpdate(['familyRoots', `${side}Grandmother`, key], val)}
         onEditPerson={onEditPerson}
       />
     </div>
@@ -918,10 +999,10 @@ const GreatGrandparentsStep = ({ side, projectData, onUpdate, people, relationsh
       <h1 className="text-lg font-extrabold text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-teal-400">
         הדור של סבא-רבא: צד ה{side === 'paternal' ? 'אב' : 'אם'}
       </h1>
-      <AncestorCard title="אבא של סבא" person={ancestors.ggf_f} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGF_${k}`],v)} onEditPerson={onEditPerson} />
-      <AncestorCard title="אמא של סבא" person={ancestors.ggm_f} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMf_${k}`],v)} onEditPerson={onEditPerson} />
-      <AncestorCard title="אבא של סבתא" person={ancestors.ggf_m} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMm_${k}`],v)} onEditPerson={onEditPerson} />
-      <AncestorCard title="אמא של סבתא" person={ancestors.ggm_m} fields={fields} data={roots} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMm_${k}`],v)} onEditPerson={onEditPerson} />
+      <AncestorCard isSyncable title="אבא של סבא" person={ancestors.ggf_f} fields={fields} data={roots[`${side}GGFf`] || {}} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGFf`, k],v)} onEditPerson={onEditPerson} />
+      <AncestorCard isSyncable title="אמא של סבא" person={ancestors.ggm_f} fields={fields} data={roots[`${side}GGMf`] || {}} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMf`, k],v)} onEditPerson={onEditPerson} />
+      <AncestorCard isSyncable title="אבא של סבתא" person={ancestors.ggf_m} fields={fields} data={roots[`${side}GGFm`] || {}} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGFm`, k],v)} onEditPerson={onEditPerson} />
+      <AncestorCard isSyncable title="אמא של סבתא" person={ancestors.ggm_m} fields={fields} data={roots[`${side}GGMm`] || {}} onUpdate={(k,v) => onUpdate(['familyRoots', `${side}GGMm`, k],v)} onEditPerson={onEditPerson} />
     </div>
   );
 };
@@ -1057,7 +1138,8 @@ const Step11_NationalHistory = ({ projectData, onUpdate }: { projectData: any, o
 
 
 // --- Step 13: Final Touches ---
-const Step13_FinalTouches = ({ projectData, onUpdate, people, onEditPerson }: {
+const Step13_FinalTouches = ({ project, projectData, onUpdate, people, onEditPerson }: {
+  project: RootsProject;
   projectData: any,
   onUpdate: (path: (string|number)[], value: any) => void,
   people: Person[],
@@ -1074,7 +1156,10 @@ const Step13_FinalTouches = ({ projectData, onUpdate, people, onEditPerson }: {
             if (!obj) return;
             if (typeof obj === 'string' && people.some(p => p.id === obj)) {
                 ids.add(obj);
+            } else if (obj.personId && typeof obj.personId === 'string' && people.some(p => p.id === obj.personId)) {
+                ids.add(obj.personId);
             }
+
             if (Array.isArray(obj)) {
                 obj.forEach(v => getIds(v));
             } else if (typeof obj === 'object') {
@@ -1082,11 +1167,23 @@ const Step13_FinalTouches = ({ projectData, onUpdate, people, onEditPerson }: {
             }
         };
         getIds(projectData.familyRoots);
-        (projectData.nuclearFamily?.parents || []).forEach((p: Person) => ids.add(p.id));
-        (projectData.nuclearFamily?.siblings || []).forEach((p: Person) => ids.add(p.id));
+        
+        const nuclearFamily = projectData.nuclearFamily || {};
+        const parentKeys = Object.keys(nuclearFamily).filter(k => k.startsWith('parent_'));
+        parentKeys.forEach(key => {
+            const personId = key.split('_')[1];
+            if (people.some(p => p.id === personId)) ids.add(personId);
+        });
+
+        const siblingKeys = Object.keys(nuclearFamily).filter(k => k.startsWith('sibling_'));
+        siblingKeys.forEach(key => {
+            const personId = key.split('_')[1];
+            if (people.some(p => p.id === personId)) ids.add(personId);
+        });
+
         (finalizationData.extraPeople || []).forEach((id: string) => ids.add(id));
         return Array.from(ids);
-    }, [projectData, finalizationData.extraPeople]);
+    }, [project, projectData, finalizationData.extraPeople, people]);
 
     const involvedPeople = useMemo(() => people.filter(p => involvedIds.includes(p.id)), [involvedIds, people]);
     const availablePeople = useMemo(() => people.filter(p => !involvedIds.includes(p.id) && `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())), [involvedIds, people, searchTerm]);
@@ -1336,7 +1433,7 @@ export function RootsView({ project, people, relationships, tree, updateProject,
       case 10: return <HeritageStep title="מקור שם המשפחה" icon={<BookOpen />} fieldKey="familyNameOrigin" placeholder="מאיפה מגיע שם המשפחה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 11: return <Step11_NationalHistory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 12: return <HeritageStep title="סיכום ורפלקציה" icon={<Star />} fieldKey="conclusion" placeholder="מה למדתי על עצמי ועל משפחתי..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
-      case 13: return <Step13_FinalTouches projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onEditPerson={onEditPerson} />;
+      case 13: return <Step13_FinalTouches project={project} projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} onEditPerson={onEditPerson} />;
       default: return <Step0_IdentitySelection people={people} onSelect={handleSelectStudent} currentStudentId={project.studentPersonId} treeOwnerId={tree.ownerPersonId} onConfirm={() => handleStepChange(1)} />;
     }
   };
