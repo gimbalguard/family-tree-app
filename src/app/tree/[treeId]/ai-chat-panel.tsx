@@ -33,7 +33,6 @@ interface AiChatPanelProps {
     treeId: string;
     treeName: string;
     people: Person[];
-    relationships: Relationship[];
     onClose: () => void;
     onDataAdded: () => void;
     viewMode: 'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
@@ -462,18 +461,18 @@ export function AiChatPanel({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="p-0 flex-1 flex flex-col min-h-0">
-          <div className="flex flex-1 flex-col space-y-4 p-4">
+        <CardContent className="p-4 flex-1 flex flex-col min-h-0 gap-4">
+          <div className="relative flex-1 min-h-0">
              {isFileHovering && (
                 <div 
-                    className="absolute inset-0 z-10 border-2 border-dashed border-primary rounded-lg bg-primary/10 flex items-center justify-center m-4"
+                    className="absolute inset-0 z-10 border-2 border-dashed border-primary rounded-lg bg-primary/10 flex items-center justify-center"
                     onDragLeave={handleFileDragLeave}
                     onDrop={handleFileDrop}
                 >
                     <span className="font-bold text-primary">שחרר קובץ כאן</span>
                 </div>
             )}
-            <ScrollArea className="flex-1" ref={scrollAreaRef}>
+            <ScrollArea className="h-full" ref={scrollAreaRef}>
               <div className="pr-4 space-y-6">
                 {chatHistory.length === 0 && !isTranscribing && (
                   <div className="flex h-full items-center justify-center text-muted-foreground">
@@ -507,32 +506,32 @@ export function AiChatPanel({
                 )}
               </div>
             </ScrollArea>
-            <div className="relative mt-4">
-               {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
-              <Textarea
-                placeholder={placeholder}
-                className="pr-28 pl-12 h-20 bg-background/80 resize"
-                value={story}
-                onChange={(e) => setStory(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(story); }
-                }}
-                disabled={disabledWhileBusy}
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                <input type="file" ref={fileInputRef} onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} className="hidden" accept="image/*,.pdf,.xlsx,.xls,.pptx,.mp3,.wav,.m4a,.ogg" disabled={disabledWhileBusy} />
-                <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={disabledWhileBusy}>
-                    <Paperclip className="h-5 w-5" /><span className="sr-only">צרף קובץ</span>
-                </Button>
-                <Button variant={isRecording ? 'destructive' : 'ghost'} size="icon" onClick={handleMicClick} disabled={isTranscribing || isGenerating}>
-                    {isRecording ? <StopCircle className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-                    <span className="sr-only">{isRecording ? 'עצור הקלטה' : 'הקלט הודעה'}</span>
-                </Button>
-              </div>
-              <Button variant="default" size="icon" className="absolute left-3 top-1/2 -translate-y-1/2" onClick={() => handleSend(story)} disabled={disabledWhileBusy || (!story.trim() && !attachment)}>
-                <Send className="h-5 w-5" /><span className="sr-only">שלח</span>
+          </div>
+          <div className="relative shrink-0">
+             {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
+            <Textarea
+              placeholder={placeholder}
+              className="pr-28 pl-12 h-20 bg-background/80 resize"
+              value={story}
+              onChange={(e) => setStory(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(story); }
+              }}
+              disabled={disabledWhileBusy}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              <input type="file" ref={fileInputRef} onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} className="hidden" accept="image/*,.pdf,.xlsx,.xls,.pptx,.mp3,.wav,.m4a,.ogg" disabled={disabledWhileBusy} />
+              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={disabledWhileBusy}>
+                  <Paperclip className="h-5 w-5" /><span className="sr-only">צרף קובץ</span>
+              </Button>
+              <Button variant={isRecording ? 'destructive' : 'ghost'} size="icon" onClick={handleMicClick} disabled={isTranscribing || isGenerating}>
+                  {isRecording ? <StopCircle className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  <span className="sr-only">{isRecording ? 'עצור הקלטה' : 'הקלט הודעה'}</span>
               </Button>
             </div>
+            <Button variant="default" size="icon" className="absolute left-3 top-1/2 -translate-y-1/2" onClick={() => handleSend(story)} disabled={disabledWhileBusy || (!story.trim() && !attachment)}>
+              <Send className="h-5 w-5" /><span className="sr-only">שלח</span>
+            </Button>
           </div>
         </CardContent>
       </Card>
