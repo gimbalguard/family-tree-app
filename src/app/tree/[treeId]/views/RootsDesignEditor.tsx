@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type {
@@ -13,6 +14,7 @@ import {
   Copy, AlignLeft, AlignCenter, AlignRight, ChevronUp, ChevronDown,
   Scissors, Clipboard, RefreshCw, Maximize2, Square, Upload, Layers,
   CropIcon,
+  Baby, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -343,7 +345,7 @@ function generatePagesFromProject(
     parents.forEach((parent, idx) => {
       const parentCardId = uuidv4();
       parentCardIds.push(parentCardId);
-      nucEls.push(mk('person_card', { personId: parent.id, x: parentStartX + idx * (cardW + 4), y: 15, width: cardW, height: cardH, zIndex: 10 }));
+      nucEls.push(mk('person_card', { id: parentCardId, personId: parent.id, x: parentStartX + idx * (cardW + 4), y: 15, width: cardW, height: cardH, zIndex: 10 }));
     });
 
     // Student card — center
@@ -408,28 +410,53 @@ function generatePagesFromProject(
 
   // ─── FAMILY TREE CHART PAGE ─────────────────────────────────
   const treeEls: DesignElement[] = [
-    ...header('אילן יוחסין', '🌳'),
-    mk('text', { x: 5, y: 16, width: 90, height: 12, content: 'תרשים אילן היוחסין המשפחתי — לפחות 3-4 דורות', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+      ...header('אילן יוחסין', '🌳'),
+      mk('text', { x: 5, y: 16, width: 90, height: 12, content: 'תרשים אילן היוחסין המשפחתי — לפחות 3-4 דורות', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
-  // Auto-place person cards in tree layout
-  const grandparents = ['paternalGrandfather', 'paternalGrandmother', 'maternalGrandfather', 'maternalGrandmother'];
-  const gpPersonIds = grandparents.map(k => (project.projectData?.familyRoots as any)?.[k]?.personId).filter(Boolean);
-  if (gpPersonIds.length > 0) {
-    gpPersonIds.forEach((pid: string, i: number) => {
-      treeEls.push(mk('person_card', { personId: pid, x: 5 + i * 24, y: 30, width: 22, height: 28, zIndex: 10 }));
-    });
-  } else {
+  const cardElementsMap = new Map<string, string>(); // personId -> elementId
+
+  // Auto-place person cards in tree layout and create connection lines
+  const findParents = (personId?: string): Person[] => {
+    if (!personId) return [];
+    const parentRels = relationships.filter(r => r.personBId === personId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
+    return parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
+  };
+
+  const studentParents = findParents(student?.id);
+  const paternalGrandparents = findParents(studentParents.find(p => p.gender === 'male')?.id);
+  const maternalGrandparents = findParents(studentParents.find(p => p.gender === 'female')?.id);
+
+  const placePerson = (person: Person, x: number, y: number, w: number, h: number) => {
+    const elId = uuidv4();
+    cardElementsMap.set(person.id, elId);
+    treeEls.push(mk('person_card', { id: elId, personId: person.id, x, y, width: w, height: h, zIndex: 10 }));
+  };
+
+  // Place generations
+  if (paternalGrandparents.length > 0) paternalGrandparents.forEach((p, i) => placePerson(p, 5 + i * 23, 30, 20, 26));
+  if (maternalGrandparents.length > 0) maternalGrandparents.forEach((p, i) => placePerson(p, 52 + i * 23, 30, 20, 26));
+  if (studentParents.length > 0) studentParents.forEach((p, i) => placePerson(p, 16 + i * 48, 60, 22, 28));
+  if (student) placePerson(student, 39, 86, 22, 12);
+  
+  // Create connection lines
+  [...studentParents, ...paternalGrandparents, ...maternalGrandparents].forEach(p => {
+      const childCardId = cardElementsMap.get(p.id);
+      if(childCardId) {
+          const parentsOfP = findParents(p.id);
+          parentsOfP.forEach(parent => {
+              const parentCardId = cardElementsMap.get(parent.id);
+              if (parentCardId) {
+                  treeEls.push(mk('connection_line', { fromElementId: parentCardId, toElementId: childCardId, x: 0, y: 0, width: 0, height: 0, zIndex: 1, style: { color: P, borderWidth: 1.5 } }));
+              }
+          });
+      }
+  });
+
+  if (cardElementsMap.size === 0) { // Fallback if no hierarchy found
     treeEls.push(...photoPlaceholder(5, 30, 90, 55, '🌳 הוסף כאן תרשים אילן יוחסין — גרור כרטיסי אנשים'));
   }
-  if (parents.length > 0) {
-    parents.forEach((p2, i) => {
-      treeEls.push(mk('person_card', { personId: p2.id, x: 16 + i * 48, y: 62, width: 22, height: 28, zIndex: 10 }));
-    });
-  }
-  if (student) {
-    treeEls.push(mk('person_card', { personId: student.id, x: 39, y: 86, width: 22, height: 12, zIndex: 10 }));
-  }
   pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: 'roots_great', title: 'אילן יוחסין', templateId, elements: treeEls });
+
 
   // ─── HERITAGE PAGE ──────────────────────────────────────────
   const h = project.projectData?.heritage;
@@ -537,64 +564,61 @@ const PersonCardElement = ({
     </div>
   );
 
-  const childRels = relationships.filter(r => r.personAId === person.id && r.relationshipType === 'parent');
-  const siblingRels = relationships.filter(r => (r.personAId === person.id || r.personBId === person.id) && r.relationshipType === 'sibling');
-  const spouseRel = relationships.find(r => (r.personAId === person.id || r.personBId === person.id) && r.relationshipType === 'spouse');
-  const spousePerson = spouseRel ? people.find(p => p.id === (spouseRel.personAId === person.id ? spouseRel.personBId : spouseRel.personAId)) : null;
+  const getLifeYearsDisplay = () => {
+    const birthYear = person.birthDate && isValid(parseISO(person.birthDate)) ? new Date(person.birthDate).getFullYear() : null;
+    const deathYear = person.deathDate && isValid(parseISO(String(person.deathDate))) ? new Date(String(person.deathDate)).getFullYear() : null;
+    if(birthYear && deathYear) return `${birthYear}–${deathYear}`;
+    if(birthYear) return `${birthYear}–`;
+    return '';
+  };
+  
+  const displayName = [person.firstName, person.nickname ? `(${person.nickname})` : null, person.lastName, person.status === 'deceased' ? '(ז"ל)' : null].filter(Boolean).join(' ');
 
-  const p = person as any;
-  const birthYear = person.birthDate && isValid(parseISO(person.birthDate)) ? new Date(person.birthDate).getFullYear() : null;
-  const deathYear = person.deathDate && isValid(parseISO(String(person.deathDate))) ? new Date(String(person.deathDate)).getFullYear() : null;
-  const age = birthYear ? (deathYear ? deathYear - birthYear : new Date().getFullYear() - birthYear) : null;
-  const displayName = [person.firstName, person.nickname ? `"${person.nickname}"` : null, person.lastName].filter(Boolean).join(' ');
+  const childRels = relationships.filter(r => r.personAId === person.id && ['parent', 'adoptive_parent'].includes(r.relationshipType));
+  const siblingRels = relationships.filter(r => (r.personAId === person.id || r.personBId === person.id) && ['sibling', 'twin'].includes(r.relationshipType));
+  
+  const descendantCounts = [
+    { count: childRels.length, label: 'ילדים', icon: Baby },
+    { count: siblingRels.length, label: 'אחים', icon: Users },
+  ].filter(item => (item.count || 0) > 0);
 
   const bgColor = element.style?.backgroundColor || 'rgba(255,255,255,0.08)';
   const textColor = element.style?.color || '#ffffff';
   const opacity = element.style?.opacity ?? 1;
   const sf = Math.max(0.45, scaleFactor);
   const fs = (base: number) => Math.max(6, Math.round(base * sf));
-  // Tighter padding — 4px minimum
-  const pad = Math.max(4, Math.round(6 * Math.max(0.5, sf)));
-  const avatarSize = Math.max(24, Math.round(38 * Math.max(0.55, sf)));
-
-  const infoRows: Array<{ icon: string; value: string }> = [];
-  if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
-  if (person.birthPlace) infoRows.push({ icon: '📍', value: person.birthPlace });
-  if (deathYear) infoRows.push({ icon: '✝', value: String(deathYear) });
-  if (p.originCountry || p.countryOfOrigin) infoRows.push({ icon: '🌍', value: p.originCountry || p.countryOfOrigin });
-  if (p.religion) infoRows.push({ icon: '✡️', value: p.religion });
-  if (person.profession) infoRows.push({ icon: '💼', value: person.profession });
-  if (spousePerson) infoRows.push({ icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
-  if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
-  if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
+  const pad = Math.max(4, Math.round(6 * sf));
+  const avatarSize = Math.max(24, Math.round(48 * sf));
 
   return (
     <div
-      className="w-full h-full rounded-xl overflow-hidden border border-white/15 backdrop-blur-sm shadow-lg"
-      style={{ backgroundColor: bgColor, opacity, color: textColor, padding: `${pad}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '2px' }}
+      className="w-full h-full rounded-xl overflow-hidden border border-white/15 backdrop-blur-sm shadow-lg flex flex-col"
+      style={{ backgroundColor: bgColor, opacity, color: textColor, padding: 0, boxSizing: 'border-box' }}
       dir="rtl"
     >
-      {/* Header: avatar + name */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: pad / 2, flexShrink: 0, padding: pad }}>
         <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.25)' }}>
           <img src={person.photoURL || getPlaceholderImage(person.gender)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-          <div style={{ fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(12), color: textColor }}>{displayName}</div>
-          {birthYear && <div style={{ opacity: 0.65, fontSize: fs(9), lineHeight: 1.2 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
-          {person.gender && <div style={{ opacity: 0.45, fontSize: fs(8), lineHeight: 1.2 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status || p.lifeStatus}` : ''}</div>}
+          <div style={{ fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(13), color: textColor }}>{displayName}</div>
+          <div style={{ opacity: 0.65, fontSize: fs(10), lineHeight: 1.2 }}>{getLifeYearsDisplay()}</div>
         </div>
       </div>
-      {/* Info rows */}
-      {infoRows.slice(0, Math.floor(sf * 8)).map((row, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-          <span style={{ fontSize: fs(8), lineHeight: 1 }}>{row.icon}</span>
-          <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: fs(9), color: textColor }}>{row.value}</span>
-        </div>
-      ))}
+      {descendantCounts.length > 0 && (
+          <div className="flex-1 min-h-0 space-y-0.5 overflow-hidden" style={{ paddingLeft: pad, paddingRight: pad, paddingBottom: pad }}>
+             {descendantCounts.map(({ count, label, icon: Icon }) => (
+                  <div key={label} className="flex items-center justify-end gap-1.5" style={{ fontSize: fs(10), opacity: 0.8 }}>
+                    <span>{count} {label}</span>
+                    <Icon style={{ width: fs(12), height: fs(12) }} />
+                  </div>
+              ))}
+          </div>
+      )}
     </div>
   );
 };
+
 
 // ============================================================
 // PHOTO PLACEHOLDER ELEMENT
@@ -895,6 +919,24 @@ export function RootsDesignEditor({
   const hasGeneratedRef = useRef(false);
   useEffect(() => { pagesRef.current = pages; }, [pages]);
 
+  const getScaleFactor = (el: DesignElement) => {
+    if (el.type !== 'person_card') return 1;
+    // Natural aspect ratio from when the card is first created
+    const naturalAspectRatio = 28 / 36;
+    const currentAspectRatio = el.width / Math.max(1, el.height);
+
+    // To prevent content from stretching, we base the scale on the "constraining" dimension.
+    if (currentAspectRatio > naturalAspectRatio) {
+        // The container is WIDER than it should be for its height.
+        // So, scale should be based on height to prevent vertical stretching.
+        return el.height / 36;
+    } else {
+        // The container is TALLER or proportional.
+        // Scale should be based on width to prevent horizontal stretching.
+        return el.width / 28;
+    }
+  };
+
   // ── Mutations ──
   const updatePages = useCallback((updater: (p: DesignPage[]) => DesignPage[]) => {
     const newPages = updater(pagesRef.current);
@@ -1012,7 +1054,6 @@ export function RootsDesignEditor({
   const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const selectedElement = selectedId ? currentPage?.elements.find(el => el.id === selectedId) : undefined;
-  const getScaleFactor = (el: DesignElement) => Math.max(0.4, el.width / 28);
   
   const addPage = () => {
     const newPage: DesignPage = { id: uuidv4(), pageNumber: pages.length + 1, pageType: 'custom', title: 'עמוד חדש', elements: [], templateId: selectedTemplateId };
@@ -1067,18 +1108,14 @@ export function RootsDesignEditor({
       const dx = ((e.clientX - resizeStart.current.mouseX) / rect.width) * 100;
       const dy = ((e.clientY - resizeStart.current.mouseY) / rect.height) * 100;
       const h = resizeHandle.current;
-      const isCorner = h.length === 2;
       updateElementLocal(selectedId, () => {
         let { elX: nx, elY: ny, elW: nw, elH: nh } = resizeStart.current;
-        const ar = resizeStart.current.aspectRatio;
-        if (isCorner) {
-          // Corners: maintain aspect ratio
-          if (h === 'se') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / ar; }
-          else if (h === 'sw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / ar; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); }
-          else if (h === 'ne') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / ar; ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
-          else if (h === 'nw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / ar; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
-        } else {
-          // Sides: crop only that side, no aspect ratio lock
+        if (h.length === 2) { // Corner handle
+          if (h === 'se') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / resizeStart.current.aspectRatio; }
+          else if (h === 'sw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / resizeStart.current.aspectRatio; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); }
+          else if (h === 'ne') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / resizeStart.current.aspectRatio; ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
+          else if (h === 'nw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / resizeStart.current.aspectRatio; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
+        } else { // Side handle
           if (h === 'e') nw = Math.max(5, resizeStart.current.elW + dx);
           if (h === 's') nh = Math.max(3, resizeStart.current.elH + dy);
           if (h === 'w') { nw = Math.max(5, resizeStart.current.elW - dx); nx = resizeStart.current.elX + dx; }
