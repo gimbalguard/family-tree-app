@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
@@ -43,7 +42,7 @@ import { PersonEditor } from './person-editor';
 import { RelationshipModal, relationshipOptions } from './relationship-modal';
 import { NodeContextMenu } from './node-context-menu';
 import { CanvasToolbar } from './canvas-toolbar';
-import { Loader2, User, ArrowLeft, Trophy } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Trophy, AlignHorizontalJustifyCenter, AlignHorizontalJustifyEnd, AlignHorizontalJustifyStart, AlignHorizontalSpaceAround, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, AlignVerticalJustifyStart, AlignVerticalSpaceAround } from 'lucide-react';
 import { Logo } from '@/components/icons';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -174,6 +173,69 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     };
 };
 
+const getSelectionBoundingBox = (nodes: Node[]): { x: number; y: number; width: number; height: number } | null => {
+    if (nodes.length === 0) return null;
+  
+    const xCoords = nodes.map(n => n.position.x);
+    const yCoords = nodes.map(n => n.position.y);
+  
+    const minX = Math.min(...xCoords);
+    const minY = Math.min(...yCoords);
+  
+    const maxX = Math.max(...nodes.map(n => n.position.x + (n.width || 0)));
+    const maxY = Math.max(...nodes.map(n => n.position.y + (n.height || 0)));
+  
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+};
+
+const AlignmentToolbar = ({
+    nodes,
+    onAlign,
+}: {
+    nodes: Node<Person>[];
+    onAlign: (type: string) => void;
+}) => {
+    const { getViewport } = useReactFlow();
+    const bbox = getSelectionBoundingBox(nodes);
+    if (!bbox) return null;
+    
+    const { x, y, zoom } = getViewport();
+    
+    const toolbarStyle: React.CSSProperties = {
+        position: 'absolute',
+        top: `${bbox.y * zoom + y - 48}px`, // 48px offset above the selection
+        left: `${(bbox.x + bbox.width / 2) * zoom + x}px`,
+        transform: 'translateX(-50%)',
+        zIndex: 100,
+    };
+
+    const actions = [
+        { type: 'align-left', icon: AlignHorizontalJustifyStart, tooltip: 'יישור לשמאל' },
+        { type: 'align-center-h', icon: AlignHorizontalJustifyCenter, tooltip: 'מרכוז אופקי' },
+        { type: 'align-right', icon: AlignHorizontalJustifyEnd, tooltip: 'יישור לימין' },
+        { type: 'distribute-h', icon: AlignHorizontalSpaceAround, tooltip: 'פזר אופקית' },
+        { type: 'align-top', icon: AlignVerticalJustifyStart, tooltip: 'יישור למעלה' },
+        { type: 'align-center-v', icon: AlignVerticalJustifyCenter, tooltip: 'מרכוז אנכי' },
+        { type: 'align-bottom', icon: AlignVerticalJustifyEnd, tooltip: 'יישור למטה' },
+        { type: 'distribute-v', icon: AlignVerticalSpaceAround, tooltip: 'פזר אנכית' },
+    ];
+
+    return (
+        <div style={toolbarStyle} className="flex items-center gap-1 p-1 bg-background/80 backdrop-blur-sm border rounded-lg shadow-lg">
+            {actions.map(action => (
+                 <Button key={action.type} variant="ghost" size="icon" className="h-8 w-8" onClick={() => onAlign(action.type)} title={action.tooltip}>
+                    <action.icon className="h-5 w-5" />
+                </Button>
+            ))}
+        </div>
+    );
+};
+
 
 function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) {
   const { user, isUserLoading } = useUser();
@@ -215,6 +277,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [error, setError] = useState<string | null>(null);
 
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedNodes, setSelectedNodes] = useState<Node<Person>[]>([]);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
 
   const [newConnection, setNewConnection] = useState<Connection | null>(null);
@@ -436,7 +499,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             data: {
                 ...person,
                 isLocked: pos?.isLocked ?? false,
-                groupId: pos?.groupId ?? null,
+                groupIds: pos?.groupIds ?? [],
                 cardDesign: applyCreatorStyles ? currentTree.creatorCardDesign : currentTree.cardDesign,
                 isOwner,
                 cardBackgroundColor: currentTree.cardBackgroundColor,
@@ -698,23 +761,36 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   }, [edgeType, setEdges]);
 
   const onSelectionChange = useCallback(
-    ({ nodes: selectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
-      setEdges((eds) =>
-        eds.map((edge) => {
-          const isAnimated =
-            selectedNodes.length === 1 &&
-            (edge.source === selectedNodes[0].id ||
-              edge.target === selectedNodes[0].id);
-          const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
-          return {
-            ...edge,
-            animated: isAnimated,
-            className: cn('custom-edge', (isAnimated || isEdgeSelected) && 'selected'),
-          };
-        })
-      );
+    ({ nodes: newSelectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
+        setSelectedNodes(newSelectedNodes as Node<Person>[]);
+        
+        const singleSelectedNode = newSelectedNodes.length === 1 ? newSelectedNodes[0] : null;
+        const groupIds = singleSelectedNode?.data.groupIds;
+        const topGroupId = groupIds && groupIds.length > 0 ? groupIds[groupIds.length - 1] : null;
+
+        setNodes(nds =>
+            nds.map(n => ({
+                ...n,
+                data: {
+                    ...n.data,
+                    isGroupSelected: !!(topGroupId && (n.data.groupIds || []).includes(topGroupId) && n.id !== singleSelectedNode.id),
+                }
+            }))
+        );
+
+        setEdges((eds) =>
+            eds.map((edge) => {
+            const isAnimated = singleSelectedNode && (edge.source === singleSelectedNode.id || edge.target === singleSelectedNode.id);
+            const isEdgeSelected = selectedEdges.some((se) => se.id === edge.id);
+            return {
+                ...edge,
+                animated: isAnimated,
+                className: cn('custom-edge', (isAnimated || isEdgeSelected) && 'selected'),
+            };
+            })
+        );
     },
-    [setEdges]
+    [setEdges, setNodes]
   );
 
   useEffect(() => {
@@ -738,13 +814,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       setContextMenu(null); // Close any existing menu
 
       const allNodes = getNodes();
-      let selectedNodes = allNodes.filter((n) => n.selected);
+      let currentSelectedNodes = allNodes.filter((n) => n.selected);
 
       // If the right-clicked node is not part of the current selection,
       // make it the only selected node.
-      const isClickedNodeSelected = selectedNodes.some((n) => n.id === node.id);
+      const isClickedNodeSelected = currentSelectedNodes.some((n) => n.id === node.id);
       if (!isClickedNodeSelected) {
-        selectedNodes = [node];
+        currentSelectedNodes = [node];
         setNodes((nds) =>
           nds.map((n) => ({
             ...n,
@@ -753,11 +829,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         );
       }
 
-      if (selectedNodes.length > 0) {
+      if (currentSelectedNodes.length > 0) {
         setContextMenu({
           x: event.clientX,
           y: event.clientY,
-          nodes: selectedNodes as Node<Person>[],
+          nodes: currentSelectedNodes as Node<Person>[],
         });
       }
     },
@@ -782,8 +858,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       if (readOnly) return;
       recordHistory();
       const allNodes = getNodes();
-      const isGroupDrag =
-        !!node.data.groupId && allNodes.filter((n) => n.data.groupId === node.data.groupId).length > 1;
+      const groupIds = node.data.groupIds || [];
+      const topGroupId = groupIds.length > 0 ? groupIds[groupIds.length - 1] : null;
+      const isGroupDrag = topGroupId ? allNodes.filter(n => (n.data.groupIds || []).includes(topGroupId)).length > 1 : false;
 
       dragRef.current = {
         nodeId: node.id,
@@ -808,10 +885,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         y: draggedNode.position.y - startPos.y,
       };
 
+      const groupIds = draggedNode.data.groupIds || [];
+      const topGroupId = groupIds.length > 0 ? groupIds[groupIds.length - 1] : null;
+      
       setNodes((nds) =>
         nds.map((n) => {
           // If it's a group drag, move all non-locked nodes in the group
-          if (isGroupDrag && n.data.groupId === draggedNode.data.groupId && !n.data.isLocked) {
+          if (isGroupDrag && topGroupId && (n.data.groupIds || []).includes(topGroupId) && !n.data.isLocked) {
             const initialPos = initialNodePositions.get(n.id);
             if (initialPos) {
               return {
@@ -839,8 +919,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       if (!user || !db || !dragRef.current || readOnly) return;
 
       const { isGroupDrag } = dragRef.current;
-      const nodesToUpdate = isGroupDrag
-        ? getNodes().filter((n) => n.data.groupId === draggedNode.data.groupId && !n.data.isLocked)
+      const groupIds = draggedNode.data.groupIds || [];
+      const topGroupId = groupIds.length > 0 ? groupIds[groupIds.length - 1] : null;
+      
+      const nodesToUpdate = isGroupDrag && topGroupId
+        ? getNodes().filter((n) => (n.data.groupIds || []).includes(topGroupId) && !n.data.isLocked)
         : [getNodes().find(n => n.id === draggedNode.id)].filter(Boolean) as Node[];
 
 
@@ -889,27 +972,41 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleGroup = async () => {
     recordHistory();
-    const selectedNodes = getNodes().filter((n) => n.selected);
-    if (selectedNodes.length < 2 || !user || !db) return;
+    if (!user || !db || selectedNodes.length < 1) return;
 
     const newGroupId = uuidv4();
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.selected ? { ...n, data: { ...n.data, groupId: newGroupId } } : n
-      )
+    const allGroupIdsInSelection = new Set<string>();
+    selectedNodes.forEach(node => {
+        (node.data.groupIds || []).forEach(id => allGroupIdsInSelection.add(id));
+    });
+
+    const nodeIdsToGroup = new Set<string>(selectedNodes.map(n => n.id));
+    nodes.forEach(node => {
+        if((node.data.groupIds || []).some(id => allGroupIdsInSelection.has(id))) {
+            nodeIdsToGroup.add(node.id);
+        }
+    });
+
+    setNodes(nds =>
+        nds.map(n =>
+            nodeIdsToGroup.has(n.id)
+                ? { ...n, data: { ...n.data, groupIds: [...(n.data.groupIds || []), newGroupId] } }
+                : n
+        )
     );
 
     const batch = writeBatch(db);
     const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
 
-    for (const node of selectedNodes) {
-        const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
+    for (const nodeId of Array.from(nodeIdsToGroup)) {
+        const node = nodes.find(n => n.id === nodeId)!;
+        const newGroupIds = [...(node.data.groupIds || []), newGroupId];
+        const q = query(canvasPositionsRef, where('personId', '==', nodeId), limit(1));
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
-            const newDocRef = doc(canvasPositionsRef);
-            batch.set(newDocRef, { personId: node.id, x: node.position.x, y: node.position.y, groupId: newGroupId, userId: user.uid, treeId, updatedAt: serverTimestamp() });
+            batch.set(doc(canvasPositionsRef), { personId: nodeId, x: node.position.x, y: node.position.y, groupIds: newGroupIds, userId: user.uid, treeId, updatedAt: serverTimestamp() });
         } else {
-            batch.update(snapshot.docs[0].ref, { groupId: newGroupId });
+            batch.update(snapshot.docs[0].ref, { groupIds: newGroupIds });
         }
     }
     await batch.commit();
@@ -918,35 +1015,123 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleUngroup = async () => {
     recordHistory();
-    const selectedNode = getNodes().find((n) => n.selected);
-    const groupId = selectedNode?.data.groupId;
-    if (!groupId || !user || !db) return;
+    if (!user || !db || selectedNodes.length === 0) return;
+  
+    const topGroupId = (selectedNodes[0].data.groupIds || []).slice(-1)[0];
+    if (!topGroupId) return;
 
-    const nodesInGroup = getNodes().filter(n => n.data.groupId === groupId);
+    const nodeIdsToUngroup = new Set<string>();
+    nodes.forEach(node => {
+        const groupIds = node.data.groupIds || [];
+        if (groupIds.length > 0 && groupIds[groupIds.length - 1] === topGroupId) {
+            nodeIdsToUngroup.add(node.id);
+        }
+    });
     
-    setNodes((nds) =>
-      nds.map((n) =>
-        n.data.groupId === groupId ? { ...n, data: { ...n.data, groupId: null } } : n
-      )
+    setNodes(nds =>
+      nds.map(n => {
+        if (nodeIdsToUngroup.has(n.id)) {
+            const newGroupIds = [...(n.data.groupIds || [])];
+            newGroupIds.pop();
+            return { ...n, data: { ...n.data, groupIds: newGroupIds } };
+        }
+        return n;
+      })
     );
 
     const batch = writeBatch(db);
     const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-    for (const node of nodesInGroup) {
-        const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
+    for (const nodeId of Array.from(nodeIdsToUngroup)) {
+        const node = nodes.find(n => n.id === nodeId)!;
+        const newGroupIds = [...(node.data.groupIds || [])];
+        newGroupIds.pop();
+        const q = query(canvasPositionsRef, where('personId', '==', nodeId), limit(1));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
-            batch.update(snapshot.docs[0].ref, { groupId: null });
+            batch.update(snapshot.docs[0].ref, { groupIds: newGroupIds });
         }
     }
     await batch.commit();
     toast({ title: "הקבוצה פורקה" });
   };
 
+  const handleAlign = useCallback((type: string) => {
+    if (selectedNodes.length < 2) return;
+    recordHistory();
+
+    let newNodes = [...nodes];
+    const updatedPositions = new Map<string, XYPosition>();
+
+    switch (type) {
+        case 'align-left': {
+            const minX = Math.min(...selectedNodes.map(n => n.position.x));
+            selectedNodes.forEach(n => updatedPositions.set(n.id, { ...n.position, x: minX }));
+            break;
+        }
+        case 'align-center-h': {
+            const centerX = selectedNodes.reduce((sum, n) => sum + n.position.x + (n.width || 0) / 2, 0) / selectedNodes.length;
+            selectedNodes.forEach(n => updatedPositions.set(n.id, { ...n.position, x: centerX - (n.width || 0) / 2 }));
+            break;
+        }
+        case 'align-right': {
+            const maxX = Math.max(...selectedNodes.map(n => n.position.x + (n.width || 0)));
+            selectedNodes.forEach(n => updatedPositions.set(n.id, { ...n.position, x: maxX - (n.width || 0) }));
+            break;
+        }
+        case 'align-top': {
+            const minY = Math.min(...selectedNodes.map(n => n.position.y));
+            selectedNodes.forEach(n => updatedPositions.set(n.id, { ...n.position, y: minY }));
+            break;
+        }
+        case 'align-center-v': {
+            const centerY = selectedNodes.reduce((sum, n) => sum + n.position.y + (n.height || 0) / 2, 0) / selectedNodes.length;
+            selectedNodes.forEach(n => updatedPositions.set(n.id, { ...n.position, y: centerY - (n.height || 0) / 2 }));
+            break;
+        }
+        case 'align-bottom': {
+            const maxY = Math.max(...selectedNodes.map(n => n.position.y + (n.height || 0)));
+            selectedNodes.forEach(n => updatedPositions.set(n.id, { ...n.position, y: maxY - (n.height || 0) }));
+            break;
+        }
+        case 'distribute-h': {
+            const sorted = [...selectedNodes].sort((a, b) => a.position.x - b.position.x);
+            const minX = sorted[0].position.x;
+            const maxX = sorted[sorted.length - 1].position.x + (sorted[sorted.length - 1].width || 0);
+            const totalWidth = sorted.reduce((sum, n) => sum + (n.width || 0), 0);
+            const gap = (maxX - minX - totalWidth) / (sorted.length - 1);
+            let currentX = minX;
+            sorted.forEach(n => {
+                updatedPositions.set(n.id, { ...n.position, x: currentX });
+                currentX += (n.width || 0) + gap;
+            });
+            break;
+        }
+        case 'distribute-v': {
+            const sorted = [...selectedNodes].sort((a, b) => a.position.y - b.position.y);
+            const minY = sorted[0].position.y;
+            const maxY = sorted[sorted.length - 1].position.y + (sorted[sorted.length - 1].height || 0);
+            const totalHeight = sorted.reduce((sum, n) => sum + (n.height || 0), 0);
+            const gap = (maxY - minY - totalHeight) / (sorted.length - 1);
+            let currentY = minY;
+            sorted.forEach(n => {
+                updatedPositions.set(n.id, { ...n.position, y: currentY });
+                currentY += (n.height || 0) + gap;
+            });
+            break;
+        }
+    }
+    
+    setNodes(nds => nds.map(n => updatedPositions.has(n.id) ? { ...n, position: updatedPositions.get(n.id)! } : n));
+    
+    // Debounce this save
+    // onNodeDragStop logic can be reused but needs to be adapted.
+  }, [nodes, selectedNodes, recordHistory]);
+
+
   const handleLock = async () => {
     recordHistory();
-    const selectedNodes = getNodes().filter((n) => n.selected);
-    if (selectedNodes.length === 0 || !user || !db) return;
+    const currentSelectedNodes = getNodes().filter((n) => n.selected);
+    if (currentSelectedNodes.length === 0 || !user || !db) return;
 
     setNodes((nds) =>
       nds.map((n) =>
@@ -956,7 +1141,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     const batch = writeBatch(db);
     const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-    for (const node of selectedNodes) {
+    for (const node of currentSelectedNodes) {
         const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
@@ -972,8 +1157,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleUnlock = async () => {
     recordHistory();
-    const selectedNodes = getNodes().filter((n) => n.selected);
-    if (selectedNodes.length === 0 || !user || !db) return;
+    const currentSelectedNodes = getNodes().filter((n) => n.selected);
+    if (currentSelectedNodes.length === 0 || !user || !db) return;
 
     setNodes((nds) =>
       nds.map((n) =>
@@ -983,7 +1168,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     
     const batch = writeBatch(db);
     const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
-    for (const node of selectedNodes) {
+    for (const node of currentSelectedNodes) {
         const q = query(canvasPositionsRef, where('personId', '==', node.id), limit(1));
         const snapshot = await getDocs(q);
         if (!snapshot.empty) {
@@ -1217,7 +1402,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const updatePersonData = useCallback(async (personId: string, field: keyof Person, value: any): Promise<boolean> => {
     const nonDbFields: (keyof Person)[] = [
         'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
-        'isLocked', 'groupId', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
+        'isLocked', 'groupIds', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
         'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize', 'socialLinks'
     ];
     if (nonDbFields.includes(field)) {
@@ -1991,7 +2176,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
           <div
             className={cn(
-              "relative",
+              "relative mx-auto max-w-full",
               isConstrainedView 
                   ? "bg-background shadow-2xl border overflow-hidden"
                   : "w-full h-full",
@@ -2078,6 +2263,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               onLock={handleLock}
               onUnlock={handleUnlock}
             />
+          )}
+          {selectedNodes.length > 1 && viewMode === 'tree' && !readOnly && (
+            <AlignmentToolbar nodes={selectedNodes} onAlign={handleAlign} />
           )}
            {isChatPanelOpen && user && db && tree && viewMode !== 'roots' && (
             <AiChatPanel

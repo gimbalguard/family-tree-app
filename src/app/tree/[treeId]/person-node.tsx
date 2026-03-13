@@ -19,6 +19,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, 
     isOwner, isLocked, childrenCount, siblingsCount, grandchildrenCount, 
     greatGrandchildrenCount, gen4Count, gen5Count,
+    isGroupSelected,
     // Creator settings
     creatorCardBacklightIntensity,
     creatorCardBacklightDisabled,
@@ -132,6 +133,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       className={cn(
         "w-64 transition-all duration-200 relative", 
         selected && 'ring-2 ring-primary ring-offset-2',
+        isGroupSelected && !selected && 'ring-2 ring-dashed ring-accent',
         designClasses
       )}
     >

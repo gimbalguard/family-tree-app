@@ -1,4 +1,3 @@
-
 'use client';
 import { useEffect, useMemo, useRef } from 'react';
 import type { Node } from 'reactflow';
@@ -48,14 +47,12 @@ export function NodeContextMenu({
 
     const isAnyLocked = nodes.some((n) => n.data.isLocked);
     const isAnyUnlocked = nodes.some((n) => !n.data.isLocked);
-
-    const firstNodeGroupId = nodes[0].data.groupId;
-    const areAllInSameGroup =
-      !!firstNodeGroupId && nodes.every((n) => n.data.groupId === firstNodeGroupId);
-
+    const canGroup = nodes.length > 1;
+    const canUngroup = nodes.some(n => (n.data.groupIds || []).length > 0);
+    
     return {
-      canGroup: nodes.length > 1 && !areAllInSameGroup,
-      canUngroup: areAllInSameGroup,
+      canGroup,
+      canUngroup,
       canLock: isAnyUnlocked,
       canUnlock: isAnyLocked,
     };

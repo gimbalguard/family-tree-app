@@ -1,4 +1,3 @@
-
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserProfile = {
@@ -71,7 +70,8 @@ export type Person = {
   gallery?: GalleryPhoto[];
   // UI-specific properties, not from DB schema directly but merged at runtime
   isLocked?: boolean;
-  groupId?: string | null;
+  groupIds?: string[];
+  isGroupSelected?: boolean;
   isOwner?: boolean;
   childrenCount?: number;
   siblingsCount?: number;
@@ -133,7 +133,7 @@ export type CanvasPosition = {
   y: number;
   updatedAt: Timestamp;
   isLocked?: boolean;
-  groupId?: string | null;
+  groupIds?: string[];
 };
 
 export type ManualEvent = {
@@ -229,7 +229,74 @@ interface HeritageData {
   customHistoricalEvents?: {id: string; label: string; year: string}[];
 }
 
+export type ShapeType = 'rectangle' | 'rounded_rectangle' | 'circle' | 'ellipse' | 'triangle' | 'star' | 'star6' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon' | 'heart' | 'arrow_right' | 'arrow_left' | 'speech_bubble' | 'banner' | 'cross' | 'parallelogram' | 'trapezoid' | 'line_h';
+export type TextAlign = 'left' | 'center' | 'right';
 
+export interface DesignElement {
+    id: string;
+    type: 'text' | 'image' | 'shape' | 'person_card' | 'icon' | 'connection_line' | 'photo_placeholder';
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    zIndex: number;
+    content?: string;
+    personId?: string;
+    fromElementId?: string;
+    toElementId?: string;
+    style?: {
+        // Shared
+        opacity?: number;
+        borderRadius?: number;
+        borderColor?: string;
+        borderWidth?: number;
+        backgroundColor?: string;
+        // Text
+        color?: string;
+        fontSize?: number;
+        fontWeight?: 'normal' | 'bold' | 'extrabold';
+        fontFamily?: string;
+        textAlign?: TextAlign;
+        lineHeight?: number;
+        // Shape
+        shapeType?: ShapeType;
+        // Connection Line
+        lineType?: 'straight' | 'dashed' | 'dotted' | 'pcb' | 'wavy';
+    };
+}
+
+export interface DesignPage {
+    id: string;
+    pageNumber: number;
+    pageType: 'cover' | 'name' | 'personal' | 'nuclear_family' | 'roots_paternal' | 'roots_maternal' | 'roots_great' | 'heritage' | 'national_history' | 'custom';
+    title: string;
+    elements: DesignElement[];
+    templateId: string; // references DesignTemplate
+    backgroundColor?: string;
+    backgroundGradient?: string;
+    backgroundImage?: string;
+}
+
+export interface DesignTemplate {
+    id: string;
+    name: string;
+    nameHebrew: string;
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    backgroundColor: string;
+    cardBackground: string;
+    textColor: string;
+    mutedTextColor: string;
+    titleFont: string;
+    bodyFont: string;
+    backgroundStyle: 'gradient' | 'paper' | 'cosmic';
+    backgroundGradient: string;
+    layoutStyle: 'minimal' | 'classic' | 'elegant' | 'bold' | 'nature' | 'heritage' | 'cosmic_dark' | 'playful' | 'bright';
+    decorativePattern: 'none' | 'dots' | 'lines' | 'corners' | 'border' | 'diagonal';
+    cardStyle: 'solid' | 'shadow' | 'outline' | 'glass' | 'colorful';
+    titleStyle: 'gradient' | 'outlined' | 'solid' | 'bold_caps' | 'italic_serif' | 'handwritten';
+}
 export interface RootsProjectData {
   projectName?: string;
   coverPage?: CoverPageData;
@@ -237,7 +304,10 @@ export interface RootsProjectData {
   nuclearFamily?: NuclearFamilyData;
   familyRoots?: GenerationData;
   heritage?: HeritageData;
-  designData?: any;
+  designData?: {
+    pages: DesignPage[];
+    templateId?: string;
+  };
 }
 
 

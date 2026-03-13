@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "UserProfile": {
@@ -392,12 +391,12 @@
           "type": "boolean",
           "description": "If true, the node cannot be dragged or moved on the canvas."
         },
-        "groupId": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "description": "An identifier for a logical group of nodes that should move together."
+        "groupIds": {
+          "type": "array",
+          "description": "An array of group identifiers for nested grouping.",
+          "items": {
+            "type": "string"
+          }
         }
       },
       "required": [
