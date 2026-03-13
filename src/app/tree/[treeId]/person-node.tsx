@@ -17,6 +17,7 @@ import { format, differenceInYears } from 'date-fns';
 export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const { 
     firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, 
+    nickname,
     isOwner, isLocked, childrenCount, siblingsCount, grandchildrenCount, 
     greatGrandchildrenCount, gen4Count, gen5Count,
     isGroupSelected,
@@ -30,6 +31,16 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     cardBorderColor,
     cardBorderWidth,
   } = data;
+
+  const nameParts = [firstName];
+  if (nickname) {
+    nameParts.push(`(${nickname})`);
+  }
+  nameParts.push(lastName);
+  if (status === 'deceased') {
+    nameParts.push('(ז"ל)');
+  }
+  const displayName = nameParts.join(' ');
 
   const getLifeYearsDisplay = () => {
     try {
@@ -126,6 +137,15 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
     design === 'natural' ? 'card-design-natural' :
     design === 'elegant' ? 'card-design-elegant' : '';
 
+  const descendantCounts = [
+    { count: childrenCount, label: 'ילדים', icon: Baby, opacityClass: 'opacity-100' },
+    { count: siblingsCount, label: 'אחים', icon: Users, opacityClass: 'opacity-100' },
+    { count: grandchildrenCount, label: 'נכדים', icon: Users, opacityClass: 'opacity-80' },
+    { count: greatGrandchildrenCount, label: 'נינים', icon: Users, opacityClass: 'opacity-70' },
+    { count: gen4Count, label: 'חִמֵּשׁ', icon: Users, opacityClass: 'opacity-60' },
+    { count: gen5Count, label: 'שִׁשַּׁשׁ', icon: Users, opacityClass: 'opacity-50' }
+  ].filter(item => (item.count || 0) > 0);
+
 
   return (
     <Card 
@@ -138,7 +158,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       )}
     >
       {isLocked && (
-        <div className="absolute -top-1 -right-1 bg-background text-muted-foreground rounded-full p-0.5 z-10 border shadow">
+        <div className="absolute -top-1 -left-1 bg-background text-muted-foreground rounded-full p-0.5 z-10 border shadow">
           <Lock className="h-2 w-2" />
         </div>
       )}
@@ -150,7 +170,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
       <Handle type="source" position={Position.Right} id="right" style={{ ...handleStyle, top: '50%' }} />
       
       <CardHeader className="p-4">
-        <div className="flex items-center gap-4">
+        <div className="flex flex-row-reverse items-center gap-4">
           <div className={cn('avatar-frame rounded-full')}>
             <Avatar className="h-16 w-16 border">
               <AvatarImage src={photoURL || ''} data-ai-hint="person photo" />
@@ -159,52 +179,24 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
               </AvatarFallback>
             </Avatar>
           </div>
-          <div className="flex-1 space-y-1">
-            <h3 className={cn("font-bold text-lg leading-tight text-main")}>{`${firstName} ${lastName}`}</h3>
+          <div className="flex-1 space-y-1 text-right">
+            <h3 className={cn("font-bold text-lg leading-tight text-main")}>{displayName}</h3>
             {lifeYears && <p className={cn("text-sm text-muted-foreground text-sub")}>{lifeYears}</p>}
-            <div className='flex items-center gap-2 pt-1'>
+            <div className='flex items-center justify-end gap-2 pt-1'>
                 {getGenderBadge()}
                 {getStatusIcon()}
                 {getReligionIcon()}
             </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1.5 text-sub">
-                {(childrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs" title={`${childrenCount} ילדים`}>
-                        <Baby className="h-4 w-4" />
-                        <span className="font-medium">{childrenCount}</span>
-                    </div>
-                )}
-                {(siblingsCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs" title={`${siblingsCount} אחים`}>
-                        <Users className="h-4 w-4" />
-                        <span className="font-medium">{siblingsCount}</span>
-                    </div>
-                )}
-                {(grandchildrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs opacity-80" title={`${grandchildrenCount} נכדים`}>
-                        <Users className="h-4 w-4" />
-                        <span className="font-medium">{grandchildrenCount}</span>
-                    </div>
-                )}
-                {(greatGrandchildrenCount || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs opacity-70" title={`${greatGrandchildrenCount} נינים`}>
-                        <Users className="h-4 w-4" />
-                        <span className="font-medium">{greatGrandchildrenCount}</span>
-                    </div>
-                )}
-                {(gen4Count || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs opacity-60" title={`${gen4Count} חִמֵּשׁ`}>
-                        <Users className="h-4 w-4" />
-                        <span className="font-medium">{gen4Count}</span>
-                    </div>
-                )}
-                {(gen5Count || 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs opacity-50" title={`${gen5Count} שִׁשַּׁשׁ`}>
-                        <Users className="h-4 w-4" />
-                        <span className="font-medium">{gen5Count}</span>
-                    </div>
-                )}
-            </div>
+            {descendantCounts.length > 0 && (
+              <div className="pt-2 space-y-0.5 text-sub">
+                {descendantCounts.map(({ count, label, icon: Icon, opacityClass }) => (
+                  <div key={label} className={cn("flex items-center justify-end gap-2 text-xs", opacityClass)} title={`${count} ${label}`}>
+                    <span className="font-medium">{count} {label}</span>
+                    <Icon className="h-3 w-3" />
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </CardHeader>
