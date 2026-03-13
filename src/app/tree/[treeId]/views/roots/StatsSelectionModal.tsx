@@ -82,6 +82,10 @@ export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relati
     const [selectedCharts, setSelectedCharts] = useState<string[]>(initialSelected);
 
     const chartsData = useMemo(() => {
+        const summary = {
+            living: people.filter(p => p.status === 'alive').length,
+            deceased: people.filter(p => p.status === 'deceased').length,
+        };
         const genderData = countBy(people.map(p => p.gender === 'male' ? 'זכר' : p.gender === 'female' ? 'נקבה' : 'אחר'));
         const ageData = Object.entries(people.reduce((acc, p) => {
             if (p.status !== 'alive' || !p.birthDate || !isValid(parseISO(p.birthDate))) return acc;
@@ -96,15 +100,33 @@ export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relati
         }));
         const lastNamesData = countBy(people.map(p => p.lastName)).slice(0, 7);
         const zodiacData = countBy(people.map(p => p.birthDate && isValid(parseISO(p.birthDate)) ? getZodiac(parseISO(p.birthDate)) : null));
-        return { genderData, ageData, birthMonthData, lastNamesData, zodiacData };
-    }, [people]);
+        const statusData = [{ name: 'חיים', value: summary.living }, { name: 'נפטרים', value: summary.deceased }, { name: 'לא ידוע', value: people.filter(p => !p.status || p.status === 'unknown').length }].filter(d => d.value > 0);
+        const religionData = countBy(people.map(p => p.religion ? ({'jewish':'יהדות','christian':'נצרות','muslim':'אסלאם','buddhist':'בודהיזם','other':'אחר'}[p.religion] || p.religion) : 'לא צוין'));
+        const decadeData = Object.entries(people.reduce((map, p) => { if(p.birthDate && isValid(parseISO(p.birthDate))){const dec=`${Math.floor(getYear(parseISO(p.birthDate))/10)*10}s`;map[dec]=(map[dec]||0)+1;} return map; }, {} as Record<string,number>)).map(([name,value])=>({name,'אנשים':value})).sort((a,b)=>a.name.localeCompare(b.name));
+        const firstNamesData = countBy(people.map(p => p.firstName)).slice(0, 7);
+        const residenceData = countBy(people.map(p => p.countryOfResidence)).slice(0, 7);
+        const birthPlaceData = countBy(people.map(p => p.birthPlace)).slice(0, 7);
+        const childrenData = Object.entries(relationships.reduce((map, r) => { if (['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)) { map[r.personAId] = (map[r.personAId] || 0) + 1; } return map; }, {} as Record<string,number>)).map(([id,count])=>{const p=people.find(x=>x.id===id);return{id,name:p?`${p.firstName} ${p.lastName}`:id,value:count};}).sort((a,b)=>b.value-a.value).slice(0,7);
+
+        return { 
+            genderData, ageData, birthMonthData, lastNamesData, zodiacData,
+            statusData, religionData, decadeData, firstNamesData, residenceData, birthPlaceData, childrenData
+        };
+    }, [people, relationships]);
 
     const chartDefinitions = [
         { id: 'gender', title: 'התפלגות מגדר', data: chartsData.genderData, chart: <PieChart><Pie data={chartsData.genderData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>{chartsData.genderData.map((_,i)=><Cell key={`c-${i}`} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/></PieChart> },
         { id: 'age', title: 'התפלגות גילאים', data: chartsData.ageData, chart: <BarChart data={chartsData.ageData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" fontSize={10}/><YAxis orientation='right' allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="כמות" radius={[4,4,0,0]} fill={C[1]}/></BarChart> },
         { id: 'birthMonth', title: 'לידות לפי חודש', data: chartsData.birthMonthData, chart: <BarChart data={chartsData.birthMonthData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" fontSize={10} angle={-45} textAnchor='end' height={40} interval={0}/><YAxis orientation='right' allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="לידות" radius={[4,4,0,0]} fill={C[2]}/></BarChart> },
         { id: 'lastName', title: 'שמות משפחה נפוצים', data: chartsData.lastNamesData, chart: <BarChart layout="vertical" data={chartsData.lastNamesData}><CartesianGrid strokeDasharray="3 3"/><YAxis type="category" dataKey="name" width={60} fontSize={10} orientation='right'/><XAxis type="number" allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,4,4,0]} fill={C[3]}/></BarChart> },
-        { id: 'zodiac', title: 'התפלגות מזלות', data: chartsData.zodiacData, chart: <PieChart><Pie data={chartsData.zodiacData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>{chartsData.zodiacData.map((_,i)=><Cell key={`c-${i}`} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/></PieChart> }
+        { id: 'zodiac', title: 'התפלגות מזלות', data: chartsData.zodiacData, chart: <PieChart><Pie data={chartsData.zodiacData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>{chartsData.zodiacData.map((_,i)=><Cell key={`c-${i}`} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/></PieChart> },
+        { id: 'status', title: 'התפלגות סטטוס', data: chartsData.statusData, chart: <PieChart><Pie data={chartsData.statusData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>{chartsData.statusData.map((_,i)=><Cell key={`c-${i}`} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/></PieChart> },
+        { id: 'religion', title: 'התפלגות דתית', data: chartsData.religionData, chart: <PieChart><Pie data={chartsData.religionData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} label>{chartsData.religionData.map((_,i)=><Cell key={`c-${i}`} fill={C[i%C.length]}/>)}</Pie><Tooltip content={<CTip/>}/></PieChart> },
+        { id: 'decade', title: 'לידות לפי עשור', data: chartsData.decadeData, chart: <BarChart data={chartsData.decadeData}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="name" fontSize={10}/><YAxis orientation='right' allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="אנשים" radius={[4,4,0,0]} fill={C[4]}/></BarChart> },
+        { id: 'firstName', title: 'שמות פרטיים נפוצים', data: chartsData.firstNamesData, chart: <BarChart layout="vertical" data={chartsData.firstNamesData}><CartesianGrid strokeDasharray="3 3"/><YAxis type="category" dataKey="name" width={60} fontSize={10} orientation='right'/><XAxis type="number" allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,4,4,0]} fill={C[5]}/></BarChart> },
+        { id: 'residence', title: 'מדינות מגורים', data: chartsData.residenceData, chart: <BarChart layout="vertical" data={chartsData.residenceData}><CartesianGrid strokeDasharray="3 3"/><YAxis type="category" dataKey="name" width={60} fontSize={10} orientation='right'/><XAxis type="number" allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,4,4,0]} fill={C[6]}/></BarChart> },
+        { id: 'birthPlace', title: 'מקומות לידה', data: chartsData.birthPlaceData, chart: <BarChart layout="vertical" data={chartsData.birthPlaceData}><CartesianGrid strokeDasharray="3 3"/><YAxis type="category" dataKey="name" width={60} fontSize={10} orientation='right'/><XAxis type="number" allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="כמות" radius={[0,4,4,0]} fill={C[7]}/></BarChart> },
+        { id: 'children', title: 'הורים עם הכי הרבה ילדים', data: chartsData.childrenData, chart: <BarChart layout="vertical" data={chartsData.childrenData}><CartesianGrid strokeDasharray="3 3"/><YAxis type="category" dataKey="name" width={60} fontSize={10} orientation='right'/><XAxis type="number" allowDecimals={false} fontSize={10}/><Tooltip content={<CTip/>}/><Bar dataKey="value" name="ילדים" radius={[0,4,4,0]} fill={C[8]}/></BarChart> },
     ];
 
     const toggleChart = (id: string) => {
@@ -124,9 +146,9 @@ export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relati
                            <SelectableChartCard
                                 key={chartDef.id}
                                 title={chartDef.title}
-                                dataAvailable={chartDef.data.some(d => (d.value || d['כמות'] || d['לידות']) > 0)}
+                                dataAvailable={chartDef.data.some(d => (d.value || d['כמות'] || d['לידות'] || d['אנשים'] || d['ילדים']) > 0)}
                                 isSelected={selectedCharts.includes(chartDef.id)}
-                                onToggle={() => chartDef.data.length > 0 && toggleChart(chartDef.id)}
+                                onToggle={() => chartDef.data.length > 0 && chartDef.data.some(d => (d.value || d['כמות'] || d['לידות'] || d['אנשים'] || d['ילדים']) > 0) && toggleChart(chartDef.id)}
                            >
                                 <ResponsiveContainer width="100%" height={220}>
                                     {chartDef.chart}
@@ -143,4 +165,3 @@ export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relati
         </Dialog>
     );
 }
-
