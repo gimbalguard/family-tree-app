@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,7 +6,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
-import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Recipe, BadgeCheck, PlusCircle, BarChart2, Map, CalendarDays, X } from 'lucide-react';
+import { Check, Search, Sparkles, Star, BookOpen, Gem, Wand2, Loader2, School, User, Calendar, MapPin, Edit, Flag, Utensils, BadgeCheck, PlusCircle, BarChart2, Map, CalendarDays, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -1333,7 +1332,7 @@ export function RootsView({ project, people, relationships, tree, updateProject,
       case 6: return <GreatGrandparentsStep side="paternal" projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
       case 7: return <GreatGrandparentsStep side="maternal" projectData={project.projectData} onUpdate={handleProjectUpdate} people={people} relationships={relationships} currentStudentId={project.studentPersonId} onEditPerson={onEditPerson} />;
       case 8: return <HeritageStep title="חפץ משפחתי" icon={<Gem />} fieldKey="inheritedObject" placeholder="תארו חפץ שעבר במשפחה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
-      case 9: return <HeritageStep title="מתכון משפחתי" icon={<Recipe />} fieldKey="familyRecipe" placeholder="מה המנה שכולם מחכים לה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
+      case 9: return <HeritageStep title="מתכון משפחתי" icon={<Utensils />} fieldKey="familyRecipe" placeholder="מה המנה שכולם מחכים לה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 10: return <HeritageStep title="מקור שם המשפחה" icon={<BookOpen />} fieldKey="familyNameOrigin" placeholder="מאיפה מגיע שם המשפחה..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 11: return <Step11_NationalHistory projectData={project.projectData} onUpdate={handleProjectUpdate} />;
       case 12: return <HeritageStep title="סיכום ורפלקציה" icon={<Star />} fieldKey="conclusion" placeholder="מה למדתי על עצמי ועל משפחתי..." projectData={project.projectData} onUpdate={handleProjectUpdate} />;
@@ -1375,3 +1374,46 @@ export function RootsView({ project, people, relationships, tree, updateProject,
     </div>
   );
 }
+
+// EditableEventChip component moved here to be within the same file scope
+const EditableEventChip = ({ event, isSelected, onToggle, onUpdate }: { 
+  event: { id: string; label: string; year: string; isCustom: boolean }, 
+  isSelected: boolean, 
+  onToggle: (id: string) => void,
+  onUpdate: (id: string, values: {label: string, year: string}) => void 
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [label, setLabel] = useState(event.label);
+  const [year, setYear] = useState(event.year);
+
+  const handleSave = () => {
+    onUpdate(event.id, { label, year });
+    setIsEditing(false);
+  };
+  
+  if (isEditing) {
+    return (
+      <div className="flex gap-1 p-1 bg-slate-700 rounded-full">
+        <Input value={label} onChange={e => setLabel(e.target.value)} className="h-6 text-xs w-28 bg-slate-800" />
+        <Input value={year} onChange={e => setYear(e.target.value)} className="h-6 text-xs w-16 bg-slate-800" />
+        <Button size="icon" className="h-6 w-6" onClick={handleSave}><Check className="h-4 w-4" /></Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(
+        "relative group px-3 py-1.5 rounded-full text-xs font-medium cursor-pointer transition-colors",
+        isSelected ? 'bg-teal-500/80 text-white' : 'bg-white/10 text-slate-300 hover:bg-white/20'
+    )}>
+      <div onClick={() => onToggle(event.id)}>
+        {event.label} <span className="opacity-70">({event.year})</span>
+      </div>
+      {event.isCustom && (
+        <button onClick={() => setIsEditing(true)} className="absolute -top-1 -right-1 h-5 w-5 bg-slate-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Edit className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  )
+};
