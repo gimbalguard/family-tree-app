@@ -89,7 +89,7 @@ You **MUST** produce a JSON object that follows the \`GenerateTreeOutput\` schem
         *   Set \`isComplete\` to \`false\`.
         *   Leave \`people\` and \`relationships\` arrays empty or null.
         *   Write a \`summary\` in Hebrew of what you've understood so far (e.g., "הבנתי שיוסי הוא אבא של דנה.").
-        *   In the \`clarificationQuestions\` array, add one or more objects. Each object must have a \`question\` (e.g., "מי האמא?").
+        *   In the \`clarificationQuestions\` array, add **at most one** object. The object must have a \`question\` (e.g., "מי האמא?"). If you have multiple questions, ask them one by one in subsequent turns.
         *   If you can infer possible answers, add them to the \`suggestedAnswers\` array for that question.
 
     *   **Case 3: Off-Topic Message.**

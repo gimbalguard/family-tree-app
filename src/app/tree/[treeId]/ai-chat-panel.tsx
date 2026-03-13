@@ -217,7 +217,7 @@ export function AiChatPanel({
             content: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
             textContent: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
         };
-        setChatHistory([...chatHistory, assistantMessage]);
+        setChatHistory(prev => [...prev, assistantMessage]);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
         toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע ניתן לעבד טקסט מקבצי Excel בלבד. עיבוד PDF יתווסף בעתיד.' });
     } else {
@@ -365,15 +365,15 @@ export function AiChatPanel({
     const currentAttachment = attachment;
     setAttachment(null);
     
-    const newHistory = [...chatHistory, userMessage];
-    setChatHistory(newHistory);
+    setChatHistory(prev => [...prev, userMessage]);
     setIsGenerating(true);
 
     try {
+        const historyForAI = [...chatHistory, userMessage];
         const flowInput: any = {
            newUserMessage: messageContent,
            treeName: treeName,
-           chatHistory: newHistory.map(m => ({
+           chatHistory: historyForAI.map(m => ({
            role: m.role,
            content: m.textContent,
            })),
@@ -423,7 +423,7 @@ export function AiChatPanel({
            data: result.isComplete ? result : null,
        };
        
-       setChatHistory([...newHistory, assistantMessage]);
+       setChatHistory(prev => [...prev, assistantMessage]);
 
     } catch (error) {
       console.error('AI assistant error:', error);
@@ -431,7 +431,7 @@ export function AiChatPanel({
         content: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?',
         textContent: 'מצטער, נתקלתי בשגיאה. נוכל לנסות שוב?',
       };
-      setChatHistory([...newHistory, errorMessage]);
+      setChatHistory(prev => [...prev, errorMessage]);
       toast({ variant: 'destructive', title: 'שגיאת AI', description: 'לא ניתן היה לעבד את הבקשה.' });
     } finally {
       setIsGenerating(false);
@@ -444,15 +444,18 @@ export function AiChatPanel({
   return (
     <div
       ref={panelRef}
-      className="fixed bottom-8 right-8 z-[1050] w-full max-w-md"
+      className="fixed bottom-8 right-8 z-[1050] w-full min-w-[320px]"
       style={{
         transform: `translate(${position.x}px, ${position.y}px)`,
         cursor: isPanelDragging ? 'grabbing' : 'default',
+        maxWidth: '90vw',
       }}
       onDragEnter={handleFileDragOver}
       onDragOver={handleFileDragOver}
     >
-      <Card className="flex flex-col shadow-2xl h-[60vh] min-h-[400px] bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900/90 border-slate-700">
+      <Card 
+        className="flex flex-col shadow-2xl h-[60vh] min-h-[400px] resize overflow-hidden bg-gradient-to-br from-gray-900/90 via-slate-800/90 to-gray-900/90 border-slate-700 backdrop-blur-sm"
+      >
         <CardHeader
           className="flex-row items-center justify-between space-y-0 py-3 px-4 border-b border-slate-700 cursor-grab"
           onMouseDown={handlePanelDragStart}
@@ -465,7 +468,7 @@ export function AiChatPanel({
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
-        <CardContent className="p-4 flex-1 flex flex-col min-h-0 gap-4">
+        <div className="p-4 flex-1 flex flex-col min-h-0 gap-4">
           <div className="relative flex-1 min-h-0">
              {isFileHovering && (
                 <div 
@@ -515,7 +518,7 @@ export function AiChatPanel({
              {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
             <Textarea
               placeholder={placeholder}
-              className="pr-28 pl-12 h-20 bg-background/80 resize"
+              className="pr-28 pl-12 h-20 bg-background/80"
               value={story}
               onChange={(e) => setStory(e.target.value)}
               onKeyDown={(e) => {
@@ -537,7 +540,7 @@ export function AiChatPanel({
               <Send className="h-5 w-5" /><span className="sr-only">שלח</span>
             </Button>
           </div>
-        </CardContent>
+        </div>
       </Card>
     </div>
   );
