@@ -55,7 +55,7 @@ const prompt = ai.definePrompt({
 
 You **MUST** produce a JSON object that follows the \`GenerateTreeOutput\` schema.
 
-**CRITICAL RULE: Deduplication**
+**CRITICAL RULE: Deduplication & Context**
 Before identifying any new person from the user's message, you MUST check if a person with a similar first and last name already exists in the \`existingPeople\` list.
 
 1.  **If a likely duplicate is found:**
@@ -64,8 +64,16 @@ Before identifying any new person from the user's message, you MUST check if a p
     *   Set \`isComplete\` to \`false\`.
     *   In the \`clarificationQuestions\` array, add a question object. Provide suggested answers like "כן, זה אותו אדם" and "לא, זה אדם חדש".
 
-2.  **If the person is clearly new:**
-    *   Proceed with the analysis as described below.
+2.  **If the user's message is a direct response to your question (e.g., "כן, זה אותו אדם"):**
+    *   You MUST understand this in the context of the last question you asked in the \`chatHistory\`.
+    *   Do NOT ask "which person do you mean?".
+    *   Acknowledge their answer (e.g., "מעולה, הבנתי.") and then proceed with further analysis or ask your next question.
+
+3.  **If the person is clearly new:**
+    *   Proceed with the standard analysis as described below.
+    
+**File Content Analysis**
+*   If the \`newUserMessage\` starts with "[קובץ מצורף:", treat the text after "[תוכן:]" as the primary user input. This text may be structured (from Excel) or unstructured. Parse it to find as many people and relationships as possible.
 
 **Standard Analysis and Output Generation:**
 

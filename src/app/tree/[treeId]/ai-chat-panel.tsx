@@ -219,7 +219,7 @@ export function AiChatPanel({
         };
         setChatHistory([...chatHistory, assistantMessage]);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
-        toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע לא ניתן לעבד טקסט מקבצי PDF או PowerPoint.' });
+        toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע ניתן לעבד טקסט מקבצי Excel בלבד. עיבוד PDF יתווסף בעתיד.' });
     } else {
         toast({ variant: 'destructive', title: 'סוג קובץ לא נתמך' });
     }
@@ -449,21 +449,21 @@ export function AiChatPanel({
       onDragEnter={handleFileDragOver}
       onDragOver={handleFileDragOver}
     >
-      <Card className="flex flex-col shadow-2xl h-[60vh] min-h-[400px]">
+      <Card className="flex flex-col shadow-2xl h-[60vh] min-h-[400px] bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900/90 border-slate-700">
         <CardHeader
-          className="flex-row items-center justify-between space-y-0 py-3 px-4 border-b cursor-grab"
+          className="flex-row items-center justify-between space-y-0 py-3 px-4 border-b border-slate-700 cursor-grab"
           onMouseDown={handlePanelDragStart}
         >
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-primary-foreground">
             <GripVertical className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-lg">עוזר AI</CardTitle>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-primary-foreground" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
         <CardContent className="p-0 flex-1 flex flex-col min-h-0">
-          <div className="flex h-full flex-col space-y-4 bg-muted/20 p-4">
+          <div className="flex flex-1 flex-col space-y-4 p-4">
              {isFileHovering && (
                 <div 
                     className="absolute inset-0 z-10 border-2 border-dashed border-primary rounded-lg bg-primary/10 flex items-center justify-center m-4"
@@ -511,7 +511,7 @@ export function AiChatPanel({
                {attachment && <AttachmentPreview attachment={attachment} onRemove={() => setAttachment(null)} />}
               <Textarea
                 placeholder={placeholder}
-                className="pr-28 pl-12 h-20"
+                className="pr-28 pl-12 h-20 bg-background/80 resize"
                 value={story}
                 onChange={(e) => setStory(e.target.value)}
                 onKeyDown={(e) => {

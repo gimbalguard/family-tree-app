@@ -89,7 +89,6 @@ export function AiBuildClient() {
     setIsGenerating,
     isTranscribing,
     setIsTranscribing,
-    addMessage,
   } = useAiChat();
 
   const [isCreatingManually, setIsCreatingManually] = useState(false);
@@ -286,9 +285,9 @@ export function AiBuildClient() {
             role: 'assistant',
             content: `קובץ שמע צורף: "${fileName}". ניתוח קבצי שמע אינו נתמך כרגע.`,
         };
-        addMessage(assistantMessage);
+        setChatHistory(prev => [...prev, assistantMessage]);
     } else if (fileType === 'application/pdf' || fileName.endsWith('.pptx')) {
-        toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע לא ניתן לעבד טקסט מקבצי PDF או PowerPoint.' });
+        toast({ title: 'סוג קובץ לא נתמך', description: 'כרגע ניתן לעבד טקסט מקבצי Excel בלבד. עיבוד PDF יתווסף בעתיד.' });
     } else {
         toast({ variant: 'destructive', title: 'סוג קובץ לא נתמך' });
     }
