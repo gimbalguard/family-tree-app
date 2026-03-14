@@ -942,22 +942,18 @@ const PersonCardElement = ({
   const opacity = element.style?.opacity ?? 1;
 
   // Stable font size calculation
-  const widthScale = Math.max(0.4, Math.min(2.5, (element.width || 20) / 20));
-  const fs = (base: number) => Math.round(base * widthScale);
+  const fs = (base: number) => Math.round(base * 1);
 
   const infoRows: Array<{ icon: string; value: string }> = [];
   if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
   if (person.birthPlace) infoRows.push({ icon: '📍', value: person.birthPlace });
   if (deathYear) infoRows.push({ icon: '✝', value: String(deathYear) });
   if (person.countryOfResidence) infoRows.push({ icon: '🌍', value: person.countryOfResidence });
-  if (p.religion) infoRows.push({ icon: '✡️', value: p.religion });
-  if (person.profession) infoRows.push({ icon: '💼', value: person.profession });
-  if (spousePerson) infoRows.push({ icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
-  if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
-  if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
+  if (p.occupation) infoRows.push({ icon: '💼', value: p.occupation });
+  if (p.originCountry) infoRows.push({ icon: '✈️', value: p.originCountry });
 
   // Show fewer rows for smaller cards
-  const maxRows = Math.max(1, Math.floor(widthScale * 5));
+  const maxRows = 5;
 
   return (
     <div
@@ -966,19 +962,19 @@ const PersonCardElement = ({
         backgroundColor: bgColor,
         opacity,
         color: textColor,
-        padding: `${Math.max(3, Math.round(5 * widthScale))}px`,
+        padding: `8px`,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: `${Math.max(1, Math.round(2 * widthScale))}px`,
+        gap: `2px`,
       }}
       dir="rtl"
     >
       {/* Avatar + name row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: Math.max(2, Math.round(4 * widthScale)), flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         <div style={{
-          width: Math.max(16, Math.round(32 * widthScale)),
-          height: Math.max(16, Math.round(32 * widthScale)),
+          width: 32,
+          height: 32,
           borderRadius: '50%',
           overflow: 'hidden',
           flexShrink: 0,
@@ -2362,7 +2358,7 @@ export function RootsDesignEditor({
                     onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, lineType: lt.id } as any })}>
                     {lt.label}
                   </button>
-                </Tooltip>
+                </TooltipTrigger><TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent></Tooltip>
               ))}
             </div>
           </>)}
