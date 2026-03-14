@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -143,54 +142,55 @@ export function CanvasToolbar({
   const { toast } = useToast();
   const router = useRouter();
 
+  const handleComingSoonClick = () => {
+    toast({ title: 'בקרוב', description: 'אפשרות זו תהיה זמינה בעדכונים הבאים.' });
+  };
+
   const exportOptions = [
     { label: 'PDF', icon: <FileText />, onClick: onOpenPdfModal },
     { label: 'אקסל', icon: <FileSpreadsheet />, onClick: onExportExcel },
     { label: 'פאוורפוינט', icon: <Presentation />, onClick: onOpenPptExport },
     { label: 'תמונה', icon: <ImageIcon />, onClick: onOpenImageExport },
-    { label: 'HTML אינטראקטיבי', icon: <Globe />, onClick: () => handleComingSoonClick() },
-    { label: 'הדפסה', icon: <Printer />, onClick: () => handleComingSoonClick() },
-    { label: 'עבודת שורשים', icon: <Book />, onClick: () => handleComingSoonClick() },
+    { label: 'HTML אינטראקטיבי', icon: <Globe />, onClick: handleComingSoonClick },
+    { label: 'הדפסה', icon: <Printer />, onClick: handleComingSoonClick },
+    { label: 'עבודת שורשים', icon: <Book />, onClick: handleComingSoonClick },
   ];
 
-   if (!readOnly) {
-    exportOptions.push({ label: 'שיתוף קישור', icon: <LinkIcon />, onClick: () => handleComingSoonClick() });
+  if (!readOnly) {
+    exportOptions.push({ label: 'שיתוף קישור', icon: <LinkIcon />, onClick: handleComingSoonClick });
   }
 
-  const handleComingSoonClick = () => {
-    toast({
-      title: 'בקרוב',
-      description: 'אפשרות זו תהיה זמינה בעדכונים הבאים.',
-    });
-  };
+  // Whether to show the line-style picker (only on views that have edges)
+  const showEdgeStylePicker = viewMode === 'tree' || viewMode === 'timeline' || viewMode === 'roots';
+
+  // Whether to show the AI chat button, and what icon/label to use
+  const isRootsView = viewMode === 'roots';
 
   return (
     <aside className="flex flex-col items-center gap-4 border-l bg-card p-2" data-export-hide>
       <div className="flex w-full justify-center gap-2">
-         {viewMode === 'tree' && (
+        {viewMode === 'tree' && (
           <DropdownMenu>
-              <Tooltip>
-                  <TooltipTrigger asChild>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" disabled={viewMode === 'roots'}>
-                              <LayoutPanelTop className="h-5 w-5" />
-                          </Button>
-                      </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                      <p>יחס תצוגה</p>
-                  </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent side="right">
-                  <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
-                      <DropdownMenuRadioItem value="free">חופשי</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="16:9-portrait">16:9 לגובה</DropdownMenuRadioItem>
-                      <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <LayoutPanelTop className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="right"><p>יחס תצוגה</p></TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent side="right">
+              <DropdownMenuRadioGroup value={canvasAspectRatio} onValueChange={(value) => setCanvasAspectRatio(value as any)}>
+                <DropdownMenuRadioItem value="free">חופשי</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="a4-landscape">A4 לרוחב</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="a4-portrait">A4 לגובה</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="16:9-landscape">16:9 לרוחב</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="16:9-portrait">16:9 לגובה</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="1:1">ריבוע</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
           </DropdownMenu>
         )}
         <Tooltip>
@@ -199,9 +199,7 @@ export function CanvasToolbar({
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>חזרה ללוח הבקרה</p>
-          </TooltipContent>
+          <TooltipContent side="right"><p>חזרה ללוח הבקרה</p></TooltipContent>
         </Tooltip>
       </div>
 
@@ -212,74 +210,87 @@ export function CanvasToolbar({
               <UserPlus className="h-6 w-6" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>הוסף אדם חדש</p>
-          </TooltipContent>
+          <TooltipContent side="right"><p>הוסף אדם חדש</p></TooltipContent>
         </Tooltip>
       )}
 
       <Separator className="w-full my-1" />
 
+      {/* View mode grid */}
       <div className="grid grid-cols-2 gap-2">
-         {viewOptions.map((option) => (
-           <Tooltip key={option.value}>
-             <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setViewMode(option.value)}
-                  style={viewMode === option.value ? { backgroundColor: option.color } : {}}
-                  className={cn(
-                    "transition-all duration-200 w-12 h-12",
-                    viewMode === option.value ? 'text-white' : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  {React.cloneElement(option.icon as React.ReactElement, { 
-                      className: "h-6 w-6",
-                      style: viewMode !== option.value && option.iconColor ? { color: option.iconColor } : {}
-                  })}
-                </Button>
-             </TooltipTrigger>
-             <TooltipContent side="right"><p>{option.label}</p></TooltipContent>
-           </Tooltip>
-         ))}
+        {viewOptions.map((option) => (
+          <Tooltip key={option.value}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setViewMode(option.value)}
+                style={viewMode === option.value ? { backgroundColor: option.color } : {}}
+                className={cn(
+                  "transition-all duration-200 w-12 h-12",
+                  viewMode === option.value ? 'text-white' : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {React.cloneElement(option.icon as React.ReactElement, {
+                  className: "h-6 w-6",
+                  style: viewMode !== option.value && option.iconColor ? { color: option.iconColor } : {}
+                })}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right"><p>{option.label}</p></TooltipContent>
+          </Tooltip>
+        ))}
       </div>
-
 
       {!readOnly && (
         <div className="w-full flex flex-col items-center gap-1">
           <Separator className="my-1 w-full" />
-            {viewMode === 'roots' ? (
-                <Button variant="ghost" size="sm" className="w-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-300 hover:text-white" onClick={onToggleChat}>
-                    <Wand2 className="ml-2 h-4 w-4" />
-                    <span>עורך AI</span>
-                </Button>
-            ) : (
-                <Button variant="ghost" size="sm" className="w-full" onClick={onToggleChat}>
-                    <MessageSquare className="ml-2 h-4 w-4" />
-                    <span>AI Chat</span>
-                </Button>
-            )}
 
-          {(viewMode === 'tree' || viewMode === 'timeline' || viewMode === 'roots') && (
+          {/* AI Chat / AI Editor button — context-aware */}
+          {isRootsView ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full bg-gradient-to-br from-teal-500/20 to-indigo-500/20 text-teal-300 hover:text-white hover:from-teal-500/30 hover:to-indigo-500/30 border border-teal-500/20"
+                  onClick={onToggleChat}
+                >
+                  <Wand2 className="ml-2 h-4 w-4" />
+                  <span>עורך AI</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>פתח עוזר AI לעריכת העיצוב</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="sm" className="w-full" onClick={onToggleChat}>
+                  <MessageSquare className="ml-2 h-4 w-4" />
+                  <span>AI Chat</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>פתח עוזר AI להוספת נתונים</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* Edge style picker — only for tree/timeline views */}
+          {showEdgeStylePicker && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full">
-                    <Spline className="ml-2 h-4 w-4" />
-                    <span>סגנון קו</span>
-                    <ChevronDown className="mr-auto h-4 w-4 opacity-50" />
+                  <Spline className="ml-2 h-4 w-4" />
+                  <span>סגנון קו</span>
+                  <ChevronDown className="mr-auto h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent
-                side="right"
-                className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]"
-              >
+              <DropdownMenuContent side="right" className="w-[var(--radix-dropdown-menu-trigger-width)] z-[1003]">
                 {edgeStyleOptions.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    onClick={() => setEdgeType(option.value)}
-                    className="gap-2"
-                  >
+                  <DropdownMenuItem key={option.value} onClick={() => setEdgeType(option.value)} className="gap-2">
                     <span>{option.label}</span>
                   </DropdownMenuItem>
                 ))}
@@ -288,20 +299,13 @@ export function CanvasToolbar({
           )}
         </div>
       )}
-      
+
+      {/* Timeline compact toggle */}
       {viewMode === 'timeline' && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggleTimelineCompact}
-            >
-              {isTimelineCompact ? (
-                <Expand className="h-5 w-5" />
-              ) : (
-                <Shrink className="h-5 w-5" />
-              )}
+            <Button variant="ghost" size="icon" onClick={onToggleTimelineCompact}>
+              {isTimelineCompact ? <Expand className="h-5 w-5" /> : <Shrink className="h-5 w-5" />}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -310,35 +314,34 @@ export function CanvasToolbar({
         </Tooltip>
       )}
 
-
       <div className="flex-grow" />
 
       {!readOnly && (
         <div className="flex w-full flex-col items-center gap-2">
-           <div className="flex gap-2">
+          <div className="flex gap-2">
             <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onOpenSettings} className="border border-black">
-                      <Settings className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right"><p>הגדרות</p></TooltipContent>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={onOpenSettings} className="border border-black">
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right"><p>הגדרות</p></TooltipContent>
             </Tooltip>
-             <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={onOpenAccount} className="border border-black">
-                      <User className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right"><p>חשבון</p></TooltipContent>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={onOpenAccount} className="border border-black">
+                  <User className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right"><p>חשבון</p></TooltipContent>
             </Tooltip>
-             <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => router.push(`/tree/${treeId}/help`)} className="border border-black">
-                      <HelpCircle className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right"><p>עזרה</p></TooltipContent>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" onClick={() => router.push(`/tree/${treeId}/help`)} className="border border-black">
+                  <HelpCircle className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right"><p>עזרה</p></TooltipContent>
             </Tooltip>
           </div>
         </div>
@@ -349,47 +352,27 @@ export function CanvasToolbar({
       <div className="flex w-full flex-col items-center gap-2">
         <div className="flex gap-2">
           <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={onRedo}
-                  disabled={!canRedo}
-                >
-                  <Redo2 className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>בצע שוב</p>
-              </TooltipContent>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onRedo} disabled={!canRedo}>
+                <Redo2 className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right"><p>בצע שוב</p></TooltipContent>
           </Tooltip>
           <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={onUndo}
-                  disabled={!canUndo}
-                >
-                  <Undo2 className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>בטל</p>
-              </TooltipContent>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onUndo} disabled={!canUndo}>
+                <Undo2 className="h-5 w-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right"><p>בטל</p></TooltipContent>
           </Tooltip>
         </div>
-        
+
         {viewMode !== 'trivia' && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button
-                variant="default"
-                size="sm"
-                className="w-full"
-              >
+              <Button variant="default" size="sm" className="w-full">
                 <Download className="h-4 w-4 ml-2" />
                 <span className="text-sm">ייצוא / הדפסה</span>
               </Button>
@@ -409,8 +392,8 @@ export function CanvasToolbar({
                 ))}
               </div>
               {!readOnly && (
-                  <>
-                  <Separator className="my-2"/>
+                <>
+                  <Separator className="my-2" />
                   <Button
                     variant="ghost"
                     className="flex w-full h-auto flex-col items-center justify-center gap-1.5 p-3"
@@ -419,7 +402,7 @@ export function CanvasToolbar({
                     <Upload className="h-7 w-7" />
                     <span className="text-xs text-center">ייבוא מקובץ Excel</span>
                   </Button>
-                  </>
+                </>
               )}
             </PopoverContent>
           </Popover>
