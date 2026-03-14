@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import type {
@@ -13,6 +14,10 @@ import {
   Copy, AlignLeft, AlignCenter, AlignRight, ChevronUp, ChevronDown,
   Scissors, Clipboard, RefreshCw, Maximize2, Square, Upload, Layers,
   CropIcon,
+  ArrowUp,
+  ArrowDown as ArrowDownIcon,
+  FilePlus,
+  CopyPlus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -24,6 +29,17 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { useUser, useFirestore } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 // ============================================================
 // FONT CATALOG
@@ -241,6 +257,12 @@ function generatePagesFromProject(
     }
     return els;
   };
+  
+  // Minimalistic footer with student name, year, and page number
+  const footer = (pageNum: number, studentName?: string, schoolYear?: string, hebrewYear?: string): DesignElement[] => [
+    mk('text', { x: 8, y: 94, width: 84, height: 5, content: `${studentName || ''} | ${schoolYear || ''} | ${hebrewYear || ''}`, style: { fontSize: 9, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 2, y: 94, width: 5, height: 5, content: String(pageNum), style: { fontSize: 9, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+  ];
 
   // Colored pill label
   const pill = (x: number, y: number, w: number, h: number, text: string, icon: string, colorP: string): DesignElement[] => [
@@ -255,14 +277,24 @@ function generatePagesFromProject(
   ];
 
   // Text block with content or placeholder
-  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 13): DesignElement[] => [
+  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 15): DesignElement[] => [
     mk('text', { x, y, width: w, height: h, content: content || placeholder,
       style: { fontSize: fs, textAlign: 'right', color: content ? tmpl.textColor : tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.65, opacity: content ? 1 : 0.55 } }),
   ];
+  
+  const cp = pd.coverPage || {};
+  const studentName = student ? `${student.firstName} ${student.lastName}` : cp.studentName || 'התלמיד/ה';
+  const schoolYear = cp.grade || new Date().getFullYear().toString();
+  const hebrewYear = cp.hebrewYear || '';
 
   // Push a page helper
   const addPage = (title: string, type: DesignPage['pageType'], elements: DesignElement[]) => {
-    pages.push({ id: uuidv4(), pageNumber: pageNumber++, pageType: type, title, templateId, elements });
+    const pageNum = pageNumber++;
+    const pageElements = [
+        ...elements,
+        ...footer(pageNum, studentName, schoolYear, hebrewYear),
+    ];
+    pages.push({ id: uuidv4(), pageNumber: pageNum, pageType: type, title, templateId, elements: pageElements });
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -270,14 +302,13 @@ function generatePagesFromProject(
   // ═══════════════════════════════════════════════════════════
 
   // ─── 1. COVER ───────────────────────────────────────────────
-  const cp = pd.coverPage || {};
   const coverEls: DesignElement[] = [
     mk('shape', { x: -15, y: -20, width: 55, height: 80, zIndex: 0, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.07 } }),
     mk('shape', { x: 65, y: 50, width: 45, height: 65, zIndex: 0, style: { shapeType: 'circle', backgroundColor: accent, opacity: 0.06 } }),
     mk('shape', { x: 8, y: 43, width: 84, height: 0.5, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
-    mk('text', { x: 5, y: 12, width: 90, height: 16, content: `משפחת ${student?.lastName || cp.studentName?.split(' ').pop() || ''}`, style: { fontSize: 56, fontWeight: 'extrabold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
+    mk('text', { x: 5, y: 12, width: 90, height: 16, content: `משפחת ${student?.lastName || studentName.split(' ').pop() || ''}`, style: { fontSize: 56, fontWeight: 'extrabold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
     mk('text', { x: 5, y: 29, width: 90, height: 8, content: 'עבודת שורשים', style: { fontSize: 20, fontWeight: 'normal', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }),
-    mk('text', { x: 5, y: 47, width: 90, height: 8, content: cp.studentName || (student ? `${student.firstName} ${student.lastName}` : ''), style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 47, width: 90, height: 8, content: studentName, style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
     mk('text', { x: 5, y: 55, width: 90, height: 6, content: [cp.schoolName, cp.grade, cp.teacherName].filter(Boolean).join(' | '), style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.75 } }),
     mk('text', { x: 5, y: 62, width: 90, height: 6, content: cp.submissionDate || cp.hebrewYear || `שנת ${new Date().getFullYear()}`, style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
@@ -293,7 +324,7 @@ function generatePagesFromProject(
     ...header('תעודת זהות של העבודה', '🪪'),
     ...pill(5, 15, 90, 7, 'פרטים טכניים', '📋', P),
     mk('text', { x: 5, y: 24, width: 90, height: 65, content: [
-      `שם התלמיד/ה: ${cp.studentName || (student ? `${student.firstName} ${student.lastName}` : '_______________')}`,
+      `שם התלמיד/ה: ${studentName}`,
       `בית ספר: ${cp.schoolName || '_______________'}`,
       `כיתה: ${cp.grade || '_______________'}`,
       `מורה מלווה: ${cp.teacherName || '_______________'}`,
@@ -306,8 +337,6 @@ function generatePagesFromProject(
   addPage('תעודת זהות של העבודה', 'cover', idEls);
 
   // ─── 3. TABLE OF CONTENTS (built dynamically after pages known — use placeholder) ──
-  // We'll add a real TOC placeholder now and can update after
-  const tocTitles: string[] = [];
   const tocPageIdx = pages.length; // remember position
   const tocEls: DesignElement[] = [
     ...header('תוכן עניינים', '📋'),
@@ -322,7 +351,7 @@ function generatePagesFromProject(
   const introEls: DesignElement[] = [
     ...header('מבוא אישי', '✍️'),
     ...pill(55, 15, 41, 6.5, 'מבוא', '📝', P),
-    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 14),
+    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 16),
   ];
   introEls.push(...photoPlaceholder(62, 72, 33, 22, '📷 תמונה אישית'));
   addPage('מבוא אישי', 'personal', introEls);
@@ -354,7 +383,7 @@ function generatePagesFromProject(
       student?.countryOfResidence ? `מדינה: ${student.countryOfResidence}` : '',
       student?.cityOfResidence ? `עיר: ${student.cityOfResidence}` : '',
       student?.religion ? `דת: ${student.religion}` : '',
-    ].filter(Boolean).join('\n'), style: { fontSize: 13, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 } }),
+    ].filter(Boolean).join('\n'), style: { fontSize: 15, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 } }),
     ...photoPlaceholder(55, 23, 40, 52),
   ];
   addPage('תעודת זהות אישית', 'personal', personalIdEls);
@@ -365,8 +394,8 @@ function generatePagesFromProject(
     ...header('סיפור השם שלי', '✍️', 'חלק 2: אני'),
     mk('shape', { x: 0, y: 0, width: 6, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
     mk('text', { x: 72, y: 14, width: 22, height: 18, content: '❝', style: { fontSize: 70, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 15),
-    ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 13)] : []),
+    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 16),
+    ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 15)] : []),
   ];
   if (student?.photoURL) nameEls.push(mk('image', { content: student.photoURL, x: 66, y: 75, width: 28, height: 22, zIndex: 5, style: { borderRadius: 12 } }));
   else nameEls.push(...photoPlaceholder(66, 75, 28, 20));
@@ -377,7 +406,7 @@ function generatePagesFromProject(
     const birthDayEls: DesignElement[] = [
       ...header('ביום שנולדתי', '🗓️', 'חלק 2: אני'),
       ...pill(55, 15, 41, 6.5, student?.birthDate?.slice(0,10) || '', '🎂', P),
-      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 14),
+      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 16),
     ];
     birthDayEls.push(...photoPlaceholder(55, 70, 40, 24, '📰 כותרות עיתון מיום הלידה'));
     addPage('ביום שנולדתי', 'personal', birthDayEls);
@@ -386,7 +415,7 @@ function generatePagesFromProject(
   // ─── EARLY CHILDHOOD ────────────────────────────────────────
   const childhoodEls: DesignElement[] = [
     ...header('זיכרונות ילדות מוקדמים', '🧸', 'חלק 2: אני'),
-    ...textBlock(5, 15, 58, 75, ps.earlyChildhood, 'כאן יופיעו זיכרונות מהילדות המוקדמת — גיל 0 עד 5, סיפורים וחוויות שנחרטו בזיכרון.', 13),
+    ...textBlock(5, 15, 58, 75, ps.earlyChildhood, 'כאן יופיעו זיכרונות מהילדות המוקדמת — גיל 0 עד 5, סיפורים וחוויות שנחרטו בזיכרון.', 15),
     ...photoPlaceholder(65, 15, 30, 40, '📷 תמונה מהילדות'),
     ...photoPlaceholder(65, 57, 30, 33, '📷 עוד תמונה'),
   ];
@@ -395,7 +424,7 @@ function generatePagesFromProject(
   // ─── ELEMENTARY SCHOOL ──────────────────────────────────────
   const elemEls: DesignElement[] = [
     ...header('היסודי שלי', '🏫', 'חלק 2: אני'),
-    ...textBlock(5, 15, 58, 75, ps.elementarySchool, 'כאן יופיע סיפור על שנות בית הספר היסודי — מורים, חברים, חוויות בלתי נשכחות ורגעים מיוחדים.', 13),
+    ...textBlock(5, 15, 58, 75, ps.elementarySchool, 'כאן יופיע סיפור על שנות בית הספר היסודי — מורים, חברים, חוויות בלתי נשכחות ורגעים מיוחדים.', 15),
     ...photoPlaceholder(65, 15, 30, 35, '📷 תמונה מבית הספר'),
     ...photoPlaceholder(65, 52, 30, 38, '📷 עם חברים'),
   ];
@@ -404,7 +433,7 @@ function generatePagesFromProject(
   // ─── HOBBIES ────────────────────────────────────────────────
   const hobbiesEls: DesignElement[] = [
     ...header('התחביבים שלי', '🎯', 'חלק 2: אני'),
-    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 14),
+    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 16),
     ...photoPlaceholder(5, 57, 28, 35, '📷 תחביב 1'),
     ...photoPlaceholder(35, 57, 28, 35, '📷 תחביב 2'),
     ...photoPlaceholder(65, 57, 30, 35, '📷 תחביב 3'),
@@ -415,7 +444,7 @@ function generatePagesFromProject(
   if (ps.talents) {
     const talentsEls: DesignElement[] = [
       ...header('הכישרונות שלי', '⭐', 'חלק 2: אני'),
-      ...textBlock(5, 15, 90, 55, ps.talents, '', 14),
+      ...textBlock(5, 15, 90, 55, ps.talents, '', 16),
       ...photoPlaceholder(5, 72, 43, 22, '📷 הכישרון שלי בפעולה'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד דוגמה'),
     ];
@@ -426,11 +455,11 @@ function generatePagesFromProject(
   const beliefsEls: DesignElement[] = [
     ...header('אני מאמין', '💡', 'חלק 2: אני'),
     mk('text', { x: 8, y: 13, width: 15, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 15),
+    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 16),
   ];
   if (ps.futureLetter) {
     beliefsEls.push(...pill(55, 72, 41, 6.5, 'מכתב לעתיד', '📮', accent));
-    beliefsEls.push(...textBlock(5, 72, 48, 22, ps.futureLetter, '', 12));
+    beliefsEls.push(...textBlock(5, 72, 48, 22, ps.futureLetter, '', 14));
   } else {
     beliefsEls.push(...photoPlaceholder(5, 72, 90, 22, '📷 גלריה אישית'));
   }
@@ -468,7 +497,7 @@ function generatePagesFromProject(
   // ─── OUR HOME ───────────────────────────────────────────────
   const homeEls: DesignElement[] = [
     ...header('הבית שלנו', '🏡', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 58, 75, nf.ourHome, 'תאר את הבית הפיזי, השכונה, האווירה בבית — מה מיוחד בבית שלכם, איך הוא נראה ומרגיש.', 13),
+    ...textBlock(5, 15, 58, 75, nf.ourHome, 'תאר את הבית הפיזי, השכונה, האווירה בבית — מה מיוחד בבית שלכם, איך הוא נראה ומרגיש.', 15),
     ...photoPlaceholder(65, 15, 30, 35, '📷 הבית שלנו'),
     ...photoPlaceholder(65, 52, 30, 38, '📷 השכונה'),
   ];
@@ -517,11 +546,11 @@ function generatePagesFromProject(
       mk('person_card', { personId: parent.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
     ];
     let y = 15;
-    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 12)); y += 24; }
-    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 12)); y += 17; }
-    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 12)); }
+    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 14)); y += 24; }
+    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 14)); y += 17; }
+    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 14)); }
     if (!bio.bio && !bio.militaryService && !bio.profession) {
-      parentEls.push(...textBlock(5, 15, 59, 78, undefined, `כאן יופיע סיפורו של ${parent.firstName} — ילדות, שירות צבאי, מקצוע ועוד.`, 13));
+      parentEls.push(...textBlock(5, 15, 59, 78, undefined, `כאן יופיע סיפורו של ${parent.firstName} — ילדות, שירות צבאי, מקצוע ועוד.`, 15));
     }
     parentEls.push(...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${parent.firstName}`));
     addPage(`${role} — ${parent.firstName}`, 'nuclear_family', parentEls);
@@ -530,7 +559,7 @@ function generatePagesFromProject(
   // ─── PARENTS MEETING STORY ──────────────────────────────────
   const meetingEls: DesignElement[] = [
     ...header('סיפור ההיכרות', '💑', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 14),
+    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 16),
     ...photoPlaceholder(5, 72, 43, 22, '📷 תמונת חתונה'),
     ...photoPlaceholder(52, 72, 43, 22, '📷 תמונה נוספת'),
   ];
@@ -544,7 +573,7 @@ function generatePagesFromProject(
       ...header(`${sib.firstName} ${sib.lastName}`, sib.gender === 'female' ? '👧' : '👦', 'חלק 3: אחים ואחיות'),
       mk('person_card', { personId: sib.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
       ...pill(5, 15, 59, 6.5, 'אח/ות שלי', '💙', P),
-      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 13),
+      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 15),
       ...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${sib.firstName}`),
     ];
     addPage(`${sib.firstName} — אח/ות`, 'nuclear_family', sibEls);
@@ -553,10 +582,10 @@ function generatePagesFromProject(
   // ─── FAMILY LIFE ─────────────────────────────────────────────
   const familyLifeEls: DesignElement[] = [
     ...header('הווי משפחתי', '🎉', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 58, 40, nf.familyLife, 'תאר את הבילויים, הטיולים, הפעילויות המשותפות של המשפחה — מה עושים יחד ומה מחבר אתכם.', 13),
+    ...textBlock(5, 15, 58, 40, nf.familyLife, 'תאר את הבילויים, הטיולים, הפעילויות המשותפות של המשפחה — מה עושים יחד ומה מחבר אתכם.', 15),
     ...photoPlaceholder(65, 15, 30, 40, '📷 ביחד'),
     ...pill(5, 57, 90, 7, 'חגים ומנהגים', '🕍', accent),
-    ...textBlock(5, 66, 90, 28, nf.holidaysAndCustoms, 'כאן יופיעו מסורות המשפחה בחגים — מה עושים בחנוכה, פסח, שבת...', 13),
+    ...textBlock(5, 66, 90, 28, nf.holidaysAndCustoms, 'כאן יופיעו מסורות המשפחה בחגים — מה עושים בחנוכה, פסח, שבת...', 15),
   ];
   addPage('הווי משפחתי וחגים', 'nuclear_family', familyLifeEls);
 
@@ -564,7 +593,7 @@ function generatePagesFromProject(
   if (nf.ourPets) {
     const petsEls: DesignElement[] = [
       ...header('חיות המחמד שלנו', '🐾', 'חלק 3: המשפחה הגרעינית'),
-      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 14),
+      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 16),
       ...photoPlaceholder(5, 72, 43, 22, '📷 חיות המחמד שלנו'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד תמונה'),
     ];
@@ -612,14 +641,14 @@ function generatePagesFromProject(
             gPerson.birthDate ? `נולד/ה: ${gPerson.birthDate.slice(0,10)}` : '',
             gPerson.birthPlace ? `מקום לידה: ${gPerson.birthPlace}` : '',
             gPerson.countryOfResidence ? `מדינה: ${gPerson.countryOfResidence}` : '',
-          ].filter(Boolean).join('\n') : 'פרטים אישיים יופיעו כאן', 13),
+          ].filter(Boolean).join('\n') : 'פרטים אישיים יופיעו כאן', 15),
       ];
       addPage(`${gp.title} — פרטים`, group.pageType, idCardEls);
 
       // Aliyah / Coming to Israel story
       const aliyahEls: DesignElement[] = [
         ...header(`${gp.title} — עלייה וקליטה`, '✈️', group.chapterLabel),
-        ...textBlock(5, 15, 90, 55, data.aliyahStory, `כאן יופיע סיפור העלייה וההגעה לישראל של ${gpName} — מאיפה הגיע/ה, מה עבר/ה בדרך, ואיך הסתגל/ה לחיים בארץ.`, 13),
+        ...textBlock(5, 15, 90, 55, data.aliyahStory, `כאן יופיע סיפור העלייה וההגעה לישראל של ${gpName} — מאיפה הגיע/ה, מה עבר/ה בדרך, ואיך הסתגל/ה לחיים בארץ.`, 15),
         ...photoPlaceholder(5, 72, 43, 22, '📷 תמונה מתקופת העלייה'),
         ...photoPlaceholder(52, 72, 43, 22, '📷 תעודות / מסמכים'),
       ];
@@ -628,7 +657,7 @@ function generatePagesFromProject(
       // Adulthood / Military / Career
       const adulthoodEls: DesignElement[] = [
         ...header(`${gp.title} — בגרות וקריירה`, '🌱', group.chapterLabel),
-        ...textBlock(5, 15, 58, 75, data.adulthoodStory || data.story, `כאן יופיע סיפור הבגרות של ${gpName} — שירות צבאי, עבודה, הקמת משפחה וחיים בישראל.`, 13),
+        ...textBlock(5, 15, 58, 75, data.adulthoodStory || data.story, `כאן יופיע סיפור הבגרות של ${gpName} — שירות צבאי, עבודה, הקמת משפחה וחיים בישראל.`, 15),
         ...photoPlaceholder(65, 15, 30, 35, '📷 תמונות בגרות'),
         ...photoPlaceholder(65, 52, 30, 38, '📷 משפחה'),
       ];
@@ -640,7 +669,7 @@ function generatePagesFromProject(
     if (meetingStory) {
       const gpMeetingEls: DesignElement[] = [
         ...header(`סיפור ההיכרות — ${group.label}`, '💕', group.chapterLabel),
-        ...textBlock(5, 15, 90, 65, meetingStory, '', 14),
+        ...textBlock(5, 15, 90, 65, meetingStory, '', 16),
         ...photoPlaceholder(5, 82, 43, 13, '📷 תמונה'),
         ...photoPlaceholder(52, 82, 43, 13, '📷 חתונה'),
       ];
@@ -682,13 +711,12 @@ function generatePagesFromProject(
   addPage('אילן יוחסין', 'roots_great', treeEls);
 
   // ─── MIGRATION MAP ───────────────────────────────────────────
-  const mapEls: DesignElement[] = [
-    ...header('מפת נדודים משפחתית', '🗺️', 'חלק 6: נתונים ומחקר'),
-  ];
-  if (researchData.migrationMaps) {
-    mapEls.push(mk('image', { content: researchData.migrationMaps, x: 5, y: 15, width: 90, height: 72, zIndex: 5, style: { borderRadius: 4 } }));
+  const finalizationData = pd.finalPresentation || {};
+  const mapEls: DesignElement[] = [...header('מפת נדודים משפחתית', '🗺️', 'חלק 6: נתונים ומחקר')];
+  if (finalizationData.mapScreenshotUrl) {
+    mapEls.push(mk('image', { content: finalizationData.mapScreenshotUrl, x: 5, y: 15, width: 90, height: 65, zIndex: 5, style: { borderRadius: 4 } }));
   } else {
-    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ הוסף מפה של מסלול נדידת המשפחה ממדינות המוצא לישראל'));
+    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ בחר תצוגת מפה בשלב הסיום כדי להוסיף אותה כאן'));
   }
   mapEls.push(mk('text', { x: 5, y: 82, width: 90, height: 12, content: 'מדינות מוצא המשפחה: ________________________\nמסלול ההגירה: ________________________ ← ישראל', style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }));
   addPage('מפת נדודים', 'custom', mapEls);
@@ -699,7 +727,7 @@ function generatePagesFromProject(
     const nameOriginEls: DesignElement[] = [
       ...header('מקור שם המשפחה', '📜', 'חלק 6: נתונים ומחקר'),
       mk('text', { x: 8, y: 13, width: 18, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 15),
+      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 16),
       ...photoPlaceholder(5, 77, 90, 17, '📜 מסמך או תמונה הקשורה לשם המשפחה'),
     ];
     addPage('מקור שם המשפחה', 'custom', nameOriginEls);
@@ -709,7 +737,7 @@ function generatePagesFromProject(
   if (researchData.cityOriginStory) {
     const cityEls: DesignElement[] = [
       ...header('גלגולה של עיר', '🏙️', 'חלק 6: נתונים ומחקר'),
-      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 14),
+      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 16),
       ...photoPlaceholder(5, 77, 43, 17, '📷 תמונת העיר'),
       ...photoPlaceholder(52, 77, 43, 17, '🗺️ מפה'),
     ];
@@ -717,13 +745,10 @@ function generatePagesFromProject(
   }
 
   // ─── STATISTICS PAGE ─────────────────────────────────────────
-  const statsEls: DesignElement[] = [
+  addPage('סטטיסטיקה משפחתית', 'custom', [
     ...header('סטטיסטיקה משפחתית', '📊', 'חלק 6: נתונים ומחקר'),
-    mk('text', { x: 5, y: 15, width: 90, height: 8, content: `סה"כ אנשים בעץ המשפחה: ${people.length} | דורות: ${3} | ארצות מוצא שונות: ${new Set(people.map(p => (p as any).countryOfResidence).filter(Boolean)).size}`, style: { fontSize: 14, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, fontWeight: 'bold' } }),
-    ...photoPlaceholder(5, 25, 43, 65, '📊 גרף מוצא'),
-    ...photoPlaceholder(52, 25, 43, 65, '📊 גרף מקצועות / דורות'),
-  ];
-  addPage('סטטיסטיקה משפחתית', 'custom', statsEls);
+    mk('text', {x: 5, y: 15, width: 90, height: 80, content: 'גרפים סטטיסטיים שנבחרו יופיעו כאן.', style: { fontSize: 15, color: tmpl.mutedTextColor, textAlign: 'center' }})
+  ]);
 
   // ═══════════════════════════════════════════════════════════
   // PART 7 — HERITAGE
@@ -734,7 +759,7 @@ function generatePagesFromProject(
     const inheritedEls: DesignElement[] = [
       ...header('חפץ עובר בירושה', '💎', 'חלק 7: מורשת'),
       mk('text', { x: 8, y: 13, width: 16, height: 20, content: '🏺', style: { fontSize: 50, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
-      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 14),
+      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 16),
       ...photoPlaceholder(65, 15, 30, 55, '📷 תמונת החפץ'),
       ...photoPlaceholder(5, 72, 90, 22, '📷 החפץ בהקשרו'),
     ];
@@ -746,7 +771,7 @@ function generatePagesFromProject(
     const recipeEls: DesignElement[] = [
       ...header('הטעם של פעם', '🍽️', 'חלק 7: מורשת'),
       ...pill(55, 15, 41, 6.5, 'מתכון משפחתי מסורתי', '👩‍🍳', P),
-      ...textBlock(5, 23, 90, 60, h.familyRecipe, '', 13),
+      ...textBlock(5, 23, 90, 60, h.familyRecipe, '', 15),
       ...photoPlaceholder(5, 85, 43, 11, '📷 התבשיל המוכן'),
       ...photoPlaceholder(52, 85, 43, 11, '📷 המבשלת/ת'),
     ];
@@ -757,7 +782,7 @@ function generatePagesFromProject(
   const historyContent = h.familyAndHistory;
   const historyEls: DesignElement[] = [
     ...header('המשפחה שלי וההיסטוריה', '🇮🇱', 'חלק 7: מורשת'),
-    ...textBlock(5, 15, 90, 55, historyContent, 'כאן יופיע הקשר בין הסיפור המשפחתי לאירועים לאומיים ומלחמות ישראל — "סבא היה בכיכר כשהכריזו על המדינה".', 13),
+    ...textBlock(5, 15, 90, 55, historyContent, 'כאן יופיע הקשר בין הסיפור המשפחתי לאירועים לאומיים ומלחמות ישראל — "סבא היה בכיכר כשהכריזו על המדינה".', 15),
     // Timeline decoration
     mk('shape', { x: 48, y: 72, width: 4, height: 24, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.3 } }),
     mk('text', { x: 5, y: 72, width: 41, height: 8, content: '1948 — הקמת המדינה', style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
@@ -772,7 +797,7 @@ function generatePagesFromProject(
   if (h.roleModels) {
     const roleModelEls: DesignElement[] = [
       ...header('דמויות מופת במשפחה', '⭐', 'חלק 7: מורשת'),
-      ...textBlock(5, 15, 90, 60, h.roleModels, '', 14),
+      ...textBlock(5, 15, 90, 60, h.roleModels, '', 16),
       ...photoPlaceholder(5, 77, 43, 18, '📷 תמונת הדמות'),
       ...photoPlaceholder(52, 77, 43, 18, '📷 עוד תמונה'),
     ];
@@ -784,7 +809,7 @@ function generatePagesFromProject(
     const parentsLetterEls: DesignElement[] = [
       ...header('מכתב אישי מההורים', '💌', 'חלק 7: מורשת'),
       mk('text', { x: 8, y: 13, width: 16, height: 20, content: '❝', style: { fontSize: 80, textAlign: 'right', color: accent, opacity: 0.15, fontFamily: 'serif' } }),
-      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 15),
+      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 16),
       mk('text', { x: 5, y: 87, width: 90, height: 8, content: '— אמא ואבא, באהבה', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.titleFont, fontWeight: 'bold' } }),
     ];
     addPage('מכתב מההורים', 'heritage', parentsLetterEls);
@@ -814,7 +839,7 @@ function generatePagesFromProject(
   const reflectionEls: DesignElement[] = [
     ...header('רפלקציה אישית', '💭', 'חלק 8: סיכום'),
     mk('text', { x: 8, y: 13, width: 16, height: 20, content: '💭', style: { fontSize: 60, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
-    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 14),
+    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 16),
     ...photoPlaceholder(5, 85, 90, 10, '📷 תמונה מסכמת'),
   ];
   addPage('רפלקציה אישית', 'custom', reflectionEls);
@@ -822,7 +847,7 @@ function generatePagesFromProject(
   // ─── THANKS ──────────────────────────────────────────────────
   const thanksEls: DesignElement[] = [
     ...header('תודות', '🙏', 'חלק 8: סיכום'),
-    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 15),
+    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 16),
     mk('text', { x: 5, y: 87, width: 90, height: 8, content: '❤️', style: { fontSize: 30, textAlign: 'center', fontFamily: tmpl.bodyFont } }),
   ];
   addPage('תודות', 'custom', thanksEls);
@@ -831,7 +856,7 @@ function generatePagesFromProject(
   const biblioEls: DesignElement[] = [
     ...header('ביבליוגרפיה', '📚', 'חלק 8: סיכום'),
     ...textBlock(5, 15, 90, 75, conc.bibliography,
-      'מקורות המידע שהשתמשתי בהם:\n\n• ראיונות אישיים:\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n\n• מסמכים:\n  — תמונות משפחתיות\n  — תעודות לידה / נישואין\n\n• אתרים:\n  — _______________\n  — _______________', 13),
+      'מקורות המידע שהשתמשתי בהם:\n\n• ראיונות אישיים:\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n\n• מסמכים:\n  — תמונות משפחתיות\n  — תעודות לידה / נישואין\n\n• אתרים:\n  — _______________\n  — _______________', 15),
     mk('text', { x: 5, y: 91, width: 90, height: 7, content: `${student ? student.firstName + ' ' + student.lastName : ''} | שנת ${new Date().getFullYear()}`, style: { fontSize: 11, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.65 } }),
   ];
   addPage('ביבליוגרפיה', 'custom', biblioEls);
@@ -848,6 +873,7 @@ function generatePagesFromProject(
     ...header('תוכן עניינים', '📋'),
     mk('text', { x: 52, y: 15, width: 44, height: 80, content: col1, style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
     mk('text', { x: 5, y: 15, width: 44, height: 80, content: col2, style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
+    ...footer(pages[tocPageIdx].pageNumber, studentName, schoolYear, hebrewYear),
   ];
 
   return pages;
@@ -1114,7 +1140,7 @@ function LayersPanel({ page, selectedIds, onSelect, onDelete, onToggleVisibility
       case 'shape': return `◼ צורה — ${el.style?.shapeType || 'rectangle'}`;
       case 'icon': return `😊 ${el.content || 'סמל'}`;
       case 'connection_line': return `↔ קו חיבור`;
-      case 'photo_placeholder': return `📷 מקום לתמונה`;
+      case 'photo_placeholder': return `📷 תמונה`;
       default: return el.type;
     }
   };
@@ -1206,6 +1232,62 @@ const LINE_TYPES = [
 ];
 
 // ============================================================
+// THUMBNAIL CONTEXT MENU
+// ============================================================
+const ThumbnailContextMenu = ({ menu, onClose, onMove, onDuplicate, onAdd, onDelete }: {
+  menu: { x: number; y: number; index: number };
+  onClose: () => void;
+  onMove: (index: number, direction: 'up' | 'down') => void;
+  onDuplicate: (index: number) => void;
+  onAdd: (index: number, position: 'before' | 'after') => void;
+  onDelete: (index: number) => void;
+}) => {
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  const menuItems = [
+    { label: 'הזז למעלה', icon: <ArrowUp className="w-3.5 h-3.5" />, action: () => onMove(menu.index, 'up') },
+    { label: 'הזז למטה', icon: <ArrowDownIcon className="w-3.5 h-3.5" />, action: () => onMove(menu.index, 'down') },
+    { separator: true },
+    { label: 'שכפל עמוד', icon: <CopyPlus className="w-3.5 h-3.5" />, action: () => onDuplicate(menu.index) },
+    { label: 'הוסף עמוד לפני', icon: <FilePlus className="w-3.5 h-3.5" />, action: () => onAdd(menu.index, 'before') },
+    { label: 'הוסף עמוד אחרי', icon: <FilePlus className="w-3.5 h-3.5" />, action: () => onAdd(menu.index, 'after') },
+    { separator: true },
+    { label: 'מחק עמוד', icon: <Trash2 className="w-3.5 h-3.5 text-red-400" />, action: () => onDelete(menu.index), className: 'text-red-400' },
+  ];
+
+  return (
+    <div
+      ref={menuRef}
+      className="fixed bg-slate-800 border border-white/15 rounded-xl shadow-2xl py-1 z-[2000] min-w-[190px]"
+      style={{ top: Math.min(menu.y, window.innerHeight - 180), left: menu.x }}
+      dir="rtl"
+      onClick={e => e.stopPropagation()}
+    >
+      {menuItems.map((item, idx) => (
+        item.separator ? <div key={idx} className="my-1 border-t border-white/10" /> : (
+          <button
+            key={idx}
+            className={cn("w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2", item.className)}
+            onClick={() => { item.action(); onClose(); }}
+          >
+            {item.icon} {item.label}
+          </button>
+        )
+      ))}
+    </div>
+  );
+};
+
+// ============================================================
 // MAIN EDITOR
 // ============================================================
 export function RootsDesignEditor({
@@ -1240,6 +1322,8 @@ export function RootsDesignEditor({
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [activeShapeType, setActiveShapeType] = useState<string>('rectangle');
   const [showLayers, setShowLayers] = useState(false);
+  const [pageToDeleteIndex, setPageToDeleteIndex] = useState<number | null>(null);
+  const [thumbnailCtxMenu, setThumbnailCtxMenu] = useState<{ x: number; y: number; index: number } | null>(null);
 
   // Preload all template fonts on mount
   useEffect(() => { DESIGN_TEMPLATES.forEach(t => ensureFontLoaded(t.titleFont)); }, []);
@@ -1374,18 +1458,55 @@ export function RootsDesignEditor({
     const { id: _id, ...rest } = el;
     addElement({ ...rest, x: Math.min(el.x + 3, 70), y: Math.min(el.y + 3, 70) });
   }, [addElement, currentPageIndex]);
+  
+    const handleMovePage = (index: number, direction: 'up' | 'down') => {
+        const newPages = [...pages];
+        if (direction === 'up' && index > 0) {
+            [newPages[index], newPages[index - 1]] = [newPages[index - 1], newPages[index]];
+            setCurrentPageIndex(index - 1);
+        } else if (direction === 'down' && index < pages.length - 1) {
+            [newPages[index], newPages[index + 1]] = [newPages[index + 1], newPages[index]];
+            setCurrentPageIndex(index + 1);
+        }
+        updatePages(newPages.map((p, i) => ({ ...p, pageNumber: i + 1 })));
+    };
 
-  const addPage = () => {
-    const newPage: DesignPage = { id: uuidv4(), pageNumber: pages.length + 1, pageType: 'custom', title: 'עמוד חדש', elements: [], templateId: selectedTemplateId };
-    updatePages(ps => [...ps, newPage]);
-    setCurrentPageIndex(pages.length);
-  };
+    const handleDuplicatePage = (index: number) => {
+        const pageToDuplicate = pages[index];
+        const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
+        const newPages = [...pages.slice(0, index + 1), newPage, ...pages.slice(index + 1)];
+        updatePages(newPages.map((p, i) => ({ ...p, pageNumber: i + 1 })));
+        setCurrentPageIndex(index + 1);
+        toast({ title: 'עמוד שוכפל' });
+    };
 
-  const deletePage = (index: number) => {
-    updatePages(ps => ps.filter((_, i) => i !== index).map((p, i) => ({ ...p, pageNumber: i + 1 })));
-    setCurrentPageIndex(prev => Math.max(0, Math.min(prev, pages.length - 2)));
-    setSelectedIds([]);
-  };
+    const handleAddNewPage = (index: number, position: 'before' | 'after') => {
+        const newPage: DesignPage = {
+            id: uuidv4(),
+            pageNumber: 0,
+            pageType: 'custom',
+            title: 'עמוד חדש',
+            elements: [],
+            templateId: currentPage?.templateId || selectedTemplateId,
+        };
+        const newIndex = position === 'before' ? index : index + 1;
+        const newPages = [...pages.slice(0, newIndex), newPage, ...pages.slice(newIndex)];
+        updatePages(newPages.map((p, i) => ({ ...p, pageNumber: i + 1 })));
+        setCurrentPageIndex(newIndex);
+    };
+
+    const handleDeletePageRequest = (index: number) => {
+        setPageToDeleteIndex(index);
+    };
+
+    const confirmDeletePage = () => {
+        if (pageToDeleteIndex === null) return;
+        updatePages(ps => ps.filter((_, i) => i !== pageToDeleteIndex).map((p, i) => ({ ...p, pageNumber: i + 1 })));
+        setCurrentPageIndex(prev => Math.max(0, Math.min(prev, pages.length - 2)));
+        setSelectedIds([]);
+        setPageToDeleteIndex(null);
+        toast({ title: 'העמוד נמחק' });
+    };
 
   const handleResetPages = () => {
     hasGeneratedRef.current = true;
@@ -1581,7 +1702,7 @@ export function RootsDesignEditor({
       <h2 className="text-2xl font-extrabold text-white">אין עמודים</h2>
       <div className="flex gap-3">
         <button className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm" onClick={handleResetPages}>✨ צור עמודים אוטומטית</button>
-        <button className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm" onClick={addPage}>+ עמוד ריק</button>
+        <button className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm" onClick={() => handleAddNewPage(pages.length, 'after')}>+ עמוד ריק</button>
         <button className="px-6 py-3 rounded-xl bg-transparent border border-white/20 text-white text-sm" onClick={onBack}>← חזור</button>
       </div>
     </div>
@@ -1695,7 +1816,9 @@ export function RootsDesignEditor({
                   <div key={page.id} title={`עמוד ${index + 1}: ${page.title}`}
                     className={cn('relative w-full rounded cursor-pointer border-2 group overflow-hidden transition-all', currentPageIndex === index ? 'border-indigo-500' : 'border-transparent hover:border-white/20')}
                     style={{ aspectRatio: canvasAspectRatio === 'a4-portrait' ? '1/1.414' : canvasAspectRatio === '9/16' ? '9/16' : canvasAspectRatio === '1:1' ? '1/1' : '1.414/1' }}
-                    onClick={() => setCurrentPageIndex(index)}>
+                    onClick={() => setCurrentPageIndex(index)}
+                    onContextMenu={(e) => { e.preventDefault(); setThumbnailCtxMenu({ x: e.clientX, y: e.clientY, index }); }}
+                  >
                     <div className="absolute inset-0" style={getPageBackground(page, pt)} />
                     {page.elements.filter(el => el.type === 'text').slice(0, 3).map((el, i) => (
                       <div key={`t-${page.id}-${el.id}-${i}`} className="absolute overflow-hidden"
@@ -1712,14 +1835,14 @@ export function RootsDesignEditor({
                       className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 hover:bg-red-600"
                       style={{ fontSize: 8 }}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
-                      onClick={e => { e.stopPropagation(); e.preventDefault(); deletePage(index); }}>✕</button>
+                      onClick={e => { e.stopPropagation(); handleDeletePageRequest(index); }}>✕</button>
                   </div>
                 );
               })}
             </div>
             <div className="border-t border-white/8 p-1.5 space-y-1.5">
               <input className="w-full text-[10px] bg-slate-800 border border-white/10 rounded px-1.5 py-1 text-center text-white focus:outline-none focus:border-indigo-400" value={currentPage?.title || ''} onChange={e => updateCurrentPage(p => ({ ...p, title: e.target.value }))} dir="rtl" placeholder="שם עמוד" title="שנה שם לעמוד" />
-              <button title="הוסף עמוד ריק חדש" aria-label="הוסף עמוד חדש" onClick={addPage} className="w-full text-[10px] py-1 rounded border border-dashed border-white/20 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-colors">+ עמוד חדש</button>
+              <button title="הוסף עמוד ריק חדש" aria-label="הוסף עמוד חדש" onClick={() => handleAddNewPage(pages.length, 'after')} className="w-full text-[10px] py-1 rounded border border-dashed border-white/20 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-colors">+ עמוד חדש</button>
             </div>
           </aside>
 
@@ -1906,13 +2029,24 @@ export function RootsDesignEditor({
                 ) : (
                   <>
                     {_clipboard && <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { pasteElement(); setCtxMenu(null); }}><Clipboard className="w-3.5 h-3.5" />הדבק</button>}
-                    <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { addPage(); setCtxMenu(null); }}>+ הוסף עמוד</button>
+                    <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { handleAddNewPage(currentPageIndex, 'after'); setCtxMenu(null); }}>+ הוסף עמוד</button>
                     <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { setShowTemplatePicker(true); setCtxMenu(null); }}>🎨 שנה תבנית</button>
                     <div className="my-1 border-t border-white/10" />
-                    <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-red-500/20 text-red-400 flex items-center gap-2" onClick={() => { deletePage(currentPageIndex); setCtxMenu(null); }}><Trash2 className="w-3.5 h-3.5" />מחק עמוד זה</button>
+                    <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-red-500/20 text-red-400 flex items-center gap-2" onClick={() => { handleDeletePageRequest(currentPageIndex); setCtxMenu(null); }}><Trash2 className="w-3.5 h-3.5" />מחק עמוד זה</button>
                   </>
                 )}
               </div>
+            )}
+            
+            {thumbnailCtxMenu && (
+              <ThumbnailContextMenu
+                menu={thumbnailCtxMenu}
+                onClose={() => setThumbnailCtxMenu(null)}
+                onMove={handleMovePage}
+                onDuplicate={handleDuplicatePage}
+                onAdd={handleAddNewPage}
+                onDelete={handleDeletePageRequest}
+              />
             )}
           </main>
         </div>
@@ -1987,7 +2121,7 @@ export function RootsDesignEditor({
               { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - el.height / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
-                <button title={t} aria-label={t} onClick={a} className="text-[10px] w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
+                <button title={t} aria-label={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
               </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
             ))}
           </>)}
@@ -2241,7 +2375,7 @@ export function RootsDesignEditor({
             <div className="bg-slate-800 rounded-2xl p-6 w-80 border border-white/10 shadow-2xl text-center" onClick={e => e.stopPropagation()} dir="rtl">
               <div className="text-4xl mb-3">🔄</div>
               <h2 className="text-lg font-bold mb-2">יצירה מחדש של ההצגה</h2>
-              <p className="text-sm text-slate-400 mb-4">פעולה זו תמחק את כל העמודים הנוכחיים ותיצור מחדש. לא ניתן לבטל.</p>
+              <p className="text-sm text-slate-400 mb-4">פעולה זו תמחק את כל העמודים הנוכחיים ותיצור מחדש מהנתונים שלך. לא ניתן לבטל.</p>
               <div className="flex gap-2 justify-center">
                 <button className="px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-sm" onClick={() => setShowResetConfirm(false)}>ביטול</button>
                 <button className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-sm font-bold" onClick={handleResetPages}>✨ צור מחדש</button>
@@ -2271,9 +2405,27 @@ export function RootsDesignEditor({
             onClose={() => setShowShapePicker(false)}
           />
         )}
+        
+        {/* ══ PAGE DELETE CONFIRMATION ══ */}
+        <AlertDialog open={pageToDeleteIndex !== null} onOpenChange={(open) => !open && setPageToDeleteIndex(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>אישור מחיקת עמוד</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        האם אתה בטוח שברצונך למחוק את העמוד "{pages[pageToDeleteIndex!]?.title}"?
+                        לא ניתן לבטל פעולה זו.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>ביטול</AlertDialogCancel>
+                    <AlertDialogAction onClick={confirmDeletePage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        מחק לצמיתות
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </TooltipProvider>
   );
 }
-
-    
