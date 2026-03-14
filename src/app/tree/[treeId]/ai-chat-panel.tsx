@@ -17,7 +17,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Mic, Paperclip, Send, Loader2, Bot, StopCircle, X, GripVertical } from 'lucide-react';
+import { Mic, Paperclip, Send, Loader2, Bot, StopCircle, X, GripVertical, Wand2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { generateTreeFromStory } from '@/ai/flows/ai-tree-generation-flow';
@@ -26,7 +26,8 @@ import { transcribeAudio } from '@/ai/flows/transcribe-audio-flow';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAiChat, type ChatMessage } from '@/context/ai-chat-context';
-import type { Person, Relationship } from '@/lib/types';
+import type { Person, Relationship, DesignPage, DesignElement } from '@/lib/types';
+import { runDesignAssistant } from '@/ai/flows/design-assistant-flow';
 import * as XLSX from 'xlsx';
 
 interface AiChatPanelProps {
@@ -35,7 +36,10 @@ interface AiChatPanelProps {
     people: Person[];
     onClose: () => void;
     onDataAdded: () => void;
-    viewMode: 'tree' | 'timeline' | 'table' | 'map' | 'calendar' | 'statistics' | 'trivia';
+    // New context-aware props
+    context: 'tree-building' | 'design-assistant';
+    currentPage?: DesignPage; // For design context
+    onApplyDesignChanges?: (elements: DesignElement[]) => void; // For design context
 }
 
 const AttachmentPreview = ({ attachment, onRemove }: { attachment: { file: File }, onRemove: () => void }) => {
@@ -56,8 +60,10 @@ export function AiChatPanel({
     treeName, 
     people, 
     onClose, 
-    onDataAdded, 
-    viewMode,
+    onDataAdded,
+    context,
+    currentPage,
+    onApplyDesignChanges,
 }: AiChatPanelProps) {
   const router = useRouter();
   const { user } = useUser();
@@ -369,62 +375,69 @@ export function AiChatPanel({
     setIsGenerating(true);
 
     try {
-        const historyForAI = [...chatHistory, userMessage];
-        const flowInput: any = {
-           newUserMessage: messageContent,
-           treeName: treeName,
-           chatHistory: historyForAI.map(m => ({
-           role: m.role,
-           content: m.textContent,
-           })),
-           existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
-       };
+        if (context === 'design-assistant') {
+            if (!currentPage || !onApplyDesignChanges) throw new Error("Design context not available.");
+            
+            const result = await runDesignAssistant({
+                elements: currentPage.elements,
+                prompt: messageContent,
+            });
 
-       if (currentAttachment?.type === 'image') {
-           flowInput.photoDataUri = currentAttachment.data;
-       }
+            onApplyDesignChanges(result.updatedElements);
+            
+            const assistantMessage: ChatMessage = {
+                id: (Date.now() + 1).toString(),
+                role: 'assistant',
+                content: <p>ביצעתי את השינויים שביקשת בעמוד.</p>,
+                textContent: "ביצעתי את השינויים שביקשת בעמוד.",
+            };
+            setChatHistory(prev => [...prev, assistantMessage]);
 
-       if (currentAttachment?.type === 'text') {
-           flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
-       }
-       
-       const result = await generateTreeFromStory(flowInput);
-       
-       const assistantMessageContent = (
-           <div className="space-y-4 text-right">
-               <p className="font-semibold">{result.summary}</p>
-               {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
-                   <div className="space-y-2">
-                   {result.clarificationQuestions.map((q, index) => (
-                       <Alert dir="rtl" key={index}>
-                       <Info className="h-4 w-4" />
-                       <AlertTitle>{q.question}</AlertTitle>
-                       {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
-                           <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
-                           {q.suggestedAnswers.map((ans, i) => (
-                               <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
-                               {ans}
-                               </Button>
-                           ))}
-                           </AlertDescription>
-                       )}
-                       </Alert>
-                   ))}
-                   </div>
-               )}
-           </div>
-       );
-
-       const assistantMessage: ChatMessage = {
-           id: (Date.now() + 1).toString(),
-           role: 'assistant',
-           content: assistantMessageContent,
-           textContent: result.summary,
-           data: result.isComplete ? result : null,
-       };
-       
-       setChatHistory(prev => [...prev, assistantMessage]);
-
+        } else { // tree-building context
+           const historyForAI = [...chatHistory, userMessage];
+           const flowInput: any = {
+              newUserMessage: messageContent,
+              treeName: treeName,
+              chatHistory: historyForAI.map(m => ({ role: m.role, content: m.textContent })),
+              existingPeople: people.map(p => ({ id: p.id, firstName: p.firstName, lastName: p.lastName })),
+           };
+           if (currentAttachment?.type === 'image') flowInput.photoDataUri = currentAttachment.data;
+           if (currentAttachment?.type === 'text') flowInput.newUserMessage = `[קובץ מצורף: ${currentAttachment.file.name}]\n[תוכן:]\n${currentAttachment.data}\n\n${messageContent}`;
+           
+           const result = await generateTreeFromStory(flowInput);
+           const assistantMessageContent = (
+               <div className="space-y-4 text-right">
+                   <p className="font-semibold">{result.summary}</p>
+                   {result.clarificationQuestions && result.clarificationQuestions.length > 0 && (
+                       <div className="space-y-2">
+                       {result.clarificationQuestions.map((q, index) => (
+                           <Alert dir="rtl" key={index}>
+                           <Info className="h-4 w-4" />
+                           <AlertTitle>{q.question}</AlertTitle>
+                           {q.suggestedAnswers && q.suggestedAnswers.length > 0 && (
+                               <AlertDescription className="pt-2 flex flex-wrap gap-2 justify-end">
+                               {q.suggestedAnswers.map((ans, i) => (
+                                   <Button key={i} size="sm" variant="outline" onClick={() => handleSend(ans)}>
+                                   {ans}
+                                   </Button>
+                               ))}
+                               </AlertDescription>
+                           )}
+                           </Alert>
+                       ))}
+                       </div>
+                   )}
+               </div>
+           );
+           const assistantMessage: ChatMessage = {
+               id: (Date.now() + 1).toString(),
+               role: 'assistant',
+               content: assistantMessageContent,
+               textContent: result.summary,
+               data: result.isComplete ? result : null,
+           };
+           setChatHistory(prev => [...prev, assistantMessage]);
+        }
     } catch (error) {
       console.error('AI assistant error:', error);
       const errorMessage: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant',
@@ -439,7 +452,13 @@ export function AiChatPanel({
   };
 
   const disabledWhileBusy = isGenerating || isRecording || isTranscribing;
-  const placeholder = "ספר על אדם או קשר כדי להוסיף לעץ...";
+  
+  const placeholder = context === 'design-assistant'
+    ? "בקש שינוי עיצוב, למשל 'הפוך את הרקע לכחול'..."
+    : "ספר על אדם או קשר כדי להוסיף לעץ...";
+  
+  const title = context === 'design-assistant' ? 'עורך AI' : 'עוזר AI';
+  const Icon = context === 'design-assistant' ? Wand2 : Bot;
 
   return (
     <div
@@ -462,7 +481,8 @@ export function AiChatPanel({
         >
           <div className="flex items-center gap-2 text-primary-foreground">
             <GripVertical className="h-5 w-5 text-muted-foreground" />
-            <CardTitle className="text-lg">עוזר AI</CardTitle>
+            <Icon className="h-5 w-5 text-teal-400" />
+            <CardTitle className="text-lg">{title}</CardTitle>
           </div>
           <Button variant="ghost" size="icon" className="h-7 w-7 text-primary-foreground" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -482,16 +502,19 @@ export function AiChatPanel({
             <ScrollArea className="h-full" ref={scrollAreaRef}>
               <div className="pr-4 space-y-6">
                 {chatHistory.length === 0 && !isTranscribing && (
-                  <div className="flex h-full items-center justify-center text-muted-foreground">
-                    <p>הודעות הצ'אט יופיעו כאן...</p>
+                  <div className="flex h-full items-center justify-center text-muted-foreground text-center">
+                    {context === 'design-assistant'
+                        ? <p>אני יכול לעזור לך לעצב את העמוד. מה תרצה לשנות?</p>
+                        : <p>הודעות הצ'אט יופיעו כאן...</p>
+                    }
                   </div>
                 )}
                 {chatHistory.map((message) => (
                   <div key={message.id} className={`flex items-start gap-4 ${message.role === 'user' ? 'justify-end' : ''}`}>
-                    {message.role === 'assistant' && ( <Avatar className="h-8 w-8 border"><AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback></Avatar> )}
+                    {message.role === 'assistant' && ( <Avatar className="h-8 w-8 border"><AvatarFallback><Icon className="h-5 w-5" /></AvatarFallback></Avatar> )}
                     <div className={`max-w-[75%] rounded-lg p-3 break-words ${ message.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background' }`}>
                       {message.content}
-                       {message.data?.isComplete && viewMode === 'tree' && (
+                       {message.data?.isComplete && context === 'tree-building' && (
                         <div className="pt-2 text-right">
                           <Button onClick={() => handleAddDataToTree(message.data)} disabled={isAdding}>
                             {isAdding ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : null}
@@ -504,7 +527,7 @@ export function AiChatPanel({
                 ))}
                 {(isGenerating || isTranscribing) && (
                   <div className="flex items-start gap-4">
-                    <Avatar className="h-8 w-8 border"><AvatarFallback><Bot className="h-5 w-5" /></AvatarFallback></Avatar>
+                    <Avatar className="h-8 w-8 border"><AvatarFallback><Icon className="h-5 w-5" /></AvatarFallback></Avatar>
                     <div className="max-w-[75%] rounded-lg bg-background p-3 flex items-center gap-2">
                       <Loader2 className="h-5 w-5 animate-spin" />
                       <span>{isTranscribing ? 'מתמלל הקלטה...' : 'חושב...'}</span>

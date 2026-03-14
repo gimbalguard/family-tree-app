@@ -39,6 +39,7 @@ import {
   Expand,
   Trophy,
   LayoutPanelTop,
+  Wand2,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -248,17 +249,24 @@ export function CanvasToolbar({
       {!readOnly && (
         <div className="w-full flex flex-col items-center gap-1">
           <Separator className="my-1 w-full" />
-          <Button variant="ghost" size="sm" className="w-full" onClick={onToggleChat}>
-            <MessageSquare className="ml-2 h-4 w-4" />
-            <span>AI Chat</span>
-          </Button>
+            {viewMode === 'roots' ? (
+                <Button variant="ghost" size="sm" className="w-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-indigo-300 hover:text-white" onClick={onToggleChat}>
+                    <Wand2 className="ml-2 h-4 w-4" />
+                    <span>עורך AI</span>
+                </Button>
+            ) : (
+                <Button variant="ghost" size="sm" className="w-full" onClick={onToggleChat}>
+                    <MessageSquare className="ml-2 h-4 w-4" />
+                    <span>AI Chat</span>
+                </Button>
+            )}
 
-          {(viewMode === 'tree' || viewMode === 'timeline') && (
+          {(viewMode === 'tree' || viewMode === 'timeline' || viewMode === 'roots') && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="w-full">
                     <Spline className="ml-2 h-4 w-4" />
-                    <span>Line Style</span>
+                    <span>סגנון קו</span>
                     <ChevronDown className="mr-auto h-4 w-4 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
