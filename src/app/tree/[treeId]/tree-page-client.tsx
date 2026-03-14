@@ -336,13 +336,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const recordHistory = useCallback(() => {
     if (readOnly) return;
     const currentPast = historyRef.current.past;
-    const currentState = { nodes, edges, rootsProject };
-    if (currentPast.length > 0) {
-      const lastState = currentPast[currentPast.length - 1];
-      if (lastState.nodes === nodes && lastState.edges === edges && lastState.rootsProject === rootsProject) {
-        return;
-      }
-    }
+    // Deep clone to prevent mutation issues
+    const currentState = JSON.parse(JSON.stringify({ nodes, edges, rootsProject }));
+
     const newPast = [...currentPast, currentState];
     if (newPast.length > HISTORY_LIMIT) {
       newPast.shift();
@@ -354,33 +350,58 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleUndo = useCallback(() => {
     if (historyRef.current.past.length === 0) return;
+
     const newPast = [...historyRef.current.past];
-    const present = newPast.pop();
-    if (present) {
-      historyRef.current.future.unshift({ nodes, edges, rootsProject });
-      historyRef.current.past = newPast;
-      setNodes(present.nodes);
-      setEdges(present.edges);
-      setRootsProject(present.rootsProject);
-      setCanUndo(newPast.length > 0);
-      setCanRedo(true);
+    const presentState = newPast.pop();
+    if (presentState) {
+        const currentState = JSON.parse(JSON.stringify({ nodes, edges, rootsProject }));
+        historyRef.current.future.unshift(currentState);
+        historyRef.current.past = newPast;
+
+        setNodes(presentState.nodes);
+        setEdges(presentState.edges);
+        setRootsProject(presentState.rootsProject);
+
+        setCanUndo(newPast.length > 0);
+        setCanRedo(true);
     }
-  }, [nodes, edges, rootsProject, setNodes, setEdges]);
+  }, [nodes, edges, rootsProject]);
 
   const handleRedo = useCallback(() => {
     if (historyRef.current.future.length === 0) return;
     const newFuture = [...historyRef.current.future];
-    const present = newFuture.shift();
-    if (present) {
-      historyRef.current.past.push({ nodes, edges, rootsProject });
-      historyRef.current.future = newFuture;
-      setNodes(present.nodes);
-      setEdges(present.edges);
-      setRootsProject(present.rootsProject);
-      setCanUndo(true);
-      setCanRedo(newFuture.length > 0);
+    const presentState = newFuture.shift();
+    if (presentState) {
+        const currentState = JSON.parse(JSON.stringify({ nodes, edges, rootsProject }));
+        historyRef.current.past.push(currentState);
+        historyRef.current.future = newFuture;
+
+        setNodes(presentState.nodes);
+        setEdges(presentState.edges);
+        setRootsProject(presentState.rootsProject);
+
+        setCanUndo(true);
+        setCanRedo(newFuture.length > 0);
     }
-  }, [nodes, edges, rootsProject, setNodes, setEdges]);
+  }, [nodes, edges, rootsProject]);
+  
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'z') {
+            event.preventDefault();
+            handleUndo();
+        } else if ((event.ctrlKey || event.metaKey) && event.key === 'y') {
+            event.preventDefault();
+            handleRedo();
+        }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleUndo, handleRedo]);
+
 
   const deriveStateFromData = useCallback((
     peopleData: Person[], 
@@ -563,6 +584,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setError(null);
     try {
       let ownerId;
+      let canEditShared = false;
+      let isSharedView = false;
       if (readOnly) {
         const publicDocRef = doc(db, 'publicTrees', treeId);
         const publicDocSnap = await getDoc(publicDocRef);
@@ -572,7 +595,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             const sharedQuery = query(collection(db, "sharedTrees"), where("treeId", "==", treeId), where("sharedWithUserId", "==", user.uid), limit(1));
             const sharedSnap = await getDocs(sharedQuery);
             if (!sharedSnap.empty) {
-                ownerId = sharedSnap.docs[0].data().ownerUserId;
+                const shareData = sharedSnap.docs[0].data();
+                ownerId = shareData.ownerUserId;
+                canEditShared = shareData.canEdit;
+                isSharedView = true;
             } else {
                  const myTreeRef = doc(db, 'users', user.uid, 'familyTrees', treeId);
                  const myTreeSnap = await getDoc(myTreeRef);
@@ -580,10 +606,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                      ownerId = user.uid;
                  }
             }
-        } else {
-            // Not a public tree and no user. Redirect.
-            router.replace('/login');
-            return;
         }
       } else {
         // For editable views, the current user must be the owner. `user` is guaranteed to be non-null here by the check at the top.
@@ -594,6 +616,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         throw new Error('עץ המשפחה לא נמצא או שאין לך גישה.');
       }
       
+      const effectiveReadOnly = readOnly && !(isSharedView && canEditShared);
+
       const basePath = `users/${ownerId}/familyTrees/${treeId}`;
       const treeDetailsRef = doc(db, basePath);
       const peopleRef = collection(db, basePath, 'people');
@@ -624,7 +648,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       if (rootsProjectSnap.exists()) {
         const project = rootsProjectSnap.data() as RootsProject;
         setRootsProject(project);
-      } else if (user && !readOnly) {
+      } else if (user && !effectiveReadOnly) {
         const newProject: RootsProject = {
           id: 'main',
           userId: user.uid,
@@ -1380,7 +1404,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
       handleEditorClose();
     } catch (error: any) {
-      console.error('RAW ERROR:', error.code, error.message, JSON.stringify(error));
+      console.error("RAW ERROR:", error.code, error.message, JSON.stringify(error));
       setPeople(oldPeople);
       deriveStateFromData(oldPeople, oldRels, oldPositions, tree, nodes);
   
@@ -2184,7 +2208,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                   'aspect-[1.414/1] w-full h-auto max-h-full': canvasAspectRatio === 'a4-landscape',
                   'aspect-[1/1.414] h-full w-auto max-w-full': canvasAspectRatio === 'a4-portrait',
                   'aspect-video w-full h-auto max-h-full': canvasAspectRatio === '16:9-landscape',
-                  'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '16:9-portrait',
+                  'aspect-[9/16] h-full w-auto max-w-full': canvasAspectRatio === '9:16-portrait',
                   'aspect-square h-full w-auto max-w-full': canvasAspectRatio === '1:1',
               }
             )}

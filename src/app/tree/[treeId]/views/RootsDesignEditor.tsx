@@ -1217,6 +1217,29 @@ export function RootsDesignEditor({
 }) {
   const [pages, setPages] = useState<DesignPage[]>(project.projectData?.designData?.pages || []);
   const [isGenerating, setIsGenerating] = useState(!project.projectData?.designData?.pages?.length);
+  const pagesRef = useRef<DesignPage[]>(pages);
+  useEffect(() => { pagesRef.current = pages; }, [pages]);
+
+  // ── Init and Sync──
+  useEffect(() => {
+    // This effect now ONLY handles the initial generation of pages.
+    // Subsequent updates will come from the parent through the `project` prop.
+    const hasInitialPages = project.projectData?.designData?.pages && project.projectData.designData.pages.length > 0;
+
+    if (!hasInitialPages && !isGenerating) {
+      setIsGenerating(true);
+      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
+      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
+    } else if (hasInitialPages && isGenerating) {
+      setIsGenerating(false);
+    }
+
+    // Always update local state from props to reflect undo/redo
+    setPages(project.projectData?.designData?.pages || []);
+
+  }, [project, people, relationships, onUpdateProject]);
+
+
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTool, setActiveTool] = useState<'select' | 'text' | 'shape' | 'person' | 'image' | 'icon'>('select');
@@ -1253,22 +1276,6 @@ export function RootsDesignEditor({
   const isResizing = useRef(false);
   const resizeHandle = useRef<string | null>(null);
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, aspectRatio: 1 });
-  const pagesRef = useRef<DesignPage[]>(pages);
-  const hasGeneratedRef = useRef(false);
-  useEffect(() => { pagesRef.current = pages; }, [pages]);
-
-  // ── Init ──
-  useEffect(() => {
-    const existing = project.projectData?.designData?.pages;
-    if (!existing || existing.length === 0) {
-      hasGeneratedRef.current = true;
-      const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-      setPages(generated);
-      setIsGenerating(false);
-      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
-    } else { setIsGenerating(false); }
-  }, []); // eslint-disable-line
-  useEffect(() => { if (hasGeneratedRef.current) return; setPages(project.projectData?.designData?.pages || []); }, [project.projectData?.designData?.pages]);
 
   // ── Keyboard ──
   useEffect(() => {
@@ -1315,7 +1322,6 @@ export function RootsDesignEditor({
   // ── Mutations ──
   const updatePages = useCallback((updater: (p: DesignPage[]) => DesignPage[]) => {
     const newPages = updater(pagesRef.current);
-    setPages(newPages);
     const clean = JSON.parse(JSON.stringify(newPages, (_, v) => v === undefined ? null : v));
     onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: clean } } }));
   }, [onUpdateProject]);
@@ -1389,10 +1395,10 @@ export function RootsDesignEditor({
   };
 
   const handleResetPages = () => {
-    hasGeneratedRef.current = true;
     const generated = generatePagesFromProject(project, people, relationships, selectedTemplateId);
-    setPages(generated); setCurrentPageIndex(0); setSelectedIds([]);
     onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
+    setCurrentPageIndex(0);
+    setSelectedIds([]);
     setShowResetConfirm(false);
     toast({ title: `✨ ההצגה נוצרה מחדש — ${generated.length} עמודים` });
   };
@@ -1629,7 +1635,7 @@ export function RootsDesignEditor({
           {/* Center tools */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20" aria-label="בחר תבנית עיצוב" onClick={() => setShowTemplatePicker(true)}>🎨 תבנית</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20" aria-label="בחר תבנית עיצוב" onClick={() => setShowTemplatePicker(true)}>🎨 תבנית</button>
             </TooltipTrigger><TooltipContent side="bottom"><p>בחר תבנית עיצוב</p></TooltipContent></Tooltip>
             <div className="h-4 w-px bg-white/10 mx-1" />
             {([
