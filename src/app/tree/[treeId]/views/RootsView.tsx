@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { rephraseText } from '@/ai/flows/ai-rephrase-text-flow';
+import { rephraseText } from '@/ai/flows/rephrase-text-flow';
 import {
   Accordion,
   AccordionContent,
@@ -1622,3 +1622,5 @@ const EditableEventChip = ({ event, isSelected, onToggle, onUpdate }: {
     </div>
   )
 };
+
+    
