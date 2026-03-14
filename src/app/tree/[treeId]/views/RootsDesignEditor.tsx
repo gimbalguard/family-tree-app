@@ -1,6 +1,5 @@
-
 'use client';
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type {
   RootsProject, Person, Relationship, ExportedFile,
   DesignPage, DesignTemplate, DesignElement, ShapeType, TextAlign, CanvasAspectRatio
@@ -18,6 +17,9 @@ import {
   ArrowDown as ArrowDownIcon,
   FilePlus,
   CopyPlus,
+  Undo2,
+  Redo2,
+  Spline,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -133,7 +135,7 @@ function getShapeStyle(shapeType: string, color: string, opacity = 1): React.CSS
 }
 
 // ============================================================
-// DESIGN TEMPLATES — with font per template
+// DESIGN TEMPLATES
 // ============================================================
 export const DESIGN_TEMPLATES: DesignTemplate[] = [
   {
@@ -229,8 +231,61 @@ export const DESIGN_TEMPLATES: DesignTemplate[] = [
 ];
 
 // ============================================================
-// PAGE GENERATOR — full 40+ page comprehensive document
+// LINE TYPES
 // ============================================================
+const LINE_TYPES = [
+  { id: 'straight', label: 'ישר', stroke: '' },
+  { id: 'dashed', label: 'מקווקו', stroke: '8 4' },
+  { id: 'dotted', label: 'נקוד', stroke: '2 6' },
+  { id: 'pcb', label: 'PCB', stroke: '' },
+  { id: 'wavy', label: 'גלי', stroke: '' },
+];
+
+// ============================================================
+// PAGE GENERATOR — comprehensive
+// ============================================================
+
+/**
+ * Regenerates the TOC elements for a given set of pages.
+ * Called both during initial generation and whenever pages change.
+ */
+function buildTocElements(
+  pages: DesignPage[],
+  tmpl: DesignTemplate,
+  studentName: string,
+  schoolYear: string,
+  hebrewYear: string,
+  tocPageNumber: number,
+): DesignElement[] {
+  const P = tmpl.primaryColor;
+  const mk = (type: DesignElement['type'], extra: Partial<DesignElement> & { x: number; y: number; width: number; height: number }): DesignElement =>
+    ({ id: uuidv4(), type, zIndex: 1, ...extra } as DesignElement);
+
+  // Filter out the TOC page itself when listing
+  const listedPages = pages.filter(p => p.pageType !== 'custom' || p.title !== 'תוכן עניינים');
+  const tocLines = listedPages.map((pg, i) => `${pg.pageNumber}.  ${pg.title}`);
+  const half = Math.ceil(tocLines.length / 2);
+  const col1 = tocLines.slice(0, half).join('\n');
+  const col2 = tocLines.slice(half).join('\n');
+
+  const header: DesignElement[] = [
+    mk('shape', { x: 0, y: 0, width: 100, height: 13, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.18 } }),
+    mk('text', { x: 5, y: 1, width: 85, height: 12, content: '📋 תוכן עניינים', style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
+    mk('shape', { x: 0, y: 12.5, width: 100, height: 0.4, zIndex: 2, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.35 } }),
+  ];
+  const footer: DesignElement[] = [
+    mk('text', { x: 8, y: 94, width: 84, height: 5, content: `${studentName} | ${schoolYear} | ${hebrewYear}`, style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 2, y: 94, width: 5, height: 5, content: String(tocPageNumber), style: { fontSize: 18, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+  ];
+
+  return [
+    ...header,
+    mk('text', { x: 52, y: 15, width: 44, height: 78, content: col1, style: { fontSize: 22, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
+    mk('text', { x: 5, y: 15, width: 44, height: 78, content: col2, style: { fontSize: 22, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
+    ...footer,
+  ];
+}
+
 function generatePagesFromProject(
   project: RootsProject, people: Person[], relationships: Relationship[], templateId: string
 ): DesignPage[] {
@@ -245,7 +300,6 @@ function generatePagesFromProject(
   const mk = (type: DesignElement['type'], extra: Partial<DesignElement> & { x: number; y: number; width: number; height: number }): DesignElement =>
     ({ id: uuidv4(), type, zIndex: 1, ...extra } as DesignElement);
 
-  // Small header bar (13% height) with title
   const header = (title: string, emoji?: string, chapterLabel?: string): DesignElement[] => {
     const els: DesignElement[] = [
       mk('shape', { x: 0, y: 0, width: 100, height: 13, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.18 } }),
@@ -253,41 +307,36 @@ function generatePagesFromProject(
       mk('shape', { x: 0, y: 12.5, width: 100, height: 0.4, zIndex: 2, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.35 } }),
     ];
     if (chapterLabel) {
-      els.push(mk('text', { x: 5, y: 1, width: 90, height: 6, content: chapterLabel, style: { fontSize: 9, textAlign: 'left', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }));
+      els.push(mk('text', { x: 5, y: 1, width: 90, height: 6, content: chapterLabel, style: { fontSize: 14, textAlign: 'left', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }));
     }
     return els;
   };
-  
-  // Minimalistic footer with student name, year, and page number
+
   const footer = (pageNum: number, studentName?: string, schoolYear?: string, hebrewYear?: string): DesignElement[] => [
-    mk('text', { x: 8, y: 94, width: 84, height: 5, content: `${studentName || ''} | ${schoolYear || ''} | ${hebrewYear || ''}`, style: { fontSize: 9, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
-    mk('text', { x: 2, y: 94, width: 5, height: 5, content: String(pageNum), style: { fontSize: 9, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 8, y: 94, width: 84, height: 5, content: `${studentName || ''} | ${schoolYear || ''} | ${hebrewYear || ''}`, style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 2, y: 94, width: 5, height: 5, content: String(pageNum), style: { fontSize: 18, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
   ];
 
-  // Colored pill label
   const pill = (x: number, y: number, w: number, h: number, text: string, icon: string, colorP: string): DesignElement[] => [
     mk('shape', { x, y, width: w, height: h, zIndex: 1, style: { shapeType: 'rounded_rectangle', backgroundColor: colorP, opacity: 0.22 } }),
-    mk('text', { x: x + 0.5, y: y + 0.5, width: w - 1, height: h - 1, content: `${icon} ${text}`, style: { fontSize: 12, fontWeight: 'bold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
+    mk('text', { x: x + 0.5, y: y + 0.5, width: w - 1, height: h - 1, content: `${icon} ${text}`, style: { fontSize: 16, fontWeight: 'bold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
   ];
 
-  // Photo placeholder
   const photoPlaceholder = (x: number, y: number, w: number, h: number, label = '📷 הוסף תמונה'): DesignElement[] => [
     mk('photo_placeholder', { x, y, width: w, height: h, zIndex: 5, content: label,
       style: { borderColor: P, borderWidth: 2, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', opacity: 0.85 } }),
   ];
 
-  // Text block with content or placeholder
-  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 15): DesignElement[] => [
+  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 20): DesignElement[] => [
     mk('text', { x, y, width: w, height: h, content: content || placeholder,
       style: { fontSize: fs, textAlign: 'right', color: content ? tmpl.textColor : tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.65, opacity: content ? 1 : 0.55 } }),
   ];
-  
+
   const cp = pd.coverPage || {};
   const studentName = student ? `${student.firstName} ${student.lastName}` : cp.studentName || 'התלמיד/ה';
   const schoolYear = cp.grade || new Date().getFullYear().toString();
   const hebrewYear = cp.hebrewYear || '';
 
-  // Push a page helper
   const addPage = (title: string, type: DesignPage['pageType'], elements: DesignElement[]) => {
     const pageNum = pageNumber++;
     const pageElements = [
@@ -297,20 +346,16 @@ function generatePagesFromProject(
     pages.push({ id: uuidv4(), pageNumber: pageNum, pageType: type, title, templateId, elements: pageElements });
   };
 
-  // ═══════════════════════════════════════════════════════════
-  // PART 0 — FRONT MATTER
-  // ═══════════════════════════════════════════════════════════
-
   // ─── 1. COVER ───────────────────────────────────────────────
   const coverEls: DesignElement[] = [
     mk('shape', { x: -15, y: -20, width: 55, height: 80, zIndex: 0, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.07 } }),
     mk('shape', { x: 65, y: 50, width: 45, height: 65, zIndex: 0, style: { shapeType: 'circle', backgroundColor: accent, opacity: 0.06 } }),
     mk('shape', { x: 8, y: 43, width: 84, height: 0.5, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
     mk('text', { x: 5, y: 12, width: 90, height: 16, content: `משפחת ${student?.lastName || studentName.split(' ').pop() || ''}`, style: { fontSize: 56, fontWeight: 'extrabold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
-    mk('text', { x: 5, y: 29, width: 90, height: 8, content: 'עבודת שורשים', style: { fontSize: 20, fontWeight: 'normal', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }),
-    mk('text', { x: 5, y: 47, width: 90, height: 8, content: studentName, style: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
-    mk('text', { x: 5, y: 55, width: 90, height: 6, content: [cp.schoolName, cp.grade, cp.teacherName].filter(Boolean).join(' | '), style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.75 } }),
-    mk('text', { x: 5, y: 62, width: 90, height: 6, content: cp.submissionDate || cp.hebrewYear || `שנת ${new Date().getFullYear()}`, style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 29, width: 90, height: 8, content: 'עבודת שורשים', style: { fontSize: 24, fontWeight: 'normal', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }),
+    mk('text', { x: 5, y: 47, width: 90, height: 8, content: studentName, style: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 55, width: 90, height: 6, content: [cp.schoolName, cp.grade, cp.teacherName].filter(Boolean).join(' | '), style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.75 } }),
+    mk('text', { x: 5, y: 62, width: 90, height: 6, content: cp.submissionDate || cp.hebrewYear || `שנת ${new Date().getFullYear()}`, style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
   if (student?.photoURL) {
     coverEls.push(mk('image', { content: student.photoURL, x: 36, y: 70, width: 28, height: 25, zIndex: 5, style: { borderRadius: 60, opacity: 1, borderColor: P, borderWidth: 3 } }));
@@ -332,46 +377,38 @@ function generatePagesFromProject(
       `עיר: ${cp.city || '_______________'}`,
       `תאריך הגשה: ${cp.submissionDate || '_______________'}`,
       `שנה עברית: ${cp.hebrewYear || '_______________'}`,
-    ].join('\n'), style: { fontSize: 15, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2.1 } }),
+    ].join('\n'), style: { fontSize: 20, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2.1 } }),
   ];
   addPage('תעודת זהות של העבודה', 'cover', idEls);
 
-  // ─── 3. TABLE OF CONTENTS (built dynamically after pages known — use placeholder) ──
-  const tocPageIdx = pages.length; // remember position
-  const tocEls: DesignElement[] = [
-    ...header('תוכן עניינים', '📋'),
-    mk('text', { x: 5, y: 15, width: 90, height: 78, content:
-      'תוכן העניינים יוצג כאן לאחר יצירת כל העמודים.\nניתן לערוך ולעדכן ידנית.',
-      style: { fontSize: 13, textAlign: 'right', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8, opacity: 0.6 } }),
-  ];
-  addPage('תוכן עניינים', 'custom', tocEls);
+  // ─── 3. TABLE OF CONTENTS (placeholder — rebuilt after all pages known) ──
+  const tocPageIdx = pages.length;
+  addPage('תוכן עניינים', 'custom', [
+    mk('text', { x: 5, y: 15, width: 90, height: 78, content: '...', style: { fontSize: 20, textAlign: 'right', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+  ]);
 
   // ─── 4. PERSONAL INTRO ──────────────────────────────────────
   const intro = pd.introduction || {};
   const introEls: DesignElement[] = [
     ...header('מבוא אישי', '✍️'),
     ...pill(55, 15, 41, 6.5, 'מבוא', '📝', P),
-    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 16),
+    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 20),
   ];
   introEls.push(...photoPlaceholder(62, 72, 33, 22, '📷 תמונה אישית'));
   addPage('מבוא אישי', 'personal', introEls);
 
-  // ─── 5. DEDICATION (if filled) ──────────────────────────────
+  // ─── 5. DEDICATION ──────────────────────────────────────────
   if (intro.dedication) {
     const dedicationEls: DesignElement[] = [
       mk('shape', { x: 0, y: 0, width: 100, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.04 } }),
       mk('text', { x: 10, y: 10, width: 80, height: 12, content: '❝', style: { fontSize: 80, textAlign: 'center', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-      ...textBlock(10, 25, 80, 50, intro.dedication, '', 20),
-      mk('text', { x: 10, y: 78, width: 80, height: 8, content: '— הקדשה', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+      mk('text', { x: 10, y: 25, width: 80, height: 50, content: intro.dedication, style: { fontSize: 24, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont, lineHeight: 1.9, fontWeight: 'bold' } }),
+      mk('text', { x: 10, y: 78, width: 80, height: 8, content: '— הקדשה', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
     ];
     addPage('הקדשה', 'custom', dedicationEls);
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // PART 2 — "I" PERSONAL IDENTITY
-  // ═══════════════════════════════════════════════════════════
-
-  // ─── PERSONAL ID CARD ───────────────────────────────────────
+  // ─── PERSONAL IDENTITY ─────────────────────────────────────
   const personalIdEls: DesignElement[] = [
     ...header('תעודת זהות אישית', '👤', 'חלק 2: אני — הזהות האישית'),
     ...pill(55, 15, 41, 6.5, 'פרטים אישיים', '📋', P),
@@ -383,7 +420,7 @@ function generatePagesFromProject(
       student?.countryOfResidence ? `מדינה: ${student.countryOfResidence}` : '',
       student?.cityOfResidence ? `עיר: ${student.cityOfResidence}` : '',
       student?.religion ? `דת: ${student.religion}` : '',
-    ].filter(Boolean).join('\n'), style: { fontSize: 15, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 } }),
+    ].filter(Boolean).join('\n'), style: { fontSize: 20, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 } }),
     ...photoPlaceholder(55, 23, 40, 52),
   ];
   addPage('תעודת זהות אישית', 'personal', personalIdEls);
@@ -394,8 +431,8 @@ function generatePagesFromProject(
     ...header('סיפור השם שלי', '✍️', 'חלק 2: אני'),
     mk('shape', { x: 0, y: 0, width: 6, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
     mk('text', { x: 72, y: 14, width: 22, height: 18, content: '❝', style: { fontSize: 70, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 16),
-    ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 15)] : []),
+    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 20),
+    ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 18)] : []),
   ];
   if (student?.photoURL) nameEls.push(mk('image', { content: student.photoURL, x: 66, y: 75, width: 28, height: 22, zIndex: 5, style: { borderRadius: 12 } }));
   else nameEls.push(...photoPlaceholder(66, 75, 28, 20));
@@ -403,142 +440,180 @@ function generatePagesFromProject(
 
   // ─── DAY I WAS BORN ─────────────────────────────────────────
   if (ps.dayIWasBorn) {
-    const birthDayEls: DesignElement[] = [
+    addPage('ביום שנולדתי', 'personal', [
       ...header('ביום שנולדתי', '🗓️', 'חלק 2: אני'),
       ...pill(55, 15, 41, 6.5, student?.birthDate?.slice(0,10) || '', '🎂', P),
-      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 16),
-    ];
-    birthDayEls.push(...photoPlaceholder(55, 70, 40, 24, '📰 כותרות עיתון מיום הלידה'));
-    addPage('ביום שנולדתי', 'personal', birthDayEls);
+      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 20),
+      ...photoPlaceholder(55, 70, 40, 24, '📰 כותרות עיתון מיום הלידה'),
+    ]);
   }
 
   // ─── EARLY CHILDHOOD ────────────────────────────────────────
-  const childhoodEls: DesignElement[] = [
+  addPage('זיכרונות ילדות מוקדמים', 'personal', [
     ...header('זיכרונות ילדות מוקדמים', '🧸', 'חלק 2: אני'),
-    ...textBlock(5, 15, 58, 75, ps.earlyChildhood, 'כאן יופיעו זיכרונות מהילדות המוקדמת — גיל 0 עד 5, סיפורים וחוויות שנחרטו בזיכרון.', 15),
+    ...textBlock(5, 15, 58, 75, ps.earlyChildhood, 'כאן יופיעו זיכרונות מהילדות המוקדמת — גיל 0 עד 5, סיפורים וחוויות שנחרטו בזיכרון.', 18),
     ...photoPlaceholder(65, 15, 30, 40, '📷 תמונה מהילדות'),
     ...photoPlaceholder(65, 57, 30, 33, '📷 עוד תמונה'),
-  ];
-  addPage('זיכרונות ילדות מוקדמים', 'personal', childhoodEls);
+  ]);
 
   // ─── ELEMENTARY SCHOOL ──────────────────────────────────────
-  const elemEls: DesignElement[] = [
+  addPage('היסודי שלי', 'personal', [
     ...header('היסודי שלי', '🏫', 'חלק 2: אני'),
-    ...textBlock(5, 15, 58, 75, ps.elementarySchool, 'כאן יופיע סיפור על שנות בית הספר היסודי — מורים, חברים, חוויות בלתי נשכחות ורגעים מיוחדים.', 15),
+    ...textBlock(5, 15, 58, 75, ps.elementarySchool, 'כאן יופיע סיפור על שנות בית הספר היסודי — מורים, חברים, חוויות בלתי נשכחות ורגעים מיוחדים.', 18),
     ...photoPlaceholder(65, 15, 30, 35, '📷 תמונה מבית הספר'),
     ...photoPlaceholder(65, 52, 30, 38, '📷 עם חברים'),
-  ];
-  addPage('היסודי שלי', 'personal', elemEls);
+  ]);
 
   // ─── HOBBIES ────────────────────────────────────────────────
-  const hobbiesEls: DesignElement[] = [
+  addPage('התחביבים שלי', 'personal', [
     ...header('התחביבים שלי', '🎯', 'חלק 2: אני'),
-    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 16),
+    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 20),
     ...photoPlaceholder(5, 57, 28, 35, '📷 תחביב 1'),
     ...photoPlaceholder(35, 57, 28, 35, '📷 תחביב 2'),
     ...photoPlaceholder(65, 57, 30, 35, '📷 תחביב 3'),
-  ];
-  addPage('התחביבים שלי', 'personal', hobbiesEls);
+  ]);
 
-  // ─── TALENTS (if filled) ─────────────────────────────────────
   if (ps.talents) {
-    const talentsEls: DesignElement[] = [
+    addPage('הכישרונות שלי', 'personal', [
       ...header('הכישרונות שלי', '⭐', 'חלק 2: אני'),
-      ...textBlock(5, 15, 90, 55, ps.talents, '', 16),
+      ...textBlock(5, 15, 90, 55, ps.talents, '', 20),
       ...photoPlaceholder(5, 72, 43, 22, '📷 הכישרון שלי בפעולה'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד דוגמה'),
-    ];
-    addPage('הכישרונות שלי', 'personal', talentsEls);
+    ]);
   }
 
-  // ─── MY BELIEFS ─────────────────────────────────────────────
-  const beliefsEls: DesignElement[] = [
+  addPage('אני מאמין', 'personal', [
     ...header('אני מאמין', '💡', 'חלק 2: אני'),
     mk('text', { x: 8, y: 13, width: 15, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 16),
-  ];
-  if (ps.futureLetter) {
-    beliefsEls.push(...pill(55, 72, 41, 6.5, 'מכתב לעתיד', '📮', accent));
-    beliefsEls.push(...textBlock(5, 72, 48, 22, ps.futureLetter, '', 14));
-  } else {
-    beliefsEls.push(...photoPlaceholder(5, 72, 90, 22, '📷 גלריה אישית'));
-  }
-  addPage('אני מאמין', 'personal', beliefsEls);
+    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 20),
+    ...(ps.futureLetter ? [...pill(55, 72, 41, 6.5, 'מכתב לעתיד', '📮', accent), ...textBlock(5, 72, 48, 22, ps.futureLetter, '', 18)] : [...photoPlaceholder(5, 72, 90, 22, '📷 גלריה אישית')]),
+  ]);
 
-  // ─── PHOTO GALLERY (if provided) ────────────────────────────
+  // Gallery
   const galleryPhotos: string[] = Array.isArray(ps.gallery) ? ps.gallery.filter(Boolean) : [];
-  if (galleryPhotos.length > 0 || true) { // always add, with placeholders
-    const galEls: DesignElement[] = [
-      ...header('גלריית "אני"', '🖼️', 'חלק 2: אני'),
-      mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'קולאז׳ תמונות מתחנות שונות בחיי', style: { fontSize: 13, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
-    ];
-    const slots = [
-      [5,22,28,35],[35,22,28,35],[65,22,30,35],
-      [5,59,28,35],[35,59,28,35],[65,59,30,35],
-    ];
-    slots.forEach(([x, y, w, h], i) => {
-      const url = galleryPhotos[i];
-      if (url) galEls.push(mk('image', { content: url, x, y, width: w, height: h, zIndex: 5, style: { borderRadius: 8, opacity: 1 } }));
-      else galEls.push(...photoPlaceholder(x, y, w, h, `📷 תמונה ${i + 1}`));
-    });
-    addPage('גלריית "אני"', 'personal', galEls);
-  }
+  const galEls: DesignElement[] = [
+    ...header('גלריית "אני"', '🖼️', 'חלק 2: אני'),
+    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'קולאז׳ תמונות מתחנות שונות בחיי', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+  ];
+  [[5,22,28,35],[35,22,28,35],[65,22,30,35],[5,59,28,35],[35,59,28,35],[65,59,30,35]].forEach(([x, y, w, h], i) => {
+    const url = galleryPhotos[i];
+    if (url) galEls.push(mk('image', { content: url, x, y, width: w, height: h, zIndex: 5, style: { borderRadius: 8, opacity: 1 } }));
+    else galEls.push(...photoPlaceholder(x, y, w, h, `📷 תמונה ${i + 1}`));
+  });
+  addPage('גלריית "אני"', 'personal', galEls);
 
   // ═══════════════════════════════════════════════════════════
-  // PART 3 — NUCLEAR FAMILY
+  // PART 3 — NUCLEAR FAMILY (FIXED)
   // ═══════════════════════════════════════════════════════════
-
   const nf = pd.nuclearFamily || {};
-  const parentRels = relationships.filter(r => r.personBId === project.studentPersonId && ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType));
-  const parents = parentRels.map(r => people.find(p => p.id === r.personAId)).filter(Boolean) as Person[];
-  const sibRels = relationships.filter(r => (r.personAId === project.studentPersonId || r.personBId === project.studentPersonId) && r.relationshipType === 'sibling');
-  const siblings = sibRels.map(r => people.find(p => p.id === (r.personAId === project.studentPersonId ? r.personBId : r.personAId))).filter(Boolean) as Person[];
+
+  // Correctly identify parents using relationships
+  const parentRels = relationships.filter(r =>
+    r.personBId === project.studentPersonId &&
+    ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
+  );
+  // Deduplicate parents by personAId
+  const parentIds = [...new Set(parentRels.map(r => r.personAId))];
+  const parents = parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
+
+  // Correctly identify siblings
+  const sibRels = relationships.filter(r =>
+    (r.personAId === project.studentPersonId || r.personBId === project.studentPersonId) &&
+    r.relationshipType === 'sibling'
+  );
+  const siblingIds = [...new Set(sibRels.map(r =>
+    r.personAId === project.studentPersonId ? r.personBId : r.personAId
+  ))];
+  const siblings = siblingIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
 
   // ─── OUR HOME ───────────────────────────────────────────────
-  const homeEls: DesignElement[] = [
+  addPage('הבית שלנו', 'nuclear_family', [
     ...header('הבית שלנו', '🏡', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 58, 75, nf.ourHome, 'תאר את הבית הפיזי, השכונה, האווירה בבית — מה מיוחד בבית שלכם, איך הוא נראה ומרגיש.', 15),
+    ...textBlock(5, 15, 58, 75, nf.ourHome, 'תאר את הבית הפיזי, השכונה, האווירה בבית — מה מיוחד בבית שלכם, איך הוא נראה ומרגיש.', 18),
     ...photoPlaceholder(65, 15, 30, 35, '📷 הבית שלנו'),
     ...photoPlaceholder(65, 52, 30, 38, '📷 השכונה'),
-  ];
-  addPage('הבית שלנו', 'nuclear_family', homeEls);
+  ]);
 
-  // ─── NUCLEAR FAMILY DIAGRAM ─────────────────────────────────
-  const totalMembers = parents.length + (student ? 1 : 0) + siblings.length;
-  const cardW = totalMembers > 6 ? 18 : totalMembers > 4 ? 20 : 24;
-  const cardH = totalMembers > 6 ? 27 : totalMembers > 4 ? 30 : 34;
+  // ─── NUCLEAR FAMILY DIAGRAM (FIXED) ─────────────────────────
   const nucEls: DesignElement[] = [...header('המשפחה הגרעינית', '👨‍👩‍👧', 'חלק 3: המשפחה הגרעינית')];
-  const studentCardId = uuidv4();
-  const parentTotal = parents.length;
-  if (parentTotal > 0) {
-    const parentRowW = parentTotal * cardW + (parentTotal - 1) * 4;
-    const parentStartX = (100 - parentRowW) / 2;
-    const parentCardIds: { [id: string]: string } = {};
 
-    parents.forEach((parent, idx) => {
-      const pCardId = uuidv4();
-      parentCardIds[parent.id] = pCardId;
-      nucEls.push(mk('person_card', { personId: parent.id, x: parentStartX + idx * (cardW + 4), y: 15, width: cardW, height: cardH, zIndex: 10, id: pCardId }));
+  // Layout strategy:
+  // Row 1 (y=16): Parents side by side in center
+  // Row 2 (y=55): Student in center, siblings spread around
+  // Lines: each parent → student, student — siblings (wavy)
+
+  const cardW = 20;
+  const cardH = 32;
+
+  // Place parents in row 1, centered
+  const totalParents = parents.length;
+  const parentRowW = totalParents * cardW + Math.max(0, totalParents - 1) * 5;
+  const parentStartX = (100 - parentRowW) / 2;
+  const parentCardIds: string[] = [];
+
+  parents.forEach((parent, idx) => {
+    const cardId = uuidv4();
+    parentCardIds.push(cardId);
+    nucEls.push({
+      ...mk('person_card', { personId: parent.id, x: parentStartX + idx * (cardW + 5), y: 16, width: cardW, height: cardH, zIndex: 10 }),
+      id: cardId,
     });
+  });
+
+  // Place student in row 2 center
+  const studentCardId = uuidv4();
+  if (student) {
+    nucEls.push({
+      ...mk('person_card', { personId: student.id, x: (100 - cardW) / 2, y: 58, width: cardW, height: cardH, zIndex: 10 }),
+      id: studentCardId,
+    });
+  }
+
+  // Connection lines: parents → student (wavy, with label)
+  if (student) {
+    parentCardIds.forEach(pid => {
+      nucEls.push(mk('connection_line', {
+        fromElementId: pid,
+        toElementId: studentCardId,
+        x: 0, y: 0, width: 0, height: 0, zIndex: 2,
+        style: { color: P, borderWidth: 2, lineType: 'wavy' } as any,
+      }));
+    });
+  }
+
+  // Place siblings: spread to the right and left of student
+  // Up to 4 siblings shown, 2 on each side
+  const sibW = 17;
+  const sibH = 28;
+  const studentCenterX = (100 - cardW) / 2 + cardW / 2;
+  const sibSpacing = 22;
+
+  siblings.slice(0, 6).forEach((sib, idx) => {
+    // Alternate left and right of student
+    const side = idx % 2 === 0 ? 1 : -1; // 1=right, -1=left
+    const offset = Math.ceil((idx + 1) / 2) * sibSpacing;
+    const sibX = Math.max(1, Math.min(100 - sibW - 1, studentCenterX + side * offset - sibW / 2));
+    const sibCardId = uuidv4();
+    nucEls.push({
+      ...mk('person_card', { personId: sib.id, x: sibX, y: 58, width: sibW, height: sibH, zIndex: 9 }),
+      id: sibCardId,
+    });
+    // Connect sibling to student with dashed line
     if (student) {
-      const sCard = mk('person_card', { personId: student.id, x: (100 - cardW) / 2, y: 55, width: cardW, height: cardH, zIndex: 10 });
-      sCard.id = studentCardId;
-      nucEls.push(sCard);
-      Object.values(parentCardIds).forEach(pid => nucEls.push(mk('connection_line', { fromElementId: pid, toElementId: studentCardId, x: 0, y: 0, width: 0, height: 0, zIndex: 1, style: { color: P, borderWidth: 2 } })));
+      nucEls.push(mk('connection_line', {
+        fromElementId: studentCardId,
+        toElementId: sibCardId,
+        x: 0, y: 0, width: 0, height: 0, zIndex: 1,
+        style: { color: accent, borderWidth: 1.5, lineType: 'dashed' } as any,
+      }));
     }
-  }
-  if (siblings.length > 0) {
-    const sibStartX = (100 + cardW + 4) / 2 + 2;
-    siblings.slice(0, 4).forEach((sib, idx) => {
-      const sx = Math.min(sibStartX + idx * (cardW + 3), 100 - cardW);
-      nucEls.push(mk('person_card', { personId: sib.id, x: sx, y: 55, width: cardW, height: cardH, zIndex: 9 }));
-    });
-  }
+  });
+
   addPage('המשפחה הגרעינית', 'nuclear_family', nucEls);
 
-  // ─── PARENT PAGES (one per parent) ──────────────────────────
+  // ─── PARENT PAGES ──────────────────────────────────────────
   const parentBios: Array<{ personId?: string; bio?: string; militaryService?: string; profession?: string }> = (nf.parents as any[]) || [];
-  parents.forEach((parent, idx) => {
+  parents.forEach((parent) => {
     const bio = parentBios.find(b => b.personId === parent.id) || {};
     const role = parent.gender === 'female' ? 'אמא' : 'אבא';
     const parentEls: DesignElement[] = [
@@ -546,81 +621,74 @@ function generatePagesFromProject(
       mk('person_card', { personId: parent.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
     ];
     let y = 15;
-    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 15)); y += 24; }
-    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 15)); y += 17; }
-    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 15)); }
+    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 18)); y += 24; }
+    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 18)); y += 17; }
+    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 18)); }
     if (!bio.bio && !bio.militaryService && !bio.profession) {
-      parentEls.push(...textBlock(5, 15, 59, 78, undefined, `כאן יופיע סיפורו של ${parent.firstName} — ילדות, שירות צבאי, מקצוע ועוד.`, 15));
+      parentEls.push(...textBlock(5, 15, 59, 78, undefined, `כאן יופיע סיפורו של ${parent.firstName} — ילדות, שירות צבאי, מקצוע ועוד.`, 18));
     }
     parentEls.push(...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${parent.firstName}`));
     addPage(`${role} — ${parent.firstName}`, 'nuclear_family', parentEls);
   });
 
-  // ─── PARENTS MEETING STORY ──────────────────────────────────
-  const meetingEls: DesignElement[] = [
+  // ─── PARENTS MEETING ──────────────────────────────────────
+  addPage('סיפור ההיכרות של ההורים', 'nuclear_family', [
     ...header('סיפור ההיכרות', '💑', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 16),
+    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 20),
     ...photoPlaceholder(5, 72, 43, 22, '📷 תמונת חתונה'),
     ...photoPlaceholder(52, 72, 43, 22, '📷 תמונה נוספת'),
-  ];
-  addPage('סיפור ההיכרות של ההורים', 'nuclear_family', meetingEls);
+  ]);
 
-  // ─── SIBLING PAGES (one per sibling) ────────────────────────
+  // ─── SIBLING PAGES ──────────────────────────────────────────
   const sibBios: Array<{ personId?: string; relationshipDescription?: string }> = (nf.siblings as any[]) || [];
-  siblings.forEach((sib, idx) => {
+  siblings.forEach((sib) => {
     const sibBio = sibBios.find(b => b.personId === sib.id) || {};
-    const sibEls: DesignElement[] = [
+    addPage(`${sib.firstName} — אח/ות`, 'nuclear_family', [
       ...header(`${sib.firstName} ${sib.lastName}`, sib.gender === 'female' ? '👧' : '👦', 'חלק 3: אחים ואחיות'),
       mk('person_card', { personId: sib.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
       ...pill(5, 15, 59, 6.5, 'אח/ות שלי', '💙', P),
-      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 15),
+      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 18),
       ...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${sib.firstName}`),
-    ];
-    addPage(`${sib.firstName} — אח/ות`, 'nuclear_family', sibEls);
+    ]);
   });
 
   // ─── FAMILY LIFE ─────────────────────────────────────────────
-  const familyLifeEls: DesignElement[] = [
+  addPage('הווי משפחתי וחגים', 'nuclear_family', [
     ...header('הווי משפחתי', '🎉', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 58, 40, nf.familyLife, 'תאר את הבילויים, הטיולים, הפעילויות המשותפות של המשפחה — מה עושים יחד ומה מחבר אתכם.', 15),
+    ...textBlock(5, 15, 58, 40, nf.familyLife, 'תאר את הבילויים, הטיולים, הפעילויות המשותפות של המשפחה.', 18),
     ...photoPlaceholder(65, 15, 30, 40, '📷 ביחד'),
     ...pill(5, 57, 90, 7, 'חגים ומנהגים', '🕍', accent),
-    ...textBlock(5, 66, 90, 28, nf.holidaysAndCustoms, 'כאן יופיעו מסורות המשפחה בחגים — מה עושים בחנוכה, פסח, שבת...', 15),
-  ];
-  addPage('הווי משפחתי וחגים', 'nuclear_family', familyLifeEls);
+    ...textBlock(5, 66, 90, 28, nf.holidaysAndCustoms, 'כאן יופיעו מסורות המשפחה בחגים.', 18),
+  ]);
 
-  // Optional extras
   if (nf.ourPets) {
-    const petsEls: DesignElement[] = [
+    addPage('חיות המחמד שלנו', 'nuclear_family', [
       ...header('חיות המחמד שלנו', '🐾', 'חלק 3: המשפחה הגרעינית'),
-      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 16),
+      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 20),
       ...photoPlaceholder(5, 72, 43, 22, '📷 חיות המחמד שלנו'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד תמונה'),
-    ];
-    addPage('חיות המחמד שלנו', 'nuclear_family', petsEls);
+    ]);
   }
 
   // ═══════════════════════════════════════════════════════════
-  // PART 4+5 — GRANDPARENTS (PATERNAL + MATERNAL)
+  // PART 4+5 — GRANDPARENTS
   // ═══════════════════════════════════════════════════════════
   const fr = pd.familyRoots || {} as any;
 
   const grandparentGroups = [
     {
       label: 'מצד אבא', chapterLabel: 'חלק 4: שורשים — דור הסבים מצד אבא',
-      pageType: 'roots_paternal' as const, emoji: '👨',
+      pageType: 'roots_paternal' as const,
       grandfather: { key: 'paternalGrandfather', title: 'סבא מצד אבא', emoji: '👴' },
       grandmother: { key: 'paternalGrandmother', title: 'סבתא מצד אבא', emoji: '👵' },
       meetingKey: 'paternalGrandparentsMeetingStory',
-      treeImageKey: 'paternalTreeImage',
     },
     {
       label: 'מצד אמא', chapterLabel: 'חלק 5: שורשים — דור הסבים מצד אמא',
-      pageType: 'roots_maternal' as const, emoji: '👩',
+      pageType: 'roots_maternal' as const,
       grandfather: { key: 'maternalGrandfather', title: 'סבא מצד אמא', emoji: '👴' },
       grandmother: { key: 'maternalGrandmother', title: 'סבתא מצד אמא', emoji: '👵' },
       meetingKey: 'maternalGrandparentsMeetingStory',
-      treeImageKey: 'maternalTreeImage',
     },
   ];
 
@@ -630,199 +698,155 @@ function generatePagesFromProject(
       const gPerson = data.personId ? people.find(p => p.id === data.personId) : null;
       const gpName = gPerson ? `${gPerson.firstName} ${gPerson.lastName}` : gp.title;
 
-      // ID Card page
-      const idCardEls: DesignElement[] = [
+      addPage(`${gp.title} — פרטים`, group.pageType, [
         ...header(`${gp.title} — תעודת זהות`, gp.emoji, group.chapterLabel),
         ...(gPerson ? [mk('person_card', { personId: gPerson.id, x: 66, y: 15, width: 29, height: 44, zIndex: 10 })] : [...photoPlaceholder(66, 15, 29, 44, `📷 ${gp.title}`)]),
         ...pill(5, 15, 59, 6.5, 'פרטים בסיסיים', '📋', P),
         ...textBlock(5, 23, 59, 45, data.idCardStory,
-          gPerson ? [
-            `שם: ${gPerson.firstName} ${gPerson.lastName}`,
-            gPerson.birthDate ? `נולד/ה: ${gPerson.birthDate.slice(0,10)}` : '',
-            gPerson.birthPlace ? `מקום לידה: ${gPerson.birthPlace}` : '',
-            gPerson.countryOfResidence ? `מדינה: ${gPerson.countryOfResidence}` : '',
-          ].filter(Boolean).join('\n') : 'פרטים אישיים יופיעו כאן', 15),
-      ];
-      addPage(`${gp.title} — פרטים`, group.pageType, idCardEls);
+          gPerson ? [`שם: ${gPerson.firstName} ${gPerson.lastName}`, gPerson.birthDate ? `נולד/ה: ${gPerson.birthDate.slice(0,10)}` : '', gPerson.birthPlace ? `מקום לידה: ${gPerson.birthPlace}` : ''].filter(Boolean).join('\n') : 'פרטים אישיים יופיעו כאן', 18),
+      ]);
 
-      // Aliyah / Coming to Israel story
-      const aliyahEls: DesignElement[] = [
+      addPage(`${gp.title} — עלייה`, group.pageType, [
         ...header(`${gp.title} — עלייה וקליטה`, '✈️', group.chapterLabel),
-        ...textBlock(5, 15, 90, 55, data.aliyahStory, `כאן יופיע סיפור העלייה וההגעה לישראל של ${gpName} — מאיפה הגיע/ה, מה עבר/ה בדרך, ואיך הסתגל/ה לחיים בארץ.`, 15),
+        ...textBlock(5, 15, 90, 55, data.aliyahStory, `כאן יופיע סיפור העלייה וההגעה לישראל של ${gpName}.`, 18),
         ...photoPlaceholder(5, 72, 43, 22, '📷 תמונה מתקופת העלייה'),
         ...photoPlaceholder(52, 72, 43, 22, '📷 תעודות / מסמכים'),
-      ];
-      addPage(`${gp.title} — עלייה`, group.pageType, aliyahEls);
+      ]);
 
-      // Adulthood / Military / Career
-      const adulthoodEls: DesignElement[] = [
+      addPage(`${gp.title} — בגרות`, group.pageType, [
         ...header(`${gp.title} — בגרות וקריירה`, '🌱', group.chapterLabel),
-        ...textBlock(5, 15, 58, 75, data.adulthoodStory || data.story, `כאן יופיע סיפור הבגרות של ${gpName} — שירות צבאי, עבודה, הקמת משפחה וחיים בישראל.`, 15),
+        ...textBlock(5, 15, 58, 75, data.adulthoodStory || data.story, `כאן יופיע סיפור הבגרות של ${gpName}.`, 18),
         ...photoPlaceholder(65, 15, 30, 35, '📷 תמונות בגרות'),
         ...photoPlaceholder(65, 52, 30, 38, '📷 משפחה'),
-      ];
-      addPage(`${gp.title} — בגרות`, group.pageType, adulthoodEls);
+      ]);
     });
 
-    // Grandparents meeting story
     const meetingStory: string | undefined = (fr as any)[group.meetingKey];
     if (meetingStory) {
-      const gpMeetingEls: DesignElement[] = [
+      addPage(`ההיכרות — ${group.label}`, group.pageType, [
         ...header(`סיפור ההיכרות — ${group.label}`, '💕', group.chapterLabel),
-        ...textBlock(5, 15, 90, 65, meetingStory, '', 16),
+        ...textBlock(5, 15, 90, 65, meetingStory, '', 20),
         ...photoPlaceholder(5, 82, 43, 13, '📷 תמונה'),
         ...photoPlaceholder(52, 82, 43, 13, '📷 חתונה'),
-      ];
-      addPage(`ההיכרות — ${group.label}`, group.pageType, gpMeetingEls);
+      ]);
     }
   });
 
   // ═══════════════════════════════════════════════════════════
-  // PART 6 — RESEARCH & CHARTS
+  // PART 6 — RESEARCH
   // ═══════════════════════════════════════════════════════════
+  const researchData = pd.research || {} as any;
+  const finalizationData = pd.finalPresentation || {};
 
-  // ─── FAMILY TREE CHART ──────────────────────────────────────
+  // Family tree graphic
   const treeEls: DesignElement[] = [
     ...header('אילן יוחסין גרפי', '🌳', 'חלק 6: נתונים ומחקר'),
-    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'תרשים 3-4 דורות — גרור ועדכן כרטיסי אנשים', style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'תרשים 3-4 דורות', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
-  const researchData = pd.research || {} as any;
   if (researchData.familyTreeGraphic) {
     treeEls.push(mk('image', { content: researchData.familyTreeGraphic, x: 5, y: 22, width: 90, height: 72, zIndex: 5, style: { borderRadius: 4 } }));
   } else {
-    // Place all known people in a tree layout
     const gpKeys = ['paternalGrandfather', 'paternalGrandmother', 'maternalGrandfather', 'maternalGrandmother'];
     const gpIds = gpKeys.map(k => (fr as any)[k]?.personId).filter(Boolean);
     gpIds.forEach((pid: string, i: number) => {
       treeEls.push(mk('person_card', { personId: pid, x: 3 + i * 24, y: 22, width: 21, height: 28, zIndex: 10 }));
     });
-    if (parents.length > 0) {
-      parents.forEach((p2, i) => {
-        nucEls.push(mk('person_card', { personId: p2.id, x: 15 + i * 48, y: 54, width: 21, height: 26, zIndex: 10 }));
-      });
-    }
-    if (student) {
-      treeEls.push(mk('person_card', { personId: student.id, x: 40, y: 83, width: 20, height: 13, zIndex: 10 }));
-    }
-    if (gpIds.length === 0 && parents.length === 0) {
-      treeEls.push(...photoPlaceholder(5, 22, 90, 72, '🌳 הוסף כאן תרשים אילן יוחסין'));
-    }
+    if (student) treeEls.push(mk('person_card', { personId: student.id, x: 40, y: 83, width: 20, height: 13, zIndex: 10 }));
+    if (gpIds.length === 0) treeEls.push(...photoPlaceholder(5, 22, 90, 72, '🌳 הוסף כאן תרשים אילן יוחסין'));
   }
   addPage('אילן יוחסין', 'roots_great', treeEls);
 
-  // ─── MIGRATION MAP ───────────────────────────────────────────
-  const finalizationData = pd.finalPresentation || {};
+  // Migration map
   const mapEls: DesignElement[] = [...header('מפת נדודים משפחתית', '🗺️', 'חלק 6: נתונים ומחקר')];
-  if (finalizationData.mapScreenshotUrl) {
-    mapEls.push(mk('image', { content: finalizationData.mapScreenshotUrl, x: 5, y: 15, width: 90, height: 65, zIndex: 5, style: { borderRadius: 4 } }));
+  if ((finalizationData as any).mapScreenshotUrl) {
+    mapEls.push(mk('image', { content: (finalizationData as any).mapScreenshotUrl, x: 5, y: 15, width: 90, height: 65, zIndex: 5, style: { borderRadius: 4 } }));
   } else {
-    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ בחר תצוגת מפה בשלב הסיום כדי להוסיף אותה כאן'));
+    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ הוסף מפת נדודים'));
   }
-  mapEls.push(mk('text', { x: 5, y: 82, width: 90, height: 12, content: 'מדינות מוצא המשפחה: ________________________\nמסלול ההגירה: ________________________ ← ישראל', style: { fontSize: 12, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }));
+  mapEls.push(mk('text', { x: 5, y: 82, width: 90, height: 12, content: 'מדינות מוצא המשפחה: ________________________\nמסלול ההגירה: ________________________ ← ישראל', style: { fontSize: 18, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }));
   addPage('מפת נדודים', 'custom', mapEls);
 
-  // ─── FAMILY NAME ORIGIN ──────────────────────────────────────
   const h = pd.heritage || {} as any;
   if (h.familyNameOrigin) {
-    const nameOriginEls: DesignElement[] = [
+    addPage('מקור שם המשפחה', 'custom', [
       ...header('מקור שם המשפחה', '📜', 'חלק 6: נתונים ומחקר'),
-      mk('text', { x: 8, y: 13, width: 18, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 16),
+      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 20),
       ...photoPlaceholder(5, 77, 90, 17, '📜 מסמך או תמונה הקשורה לשם המשפחה'),
-    ];
-    addPage('מקור שם המשפחה', 'custom', nameOriginEls);
+    ]);
   }
 
-  // ─── CITY/TOWN ORIGIN ─────────────────────────────────────
   if (researchData.cityOriginStory) {
-    const cityEls: DesignElement[] = [
+    addPage('גלגולה של עיר', 'custom', [
       ...header('גלגולה של עיר', '🏙️', 'חלק 6: נתונים ומחקר'),
-      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 16),
+      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 20),
       ...photoPlaceholder(5, 77, 43, 17, '📷 תמונת העיר'),
       ...photoPlaceholder(52, 77, 43, 17, '🗺️ מפה'),
-    ];
-    addPage('גלגולה של עיר', 'custom', cityEls);
+    ]);
   }
 
-  // ─── STATISTICS PAGE ─────────────────────────────────────────
   addPage('סטטיסטיקה משפחתית', 'custom', [
     ...header('סטטיסטיקה משפחתית', '📊', 'חלק 6: נתונים ומחקר'),
-    mk('text', {x: 5, y: 15, width: 90, height: 80, content: 'גרפים סטטיסטיים שנבחרו יופיעו כאן.', style: { fontSize: 15, color: tmpl.mutedTextColor, textAlign: 'center' }})
+    mk('text', { x: 5, y: 15, width: 90, height: 80, content: 'גרפים סטטיסטיים שנבחרו יופיעו כאן.', style: { fontSize: 20, color: tmpl.mutedTextColor, textAlign: 'center' } }),
   ]);
 
   // ═══════════════════════════════════════════════════════════
   // PART 7 — HERITAGE
   // ═══════════════════════════════════════════════════════════
-
-  // ─── INHERITED OBJECT ────────────────────────────────────────
   if (h.inheritedObject) {
-    const inheritedEls: DesignElement[] = [
+    addPage('חפץ עובר בירושה', 'heritage', [
       ...header('חפץ עובר בירושה', '💎', 'חלק 7: מורשת'),
-      mk('text', { x: 8, y: 13, width: 16, height: 20, content: '🏺', style: { fontSize: 50, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
-      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 16),
+      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 20),
       ...photoPlaceholder(65, 15, 30, 55, '📷 תמונת החפץ'),
       ...photoPlaceholder(5, 72, 90, 22, '📷 החפץ בהקשרו'),
-    ];
-    addPage('חפץ עובר בירושה', 'heritage', inheritedEls);
+    ]);
   }
 
-  // ─── FAMILY RECIPE ────────────────────────────────────────────
   if (h.familyRecipe) {
-    const recipeEls: DesignElement[] = [
+    addPage('הטעם של פעם — מתכון', 'heritage', [
       ...header('הטעם של פעם', '🍽️', 'חלק 7: מורשת'),
       ...pill(55, 15, 41, 6.5, 'מתכון משפחתי מסורתי', '👩‍🍳', P),
-      ...textBlock(5, 23, 90, 60, h.familyRecipe, '', 15),
+      ...textBlock(5, 23, 90, 60, h.familyRecipe, '', 18),
       ...photoPlaceholder(5, 85, 43, 11, '📷 התבשיל המוכן'),
       ...photoPlaceholder(52, 85, 43, 11, '📷 המבשלת/ת'),
-    ];
-    addPage('הטעם של פעם — מתכון', 'heritage', recipeEls);
+    ]);
   }
 
-  // ─── FAMILY & HISTORY ─────────────────────────────────────────
-  const historyContent = h.familyAndHistory;
-  const historyEls: DesignElement[] = [
+  addPage('המשפחה שלי וההיסטוריה', 'national_history', [
     ...header('המשפחה שלי וההיסטוריה', '🇮🇱', 'חלק 7: מורשת'),
-    ...textBlock(5, 15, 90, 55, historyContent, 'כאן יופיע הקשר בין הסיפור המשפחתי לאירועים לאומיים ומלחמות ישראל — "סבא היה בכיכר כשהכריזו על המדינה".', 15),
-    // Timeline decoration
+    ...textBlock(5, 15, 90, 55, h.familyAndHistory, 'כאן יופיע הקשר בין הסיפור המשפחתי לאירועים לאומיים ומלחמות ישראל.', 18),
     mk('shape', { x: 48, y: 72, width: 4, height: 24, zIndex: 1, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.3 } }),
-    mk('text', { x: 5, y: 72, width: 41, height: 8, content: '1948 — הקמת המדינה', style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 72, width: 41, height: 8, content: '1948 — הקמת המדינה', style: { fontSize: 16, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
     mk('shape', { x: 46, y: 74, width: 8, height: 3, zIndex: 3, style: { shapeType: 'circle', backgroundColor: P, opacity: 0.9 } }),
-    mk('text', { x: 54, y: 80, width: 41, height: 8, content: '1967 — ששת הימים', style: { fontSize: 11, textAlign: 'left', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 54, y: 80, width: 41, height: 8, content: '1967 — ששת הימים', style: { fontSize: 16, textAlign: 'left', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
     mk('shape', { x: 46, y: 82, width: 8, height: 3, zIndex: 3, style: { shapeType: 'circle', backgroundColor: accent, opacity: 0.9 } }),
-    mk('text', { x: 5, y: 88, width: 41, height: 8, content: '1973 — יום כיפור', style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
-  ];
-  addPage('המשפחה שלי וההיסטוריה', 'national_history', historyEls);
+    mk('text', { x: 5, y: 88, width: 41, height: 8, content: '1973 — יום כיפור', style: { fontSize: 16, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont } }),
+  ]);
 
-  // ─── ROLE MODELS ─────────────────────────────────────────────
   if (h.roleModels) {
-    const roleModelEls: DesignElement[] = [
+    addPage('דמויות מופת', 'heritage', [
       ...header('דמויות מופת במשפחה', '⭐', 'חלק 7: מורשת'),
-      ...textBlock(5, 15, 90, 60, h.roleModels, '', 16),
+      ...textBlock(5, 15, 90, 60, h.roleModels, '', 20),
       ...photoPlaceholder(5, 77, 43, 18, '📷 תמונת הדמות'),
       ...photoPlaceholder(52, 77, 43, 18, '📷 עוד תמונה'),
-    ];
-    addPage('דמויות מופת', 'heritage', roleModelEls);
+    ]);
   }
 
-  // ─── PARENTS LETTER ──────────────────────────────────────────
   if (h.parentsLetter) {
-    const parentsLetterEls: DesignElement[] = [
+    addPage('מכתב מההורים', 'heritage', [
       ...header('מכתב אישי מההורים', '💌', 'חלק 7: מורשת'),
       mk('text', { x: 8, y: 13, width: 16, height: 20, content: '❝', style: { fontSize: 80, textAlign: 'right', color: accent, opacity: 0.15, fontFamily: 'serif' } }),
-      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 16),
-      mk('text', { x: 5, y: 87, width: 90, height: 8, content: '— אמא ואבא, באהבה', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.titleFont, fontWeight: 'bold' } }),
-    ];
-    addPage('מכתב מההורים', 'heritage', parentsLetterEls);
+      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 20),
+      mk('text', { x: 5, y: 87, width: 90, height: 8, content: '— אמא ואבא, באהבה', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.titleFont, fontWeight: 'bold' } }),
+    ]);
   }
 
-  // ─── DOCUMENTATION PAGE ──────────────────────────────────────
+  // Documentation
   const docPhotos: string[] = Array.isArray(h.documentationPage) ? h.documentationPage.filter(Boolean) : [];
   const docEls: DesignElement[] = [
     ...header('עמוד התיעוד', '📜', 'חלק 7: מורשת'),
-    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'מסמכים מקוריים, תעודות לידה, דרכונים ישנים ותמונות נדירות', style: { fontSize: 12, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 5, y: 14, width: 90, height: 6, content: 'מסמכים מקוריים, תעודות לידה, דרכונים ישנים ותמונות נדירות', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
   ];
-  const docSlots = [[5,22,43,35],[52,22,43,35],[5,59,43,35],[52,59,43,35]];
-  docSlots.forEach(([x, y, w, hh], i) => {
+  [[5,22,43,35],[52,22,43,35],[5,59,43,35],[52,59,43,35]].forEach(([x, y, w, hh], i) => {
     const url = docPhotos[i];
     if (url) docEls.push(mk('image', { content: url, x, y, width: w, height: hh, zIndex: 5, style: { borderRadius: 4 } }));
     else docEls.push(...photoPlaceholder(x, y, w, hh, `📜 מסמך ${i + 1}`));
@@ -832,49 +856,35 @@ function generatePagesFromProject(
   // ═══════════════════════════════════════════════════════════
   // PART 8 — CONCLUSION
   // ═══════════════════════════════════════════════════════════
-
   const conc = pd.conclusion || {} as any;
 
-  // ─── PERSONAL REFLECTION ─────────────────────────────────────
-  const reflectionEls: DesignElement[] = [
+  addPage('רפלקציה אישית', 'custom', [
     ...header('רפלקציה אישית', '💭', 'חלק 8: סיכום'),
     mk('text', { x: 8, y: 13, width: 16, height: 20, content: '💭', style: { fontSize: 60, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
-    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 16),
+    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 20),
     ...photoPlaceholder(5, 85, 90, 10, '📷 תמונה מסכמת'),
-  ];
-  addPage('רפלקציה אישית', 'custom', reflectionEls);
+  ]);
 
-  // ─── THANKS ──────────────────────────────────────────────────
-  const thanksEls: DesignElement[] = [
+  addPage('תודות', 'custom', [
     ...header('תודות', '🙏', 'חלק 8: סיכום'),
-    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 16),
+    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 20),
     mk('text', { x: 5, y: 87, width: 90, height: 8, content: '❤️', style: { fontSize: 30, textAlign: 'center', fontFamily: tmpl.bodyFont } }),
-  ];
-  addPage('תודות', 'custom', thanksEls);
+  ]);
 
-  // ─── BIBLIOGRAPHY ────────────────────────────────────────────
-  const biblioEls: DesignElement[] = [
+  addPage('ביבליוגרפיה', 'custom', [
     ...header('ביבליוגרפיה', '📚', 'חלק 8: סיכום'),
     ...textBlock(5, 15, 90, 75, conc.bibliography,
-      'מקורות המידע שהשתמשתי בהם:\n\n• ראיונות אישיים:\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n\n• מסמכים:\n  — תמונות משפחתיות\n  — תעודות לידה / נישואין\n\n• אתרים:\n  — _______________\n  — _______________', 15),
-    mk('text', { x: 5, y: 91, width: 90, height: 7, content: `${student ? student.firstName + ' ' + student.lastName : ''} | שנת ${new Date().getFullYear()}`, style: { fontSize: 11, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.65 } }),
-  ];
-  addPage('ביבליוגרפיה', 'custom', biblioEls);
+      'מקורות המידע שהשתמשתי בהם:\n\n• ראיונות אישיים:\n  — סבא/ה _______________ (ראיון אישי, תאריך ___)\n\n• מסמכים:\n  — תמונות משפחתיות\n\n• אתרים:\n  — _______________', 18),
+    mk('text', { x: 5, y: 91, width: 90, height: 7, content: `${student ? student.firstName + ' ' + student.lastName : ''} | שנת ${new Date().getFullYear()}`, style: { fontSize: 16, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.65 } }),
+  ]);
 
   // ═══════════════════════════════════════════════════════════
-  // UPDATE TABLE OF CONTENTS with actual page titles
+  // UPDATE TABLE OF CONTENTS with real page list
   // ═══════════════════════════════════════════════════════════
-  const tocLines = pages.map((pg, i) => `${i + 1}.  ${pg.title}`);
-  // Split into two columns if many pages
-  const half = Math.ceil(tocLines.length / 2);
-  const col1 = tocLines.slice(0, half).join('\n');
-  const col2 = tocLines.slice(half).join('\n');
-  pages[tocPageIdx].elements = [
-    ...header('תוכן עניינים', '📋'),
-    mk('text', { x: 52, y: 15, width: 44, height: 80, content: col1, style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
-    mk('text', { x: 5, y: 15, width: 44, height: 80, content: col2, style: { fontSize: 11, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.85 } }),
-    ...footer(pages[tocPageIdx].pageNumber, studentName, schoolYear, hebrewYear),
-  ];
+  const tocPage = pages[tocPageIdx];
+  if (tocPage) {
+    tocPage.elements = buildTocElements(pages, tmpl, studentName, schoolYear, hebrewYear, tocPage.pageNumber);
+  }
 
   return pages;
 }
@@ -893,28 +903,20 @@ function TemplateDecorations({ template }: { template: DesignTemplate }) {
       <div className="absolute bottom-0 left-0 w-16 h-16 pointer-events-none" style={{ borderBottom: `3px solid ${accent}`, borderLeft: `3px solid ${accent}`, opacity: 0.35 }} />
     </>
   );
-  if (pat === 'border') return (
-    <div className="absolute inset-2 pointer-events-none rounded-lg" style={{ border: `1.5px solid ${P}`, opacity: 0.2 }} />
-  );
-  if (pat === 'dots') return (
-    <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, ${P}22 1px, transparent 1px)`, backgroundSize: '28px 28px', opacity: 0.4 }} />
-  );
-  if (pat === 'lines') return (
-    <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `repeating-linear-gradient(0deg, ${P}12 0px, ${P}12 1px, transparent 1px, transparent 28px)`, opacity: 0.3 }} />
-  );
-  if (pat === 'diagonal') return (
-    <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `repeating-linear-gradient(45deg, ${P}0a 0px, ${P}0a 1px, transparent 1px, transparent 20px)`, opacity: 0.5 }} />
-  );
+  if (pat === 'border') return <div className="absolute inset-2 pointer-events-none rounded-lg" style={{ border: `1.5px solid ${P}`, opacity: 0.2 }} />;
+  if (pat === 'dots') return <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `radial-gradient(circle, ${P}22 1px, transparent 1px)`, backgroundSize: '28px 28px', opacity: 0.4 }} />;
+  if (pat === 'lines') return <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `repeating-linear-gradient(0deg, ${P}12 0px, ${P}12 1px, transparent 1px, transparent 28px)`, opacity: 0.3 }} />;
+  if (pat === 'diagonal') return <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: `repeating-linear-gradient(45deg, ${P}0a 0px, ${P}0a 1px, transparent 1px, transparent 20px)`, opacity: 0.5 }} />;
   return null;
 }
 
 // ============================================================
-// PERSON CARD ELEMENT
+// PERSON CARD ELEMENT — tight layout, scales with element size
 // ============================================================
 const PersonCardElement = ({
-  element, people, relationships, scaleFactor,
+  element, people, relationships,
 }: {
-  element: DesignElement; people: Person[]; relationships: Relationship[]; scaleFactor: number;
+  element: DesignElement; people: Person[]; relationships: Relationship[];
 }) => {
   const person = people.find(p => p.id === element.personId);
   if (!person) return (
@@ -938,11 +940,6 @@ const PersonCardElement = ({
   const bgColor = element.style?.backgroundColor || 'rgba(255,255,255,0.08)';
   const textColor = element.style?.color || '#ffffff';
   const opacity = element.style?.opacity ?? 1;
-  const sf = Math.max(0.45, scaleFactor);
-  const fs = (base: number) => Math.max(6, Math.round(base * sf));
-  // Tighter padding — 4px minimum
-  const pad = Math.max(4, Math.round(6 * Math.max(0.5, sf)));
-  const avatarSize = Math.max(24, Math.round(38 * Math.max(0.55, sf)));
 
   const infoRows: Array<{ icon: string; value: string }> = [];
   if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
@@ -955,28 +952,47 @@ const PersonCardElement = ({
   if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
   if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
 
+  // Show fewer rows for smaller cards
+  const maxRows = 5;
+
   return (
     <div
       className="w-full h-full rounded-xl overflow-hidden border border-white/15 backdrop-blur-sm shadow-lg"
-      style={{ backgroundColor: bgColor, opacity, color: textColor, padding: `${pad}px`, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '2px' }}
+      style={{
+        backgroundColor: bgColor,
+        opacity,
+        color: textColor,
+        padding: '5px',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
+      }}
       dir="rtl"
     >
-      {/* Header: avatar + name */}
+      {/* Avatar + name row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-        <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.25)' }}>
+        <div style={{
+          width: '32px',
+          height: '32px',
+          borderRadius: '50%',
+          overflow: 'hidden',
+          flexShrink: 0,
+          border: '1.5px solid rgba(255,255,255,0.25)',
+        }}>
           <img src={person.photoURL || getPlaceholderImage(person.gender)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-          <div style={{ fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(12), color: textColor }}>{displayName}</div>
-          {birthYear && <div style={{ opacity: 0.65, fontSize: fs(9), lineHeight: 1.2 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
-          {person.gender && <div style={{ opacity: 0.45, fontSize: fs(8), lineHeight: 1.2 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status || p.lifeStatus}` : ''}</div>}
+          <div style={{ fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 11, color: textColor }}>{displayName}</div>
+          {birthYear && <div style={{ opacity: 0.65, fontSize: 8.5, lineHeight: 1.1 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
+          {person.gender && <div style={{ opacity: 0.45, fontSize: 7.5, lineHeight: 1.1 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status || p.lifeStatus}` : ''}</div>}
         </div>
       </div>
       {/* Info rows */}
-      {infoRows.slice(0, Math.floor(sf * 8)).map((row, i) => (
+      {infoRows.slice(0, maxRows).map((row, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-          <span style={{ fontSize: fs(8), lineHeight: 1 }}>{row.icon}</span>
-          <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: fs(9), color: textColor }}>{row.value}</span>
+          <span style={{ fontSize: 7.5, lineHeight: 1 }}>{row.icon}</span>
+          <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: 8.5, color: textColor }}>{row.value}</span>
         </div>
       ))}
     </div>
@@ -986,12 +1002,7 @@ const PersonCardElement = ({
 // ============================================================
 // PHOTO PLACEHOLDER ELEMENT
 // ============================================================
-function PhotoPlaceholderElement({
-  element, onOpenImagePicker,
-}: {
-  element: DesignElement;
-  onOpenImagePicker: () => void;
-}) {
+function PhotoPlaceholderElement({ element, onOpenImagePicker }: { element: DesignElement; onOpenImagePicker: () => void; }) {
   return (
     <div
       className="w-full h-full flex flex-col items-center justify-center gap-1 cursor-pointer select-none transition-all hover:bg-white/10"
@@ -1012,7 +1023,7 @@ function PhotoPlaceholderElement({
 }
 
 // ============================================================
-// MY FILES IMAGE GRID — fixed unique key
+// MY FILES IMAGE GRID
 // ============================================================
 function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string; onSelectImage: (url: string) => void }) {
   const [files, setFiles] = useState<Array<{ name: string; url: string; key: string }>>([]);
@@ -1046,13 +1057,13 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string; onSelectI
 }
 
 // ============================================================
-// CLIPBOARD
+// CLIPBOARD & CONTEXT MENU
 // ============================================================
 let _clipboard: DesignElement | null = null;
 interface CtxMenu { x: number; y: number; elementId: string | null; }
 
 // ============================================================
-// FONT PICKER MODAL
+// FONT PICKER MODAL (compact)
 // ============================================================
 function FontPickerModal({ current, onSelect, onClose }: { current?: string; onSelect: (f: string) => void; onClose: () => void }) {
   const [search, setSearch] = useState('');
@@ -1061,27 +1072,27 @@ function FontPickerModal({ current, onSelect, onClose }: { current?: string; onS
   useEffect(() => { filtered.forEach(f => ensureFontLoaded(f.name)); }, [search]);
   return (
     <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-slate-800 rounded-2xl w-[480px] max-h-[75vh] border border-white/10 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()} dir="rtl">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between flex-shrink-0">
+      <div className="bg-slate-800 rounded-2xl w-[400px] max-h-[70vh] border border-white/10 shadow-2xl flex flex-col" onClick={e => e.stopPropagation()} dir="rtl">
+        <div className="p-3 border-b border-white/10 flex items-center justify-between flex-shrink-0">
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
-          <h2 className="font-bold text-base">בחר גופן</h2>
+          <h2 className="font-bold text-sm">בחר גופן</h2>
         </div>
-        <div className="p-3 border-b border-white/10 flex-shrink-0">
-          <input className="w-full px-3 py-1.5 bg-slate-700 rounded-lg text-sm placeholder:text-slate-500 border border-white/10 focus:outline-none" placeholder="חפש גופן..." value={search} onChange={e => setSearch(e.target.value)} dir="rtl" />
+        <div className="p-2.5 border-b border-white/10 flex-shrink-0">
+          <input className="w-full px-3 py-1.5 bg-slate-700 rounded-lg text-xs placeholder:text-slate-500 border border-white/10 focus:outline-none" placeholder="חפש גופן..." value={search} onChange={e => setSearch(e.target.value)} dir="rtl" />
         </div>
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="flex-1 overflow-y-auto p-2.5">
           {categories.map(cat => {
             const catFonts = filtered.filter(f => f.category === cat);
             if (!catFonts.length) return null;
             return (
-              <div key={cat} className="mb-4">
-                <div className="text-[10px] font-bold text-slate-400 mb-1.5 uppercase">{cat}</div>
-                <div className="space-y-1">
+              <div key={cat} className="mb-3">
+                <div className="text-[9px] font-bold text-slate-400 mb-1 uppercase">{cat}</div>
+                <div className="space-y-0.5">
                   {catFonts.map(f => (
                     <button key={f.name} onClick={() => { onSelect(f.name); ensureFontLoaded(f.name); onClose(); }}
-                      className={cn('w-full flex items-center justify-between px-3 py-2 rounded-lg border transition-colors', current === f.name ? 'border-indigo-500 bg-indigo-500/15' : 'border-transparent hover:bg-white/8 hover:border-white/15')}>
-                      <span className="text-slate-400 text-[10px]">{f.hebrewSupport ? '✓ עברית' : ''}</span>
-                      <span style={{ fontFamily: f.name, fontSize: 16 }}>שלום Hello {f.label}</span>
+                      className={cn('w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg border transition-colors', current === f.name ? 'border-indigo-500 bg-indigo-500/15' : 'border-transparent hover:bg-white/8 hover:border-white/15')}>
+                      <span className="text-slate-400 text-[9px]">{f.hebrewSupport ? '✓ עברית' : ''}</span>
+                      <span style={{ fontFamily: f.name, fontSize: 14 }}>שלום Hello {f.label}</span>
                     </button>
                   ))}
                 </div>
@@ -1124,13 +1135,8 @@ function ShapePickerModal({ onSelect, onClose }: { onSelect: (s: string) => void
 // ============================================================
 // LAYERS PANEL
 // ============================================================
-function LayersPanel({ page, selectedIds, onSelect, onDelete, onToggleVisibility, onClose }: {
-  page: DesignPage | undefined;
-  selectedIds: string[];
-  onSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onToggleVisibility: (id: string) => void;
-  onClose: () => void;
+function LayersPanel({ page, selectedIds, onSelect, onDelete, onClose }: {
+  page: DesignPage | undefined; selectedIds: string[]; onSelect: (id: string) => void; onDelete: (id: string) => void; onClose: () => void;
 }) {
   const typeLabel = (el: DesignElement) => {
     switch (el.type) {
@@ -1154,9 +1160,8 @@ function LayersPanel({ page, selectedIds, onSelect, onDelete, onToggleVisibility
       <div className="overflow-y-auto flex-1">
         {els.length === 0 && <div className="text-xs text-slate-500 text-center py-4">אין אלמנטים</div>}
         {els.map(el => (
-          <div key={el.id} className={cn('flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-white/8 border-b border-white/5', selectedIds.includes(el.id) ? 'bg-indigo-500/20' : '')}
-            onClick={() => onSelect(el.id)}>
-            <button className="text-[10px] text-slate-400 hover:text-red-400 flex-shrink-0" title="מחק" onClick={e => { e.stopPropagation(); onDelete(el.id); }}>✕</button>
+          <div key={el.id} className={cn('flex items-center gap-1.5 px-2 py-1.5 cursor-pointer hover:bg-white/8 border-b border-white/5', selectedIds.includes(el.id) ? 'bg-indigo-500/20' : '')} onClick={() => onSelect(el.id)}>
+            <button className="text-[10px] text-slate-400 hover:text-red-400 flex-shrink-0" onClick={e => { e.stopPropagation(); onDelete(el.id); }}>✕</button>
             <span className="text-[10px] truncate flex-1 text-right">{typeLabel(el)}</span>
             <span className="text-[9px] text-slate-500 flex-shrink-0">z:{el.zIndex || 0}</span>
           </div>
@@ -1167,13 +1172,9 @@ function LayersPanel({ page, selectedIds, onSelect, onDelete, onToggleVisibility
 }
 
 // ============================================================
-// IMAGE PICKER MODAL — with family photos tab
+// IMAGE PICKER MODAL
 // ============================================================
-function ImagePickerModal({ treeId, onSelect, onClose }: {
-  treeId: string;
-  onSelect: (url: string) => void;
-  onClose: () => void;
-}) {
+function ImagePickerModal({ treeId, onSelect, onClose }: { treeId: string; onSelect: (url: string) => void; onClose: () => void; }) {
   const [tab, setTab] = useState<'upload' | 'files'>('upload');
   return (
     <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -1207,36 +1208,24 @@ function ImagePickerModal({ treeId, onSelect, onClose }: {
 }
 
 // ============================================================
-// RESIZE HANDLES
+// RESIZE HANDLES — corners (aspect-ratio) + sides (crop)
 // ============================================================
 const HANDLES = [
-  { id: 'nw', cursor: 'nw-resize', style: { top: -5, right: -5 }, title: 'שנה גודל — פינה שמאל-עליון' },
-  { id: 'ne', cursor: 'ne-resize', style: { top: -5, left: -5 }, title: 'שנה גודל — פינה ימין-עליון' },
-  { id: 'sw', cursor: 'sw-resize', style: { bottom: -5, right: -5 }, title: 'שנה גודל — פינה שמאל-תחתון' },
-  { id: 'se', cursor: 'se-resize', style: { bottom: -5, left: -5 }, title: 'שנה גודל — פינה ימין-תחתון' },
-  { id: 'n', cursor: 'n-resize', style: { top: -5, left: '50%', transform: 'translateX(-50%)' }, title: 'שנה גובה מלמעלה' },
-  { id: 's', cursor: 's-resize', style: { bottom: -5, left: '50%', transform: 'translateX(-50%)' }, title: 'שנה גובה מלמטה' },
-  { id: 'e', cursor: 'e-resize', style: { right: -5, top: '50%', transform: 'translateY(-50%)' }, title: 'שנה רוחב ימין' },
-  { id: 'w', cursor: 'w-resize', style: { left: -5, top: '50%', transform: 'translateY(-50%)' }, title: 'שנה רוחב שמאל' },
-];
-
-// ============================================================
-// LINE TYPE OPTIONS
-// ============================================================
-const LINE_TYPES = [
-  { id: 'straight', label: 'ישר', stroke: '' },
-  { id: 'dashed', label: 'מקווקו', stroke: '8 4' },
-  { id: 'dotted', label: 'נקוד', stroke: '2 6' },
-  { id: 'pcb', label: 'PCB', stroke: '' }, // rendered specially
-  { id: 'wavy', label: 'גלי', stroke: '' }, // rendered as SVG path
+  { id: 'nw', cursor: 'nw-resize', style: { top: -5, right: -5 }, isCorner: true },
+  { id: 'ne', cursor: 'ne-resize', style: { top: -5, left: -5 }, isCorner: true },
+  { id: 'sw', cursor: 'sw-resize', style: { bottom: -5, right: -5 }, isCorner: true },
+  { id: 'se', cursor: 'se-resize', style: { bottom: -5, left: -5 }, isCorner: true },
+  { id: 'n', cursor: 'n-resize', style: { top: -5, left: '50%', transform: 'translateX(-50%)' }, isCorner: false },
+  { id: 's', cursor: 's-resize', style: { bottom: -5, left: '50%', transform: 'translateX(-50%)' }, isCorner: false },
+  { id: 'e', cursor: 'e-resize', style: { right: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
+  { id: 'w', cursor: 'w-resize', style: { left: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
 ];
 
 // ============================================================
 // THUMBNAIL CONTEXT MENU
 // ============================================================
 const ThumbnailContextMenu = ({ menu, onClose, onMove, onDuplicate, onAdd, onDelete }: {
-  menu: { x: number; y: number; index: number };
-  onClose: () => void;
+  menu: { x: number; y: number; index: number }; onClose: () => void;
   onMove: (index: number, direction: 'up' | 'down') => void;
   onDuplicate: (index: number) => void;
   onAdd: (index: number, position: 'before' | 'after') => void;
@@ -1245,15 +1234,13 @@ const ThumbnailContextMenu = ({ menu, onClose, onMove, onDuplicate, onAdd, onDel
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        onClose();
-      }
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) onClose();
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [onClose]);
 
-  const menuItems = [
+  const items = [
     { label: 'הזז למעלה', icon: <ArrowUp className="w-3.5 h-3.5" />, action: () => onMove(menu.index, 'up') },
     { label: 'הזז למטה', icon: <ArrowDownIcon className="w-3.5 h-3.5" />, action: () => onMove(menu.index, 'down') },
     { separator: true },
@@ -1265,20 +1252,12 @@ const ThumbnailContextMenu = ({ menu, onClose, onMove, onDuplicate, onAdd, onDel
   ];
 
   return (
-    <div
-      ref={menuRef}
-      className="fixed bg-slate-800 border border-white/15 rounded-xl shadow-2xl py-1 z-[2000] min-w-[190px]"
-      style={{ top: Math.min(menu.y, window.innerHeight - 180), left: menu.x }}
-      dir="rtl"
-      onClick={e => e.stopPropagation()}
-    >
-      {menuItems.map((item, idx) => (
+    <div ref={menuRef} className="fixed bg-slate-800 border border-white/15 rounded-xl shadow-2xl py-1 z-[2000] min-w-[190px]"
+      style={{ top: Math.min(menu.y, window.innerHeight - 180), left: menu.x }} dir="rtl" onClick={e => e.stopPropagation()}>
+      {items.map((item, idx) => (
         item.separator ? <div key={idx} className="my-1 border-t border-white/10" /> : (
-          <button
-            key={idx}
-            className={cn("w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2", item.className)}
-            onClick={() => { item.action(); onClose(); }}
-          >
+          <button key={idx} className={cn("w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2", (item as any).className)}
+            onClick={() => { item.action!(); onClose(); }}>
             {item.icon} {item.label}
           </button>
         )
@@ -1286,6 +1265,38 @@ const ThumbnailContextMenu = ({ menu, onClose, onMove, onDuplicate, onAdd, onDel
     </div>
   );
 };
+
+// ============================================================
+// UNDO/REDO HISTORY HOOK
+// ============================================================
+function useHistory<T>(initial: T) {
+  const [history, setHistory] = useState<T[]>([initial]);
+  const [index, setIndex] = useState(0);
+  const current = history[index];
+
+  const push = useCallback((newState: T) => {
+    setHistory(h => {
+      const truncated = h.slice(0, index + 1);
+      const next = [...truncated, newState];
+      // Cap at 50 states
+      return next.length > 50 ? next.slice(next.length - 50) : next;
+    });
+    setIndex(i => Math.min(i + 1, 49));
+  }, [index]);
+
+  const undo = useCallback(() => {
+    setIndex(i => Math.max(0, i - 1));
+  }, []);
+
+  const redo = useCallback(() => {
+    setIndex(i => Math.min(history.length - 1, i + 1));
+  }, [history.length]);
+
+  const canUndo = index > 0;
+  const canRedo = index < history.length - 1;
+
+  return { current, push, undo, redo, canUndo, canRedo };
+}
 
 // ============================================================
 // MAIN EDITOR
@@ -1296,19 +1307,21 @@ export function RootsDesignEditor({
   project: RootsProject; people: Person[]; relationships: Relationship[];
   onBack: () => void; onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
 }) {
-  const [pages, setPages] = useState<DesignPage[]>(project.projectData?.designData?.pages || []);
+  const initialPages = project.projectData?.designData?.pages || [];
+  const { current: pages, push: pushHistory, undo, redo, canUndo, canRedo } = useHistory<DesignPage[]>(initialPages);
+  const [localPages, setLocalPages] = useState<DesignPage[]>(initialPages);
   const [isGenerating, setIsGenerating] = useState(!project.projectData?.designData?.pages?.length);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeTool, setActiveTool] = useState<'select' | 'text' | 'shape' | 'person' | 'image' | 'icon'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'text' | 'shape' | 'person' | 'image' | 'icon' | 'line'>('select');
   const [selectedTemplateId, setSelectedTemplateId] = useState(project.projectData?.designData?.templateId || 'template_cosmic');
-  const [templateFont, setTemplateFont] = useState<string>(''); // per-template font override
+  const [globalTextSizeOffset, setGlobalTextSizeOffset] = useState(0); // +/- offset from template defaults
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showPersonPicker, setShowPersonPicker] = useState(false);
   const [personSearch, setPersonSearch] = useState('');
   const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('a4-landscape');
   const [showImagePicker, setShowImagePicker] = useState(false);
-  const [imagePlaceholderTarget, setImagePlaceholderTarget] = useState<string | null>(null); // element id
+  const [imagePlaceholderTarget, setImagePlaceholderTarget] = useState<string | null>(null);
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiInput, setEmojiInput] = useState('');
@@ -1324,8 +1337,11 @@ export function RootsDesignEditor({
   const [showLayers, setShowLayers] = useState(false);
   const [pageToDeleteIndex, setPageToDeleteIndex] = useState<number | null>(null);
   const [thumbnailCtxMenu, setThumbnailCtxMenu] = useState<{ x: number; y: number; index: number } | null>(null);
+  // Line drawing state
+  const [lineDrawing, setLineDrawing] = useState<{ fromElementId: string } | null>(null);
+  // Line style for new connections
+  const [activeLineType, setActiveLineType] = useState<string>('straight');
 
-  // Preload all template fonts on mount
   useEffect(() => { DESIGN_TEMPLATES.forEach(t => ensureFontLoaded(t.titleFont)); }, []);
 
   const { toast } = useToast();
@@ -1335,10 +1351,13 @@ export function RootsDesignEditor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
   const resizeHandle = useRef<string | null>(null);
-  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, aspectRatio: 1 });
-  const pagesRef = useRef<DesignPage[]>(pages);
+  const resizeStart = useRef({ mouseX: 0, mouseY: 0, elX: 0, elY: 0, elW: 0, elH: 0, aspectRatio: 1, isCorner: false });
+  const pagesRef = useRef<DesignPage[]>(localPages);
   const hasGeneratedRef = useRef(false);
-  useEffect(() => { pagesRef.current = pages; }, [pages]);
+  useEffect(() => { pagesRef.current = localPages; }, [localPages]);
+
+  // Sync history current → localPages
+  useEffect(() => { setLocalPages(pages); }, [pages]);
 
   // ── Init ──
   useEffect(() => {
@@ -1346,11 +1365,16 @@ export function RootsDesignEditor({
     if (!existing || existing.length === 0) {
       hasGeneratedRef.current = true;
       const generated = generatePagesFromProject(project, people, relationships, 'template_cosmic');
-      setPages(generated);
+      setLocalPages(generated);
       setIsGenerating(false);
       onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
     } else { setIsGenerating(false); }
   }, []); // eslint-disable-line
+
+  useEffect(() => {
+    if (hasGeneratedRef.current) return;
+    setLocalPages(project.projectData?.designData?.pages || []);
+  }, [project.projectData?.designData?.pages]);
 
   // ── Keyboard ──
   useEffect(() => {
@@ -1360,7 +1384,9 @@ export function RootsDesignEditor({
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedIds.length && !editingElementId) {
         e.preventDefault(); selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]);
       }
-      if (e.key === 'Escape') { setSelectedIds([]); setEditingElementId(null); setActiveTool('select'); setCtxMenu(null); }
+      if (e.key === 'Escape') { setSelectedIds([]); setEditingElementId(null); setActiveTool('select'); setCtxMenu(null); setLineDrawing(null); }
+      if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) { e.preventDefault(); undo(); }
+      if (((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey)) || ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey)) { e.preventDefault(); redo(); }
       if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey) && selectedIds.length === 1) {
         const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === selectedIds[0]);
         if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); }
@@ -1379,7 +1405,7 @@ export function RootsDesignEditor({
     };
     window.addEventListener('keydown', down);
     return () => window.removeEventListener('keydown', down);
-  }, [selectedIds, editingElementId, currentPageIndex]); // eslint-disable-line
+  }, [selectedIds, editingElementId, currentPageIndex, undo, redo]); // eslint-disable-line
 
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest('[data-ctx-menu]')) setCtxMenu(null); };
@@ -1388,32 +1414,51 @@ export function RootsDesignEditor({
   }, []);
 
   // ── Derived ──
-  const currentPage = pages[currentPageIndex];
+  const currentPage = localPages[currentPageIndex];
   const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const selectedElement = selectedId ? currentPage?.elements.find(el => el.id === selectedId) : undefined;
-  const getScaleFactor = (el: DesignElement) => Math.max(0.4, el.width / 28);
 
-  // ── Mutations ──
-  const updatePages = useCallback((updater: (p: DesignPage[]) => DesignPage[]) => {
-    const newPages = updater(pagesRef.current);
-    setPages(newPages);
+  // ── Mutations — always commit to history ──
+  const commitPages = useCallback((newPages: DesignPage[]) => {
     const clean = JSON.parse(JSON.stringify(newPages, (_, v) => v === undefined ? null : v));
+    setLocalPages(clean);
+    pushHistory(clean);
     onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: clean } } }));
-  }, [onUpdateProject]);
+  }, [pushHistory, onUpdateProject]);
+
+  // Local-only update (during drag/resize — don't spam history)
+  const updateLocalOnly = useCallback((updater: (ps: DesignPage[]) => DesignPage[]) => {
+    setLocalPages(ps => {
+      const result = updater(ps);
+      pagesRef.current = result;
+      return result;
+    });
+  }, []);
+
+  // Commit at end of drag/resize
+  const commitLocalToHistory = useCallback(() => {
+    const clean = JSON.parse(JSON.stringify(pagesRef.current, (_, v) => v === undefined ? null : v));
+    pushHistory(clean);
+    onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: clean } } }));
+  }, [pushHistory, onUpdateProject]);
+
+  const updatePages = useCallback((updater: (p: DesignPage[]) => DesignPage[]) => {
+    commitPages(updater(pagesRef.current));
+  }, [commitPages]);
 
   const updateCurrentPage = useCallback((updater: (p: DesignPage) => DesignPage) => {
     updatePages(ps => { const np = [...ps]; if (np[currentPageIndex]) np[currentPageIndex] = updater(np[currentPageIndex]); return np; });
   }, [updatePages, currentPageIndex]);
 
   const updateElementLocal = useCallback((id: string, updates: Partial<DesignElement> | ((el: DesignElement) => Partial<DesignElement>)) => {
-    setPages(ps => {
+    updateLocalOnly(ps => {
       const np = [...ps];
       if (!np[currentPageIndex]) return ps;
       np[currentPageIndex] = { ...np[currentPageIndex], elements: np[currentPageIndex].elements.map(el => { if (el.id !== id) return el; const u = typeof updates === 'function' ? updates(el) : updates; return { ...el, ...u }; }) };
       return np;
     });
-  }, [currentPageIndex]);
+  }, [updateLocalOnly, currentPageIndex]);
 
   const updateElement = useCallback((id: string, updates: Partial<DesignElement> | ((el: DesignElement) => Partial<DesignElement>)) => {
     updatePages(ps => {
@@ -1424,18 +1469,11 @@ export function RootsDesignEditor({
     });
   }, [updatePages, currentPageIndex]);
 
-  // Multi-update — batch updates all selected elements in one pass
   const updateMultipleElements = useCallback((ids: string[], updater: (el: DesignElement) => Partial<DesignElement>) => {
     updatePages(ps => {
       const np = [...ps];
       if (!np[currentPageIndex]) return ps;
-      np[currentPageIndex] = {
-        ...np[currentPageIndex],
-        elements: np[currentPageIndex].elements.map(el => {
-          if (!ids.includes(el.id)) return el;
-          return { ...el, ...updater(el) };
-        }),
-      };
+      np[currentPageIndex] = { ...np[currentPageIndex], elements: np[currentPageIndex].elements.map(el => !ids.includes(el.id) ? el : { ...el, ...updater(el) }) };
       return np;
     });
   }, [updatePages, currentPageIndex]);
@@ -1457,76 +1495,121 @@ export function RootsDesignEditor({
     const { id: _id, ...rest } = el;
     addElement({ ...rest, x: Math.min(el.x + 3, 70), y: Math.min(el.y + 3, 70) });
   }, [addElement, currentPageIndex]);
-  
-  const handleMovePage = (index: number, direction: 'up' | 'down') => {
-      updatePages(currentPages => {
-          const newPages = [...currentPages];
-          if (direction === 'up' && index > 0) {
-              [newPages[index], newPages[index - 1]] = [newPages[index - 1], newPages[index]];
-              setCurrentPageIndex(index - 1);
-          } else if (direction === 'down' && index < newPages.length - 1) {
-              [newPages[index], newPages[index + 1]] = [newPages[index + 1], newPages[index]];
-              setCurrentPageIndex(index + 1);
-          }
-          return newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-      });
-  };
 
-  const handleDuplicatePage = (index: number) => {
-      updatePages(currentPages => {
-          const pageToDuplicate = currentPages[index];
-          const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
-          const newPages = [...currentPages.slice(0, index + 1), newPage, ...currentPages.slice(index + 1)];
-          setCurrentPageIndex(index + 1);
-          toast({ title: 'עמוד שוכפל' });
-          return newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-      });
-  };
+  // ── TOC auto-regeneration ──
+  // Whenever pages change (add/delete/reorder), rebuild the TOC
+  const rebuildToc = useCallback((ps: DesignPage[]) => {
+    const tocIdx = ps.findIndex(p => p.title === 'תוכן עניינים' && p.pageType === 'custom');
+    if (tocIdx === -1) return ps;
+    const cp2 = project.projectData?.coverPage || {};
+    const student2 = people.find(p2 => p2.id === project.studentPersonId);
+    const sName = student2 ? `${student2.firstName} ${student2.lastName}` : cp2.studentName || '';
+    const sYear = cp2.grade || new Date().getFullYear().toString();
+    const sHebrew = cp2.hebrewYear || '';
+    const tmpl2 = DESIGN_TEMPLATES.find(t => t.id === (ps[tocIdx]?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
+    const newTocEls = buildTocElements(ps, tmpl2, sName, sYear, sHebrew, ps[tocIdx].pageNumber);
+    const updated = [...ps];
+    updated[tocIdx] = { ...updated[tocIdx], elements: newTocEls };
+    return updated;
+  }, [project, people, selectedTemplateId]);
 
-  const handleAddNewPage = (index: number, position: 'before' | 'after') => {
-      updatePages(currentPages => {
-          const currentPage = currentPages[currentPageIndex];
-          const newPage: DesignPage = {
-              id: uuidv4(),
-              pageNumber: 0,
-              pageType: 'custom',
-              title: 'עמוד חדש',
-              elements: [],
-              templateId: currentPage?.templateId || selectedTemplateId,
-          };
-          const newIndex = position === 'before' ? index : index + 1;
-          const newPages = [...currentPages.slice(0, newIndex), newPage, ...currentPages.slice(newIndex)];
-          setCurrentPageIndex(newIndex);
-          return newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-      });
-  };
+  const handleMovePage = useCallback((index: number, direction: 'up' | 'down') => {
+    const newPages = [...pagesRef.current];
+    if (direction === 'up' && index > 0) {
+      [newPages[index], newPages[index - 1]] = [newPages[index - 1], newPages[index]];
+      setCurrentPageIndex(index - 1);
+    } else if (direction === 'down' && index < newPages.length - 1) {
+      [newPages[index], newPages[index + 1]] = [newPages[index + 1], newPages[index]];
+      setCurrentPageIndex(index + 1);
+    }
+    const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
+    commitPages(rebuildToc(renumbered));
+  }, [commitPages, rebuildToc]);
 
-    const handleDeletePageRequest = (index: number) => {
-        setPageToDeleteIndex(index);
+  const handleDuplicatePage = useCallback((index: number) => {
+    const pageToDuplicate = pagesRef.current[index];
+    const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
+    const newPages = [...pagesRef.current.slice(0, index + 1), newPage, ...pagesRef.current.slice(index + 1)];
+    const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
+    commitPages(rebuildToc(renumbered));
+    setCurrentPageIndex(index + 1);
+    toast({ title: 'עמוד שוכפל' });
+  }, [commitPages, rebuildToc, toast]);
+
+  const handleAddNewPage = useCallback((index: number, position: 'before' | 'after') => {
+    const newPage: DesignPage = {
+      id: uuidv4(), pageNumber: 0, pageType: 'custom', title: 'עמוד חדש',
+      elements: [], templateId: currentPage?.templateId || selectedTemplateId,
     };
+    const newIndex = position === 'before' ? index : index + 1;
+    const newPages = [...pagesRef.current.slice(0, newIndex), newPage, ...pagesRef.current.slice(newIndex)];
+    const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
+    commitPages(rebuildToc(renumbered));
+    setCurrentPageIndex(newIndex);
+  }, [commitPages, rebuildToc, currentPage, selectedTemplateId]);
 
-    const confirmDeletePage = () => {
-        if (pageToDeleteIndex === null) return;
-        updatePages(ps => ps.filter((_, i) => i !== pageToDeleteIndex).map((p, i) => ({ ...p, pageNumber: i + 1 })));
-        setCurrentPageIndex(prev => Math.max(0, Math.min(prev, pages.length - 2)));
-        setSelectedIds([]);
-        setPageToDeleteIndex(null);
-        toast({ title: 'העמוד נמחק' });
-    };
+  const handleDeletePageRequest = useCallback((index: number) => { setPageToDeleteIndex(index); }, []);
 
-  const handleResetPages = () => {
+  const confirmDeletePage = useCallback(() => {
+    if (pageToDeleteIndex === null) return;
+    const newPages = pagesRef.current.filter((_, i) => i !== pageToDeleteIndex).map((p, i) => ({ ...p, pageNumber: i + 1 }));
+    commitPages(rebuildToc(newPages));
+    setCurrentPageIndex(prev => Math.max(0, Math.min(prev, newPages.length - 1)));
+    setSelectedIds([]);
+    setPageToDeleteIndex(null);
+    toast({ title: 'העמוד נמחק' });
+  }, [pageToDeleteIndex, commitPages, rebuildToc, toast]);
+
+  const handleResetPages = useCallback(() => {
     hasGeneratedRef.current = true;
     const generated = generatePagesFromProject(project, people, relationships, selectedTemplateId);
-    setPages(generated); setCurrentPageIndex(0); setSelectedIds([]);
-    onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
+    commitPages(generated);
+    setCurrentPageIndex(0); setSelectedIds([]);
     setShowResetConfirm(false);
     toast({ title: `✨ ההצגה נוצרה מחדש — ${generated.length} עמודים` });
-  };
+  }, [project, people, relationships, selectedTemplateId, commitPages, toast]);
+
+  // ── Apply global text size offset to all pages ──
+  const applyGlobalTextSize = useCallback((offset: number) => {
+    const newPages = pagesRef.current.map(pg => ({
+      ...pg,
+      elements: pg.elements.map(el => {
+        if (el.type !== 'text' || !el.style?.fontSize) return el;
+        // Store original if not already stored, then apply offset
+        const originalSize = (el as any)._originalFontSize || el.style.fontSize;
+        const newSize = Math.max(8, Math.min(120, originalSize + offset));
+        return { ...el, _originalFontSize: originalSize, style: { ...el.style, fontSize: newSize } };
+      }),
+    }));
+    commitPages(newPages);
+  }, [commitPages]);
 
   // ── Drag ──
   const handleMouseDown = (e: React.MouseEvent, el: DesignElement) => {
     if (editingElementId || activeTool !== 'select' || !canvasRef.current) return;
     e.stopPropagation();
+
+    // Line drawing mode: clicking a card sets it as connection target
+    if (activeTool === 'line' as any) {
+      if (lineDrawing) {
+        if (el.id !== lineDrawing.fromElementId) {
+          addElement({
+            type: 'connection_line',
+            fromElementId: lineDrawing.fromElementId,
+            toElementId: el.id,
+            x: 0, y: 0, width: 0, height: 0, zIndex: 2,
+            style: { color: template.primaryColor, borderWidth: 2, lineType: activeLineType } as any,
+          });
+          setLineDrawing(null);
+          setActiveTool('select');
+        }
+      } else {
+        setLineDrawing({ fromElementId: el.id });
+        toast({ title: `מ: ${el.type === 'person_card' ? 'כרטיס' : el.id.slice(0,6)} — לחץ על רכיב יעד` });
+      }
+      return;
+    }
+
     if (e.ctrlKey || e.metaKey) {
       const toggled = selectedIds.includes(el.id) ? selectedIds.filter(id => id !== el.id) : [...selectedIds, el.id];
       setSelectedIds(toggled);
@@ -1544,38 +1627,54 @@ export function RootsDesignEditor({
 
   const handleResizeMouseDown = (e: React.MouseEvent, el: DesignElement, handle: string) => {
     e.stopPropagation(); e.preventDefault();
-    isResizing.current = true; resizeHandle.current = handle;
-    resizeStart.current = { mouseX: e.clientX, mouseY: e.clientY, elX: el.x, elY: el.y, elW: el.width, elH: el.height, aspectRatio: el.width / Math.max(1, el.height) };
+    const isCorner = handle.length === 2;
+    isResizing.current = true;
+    resizeHandle.current = handle;
+    resizeStart.current = {
+      mouseX: e.clientX, mouseY: e.clientY,
+      elX: el.x, elY: el.y, elW: el.width, elH: el.height,
+      aspectRatio: el.width / Math.max(1, el.height),
+      isCorner,
+    };
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
+
     if (isResizing.current && resizeHandle.current && selectedId) {
       const dx = ((e.clientX - resizeStart.current.mouseX) / rect.width) * 100;
       const dy = ((e.clientY - resizeStart.current.mouseY) / rect.height) * 100;
       const h = resizeHandle.current;
-      const isCorner = h.length === 2;
+      const { isCorner, elX, elY, elW, elH, aspectRatio } = resizeStart.current;
+
       updateElementLocal(selectedId, () => {
-        let { elX: nx, elY: ny, elW: nw, elH: nh } = resizeStart.current;
-        const ar = resizeStart.current.aspectRatio;
+        let nx = elX, ny = elY, nw = elW, nh = elH;
+
         if (isCorner) {
-          // Corners: maintain aspect ratio
-          if (h === 'se') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / ar; }
-          else if (h === 'sw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / ar; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); }
-          else if (h === 'ne') { nw = Math.max(5, resizeStart.current.elW + dx); nh = nw / ar; ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
-          else if (h === 'nw') { nw = Math.max(5, resizeStart.current.elW - dx); nh = nw / ar; nx = resizeStart.current.elX + (resizeStart.current.elW - nw); ny = resizeStart.current.elY + (resizeStart.current.elH - nh); }
+          // Corner: scale proportionally (lock aspect ratio)
+          if (h === 'se') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; }
+          else if (h === 'sw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); }
+          else if (h === 'ne') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; ny = elY + (elH - nh); }
+          else if (h === 'nw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); ny = elY + (elH - nh); }
         } else {
-          // Sides: crop only that side, no aspect ratio lock
-          if (h === 'e') nw = Math.max(5, resizeStart.current.elW + dx);
-          if (h === 's') nh = Math.max(3, resizeStart.current.elH + dy);
-          if (h === 'w') { nw = Math.max(5, resizeStart.current.elW - dx); nx = resizeStart.current.elX + dx; }
-          if (h === 'n') { nh = Math.max(3, resizeStart.current.elH - dy); ny = resizeStart.current.elY + dy; }
+          // Side: crop only, no aspect ratio change
+          if (h === 'e') nw = Math.max(5, elW + dx);
+          else if (h === 's') nh = Math.max(3, elH + dy);
+          else if (h === 'w') { nw = Math.max(5, elW - dx); nx = elX + dx; }
+          else if (h === 'n') { nh = Math.max(3, elH - dy); ny = elY + dy; }
         }
-        return { x: Math.max(0, nx), y: Math.max(0, ny), width: Math.min(nw, 100 - Math.max(0, nx)), height: Math.min(nh, 100 - Math.max(0, ny)) };
+
+        return {
+          x: Math.max(0, nx),
+          y: Math.max(0, ny),
+          width: Math.min(nw, 100 - Math.max(0, nx)),
+          height: Math.min(nh, 100 - Math.max(0, ny)),
+        };
       });
       return;
     }
+
     if (!isDragging.current || !dragIds.current.length) return;
     const dx = ((e.clientX - dragStart.current.mouseX) / rect.width) * 100;
     const dy = ((e.clientY - dragStart.current.mouseY) / rect.height) * 100;
@@ -1587,24 +1686,26 @@ export function RootsDesignEditor({
   };
 
   const handleMouseUp = () => {
-    const was = isDragging.current || isResizing.current;
-    isDragging.current = false; dragIds.current = []; isResizing.current = false; resizeHandle.current = null;
-    if (was) {
-      const clean = JSON.parse(JSON.stringify(pagesRef.current, (_, v) => v === undefined ? null : v));
-      onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { ...proj.projectData?.designData, pages: clean } } }));
-    }
+    const wasActive = isDragging.current || isResizing.current;
+    isDragging.current = false; dragIds.current = [];
+    isResizing.current = false; resizeHandle.current = null;
+    if (wasActive) commitLocalToHistory();
   };
 
   const handleCanvasClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.id !== 'canvas-container') return;
     if (activeTool === 'text') {
-      addElement({ type: 'text', content: 'טקסט חדש', x: (e.nativeEvent.offsetX / target.offsetWidth) * 100, y: (e.nativeEvent.offsetY / target.offsetHeight) * 100, width: 20, height: 6, style: { fontSize: 18, color: template.textColor, fontFamily: template.bodyFont } });
+      addElement({ type: 'text', content: 'טקסט חדש', x: (e.nativeEvent.offsetX / target.offsetWidth) * 100, y: (e.nativeEvent.offsetY / target.offsetHeight) * 100, width: 20, height: 6, style: { fontSize: 20, color: template.textColor, fontFamily: template.bodyFont } });
       setActiveTool('select');
     } else if (activeTool === 'shape') {
       addElement({ type: 'shape', x: (e.nativeEvent.offsetX / target.offsetWidth) * 100 - 10, y: (e.nativeEvent.offsetY / target.offsetHeight) * 100 - 10, width: 20, height: 20, style: { shapeType: activeShapeType as ShapeType, backgroundColor: template.primaryColor, opacity: 0.85 } });
       setActiveTool('select');
-    } else { setSelectedIds([]); setEditingElementId(null); }
+    } else if (activeTool === 'line') {
+      toast({ title: 'בחר רכיב להתחלת הקו' });
+    } else {
+      setSelectedIds([]); setEditingElementId(null);
+    }
   };
 
   const handleContextMenu = (e: React.MouseEvent, elementId: string | null) => {
@@ -1627,13 +1728,11 @@ export function RootsDesignEditor({
     return { background: page.backgroundGradient || tmpl.backgroundGradient };
   };
 
-  // ctx menu helpers
   const copyElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; toast({ title: 'הועתק ✓' }); } };
   const cutElement = (id: string) => { const el = currentPage?.elements.find(e => e.id === id); if (el) { _clipboard = el; deleteElementById(id); setSelectedIds([]); toast({ title: 'נגזר ✓' }); } };
   const pasteElement = () => { if (!_clipboard) return; const { id: _id, ...rest } = _clipboard; addElementDirect({ ...rest, id: uuidv4(), x: Math.min((_clipboard.x || 0) + 3, 70), y: Math.min((_clipboard.y || 0) + 3, 70) }); toast({ title: 'הודבק ✓' }); };
   const resetSize = (id: string) => { updateElement(id, { width: 30, height: 30 }); toast({ title: 'גודל אופס' }); };
 
-  // Open image picker for placeholder element
   const openImagePickerForPlaceholder = (elementId: string) => {
     setImagePlaceholderTarget(elementId);
     setShowImagePicker(true);
@@ -1641,11 +1740,8 @@ export function RootsDesignEditor({
 
   const handleImageSelected = (url: string) => {
     if (imagePlaceholderTarget) {
-      // Replace placeholder with real image
       const el = currentPage?.elements.find(e => e.id === imagePlaceholderTarget);
-      if (el) {
-        updateElement(imagePlaceholderTarget, { type: 'image', content: url, style: { ...el.style, borderRadius: el.style?.borderRadius || 8 } });
-      }
+      if (el) updateElement(imagePlaceholderTarget, { type: 'image', content: url, style: { ...el.style, borderRadius: el.style?.borderRadius || 8 } });
       setImagePlaceholderTarget(null);
     } else {
       addElement({ type: 'image', content: url, x: 10, y: 10, width: 40, height: 30, zIndex: 5, style: { borderRadius: 0, opacity: 1 } });
@@ -1654,41 +1750,57 @@ export function RootsDesignEditor({
     setActiveTool('select');
   };
 
-  // SVG connection line rendering
+  // ── SVG Connection Line Renderer ──
   const renderConnectionLine = (el: DesignElement, from: DesignElement, to: DesignElement, isSel: boolean) => {
     const x1p = from.x + from.width / 2;
     const y1p = from.y + from.height;
     const x2p = to.x + to.width / 2;
     const y2p = to.y;
+    // Use element's own lineType style, falling back to 'straight'
     const lineType = (el.style as any)?.lineType || 'straight';
     const color = isSel ? '#60a5fa' : (el.style?.color || template.primaryColor);
     const sw = isSel ? (el.style?.borderWidth || 2) + 1 : (el.style?.borderWidth || 2);
-    const dashArray = lineType === 'dashed' ? '8 4' : lineType === 'dotted' ? '2 6' : undefined;
+
+    let dashArray: string | undefined;
+    if (lineType === 'dashed') dashArray = '8 4';
+    else if (lineType === 'dotted') dashArray = '2 6';
+
+    const clickProps = {
+      onClick: (e2: React.MouseEvent) => { e2.stopPropagation(); setSelectedIds([el.id]); },
+      onContextMenu: (e2: React.MouseEvent) => handleContextMenu(e2, el.id),
+      style: { cursor: 'pointer', pointerEvents: 'stroke' as any },
+    };
 
     if (lineType === 'pcb') {
-      // Right-angle PCB-style path
       const midY = (y1p + y2p) / 2;
       const d = `M ${x1p}% ${y1p}% L ${x1p}% ${midY}% L ${x2p}% ${midY}% L ${x2p}% ${y2p}%`;
       return (
-        <g key={el.id} style={{ pointerEvents: 'stroke' }} onClick={e2 => { e2.stopPropagation(); setSelectedIds([el.id]); }} onContextMenu={e2 => handleContextMenu(e2, el.id)}>
-          <path d={d} stroke="transparent" strokeWidth="12" fill="none" style={{ cursor: 'pointer' }} />
+        <g key={el.id}>
+          <path d={d} stroke="transparent" strokeWidth="12" fill="none" {...clickProps} />
           <path d={d} stroke={color} strokeWidth={sw} fill="none" markerEnd="url(#arrow)" />
         </g>
       );
     }
+
     if (lineType === 'wavy') {
-      const cx = (x1p + x2p) / 2;
-      const d = `M ${x1p}% ${y1p}% Q ${cx - 8}% ${(y1p + y2p) / 2}% ${cx}% ${(y1p + y2p) / 2}% Q ${cx + 8}% ${(y1p + y2p) / 2}% ${x2p}% ${y2p}%`;
+      // Cubic bezier for smooth wave
+      const cx1 = x1p;
+      const cy1 = (y1p + y2p) / 2;
+      const cx2 = x2p;
+      const cy2 = (y1p + y2p) / 2;
+      const d = `M ${x1p}% ${y1p}% C ${cx1}% ${cy1}% ${cx2}% ${cy2}% ${x2p}% ${y2p}%`;
       return (
-        <g key={el.id} style={{ pointerEvents: 'stroke' }} onClick={e2 => { e2.stopPropagation(); setSelectedIds([el.id]); }} onContextMenu={e2 => handleContextMenu(e2, el.id)}>
-          <path d={d} stroke="transparent" strokeWidth="12" fill="none" style={{ cursor: 'pointer' }} />
+        <g key={el.id}>
+          <path d={d} stroke="transparent" strokeWidth="12" fill="none" {...clickProps} />
           <path d={d} stroke={color} strokeWidth={sw} fill="none" markerEnd="url(#arrow)" />
         </g>
       );
     }
+
+    // Straight / dashed / dotted
     return (
-      <g key={el.id} style={{ pointerEvents: 'stroke' }} onClick={e2 => { e2.stopPropagation(); setSelectedIds([el.id]); }} onContextMenu={e2 => handleContextMenu(e2, el.id)}>
-        <line x1={`${x1p}%`} y1={`${y1p}%`} x2={`${x2p}%`} y2={`${y2p}%`} stroke="transparent" strokeWidth="12" style={{ cursor: 'pointer' }} />
+      <g key={el.id}>
+        <line x1={`${x1p}%`} y1={`${y1p}%`} x2={`${x2p}%`} y2={`${y2p}%`} stroke="transparent" strokeWidth="12" {...clickProps} />
         <line x1={`${x1p}%`} y1={`${y1p}%`} x2={`${x2p}%`} y2={`${y2p}%`} stroke={color} strokeWidth={sw} strokeDasharray={dashArray} markerEnd="url(#arrow)" />
       </g>
     );
@@ -1702,13 +1814,13 @@ export function RootsDesignEditor({
     </div>
   );
 
-  if (pages.length === 0) return (
+  if (localPages.length === 0) return (
     <div className="w-full h-full flex flex-col items-center justify-center gap-6" style={{ background: DESIGN_TEMPLATES[0].backgroundGradient }}>
       <div className="text-6xl">📄</div>
       <h2 className="text-2xl font-extrabold text-white">אין עמודים</h2>
       <div className="flex gap-3">
         <button className="px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm" onClick={handleResetPages}>✨ צור עמודים אוטומטית</button>
-        <button className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm" onClick={() => handleAddNewPage(pages.length, 'after')}>+ עמוד ריק</button>
+        <button className="px-6 py-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-sm" onClick={() => handleAddNewPage(localPages.length, 'after')}>+ עמוד ריק</button>
         <button className="px-6 py-3 rounded-xl bg-transparent border border-white/20 text-white text-sm" onClick={onBack}>← חזור</button>
       </div>
     </div>
@@ -1720,12 +1832,9 @@ export function RootsDesignEditor({
 
         {/* ══ HEADER ══ */}
         <header className="h-11 border-b border-white/10 bg-slate-900/95 backdrop-blur flex items-center justify-between px-3 gap-2 flex-shrink-0 z-20">
-          {/* Right: back + title */}
           <div className="flex items-center gap-2 min-w-0 flex-shrink-0">
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" aria-label="חזור לאשף" onClick={onBack}>
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>
             </TooltipTrigger><TooltipContent side="bottom"><p>חזור לאשף עבודת השורשים</p></TooltipContent></Tooltip>
             <span className="text-sm font-bold truncate hidden sm:block">עורך העיצוב</span>
           </div>
@@ -1735,7 +1844,7 @@ export function RootsDesignEditor({
             <DropdownMenu>
               <Tooltip><TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20 flex-shrink-0" aria-label="שנה יחס מידות הדף">
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20 flex-shrink-0">
                     {canvasAspectRatio === 'a4-landscape' ? 'A4 ←→' : canvasAspectRatio === 'a4-portrait' ? 'A4 ↕' : canvasAspectRatio === '16:9-landscape' ? '16:9' : canvasAspectRatio === '9/16' ? '9:16' : '1:1'}
                   </Button>
                 </DropdownMenuTrigger>
@@ -1755,24 +1864,27 @@ export function RootsDesignEditor({
           {/* Center tools */}
           <div className="flex items-center gap-0.5 flex-shrink-0">
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20" aria-label="בחר תבנית עיצוב" onClick={() => setShowTemplatePicker(true)}>🎨 תבנית</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20" onClick={() => setShowTemplatePicker(true)}>🎨 תבנית</Button>
             </TooltipTrigger><TooltipContent side="bottom"><p>בחר תבנית עיצוב</p></TooltipContent></Tooltip>
             <div className="h-4 w-px bg-white/10 mx-1" />
             {([
-              ['select', <MousePointer2 key="s" className="h-3.5 w-3.5" />, 'כלי בחירה — Ctrl+לחיצה לבחירה מרובה'],
-              ['text', <Type key="t" className="h-3.5 w-3.5" />, 'הוסף תיבת טקסט — לחץ על הדף'],
+              ['select', <MousePointer2 key="s" className="h-3.5 w-3.5" />, 'כלי בחירה'],
+              ['text', <Type key="t" className="h-3.5 w-3.5" />, 'הוסף תיבת טקסט'],
               ['shape', <Square key="sh" className="h-3.5 w-3.5" />, 'הוסף צורה גיאומטרית'],
-              ['person', <User key="p" className="h-3.5 w-3.5" />, 'הוסף כרטיס אדם מהמשפחה'],
+              ['person', <User key="p" className="h-3.5 w-3.5" />, 'הוסף כרטיס אדם'],
               ['image', <ImageIcon key="i" className="h-3.5 w-3.5" />, 'הוסף תמונה'],
               ['icon', <Smile key="ic" className="h-3.5 w-3.5" />, 'הוסף אמוג׳י'],
+              ['line', <Spline key="ln" className="h-3.5 w-3.5" />, 'צייר קו חיבור בין רכיבים'],
             ] as const).map(([tool, icon, tip]) => (
               <Tooltip key={tool}><TooltipTrigger asChild>
-                <Button variant={activeTool === tool ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" aria-label={tip}
+                <Button
+                  variant={activeTool === tool ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7"
                   onClick={() => {
                     if (tool === 'shape') { setShowShapePicker(true); setActiveTool('shape'); }
                     else if (tool === 'person') { setActiveTool('person'); setShowPersonPicker(true); }
                     else if (tool === 'image') { setActiveTool('image'); setImagePlaceholderTarget(null); setShowImagePicker(true); }
                     else if (tool === 'icon') { setActiveTool('icon'); setShowEmojiPicker(true); }
+                    else if (tool === 'line') { setActiveTool('line'); setLineDrawing(null); toast({ title: 'כלי קו — לחץ על רכיב מקור, ואז על רכיב יעד' }); }
                     else setActiveTool(tool as any);
                   }}>
                   {icon}
@@ -1780,25 +1892,45 @@ export function RootsDesignEditor({
               </TooltipTrigger><TooltipContent side="bottom"><p>{tip}</p></TooltipContent></Tooltip>
             ))}
             <div className="h-4 w-px bg-white/10 mx-1" />
+            {/* Line style for line tool */}
+            {activeTool === 'line' && (
+              <div className="flex gap-0.5 flex-shrink-0">
+                {LINE_TYPES.map(lt => (
+                  <Tooltip key={lt.id}><TooltipTrigger asChild>
+                    <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                      onClick={() => setActiveLineType(lt.id)}>
+                      {lt.label}
+                    </button>
+                  </TooltipTrigger><TooltipContent side="bottom"><p>{lt.label}</p></TooltipContent></Tooltip>
+                ))}
+              </div>
+            )}
             {/* Layers button */}
             <Tooltip><TooltipTrigger asChild>
-              <Button variant={showLayers ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" aria-label="הצג שכבות" onClick={() => setShowLayers(!showLayers)}>
+              <Button variant={showLayers ? 'secondary' : 'ghost'} size="icon" className="h-7 w-7" onClick={() => setShowLayers(!showLayers)}>
                 <Layers className="h-3.5 w-3.5" />
               </Button>
-            </TooltipTrigger><TooltipContent side="bottom"><p>לוח שכבות — כל האלמנטים בעמוד</p></TooltipContent></Tooltip>
+            </TooltipTrigger><TooltipContent side="bottom"><p>לוח שכבות</p></TooltipContent></Tooltip>
+            {/* Undo/Redo */}
+            <Tooltip><TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={undo} disabled={!canUndo}><Undo2 className="h-3.5 w-3.5" /></Button>
+            </TooltipTrigger><TooltipContent side="bottom"><p>בטל (Ctrl+Z)</p></TooltipContent></Tooltip>
+            <Tooltip><TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={redo} disabled={!canRedo}><Redo2 className="h-3.5 w-3.5" /></Button>
+            </TooltipTrigger><TooltipContent side="bottom"><p>בצע שוב (Ctrl+Y)</p></TooltipContent></Tooltip>
           </div>
 
           {/* Left */}
           <div className="flex items-center gap-1 flex-shrink-0">
             <Tooltip><TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20 text-slate-300 hover:text-white" aria-label="צור מחדש את כל ההצגה" onClick={() => setShowResetConfirm(true)}>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-transparent border-white/20 text-slate-300 hover:text-white" onClick={() => setShowResetConfirm(true)}>
                 <RefreshCw className="h-3 w-3 ml-1" />צור מחדש
               </Button>
             </TooltipTrigger><TooltipContent side="bottom"><p>מחק הכל ויצור מחדש מהנתונים שלך</p></TooltipContent></Tooltip>
             <DropdownMenu>
               <Tooltip><TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="default" size="sm" className="h-7 px-3 text-xs bg-indigo-600 hover:bg-indigo-500" aria-label="ייצא את ההצגה">ייצא ▾</Button>
+                  <Button variant="default" size="sm" className="h-7 px-3 text-xs bg-indigo-600 hover:bg-indigo-500">ייצא ▾</Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger><TooltipContent side="bottom"><p>ייצא את ההצגה לקובץ</p></TooltipContent></Tooltip>
               <DropdownMenuContent>
@@ -1813,32 +1945,30 @@ export function RootsDesignEditor({
         {/* ══ MAIN ══ */}
         <div className="flex-1 flex min-h-0 overflow-hidden">
 
-          {/* Thumbnails — LEFT side (RTL: visually right in page, but DOM left so canvas isn't cut off) */}
+          {/* Thumbnails */}
           <aside className="w-[120px] flex-shrink-0 border-r border-white/8 bg-slate-900/60 flex flex-col overflow-hidden" style={{ order: 1 }}>
             <div className="flex-1 overflow-y-auto p-1.5 space-y-1.5">
-              {pages.map((page, index) => {
+              {localPages.map((page, index) => {
                 const pt = DESIGN_TEMPLATES.find(t => t.id === page.templateId) || template;
                 return (
-                  <div key={page.id} title={`עמוד ${index + 1}: ${page.title}`}
+                  <div key={page.id}
                     className={cn('relative w-full rounded cursor-pointer border-2 group overflow-hidden transition-all', currentPageIndex === index ? 'border-indigo-500' : 'border-transparent hover:border-white/20')}
                     style={{ aspectRatio: canvasAspectRatio === 'a4-portrait' ? '1/1.414' : canvasAspectRatio === '9/16' ? '9/16' : canvasAspectRatio === '1:1' ? '1/1' : '1.414/1' }}
                     onClick={() => setCurrentPageIndex(index)}
-                    onContextMenu={(e) => { e.preventDefault(); setThumbnailCtxMenu({ x: e.clientX, y: e.clientY, index }); }}
-                  >
+                    onContextMenu={e => { e.preventDefault(); setThumbnailCtxMenu({ x: e.clientX, y: e.clientY, index }); }}>
                     <div className="absolute inset-0" style={getPageBackground(page, pt)} />
                     {page.elements.filter(el => el.type === 'text').slice(0, 3).map((el, i) => (
                       <div key={`t-${page.id}-${el.id}-${i}`} className="absolute overflow-hidden"
-                        style={{ top: `${el.y}%`, left: `${el.x}%`, width: `${el.width}%`, fontSize: 3, color: pt.textColor, fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : el.style?.fontWeight === 'bold' ? 700 : 400, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                        style={{ top: `${el.y}%`, left: `${el.x}%`, width: `${el.width}%`, fontSize: 3, color: pt.textColor, fontWeight: el.style?.fontWeight === 'extrabold' ? 800 : 400, lineHeight: 1.2, whiteSpace: 'nowrap' }}>
                         {(el.content || '').slice(0, 20)}
                       </div>
                     ))}
                     {page.elements.filter(el => ['person_card', 'shape', 'image'].includes(el.type)).map((el, i) => (
                       <div key={`e-${page.id}-${el.id}-${i}`} className="absolute rounded-sm"
-                        style={{ top: `${el.y}%`, left: `${el.x}%`, width: `${el.width}%`, height: `${el.height}%`, backgroundColor: el.type === 'person_card' ? (el.style?.backgroundColor || pt.cardBackground) : el.type === 'shape' ? (el.style?.backgroundColor || pt.primaryColor) : 'rgba(255,255,255,0.2)', backgroundImage: el.type === 'image' && el.content ? `url(${el.content})` : undefined, backgroundSize: 'cover', opacity: 0.8 }} />
+                        style={{ top: `${el.y}%`, left: `${el.x}%`, width: `${el.width}%`, height: `${el.height}%`, backgroundColor: el.type === 'shape' ? (el.style?.backgroundColor || pt.primaryColor) : 'rgba(255,255,255,0.2)', backgroundImage: el.type === 'image' && el.content ? `url(${el.content})` : undefined, backgroundSize: 'cover', opacity: 0.8 }} />
                     ))}
                     <span className="absolute bottom-0.5 left-0.5 text-white/50 font-bold" style={{ fontSize: 5 }}>{page.pageNumber}</span>
-                    <button title={`מחק עמוד "${page.title}"`} aria-label={`מחק עמוד ${index + 1}`}
-                      className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 hover:bg-red-600"
+                    <button className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-20 hover:bg-red-600"
                       style={{ fontSize: 8 }}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
                       onClick={e => { e.stopPropagation(); handleDeletePageRequest(index); }}>✕</button>
@@ -1847,35 +1977,37 @@ export function RootsDesignEditor({
               })}
             </div>
             <div className="border-t border-white/8 p-1.5 space-y-1.5">
-              <input className="w-full text-[10px] bg-slate-800 border border-white/10 rounded px-1.5 py-1 text-center text-white focus:outline-none focus:border-indigo-400" value={currentPage?.title || ''} onChange={e => updateCurrentPage(p => ({ ...p, title: e.target.value }))} dir="rtl" placeholder="שם עמוד" title="שנה שם לעמוד" />
-              <button title="הוסף עמוד ריק חדש" aria-label="הוסף עמוד חדש" onClick={() => handleAddNewPage(pages.length, 'after')} className="w-full text-[10px] py-1 rounded border border-dashed border-white/20 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-colors">+ עמוד חדש</button>
+              <input className="w-full text-[10px] bg-slate-800 border border-white/10 rounded px-1.5 py-1 text-center text-white focus:outline-none focus:border-indigo-400"
+                value={currentPage?.title || ''} onChange={e => updateCurrentPage(p => ({ ...p, title: e.target.value }))} dir="rtl" placeholder="שם עמוד" />
+              <button onClick={() => handleAddNewPage(localPages.length, 'after')} className="w-full text-[10px] py-1 rounded border border-dashed border-white/20 text-slate-400 hover:border-indigo-400 hover:text-indigo-400 transition-colors">+ עמוד חדש</button>
             </div>
           </aside>
 
           {/* Canvas */}
           <main className="flex-1 flex items-center justify-center bg-[#13131f] overflow-hidden relative"
-            style={{ order: 0 }}
+            style={{ order: 0, cursor: activeTool === 'line' ? 'crosshair' : 'default' }}
             onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}
             onContextMenu={e => handleContextMenu(e, null)}>
 
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg,#333 25%,transparent 25%),linear-gradient(-45deg,#333 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#333 75%),linear-gradient(-45deg,transparent 75%,#333 75%)', backgroundSize: '16px 16px', backgroundPosition: '0 0,0 8px,8px -8px,-8px 0' }} />
 
-            {activeTool === 'select' && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] text-slate-500 pointer-events-none select-none z-10 bg-black/30 px-2 py-0.5 rounded-full">
-                Ctrl+לחיצה לבחירה מרובה · לחץ פעמיים לעריכת טקסט
+            {activeTool === 'line' && lineDrawing && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-yellow-300 pointer-events-none z-10 bg-black/50 px-3 py-1 rounded-full">
+                ✓ מקור נבחר — עכשיו לחץ על רכיב היעד. ESC לביטול.
+              </div>
+            )}
+            {activeTool === 'line' && !lineDrawing && (
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-indigo-300 pointer-events-none z-10 bg-black/50 px-3 py-1 rounded-full">
+                לחץ על רכיב מקור לצייר קו חיבור
               </div>
             )}
 
             {/* Layers panel */}
             {showLayers && (
-              <LayersPanel
-                page={currentPage}
-                selectedIds={selectedIds}
+              <LayersPanel page={currentPage} selectedIds={selectedIds}
                 onSelect={id => setSelectedIds([id])}
                 onDelete={id => { deleteElementById(id); setSelectedIds(s => s.filter(x => x !== id)); }}
-                onToggleVisibility={() => {}}
-                onClose={() => setShowLayers(false)}
-              />
+                onClose={() => setShowLayers(false)} />
             )}
 
             <div className="relative shadow-2xl" style={{ ...getCanvasStyle(), display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1884,35 +2016,42 @@ export function RootsDesignEditor({
 
                 <TemplateDecorations template={template} />
 
-                {/* SVG lines */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 2 }}>
+                {/* SVG connection lines */}
+                <svg className="absolute inset-0 w-full h-full" style={{ zIndex: 2, pointerEvents: 'none' }}>
                   <defs>
                     <marker id="arrow" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
                       <polygon points="0 0,8 3,0 6" fill={template.primaryColor} />
                     </marker>
                   </defs>
-                  {currentPage?.elements.filter(el => el.type === 'connection_line').map(el => {
-                    const from = currentPage.elements.find(e => e.id === el.fromElementId);
-                    const to = currentPage.elements.find(e => e.id === el.toElementId);
-                    if (!from || !to) return null;
-                    return renderConnectionLine(el, from, to, selectedIds.includes(el.id));
-                  })}
+                  <g style={{ pointerEvents: 'all' }}>
+                    {currentPage?.elements.filter(el => el.type === 'connection_line').map(el => {
+                      const from = currentPage.elements.find(e => e.id === el.fromElementId);
+                      const to = currentPage.elements.find(e => e.id === el.toElementId);
+                      if (!from || !to) return null;
+                      return renderConnectionLine(el, from, to, selectedIds.includes(el.id));
+                    })}
+                  </g>
                 </svg>
 
                 {/* Elements */}
-                {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el, elIndex) => {
+                {currentPage?.elements.filter(el => el.type !== 'connection_line').map((el) => {
                   const isSel = selectedIds.includes(el.id);
                   return (
                     <div key={`el-${currentPageIndex}-${el.id}`}
-                      title={el.type === 'text' ? (el.content || '').slice(0, 40) : el.type === 'person_card' ? `כרטיס: ${people.find(p => p.id === el.personId)?.firstName || 'אדם'}` : el.type}
-                      className={cn('absolute', isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '', activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '')}
+                      className={cn('absolute', isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '', activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '', activeTool === 'line' ? 'cursor-crosshair' : '')}
                       style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, height: `${el.height}%`, zIndex: (el.zIndex || 1) + 3 }}
                       onMouseDown={e => handleMouseDown(e, el)}
                       onContextMenu={e => handleContextMenu(e, el.id)}>
 
+                      {/* Resize handles — corner vs side styled differently */}
                       {isSel && activeTool === 'select' && selectedIds.length === 1 && HANDLES.map(h => (
-                        <div key={h.id} title={h.title} aria-label={h.title} onMouseDown={ev => handleResizeMouseDown(ev, el, h.id)}
-                          className="absolute w-[10px] h-[10px] bg-white border-2 border-blue-500 rounded-sm z-50 hover:bg-blue-100"
+                        <div key={h.id} onMouseDown={ev => handleResizeMouseDown(ev, el, h.id)}
+                          className={cn(
+                            'absolute z-50 hover:scale-125 transition-transform',
+                            h.isCorner
+                              ? 'w-[10px] h-[10px] bg-white border-2 border-blue-500 rounded-sm'
+                              : 'w-[8px] h-[8px] bg-blue-300 border border-blue-600 rounded-full'
+                          )}
                           style={{ ...h.style, cursor: h.cursor, position: 'absolute' }} />
                       ))}
                       {isSel && selectedIds.length > 1 && (
@@ -1934,7 +2073,7 @@ export function RootsDesignEditor({
                         )
                       )}
 
-                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} scaleFactor={getScaleFactor(el)} />}
+                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
 
                       {el.type === 'image' && el.content && (
                         <div className="w-full h-full overflow-hidden" style={{ borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : 0, border: el.style?.borderWidth ? `${el.style.borderWidth}px solid ${el.style.borderColor || '#fff'}` : undefined }}>
@@ -1964,13 +2103,12 @@ export function RootsDesignEditor({
               <div className="absolute top-0 left-0 h-full w-60 bg-slate-800 border-r border-white/10 z-40 flex flex-col shadow-2xl" dir="rtl">
                 <div className="p-2.5 border-b border-white/10 flex items-center justify-between">
                   <h3 className="font-bold text-xs">הוסף כרטיס אדם</h3>
-                  <button aria-label="סגור" onClick={() => { setShowPersonPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white text-lg leading-none">✕</button>
+                  <button onClick={() => { setShowPersonPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white text-lg leading-none">✕</button>
                 </div>
                 <input className="m-2 px-2.5 py-1.5 bg-slate-700 rounded-lg text-xs text-right placeholder:text-slate-500 border border-white/10 focus:outline-none" placeholder="חפש שם..." value={personSearch} onChange={e => setPersonSearch(e.target.value)} dir="rtl" />
                 <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
                   {people.filter(p => `${p.firstName} ${p.lastName}`.toLowerCase().includes(personSearch.toLowerCase())).map(person => (
-                    <button key={person.id} title={`הוסף כרטיס של ${person.firstName} ${person.lastName}`}
-                      onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 28, height: 36, zIndex: 10 }); setShowPersonPicker(false); setActiveTool('select'); }}
+                    <button key={person.id} onClick={() => { addElement({ type: 'person_card', personId: person.id, x: 20, y: 20, width: 28, height: 36, zIndex: 10 }); setShowPersonPicker(false); setActiveTool('select'); }}
                       className="w-full flex items-center gap-2 p-1.5 rounded hover:bg-white/10 text-right">
                       <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
                         <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-full h-full object-cover" />
@@ -1985,17 +2123,15 @@ export function RootsDesignEditor({
               </div>
             )}
 
-            {/* Image picker */}
             {showImagePicker && (
               <ImagePickerModal treeId={project.treeId} onSelect={handleImageSelected} onClose={() => { setShowImagePicker(false); setImagePlaceholderTarget(null); setActiveTool('select'); }} />
             )}
 
-            {/* Emoji picker */}
             {showEmojiPicker && (
               <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => { setShowEmojiPicker(false); setActiveTool('select'); }}>
                 <div className="bg-slate-800 rounded-2xl p-4 w-72 shadow-2xl border border-white/10" onClick={e => e.stopPropagation()} dir="rtl">
                   <div className="flex items-center justify-between mb-3">
-                    <button aria-label="סגור" onClick={() => { setShowEmojiPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
+                    <button onClick={() => { setShowEmojiPicker(false); setActiveTool('select'); }} className="text-slate-400 hover:text-white">✕</button>
                     <h3 className="font-bold text-sm">הוסף אמוג׳י</h3>
                   </div>
                   <input className="w-full px-3 py-1.5 bg-slate-700 rounded-lg text-sm text-center placeholder:text-slate-500 border border-white/10 focus:outline-none mb-3" placeholder="הקלד אמוג׳י..." value={emojiInput} onChange={e => setEmojiInput(e.target.value)} />
@@ -2006,7 +2142,8 @@ export function RootsDesignEditor({
                     ))}
                   </div>
                   {emojiInput && (
-                    <button className="w-full mt-2 p-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm font-bold" onClick={() => { addElement({ type: 'icon', content: emojiInput, x: 40, y: 40, width: 10, height: 10, style: { fontSize: 32 }, zIndex: 15 }); setShowEmojiPicker(false); setActiveTool('select'); }}>
+                    <button className="w-full mt-2 p-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm font-bold"
+                      onClick={() => { addElement({ type: 'icon', content: emojiInput, x: 40, y: 40, width: 10, height: 10, style: { fontSize: 32 }, zIndex: 15 }); setShowEmojiPicker(false); setActiveTool('select'); }}>
                       הוסף: {emojiInput}
                     </button>
                   )}
@@ -2043,16 +2180,11 @@ export function RootsDesignEditor({
                 )}
               </div>
             )}
-            
+
             {thumbnailCtxMenu && (
-              <ThumbnailContextMenu
-                menu={thumbnailCtxMenu}
-                onClose={() => setThumbnailCtxMenu(null)}
-                onMove={handleMovePage}
-                onDuplicate={handleDuplicatePage}
-                onAdd={handleAddNewPage}
-                onDelete={handleDeletePageRequest}
-              />
+              <ThumbnailContextMenu menu={thumbnailCtxMenu} onClose={() => setThumbnailCtxMenu(null)}
+                onMove={handleMovePage} onDuplicate={handleDuplicatePage}
+                onAdd={handleAddNewPage} onDelete={handleDeletePageRequest} />
             )}
           </main>
         </div>
@@ -2061,7 +2193,7 @@ export function RootsDesignEditor({
         <div className="h-10 border-t border-white/10 bg-slate-900/90 backdrop-blur flex-shrink-0 flex items-center gap-1.5 px-3 overflow-x-auto overflow-y-hidden" style={{ minWidth: 0 }}>
 
           <span className="text-[10px] text-slate-500 whitespace-nowrap flex-shrink-0 w-14 text-right">
-            {selectedElement ? (selectedElement.type === 'text' ? '✏️ טקסט' : selectedElement.type === 'person_card' ? '👤 כרטיס' : selectedElement.type === 'shape' ? '◼ צורה' : selectedElement.type === 'image' ? '🖼 תמונה' : selectedElement.type === 'icon' ? '😊 סמל' : selectedElement.type === 'connection_line' ? '↔ קו' : selectedElement.type === 'photo_placeholder' ? '📷 תמונה' : '?') : selectedIds.length > 1 ? `${selectedIds.length} נבחרו` : '📄 עמוד'}
+            {selectedElement ? (selectedElement.type === 'text' ? '✏️ טקסט' : selectedElement.type === 'person_card' ? '👤 כרטיס' : selectedElement.type === 'shape' ? '◼ צורה' : selectedElement.type === 'image' ? '🖼 תמונה' : selectedElement.type === 'icon' ? '😊 סמל' : selectedElement.type === 'connection_line' ? '↔ קו' : '📷') : selectedIds.length > 1 ? `${selectedIds.length} נבחרו` : '📄 עמוד'}
           </span>
           <div className="w-px h-6 bg-white/10 flex-shrink-0" />
 
@@ -2070,54 +2202,40 @@ export function RootsDesignEditor({
             <div className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[10px] text-slate-400">רקע:</span>
               <div className="flex border border-white/10 rounded overflow-hidden">
-                <button title="צבע רקע אחיד" onClick={() => setBgMode('solid')} className={cn('text-[10px] px-1.5 py-0.5', bgMode === 'solid' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5')}>אחיד</button>
-                <button title="רקע גרדיאנט" onClick={() => setBgMode('gradient')} className={cn('text-[10px] px-1.5 py-0.5', bgMode === 'gradient' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5')}>גרדיאנט</button>
+                <button onClick={() => setBgMode('solid')} className={cn('text-[10px] px-1.5 py-0.5', bgMode === 'solid' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5')}>אחיד</button>
+                <button onClick={() => setBgMode('gradient')} className={cn('text-[10px] px-1.5 py-0.5', bgMode === 'gradient' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-white/5')}>גרדיאנט</button>
               </div>
             </div>
             {bgMode === 'solid' ? (
-              <Tooltip><TooltipTrigger asChild>
-                <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 bg-transparent flex-shrink-0"
-                  value={(currentPage as any).backgroundColor || template.backgroundColor}
-                  onChange={e => updateCurrentPage(p => ({ ...p, backgroundColor: e.target.value, backgroundGradient: undefined as any }))} />
-              </TooltipTrigger><TooltipContent side="top"><p>צבע רקע אחיד</p></TooltipContent></Tooltip>
+              <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 bg-transparent flex-shrink-0"
+                value={(currentPage as any).backgroundColor || template.backgroundColor}
+                onChange={e => updateCurrentPage(p => ({ ...p, backgroundColor: e.target.value, backgroundGradient: undefined as any }))} />
             ) : (
               <div className="flex items-center gap-1 flex-shrink-0">
-                <Tooltip><TooltipTrigger asChild>
-                  <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 bg-transparent" value={gradientFrom}
-                    onChange={e => { setGradientFrom(e.target.value); updateCurrentPage(p => ({ ...p, backgroundGradient: `linear-gradient(135deg, ${e.target.value} 0%, ${gradientTo} 100%)`, backgroundColor: undefined as any })); }} />
-                </TooltipTrigger><TooltipContent side="top"><p>צבע התחלה</p></TooltipContent></Tooltip>
+                <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 bg-transparent" value={gradientFrom}
+                  onChange={e => { setGradientFrom(e.target.value); updateCurrentPage(p => ({ ...p, backgroundGradient: `linear-gradient(135deg, ${e.target.value} 0%, ${gradientTo} 100%)`, backgroundColor: undefined as any })); }} />
                 <span className="text-[10px] text-slate-500">→</span>
-                <Tooltip><TooltipTrigger asChild>
-                  <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 bg-transparent" value={gradientTo}
-                    onChange={e => { setGradientTo(e.target.value); updateCurrentPage(p => ({ ...p, backgroundGradient: `linear-gradient(135deg, ${gradientFrom} 0%, ${e.target.value} 100%)`, backgroundColor: undefined as any })); }} />
-                </TooltipTrigger><TooltipContent side="top"><p>צבע סיום</p></TooltipContent></Tooltip>
+                <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 bg-transparent" value={gradientTo}
+                  onChange={e => { setGradientTo(e.target.value); updateCurrentPage(p => ({ ...p, backgroundGradient: `linear-gradient(135deg, ${gradientFrom} 0%, ${e.target.value} 100%)`, backgroundColor: undefined as any })); }} />
               </div>
             )}
             <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            <Tooltip><TooltipTrigger asChild>
-              <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-[10px] text-slate-400 hover:border-indigo-400 flex-shrink-0">
-                <ImageIcon className="w-3 h-3" />רקע תמונה
-                <input type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = ev => updateCurrentPage(p => ({ ...p, backgroundImage: ev.target?.result as string } as any)); reader.readAsDataURL(file); }} />
-              </label>
-            </TooltipTrigger><TooltipContent side="top"><p>תמונת רקע לעמוד</p></TooltipContent></Tooltip>
+            <label className="cursor-pointer flex items-center gap-1 px-2 py-1 border border-dashed border-white/20 rounded text-[10px] text-slate-400 hover:border-indigo-400 flex-shrink-0">
+              <ImageIcon className="w-3 h-3" />רקע תמונה
+              <input type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = ev => updateCurrentPage(p => ({ ...p, backgroundImage: ev.target?.result as string } as any)); reader.readAsDataURL(file); }} />
+            </label>
             {(currentPage as any).backgroundImage && (
               <button className="text-[10px] text-red-400 hover:text-red-300 flex-shrink-0" onClick={() => updateCurrentPage(p => ({ ...p, backgroundImage: undefined } as any))}>✕ הסר</button>
             )}
           </>)}
 
-          {/* MULTI-SELECT controls — uses updateMultipleElements for correct batch alignment */}
+          {/* MULTI-SELECT controls */}
           {selectedIds.length > 1 && (<>
-            <Tooltip><TooltipTrigger asChild>
-              <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-red-500 text-red-300 flex-shrink-0"
-                onClick={() => { selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]); }}>
-                🗑 מחק ({selectedIds.length})
-              </button>
-            </TooltipTrigger><TooltipContent side="top"><p>מחק כל האלמנטים הנבחרים</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild>
-              <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => selectedIds.forEach(id => duplicateElementById(id))}>⎘ שכפל</button>
-            </TooltipTrigger><TooltipContent side="top"><p>שכפל כל האלמנטים הנבחרים</p></TooltipContent></Tooltip>
-
-            {/* Alignment — all use updateMultipleElements to batch-update ALL selected */}
+            <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-red-500 text-red-300 flex-shrink-0"
+              onClick={() => { selectedIds.forEach(id => deleteElementById(id)); setSelectedIds([]); }}>
+              🗑 מחק ({selectedIds.length})
+            </button>
+            <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => selectedIds.forEach(id => duplicateElementById(id))}>⎘ שכפל</button>
             {[
               { l: '⊣', t: 'יישר לשמאל', a: () => updateMultipleElements(selectedIds, () => ({ x: 0 })) },
               { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - el.width })) },
@@ -2127,61 +2245,44 @@ export function RootsDesignEditor({
               { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - el.height / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
-                <button title={t} aria-label={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
+                <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
               </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
             ))}
           </>)}
 
           {/* TEXT controls */}
           {selectedElement?.type === 'text' && (<>
-            <Tooltip><TooltipTrigger asChild>
-              <button className="flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded border border-white/15 bg-slate-800 hover:border-indigo-400 text-xs max-w-[130px] truncate" onClick={() => setShowFontPicker(true)}>
-                <Type className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                <span className="truncate" style={{ fontFamily: selectedElement.style?.fontFamily || template.bodyFont }}>
-                  {selectedElement.style?.fontFamily || template.bodyFont || 'Assistant'}
-                </span>
-              </button>
-            </TooltipTrigger><TooltipContent side="top"><p>בחר גופן לטקסט</p></TooltipContent></Tooltip>
-
-            <Tooltip><TooltipTrigger asChild>
-              <input type="number" min={6} max={120} className="w-12 text-[10px] bg-slate-800 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none flex-shrink-0"
-                value={selectedElement.style?.fontSize || 16}
-                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) } })} />
-            </TooltipTrigger><TooltipContent side="top"><p>גודל גופן</p></TooltipContent></Tooltip>
-
+            <button className="flex-shrink-0 flex items-center gap-1.5 px-2 py-1 rounded border border-white/15 bg-slate-800 hover:border-indigo-400 text-xs max-w-[130px] truncate" onClick={() => setShowFontPicker(true)}>
+              <Type className="w-3 h-3 text-slate-400 flex-shrink-0" />
+              <span className="truncate" style={{ fontFamily: selectedElement.style?.fontFamily || template.bodyFont }}>
+                {selectedElement.style?.fontFamily || template.bodyFont || 'Assistant'}
+              </span>
+            </button>
+            <input type="number" min={6} max={120} className="w-12 text-[10px] bg-slate-800 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none flex-shrink-0"
+              value={selectedElement.style?.fontSize || 20}
+              onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) } })} />
             <div className="flex gap-0.5 flex-shrink-0">
               {(['normal','bold','extrabold'] as const).map((w, i) => (
-                <Tooltip key={w}><TooltipTrigger asChild>
-                  <button onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, fontWeight: w } })}
-                    className={cn('text-[10px] w-7 h-7 rounded border font-bold', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                    style={{ fontWeight: w === 'extrabold' ? 900 : w === 'bold' ? 700 : 400 }}>
-                    {['R','B','BB'][i]}
-                  </button>
-                </TooltipTrigger><TooltipContent side="top"><p>{['רגיל','מודגש','מודגש מאוד'][i]}</p></TooltipContent></Tooltip>
+                <button key={w} onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, fontWeight: w } })}
+                  className={cn('text-[10px] w-7 h-7 rounded border font-bold', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                  style={{ fontWeight: w === 'extrabold' ? 900 : w === 'bold' ? 700 : 400 }}>
+                  {['R','B','BB'][i]}
+                </button>
               ))}
             </div>
-
             <div className="flex gap-0.5 flex-shrink-0">
               {([['right', <AlignRight key="r" className="w-3 h-3" />], ['center', <AlignCenter key="c" className="w-3 h-3" />], ['left', <AlignLeft key="l" className="w-3 h-3" />]] as const).map(([a, icon]) => (
-                <Tooltip key={a as string}><TooltipTrigger asChild>
-                  <button onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, textAlign: a as TextAlign } })}
-                    className={cn('w-7 h-7 flex items-center justify-center rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}>{icon}</button>
-                </TooltipTrigger><TooltipContent side="top"><p>יישור {a === 'right' ? 'ימין' : a === 'center' ? 'מרכז' : 'שמאל'}</p></TooltipContent></Tooltip>
+                <button key={a as string} onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, textAlign: a as TextAlign } })}
+                  className={cn('w-7 h-7 flex items-center justify-center rounded border', selectedElement.style?.textAlign === a ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}>{icon}</button>
               ))}
             </div>
-
-            <Tooltip><TooltipTrigger asChild>
-              <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
-                value={selectedElement.style?.color || '#ffffff'}
-                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
-            </TooltipTrigger><TooltipContent side="top"><p>צבע טקסט</p></TooltipContent></Tooltip>
-
+            <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
+              value={selectedElement.style?.color || '#ffffff'}
+              onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
             <div className="flex gap-0.5 flex-shrink-0">
               {['#ffffff','#000000','#818cf8','#14b8a6','#f59e0b','#ef4444'].map(c => (
-                <Tooltip key={c}><TooltipTrigger asChild>
-                  <button className="w-4 h-4 rounded-full border border-white/20 hover:scale-125 transition-transform flex-shrink-0" style={{ backgroundColor: c }}
-                    onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, color: c } })} />
-                </TooltipTrigger><TooltipContent side="top"><p>{c}</p></TooltipContent></Tooltip>
+                <button key={c} className="w-4 h-4 rounded-full border border-white/20 hover:scale-125 transition-transform flex-shrink-0" style={{ backgroundColor: c }}
+                  onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, color: c } })} />
               ))}
             </div>
           </>)}
@@ -2194,83 +2295,62 @@ export function RootsDesignEditor({
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) } })} />
               <span className="text-[10px] text-slate-500">{Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</span>
             </div>
-            <Tooltip><TooltipTrigger asChild>
-              <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
-                value={selectedElement.style?.backgroundColor?.startsWith('#') ? selectedElement.style.backgroundColor : '#1e293b'}
-                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, backgroundColor: e.target.value } })} />
-            </TooltipTrigger><TooltipContent side="top"><p>צבע רקע כרטיס</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild>
-              <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
-                value={selectedElement.style?.color || '#ffffff'}
-                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
-            </TooltipTrigger><TooltipContent side="top"><p>צבע טקסט כרטיס</p></TooltipContent></Tooltip>
+            <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
+              value={selectedElement.style?.backgroundColor?.startsWith('#') ? selectedElement.style.backgroundColor : '#1e293b'}
+              onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, backgroundColor: e.target.value } })} />
+            <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
+              value={selectedElement.style?.color || '#ffffff'}
+              onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
           </>)}
 
           {/* SHAPE controls */}
           {selectedElement?.type === 'shape' && (<>
-            <Tooltip><TooltipTrigger asChild>
-              <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
-                value={selectedElement.style?.backgroundColor || template.primaryColor}
-                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, backgroundColor: e.target.value } })} />
-            </TooltipTrigger><TooltipContent side="top"><p>צבע הצורה</p></TooltipContent></Tooltip>
+            <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
+              value={selectedElement.style?.backgroundColor || template.primaryColor}
+              onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, backgroundColor: e.target.value } })} />
             <div className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[10px] text-slate-400">שקיפות:</span>
-              <input type="range" min={0} max={1} step={0.05} className="w-16"
-                value={selectedElement.style?.opacity ?? 1}
+              <input type="range" min={0} max={1} step={0.05} className="w-16" value={selectedElement.style?.opacity ?? 1}
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) } })} />
             </div>
-            <Tooltip><TooltipTrigger asChild>
-              <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => setShowShapePicker(true)}>שנה צורה</button>
-            </TooltipTrigger><TooltipContent side="top"><p>שנה לצורה אחרת</p></TooltipContent></Tooltip>
+            <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => setShowShapePicker(true)}>שנה צורה</button>
           </>)}
 
           {/* IMAGE controls */}
           {(selectedElement?.type === 'image' || selectedElement?.type === 'photo_placeholder') && (<>
             <div className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[10px] text-slate-400">שקיפות:</span>
-              <input type="range" min={0} max={1} step={0.05} className="w-14"
-                value={selectedElement.style?.opacity ?? 1}
+              <input type="range" min={0} max={1} step={0.05} className="w-14" value={selectedElement.style?.opacity ?? 1}
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) } })} />
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[10px] text-slate-400">פינות:</span>
-              <input type="range" min={0} max={200} step={4} className="w-14"
-                value={selectedElement.style?.borderRadius ?? 0}
+              <input type="range" min={0} max={200} step={4} className="w-14" value={selectedElement.style?.borderRadius ?? 0}
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, borderRadius: Number(e.target.value) } })} />
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[10px] text-slate-400">מסגרת:</span>
-              <input type="range" min={0} max={12} step={1} className="w-12"
-                value={selectedElement.style?.borderWidth ?? 0}
+              <input type="range" min={0} max={12} step={1} className="w-12" value={selectedElement.style?.borderWidth ?? 0}
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) } })} />
-              <Tooltip><TooltipTrigger asChild>
-                <input type="color" className="w-6 h-6 rounded cursor-pointer border border-white/10"
-                  value={selectedElement.style?.borderColor || '#ffffff'}
-                  onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, borderColor: e.target.value } })} />
-              </TooltipTrigger><TooltipContent side="top"><p>צבע מסגרת</p></TooltipContent></Tooltip>
+              <input type="color" className="w-6 h-6 rounded cursor-pointer border border-white/10"
+                value={selectedElement.style?.borderColor || '#ffffff'}
+                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, borderColor: e.target.value } })} />
             </div>
-            <Tooltip><TooltipTrigger asChild>
-              <button className="text-[10px] px-2 py-1 border border-dashed border-white/20 rounded text-slate-400 hover:border-indigo-400 flex-shrink-0"
-                onClick={() => { setImagePlaceholderTarget(selectedId!); setShowImagePicker(true); }}>
-                🔄 החלף
-              </button>
-            </TooltipTrigger><TooltipContent side="top"><p>החלף תמונה</p></TooltipContent></Tooltip>
+            <button className="text-[10px] px-2 py-1 border border-dashed border-white/20 rounded text-slate-400 hover:border-indigo-400 flex-shrink-0"
+              onClick={() => { setImagePlaceholderTarget(selectedId!); setShowImagePicker(true); }}>🔄 החלף</button>
           </>)}
 
           {/* CONNECTION LINE controls */}
           {selectedElement?.type === 'connection_line' && (<>
-            <Tooltip><TooltipTrigger asChild>
-              <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
-                value={selectedElement.style?.color || template.primaryColor}
-                onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
-            </TooltipTrigger><TooltipContent side="top"><p>צבע קו</p></TooltipContent></Tooltip>
+            <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
+              value={selectedElement.style?.color || template.primaryColor}
+              onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
             <div className="flex items-center gap-1 flex-shrink-0">
               <span className="text-[10px] text-slate-400">עובי:</span>
-              <input type="range" min={1} max={8} step={1} className="w-12"
-                value={selectedElement.style?.borderWidth || 2}
+              <input type="range" min={1} max={8} step={1} className="w-12" value={selectedElement.style?.borderWidth || 2}
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, borderWidth: Number(e.target.value) } })} />
             </div>
-            {/* Line type picker */}
+            {/* Line type — affects the SVG rendering directly via element.style.lineType */}
             <div className="flex gap-0.5 flex-shrink-0">
               {LINE_TYPES.map(lt => (
                 <Tooltip key={lt.id}><TooltipTrigger asChild>
@@ -2278,7 +2358,7 @@ export function RootsDesignEditor({
                     onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, lineType: lt.id } as any })}>
                     {lt.label}
                   </button>
-                </TooltipTrigger><TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent></Tooltip>
+                </Tooltip>
               ))}
             </div>
           </>)}
@@ -2295,80 +2375,87 @@ export function RootsDesignEditor({
               { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - el.height / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
-                <button title={t} aria-label={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
+                <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
               </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
             ))}
             <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            <Tooltip><TooltipTrigger asChild>
-              <button onClick={() => updateElement(selectedId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronUp className="w-3.5 h-3.5" /></button>
-            </TooltipTrigger><TooltipContent side="top"><p>הבא קדימה</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild>
-              <button onClick={() => updateElement(selectedId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronDown className="w-3.5 h-3.5" /></button>
-            </TooltipTrigger><TooltipContent side="top"><p>שלח אחורה</p></TooltipContent></Tooltip>
+            <button onClick={() => updateElement(selectedId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronUp className="w-3.5 h-3.5" /></button>
+            <button onClick={() => updateElement(selectedId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronDown className="w-3.5 h-3.5" /></button>
             <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            <Tooltip><TooltipTrigger asChild>
-              <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
-            </TooltipTrigger><TooltipContent side="top"><p>שכפל אלמנט</p></TooltipContent></Tooltip>
-            <Tooltip><TooltipTrigger asChild>
-              <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
-            </TooltipTrigger><TooltipContent side="top"><p>מחק אלמנט</p></TooltipContent></Tooltip>
+            <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
+            <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
           </>)}
         </div>
 
-        {/* ══ TEMPLATE PICKER (with font selector) ══ */}
+        {/* ══ TEMPLATE PICKER (compact font selector + global text size) ══ */}
         {showTemplatePicker && (
           <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4" onClick={() => setShowTemplatePicker(false)}>
-            <div className="bg-slate-800 rounded-2xl p-5 w-[680px] max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()} dir="rtl">
-              <div className="flex items-center justify-between mb-4">
+            <div className="bg-slate-800 rounded-2xl p-4 w-[660px] max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl" onClick={e => e.stopPropagation()} dir="rtl">
+              <div className="flex items-center justify-between mb-3">
                 <button onClick={() => setShowTemplatePicker(false)} className="text-slate-400 hover:text-white text-lg">✕</button>
-                <h2 className="text-lg font-bold">בחר תבנית עיצוב</h2>
+                <h2 className="text-base font-bold">בחר תבנית עיצוב</h2>
               </div>
 
-              {/* Font override for whole template */}
-              <div className="flex items-center gap-3 mb-4 p-3 bg-slate-700/50 rounded-xl border border-white/10">
-                <span className="text-xs text-slate-300">גופן תבנית:</span>
-                <select className="flex-1 text-xs bg-slate-800 border border-white/15 rounded-lg px-2 py-1.5 text-white"
-                  value={templateFont || (DESIGN_TEMPLATES.find(t => t.id === selectedTemplateId)?.titleFont || '')}
-                  onChange={e => {
-                    setTemplateFont(e.target.value);
-                    ensureFontLoaded(e.target.value);
-                    // Apply font to all text elements in all pages
-                    if (e.target.value) {
-                      updatePages(ps => ps.map(pg => ({ ...pg, elements: pg.elements.map(el => el.type === 'text' ? { ...el, style: { ...el.style, fontFamily: e.target.value } } : el) })));
-                    }
-                  }}>
-                  {FONT_CATALOG.filter(f => f.hebrewSupport).map(f => (
-                    <option key={f.name} value={f.name} style={{ fontFamily: f.name }}>{f.label}</option>
-                  ))}
-                </select>
-                <div className="text-xs text-slate-400" style={{ fontFamily: templateFont || template.titleFont }}>שלום</div>
+              {/* Compact font + text size row */}
+              <div className="flex items-center gap-2 mb-3 p-2.5 bg-slate-700/50 rounded-xl border border-white/10">
+                <div className="flex flex-col gap-0.5 flex-shrink-0">
+                  <span className="text-[9px] text-slate-400 uppercase">גודל טקסט</span>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => { const next = globalTextSizeOffset - 2; setGlobalTextSizeOffset(next); applyGlobalTextSize(next); }}
+                      className="w-5 h-5 rounded bg-slate-600 hover:bg-slate-500 text-xs flex items-center justify-center">−</button>
+                    <span className="text-xs text-white w-6 text-center">{globalTextSizeOffset > 0 ? '+' : ''}{globalTextSizeOffset}</span>
+                    <button onClick={() => { const next = globalTextSizeOffset + 2; setGlobalTextSizeOffset(next); applyGlobalTextSize(next); }}
+                      className="w-5 h-5 rounded bg-slate-600 hover:bg-slate-500 text-xs flex items-center justify-center">+</button>
+                  </div>
+                </div>
+                <div className="w-px h-8 bg-white/10 flex-shrink-0" />
+                <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                  <span className="text-[9px] text-slate-400 uppercase">גופן לכל העמודים</span>
+                  <select className="text-xs bg-slate-800 border border-white/15 rounded-lg px-2 py-1 text-white w-full"
+                    defaultValue=""
+                    onChange={e => {
+                      const fontName = e.target.value;
+                      if (!fontName) return;
+                      ensureFontLoaded(fontName);
+                      updatePages(ps => ps.map(pg => ({ ...pg, elements: pg.elements.map(el => el.type === 'text' ? { ...el, style: { ...el.style, fontFamily: fontName } } : el) })));
+                    }}>
+                    <option value="">— בחר גופן גלובלי —</option>
+                    {FONT_CATALOG.filter(f => f.hebrewSupport).map(f => (
+                      <option key={f.name} value={f.name}>{f.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-0.5 flex-shrink-0">
+                  <span className="text-[9px] text-slate-400 uppercase">החל על</span>
+                  <button onClick={() => setApplyTemplateToAll(!applyTemplateToAll)}
+                    className={cn('rounded-full relative transition-colors flex-shrink-0', applyTemplateToAll ? 'bg-indigo-500' : 'bg-slate-600')} style={{ width: 32, height: 16 }}>
+                    <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all', applyTemplateToAll ? 'right-0.5' : 'left-0.5')} />
+                  </button>
+                  <span className="text-[8px] text-slate-400 text-center">{applyTemplateToAll ? 'כולם' : 'עמוד'}</span>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 mb-4 justify-end">
-                <label className="text-xs text-slate-300">החל על כל העמודים</label>
-                <button onClick={() => setApplyTemplateToAll(!applyTemplateToAll)}
-                  className={cn('rounded-full relative flex-shrink-0 transition-colors', applyTemplateToAll ? 'bg-indigo-500' : 'bg-slate-600')} style={{ width: 36, height: 18 }}>
-                  <div className={cn('absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white transition-all', applyTemplateToAll ? 'right-0.5' : 'left-0.5')} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-5 gap-2.5">
                 {DESIGN_TEMPLATES.map(t => (
-                    <button key={t.id} title={`תבנית: ${t.nameHebrew}`}
-                      onClick={() => { setSelectedTemplateId(t.id); if (applyTemplateToAll) updatePages(ps => ps.map(pg => ({ ...pg, templateId: t.id }))); else updateCurrentPage(pg => ({ ...pg, templateId: t.id })); setShowTemplatePicker(false); }}
-                      className={cn('rounded-xl overflow-hidden border-2 transition-all', selectedTemplateId === t.id ? 'border-indigo-400 scale-105' : 'border-transparent hover:border-white/30')}>
-                      <div className="h-20 relative" style={{ background: t.backgroundGradient }}>
-                        <div className="absolute inset-0 flex flex-col justify-center items-center gap-1.5 px-2">
-                          <span style={{ fontFamily: t.titleFont, fontSize: 15, color: t.textColor, fontWeight: 700, direction: 'rtl', textAlign: 'center', lineHeight: 1.2 }}>שלום</span>
-                          <div className="h-1 rounded-full w-8" style={{ background: t.primaryColor }} />
-                          <div className="h-0.5 rounded-full w-5 opacity-50" style={{ backgroundColor: t.textColor }} />
-                        </div>
+                  <button key={t.id}
+                    onClick={() => {
+                      setSelectedTemplateId(t.id);
+                      if (applyTemplateToAll) updatePages(ps => ps.map(pg => ({ ...pg, templateId: t.id })));
+                      else updateCurrentPage(pg => ({ ...pg, templateId: t.id }));
+                      setShowTemplatePicker(false);
+                    }}
+                    className={cn('rounded-xl overflow-hidden border-2 transition-all', selectedTemplateId === t.id ? 'border-indigo-400 scale-105' : 'border-transparent hover:border-white/30')}>
+                    <div className="h-16 relative" style={{ background: t.backgroundGradient }}>
+                      <div className="absolute inset-0 flex flex-col justify-center items-center gap-1 px-2">
+                        <span style={{ fontFamily: t.titleFont, fontSize: 13, color: t.textColor, fontWeight: 700, textAlign: 'center' }}>שלום</span>
+                        <div className="h-0.5 rounded-full w-6" style={{ background: t.primaryColor }} />
                       </div>
-                      <div className="py-1.5 px-1 text-center" style={{ backgroundColor: t.backgroundColor }}>
-                        <p className="text-[10px] font-bold leading-tight" style={{ color: t.textColor }}>{t.nameHebrew}</p>
-                        <p className="text-[8px] opacity-60" style={{ color: t.textColor, fontFamily: t.titleFont }}>{t.titleFont}</p>
-                      </div>
-                    </button>
+                    </div>
+                    <div className="py-1 px-1 text-center" style={{ backgroundColor: t.backgroundColor }}>
+                      <p className="text-[9px] font-bold leading-tight" style={{ color: t.textColor }}>{t.nameHebrew}</p>
+                      <p className="text-[7px] opacity-60" style={{ color: t.textColor, fontFamily: t.titleFont }}>{t.titleFont}</p>
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -2390,45 +2477,27 @@ export function RootsDesignEditor({
           </div>
         )}
 
-        {/* ══ FONT PICKER MODAL ══ */}
         {showFontPicker && (
-          <FontPickerModal
-            current={selectedElement?.style?.fontFamily}
-            onSelect={fontName => { if (selectedId) updateElement(selectedId, { style: { ...selectedElement?.style, fontFamily: fontName } }); }}
-            onClose={() => setShowFontPicker(false)}
-          />
+          <FontPickerModal current={selectedElement?.style?.fontFamily} onSelect={fontName => { if (selectedId) updateElement(selectedId, { style: { ...selectedElement?.style, fontFamily: fontName } }); }} onClose={() => setShowFontPicker(false)} />
         )}
 
-        {/* ══ SHAPE PICKER MODAL ══ */}
         {showShapePicker && (
-          <ShapePickerModal
-            onSelect={shapeId => {
-              setActiveShapeType(shapeId);
-              if (selectedElement?.type === 'shape' && selectedId) {
-                updateElement(selectedId, { style: { ...selectedElement.style, shapeType: shapeId as ShapeType } });
-              }
-            }}
-            onClose={() => setShowShapePicker(false)}
-          />
+          <ShapePickerModal onSelect={shapeId => { setActiveShapeType(shapeId); if (selectedElement?.type === 'shape' && selectedId) updateElement(selectedId, { style: { ...selectedElement.style, shapeType: shapeId as ShapeType } }); }} onClose={() => setShowShapePicker(false)} />
         )}
-        
-        {/* ══ PAGE DELETE CONFIRMATION ══ */}
-        <AlertDialog open={pageToDeleteIndex !== null} onOpenChange={(open) => !open && setPageToDeleteIndex(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>אישור מחיקת עמוד</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        האם אתה בטוח שברצונך למחוק את העמוד "{pages[pageToDeleteIndex!]?.title}"?
-                        לא ניתן לבטל פעולה זו.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>ביטול</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmDeletePage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                        מחק לצמיתות
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
+
+        <AlertDialog open={pageToDeleteIndex !== null} onOpenChange={open => !open && setPageToDeleteIndex(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>אישור מחיקת עמוד</AlertDialogTitle>
+              <AlertDialogDescription>
+                האם אתה בטוח שברצונך למחוק את העמוד "{localPages[pageToDeleteIndex!]?.title}"? לא ניתן לבטל פעולה זו.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>ביטול</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeletePage} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">מחק לצמיתות</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
         </AlertDialog>
 
       </div>
