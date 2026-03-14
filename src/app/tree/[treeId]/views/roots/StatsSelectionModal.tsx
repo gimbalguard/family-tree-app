@@ -72,14 +72,14 @@ function SelectableChartCard({ title, children, dataAvailable, isSelected, onTog
 interface StatsSelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (selectedIds: string[]) => void;
+    onConfirm: (selected: { id: string; title: string }[]) => void;
     people: Person[];
     relationships: Relationship[];
-    initialSelected: string[];
+    initialSelected: { id: string; title: string }[];
 }
 
 export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relationships, initialSelected }: StatsSelectionModalProps) {
-    const [selectedCharts, setSelectedCharts] = useState<string[]>(initialSelected);
+    const [selectedCharts, setSelectedCharts] = useState<string[]>(() => initialSelected.map(c => c.id));
 
     const chartsData = useMemo(() => {
         const summary = {
@@ -133,6 +133,13 @@ export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relati
         setSelectedCharts(prev => prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]);
     };
 
+    const handleConfirm = () => {
+        const selectedDetails = chartDefinitions
+            .filter(chart => selectedCharts.includes(chart.id))
+            .map(chart => ({ id: chart.id, title: chart.title }));
+        onConfirm(selectedDetails);
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-4xl w-full h-[80vh] flex flex-col p-0" dir="rtl">
@@ -159,7 +166,7 @@ export function StatsSelectionModal({ isOpen, onClose, onConfirm, people, relati
                 </ScrollArea>
                 <DialogFooter className="p-4 border-t">
                      <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
-                    <Button type="button" onClick={() => onConfirm(selectedCharts)}>אישור</Button>
+                    <Button type="button" onClick={handleConfirm}>אישור</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>

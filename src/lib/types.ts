@@ -230,10 +230,10 @@ interface HeritageData {
 }
 
 interface FinalPresentationData {
-    mapScreenshotUrl?: string;
-    selectedStats?: string[];
-    selectedEvents?: string[];
-    extraPeople?: string[];
+  mapScreenshotUrl?: string;
+  selectedStats?: { id: string; title: string }[];
+  selectedEvents?: { id: string; title: string; date: string }[];
+  extraPeople?: string[];
 }
 
 export type ShapeType = 'rectangle' | 'rounded_rectangle' | 'circle' | 'ellipse' | 'triangle' | 'star' | 'star6' | 'diamond' | 'pentagon' | 'hexagon' | 'octagon' | 'heart' | 'arrow_right' | 'arrow_left' | 'speech_bubble' | 'banner' | 'cross' | 'parallelogram' | 'trapezoid' | 'line_h';

@@ -53,16 +53,16 @@ function processEvents(people: Person[], relationships: Relationship[], manualEv
 interface CalendarSelectionModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (selectedIds: string[]) => void;
+    onConfirm: (selectedEvents: { id: string; title: string; date: string }[]) => void;
     people: Person[];
     relationships: Relationship[];
     manualEvents: ManualEvent[];
     involvedPeopleIds: string[];
-    initialSelected: string[];
+    initialSelected: { id: string; title: string; date: string }[];
 }
 
 export function CalendarSelectionModal({ isOpen, onClose, onConfirm, people, relationships, manualEvents, involvedPeopleIds, initialSelected }: CalendarSelectionModalProps) {
-    const [selectedEventIds, setSelectedEventIds] = useState<string[]>(initialSelected);
+    const [selectedEventIds, setSelectedEventIds] = useState<string[]>(() => initialSelected.map(e => e.id));
     const [searchTerm, setSearchTerm] = useState('');
 
     const allEvents = useMemo(() => processEvents(people, relationships, manualEvents), [people, relationships, manualEvents]);
@@ -95,6 +95,17 @@ export function CalendarSelectionModal({ isOpen, onClose, onConfirm, people, rel
 
     const toggleEvent = (id: string) => {
         setSelectedEventIds(prev => prev.includes(id) ? prev.filter(eId => eId !== id) : [...prev, id]);
+    };
+
+    const handleConfirm = () => {
+        const selectedEventDetails = allEvents
+            .filter(event => selectedEventIds.includes(event.id))
+            .map(event => ({
+                id: event.id,
+                title: event.title,
+                date: format(event.originalDate, 'yyyy-MM-dd')
+            }));
+        onConfirm(selectedEventDetails);
     };
 
     const EventRow = ({ event }: { event: CalEvent }) => (
@@ -141,7 +152,7 @@ export function CalendarSelectionModal({ isOpen, onClose, onConfirm, people, rel
                 </ScrollArea>
                 <DialogFooter className="p-4 border-t">
                      <Button type="button" variant="outline" onClick={onClose}>ביטול</Button>
-                    <Button type="button" onClick={() => onConfirm(selectedEventIds)}>אישור</Button>
+                    <Button type="button" onClick={handleConfirm}>אישור</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
