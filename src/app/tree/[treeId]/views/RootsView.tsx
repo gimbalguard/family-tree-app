@@ -1,4 +1,3 @@
-
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { rephraseText } from '@/ai/flows/rephrase-text-flow';
+import { rephraseText } from '@/ai/flows/ai-rephrase-text-flow';
 import {
   Accordion,
   AccordionContent,
@@ -1223,16 +1222,18 @@ const Step13_FinalTouches = ({
                 <h2 className="text-sm font-bold text-slate-300 text-right">אנשים שיופיעו במצגת ({involvedPeople.length})</h2>
                 <ScrollArea className="h-40 border rounded-lg bg-slate-900/50">
                     {involvedPeople.map(p => (
-                        <div key={p.id} className="flex items-center gap-2 p-1.5 border-b border-white/5">
-                            <Avatar className="h-7 w-7"><AvatarImage src={p.photoURL || undefined} /><AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="" /></AvatarFallback></Avatar>
-                            <span className="text-xs font-medium text-slate-200 flex-1">{p.firstName} {p.lastName}</span>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400" onClick={() => handleRemovePerson(p.id)}><X className="h-3.5 w-3.5" /></Button>
+                        <div key={p.id} className="flex items-center justify-between gap-2 p-1.5 border-b border-white/5">
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-400 flex-shrink-0" onClick={() => handleRemovePerson(p.id)}><X className="h-3.5 w-3.5" /></Button>
+                            <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+                                <span className="text-xs font-medium text-slate-200 truncate">{p.firstName} {p.lastName}</span>
+                                <Avatar className="h-7 w-7"><AvatarImage src={p.photoURL || undefined} /><AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="" /></AvatarFallback></Avatar>
+                            </div>
                         </div>
                     ))}
                 </ScrollArea>
                  <Popover open={isAdding} onOpenChange={setIsAdding}>
                     <PopoverTrigger asChild>
-                        <Button variant="outline" className="w-full border-dashed">
+                        <Button variant="outline" className="w-full border-dashed bg-transparent border-slate-600 hover:bg-slate-700/50 hover:text-slate-100 text-slate-300">
                             <PlusCircle className="ml-2 h-4 w-4" /> הוסף אדם מהעץ
                         </Button>
                     </PopoverTrigger>
@@ -1240,9 +1241,9 @@ const Step13_FinalTouches = ({
                         <div className="p-2 border-b"><Input placeholder="חיפוש..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
                         <ScrollArea className="h-60">
                            {availablePeople.map(p => (
-                                <button key={p.id} onClick={() => handleAddPerson(p.id)} className="w-full text-right p-2 hover:bg-slate-700 flex items-center gap-2">
-                                     <Avatar className="h-7 w-7"><AvatarImage src={p.photoURL || undefined} /><AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="" /></AvatarFallback></Avatar>
+                                <button key={p.id} onClick={() => handleAddPerson(p.id)} className="w-full text-right p-2 hover:bg-slate-700 flex items-center gap-2 justify-end">
                                      <span className="text-xs">{p.firstName} {p.lastName}</span>
+                                     <Avatar className="h-7 w-7"><AvatarImage src={p.photoURL || undefined} /><AvatarFallback><img src={getPlaceholderImage(p.gender)} alt="" /></AvatarFallback></Avatar>
                                 </button>
                            ))}
                         </ScrollArea>
@@ -1258,9 +1259,9 @@ const Step13_FinalTouches = ({
                             <div className="flex items-center gap-2 text-slate-300">
                                {icon}{label}
                             </div>
-                             <Button size="sm" variant="outline" onClick={onClick}>
+                             <Button size="sm" variant="outline" onClick={onClick} className="bg-slate-700 border-slate-600 hover:bg-slate-600 text-slate-200">
                                 {selected ? <CheckCircle2 className="h-4 w-4 text-green-400 ml-2" /> : null}
-                                בחר
+                                {selected ? 'שנה בחירה' : 'בחר'}
                             </Button>
                         </div>
                     ))}
@@ -1416,16 +1417,16 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         toast({ title: 'תמונת המפה נשמרה!' });
     };
 
-    const handleStatsConfirm = (selectedIds: string[]) => {
-        handleProjectUpdate(['finalPresentation', 'selectedStats'], selectedIds);
+    const handleStatsConfirm = (selected: {id: string, title: string}[]) => {
+        handleProjectUpdate(['finalPresentation', 'selectedStats'], selected);
         setStatsModalOpen(false);
-        toast({ title: `${selectedIds.length} גרפים נבחרו.` });
+        toast({ title: `${selected.length} גרפים נבחרו.` });
     };
 
-    const handleCalendarConfirm = (selectedIds: string[]) => {
-        handleProjectUpdate(['finalPresentation', 'selectedEvents'], selectedIds);
+    const handleCalendarConfirm = (selected: {id: string, title: string, date: string}[]) => {
+        handleProjectUpdate(['finalPresentation', 'selectedEvents'], selected);
         setCalendarModalOpen(false);
-        toast({ title: `${selectedIds.length} אירועים נבחרו.` });
+        toast({ title: `${selected.length} אירועים נבחרו.` });
     };
 
   const student = useMemo(() => {
