@@ -942,18 +942,22 @@ const PersonCardElement = ({
   const opacity = element.style?.opacity ?? 1;
 
   // Stable font size calculation
-  const fs = (base: number) => Math.round(base * 1);
+  const widthScale = Math.max(0.4, Math.min(2.5, (element.width || 20) / 20));
+  const fs = (base: number) => Math.round(base * widthScale);
 
   const infoRows: Array<{ icon: string; value: string }> = [];
   if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
   if (person.birthPlace) infoRows.push({ icon: '📍', value: person.birthPlace });
   if (deathYear) infoRows.push({ icon: '✝', value: String(deathYear) });
   if (person.countryOfResidence) infoRows.push({ icon: '🌍', value: person.countryOfResidence });
-  if (p.occupation) infoRows.push({ icon: '💼', value: p.occupation });
-  if (p.originCountry) infoRows.push({ icon: '✈️', value: p.originCountry });
+  if (p.religion) infoRows.push({ icon: '✡️', value: p.religion });
+  if (person.profession) infoRows.push({ icon: '💼', value: person.profession });
+  if (spousePerson) infoRows.push({ icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
+  if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
+  if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
 
   // Show fewer rows for smaller cards
-  const maxRows = 5;
+  const maxRows = Math.max(1, Math.floor(widthScale * 5));
 
   return (
     <div
@@ -962,19 +966,19 @@ const PersonCardElement = ({
         backgroundColor: bgColor,
         opacity,
         color: textColor,
-        padding: `8px`,
+        padding: `${Math.max(3, Math.round(5 * widthScale))}px`,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: `2px`,
+        gap: `${Math.max(1, Math.round(2 * widthScale))}px`,
       }}
       dir="rtl"
     >
       {/* Avatar + name row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: Math.max(2, Math.round(4 * widthScale)), flexShrink: 0 }}>
         <div style={{
-          width: 32,
-          height: 32,
+          width: Math.max(16, Math.round(32 * widthScale)),
+          height: Math.max(16, Math.round(32 * widthScale)),
           borderRadius: '50%',
           overflow: 'hidden',
           flexShrink: 0,
@@ -1681,7 +1685,7 @@ export function RootsDesignEditor({
     dragStart.current.elements.forEach(({ id, x, y }) => {
       const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === id);
       if (!el) return;
-      updateElementLocal(id, () => ({ x: Math.max(0, Math.min(100 - el.width, x + dx)), y: Math.max(0, Math.min(100 - el.height, y + dy)) }));
+      updateElementLocal(id, () => ({ x: Math.max(0, Math.min(100 - (el.width || 0), x + dx)), y: Math.max(0, Math.min(100 - (el.height || 0), y + dy)) }));
     });
   };
 
@@ -1896,12 +1900,15 @@ export function RootsDesignEditor({
             {activeTool === 'line' && (
               <div className="flex gap-0.5 flex-shrink-0">
                 {LINE_TYPES.map(lt => (
-                  <Tooltip key={lt.id}><TooltipTrigger asChild>
-                    <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                      onClick={() => setActiveLineType(lt.id)}>
-                      {lt.label}
-                    </button>
-                  </TooltipTrigger><TooltipContent side="bottom"><p>{lt.label}</p></TooltipContent></Tooltip>
+                  <Tooltip key={lt.id}>
+                    <TooltipTrigger asChild>
+                      <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                        onClick={() => setActiveLineType(lt.id)}>
+                        {lt.label}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom"><p>סוג קו: {lt.label}</p></TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
             )}
@@ -2353,12 +2360,15 @@ export function RootsDesignEditor({
             {/* Line type — affects the SVG rendering directly via element.style.lineType */}
             <div className="flex gap-0.5 flex-shrink-0">
               {LINE_TYPES.map(lt => (
-                <Tooltip key={lt.id}><TooltipTrigger asChild>
-                  <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', (selectedElement.style as any)?.lineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                    onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, lineType: lt.id } as any })}>
-                    {lt.label}
-                  </button>
-                </TooltipTrigger><TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent></Tooltip>
+                <Tooltip key={lt.id}>
+                  <TooltipTrigger asChild>
+                    <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', (selectedElement.style as any)?.lineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                      onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, lineType: lt.id } as any })}>
+                      {lt.label}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent>
+                </Tooltip>
               ))}
             </div>
           </>)}
