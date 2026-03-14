@@ -361,7 +361,7 @@ function generatePagesFromProject(
     const dedicationEls: DesignElement[] = [
       mk('shape', { x: 0, y: 0, width: 100, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.04 } }),
       mk('text', { x: 10, y: 10, width: 80, height: 12, content: '❝', style: { fontSize: 80, textAlign: 'center', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-      mk('text', { x: 10, y: 25, width: 80, height: 50, content: intro.dedication, style: { fontSize: 20, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont, lineHeight: 1.9, fontWeight: 'bold' } }),
+      ...textBlock(10, 25, 80, 50, intro.dedication, '', 20),
       mk('text', { x: 10, y: 78, width: 80, height: 8, content: '— הקדשה', style: { fontSize: 14, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
     ];
     addPage('הקדשה', 'custom', dedicationEls);
@@ -546,9 +546,9 @@ function generatePagesFromProject(
       mk('person_card', { personId: parent.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
     ];
     let y = 15;
-    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 14)); y += 24; }
-    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 14)); y += 17; }
-    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 14)); }
+    if (bio.bio) { parentEls.push(...pill(5, y, 59, 6.5, 'סיפור חיים', '📖', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 22, bio.bio, '', 15)); y += 24; }
+    if (bio.militaryService) { parentEls.push(...pill(5, y, 59, 6.5, 'שירות צבאי', '🎖️', accent)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.militaryService, '', 15)); y += 17; }
+    if (bio.profession) { parentEls.push(...pill(5, y, 59, 6.5, 'עיסוק ומקצוע', '💼', P)); y += 7.5; parentEls.push(...textBlock(5, y, 59, 15, bio.profession, '', 15)); }
     if (!bio.bio && !bio.militaryService && !bio.profession) {
       parentEls.push(...textBlock(5, 15, 59, 78, undefined, `כאן יופיע סיפורו של ${parent.firstName} — ילדות, שירות צבאי, מקצוע ועוד.`, 15));
     }
@@ -1351,7 +1351,6 @@ export function RootsDesignEditor({
       onUpdateProject(proj => ({ ...proj, projectData: { ...proj.projectData, designData: { pages: generated } } }));
     } else { setIsGenerating(false); }
   }, []); // eslint-disable-line
-  useEffect(() => { if (hasGeneratedRef.current) return; setPages(project.projectData?.designData?.pages || []); }, [project.projectData?.designData?.pages]);
 
   // ── Keyboard ──
   useEffect(() => {
@@ -1459,41 +1458,48 @@ export function RootsDesignEditor({
     addElement({ ...rest, x: Math.min(el.x + 3, 70), y: Math.min(el.y + 3, 70) });
   }, [addElement, currentPageIndex]);
   
-    const handleMovePage = (index: number, direction: 'up' | 'down') => {
-        const newPages = [...pages];
-        if (direction === 'up' && index > 0) {
-            [newPages[index], newPages[index - 1]] = [newPages[index - 1], newPages[index]];
-            setCurrentPageIndex(index - 1);
-        } else if (direction === 'down' && index < pages.length - 1) {
-            [newPages[index], newPages[index + 1]] = [newPages[index + 1], newPages[index]];
-            setCurrentPageIndex(index + 1);
-        }
-        updatePages(newPages.map((p, i) => ({ ...p, pageNumber: i + 1 })));
-    };
+  const handleMovePage = (index: number, direction: 'up' | 'down') => {
+      updatePages(currentPages => {
+          const newPages = [...currentPages];
+          if (direction === 'up' && index > 0) {
+              [newPages[index], newPages[index - 1]] = [newPages[index - 1], newPages[index]];
+              setCurrentPageIndex(index - 1);
+          } else if (direction === 'down' && index < newPages.length - 1) {
+              [newPages[index], newPages[index + 1]] = [newPages[index + 1], newPages[index]];
+              setCurrentPageIndex(index + 1);
+          }
+          return newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
+      });
+  };
 
-    const handleDuplicatePage = (index: number) => {
-        const pageToDuplicate = pages[index];
-        const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
-        const newPages = [...pages.slice(0, index + 1), newPage, ...pages.slice(index + 1)];
-        updatePages(newPages.map((p, i) => ({ ...p, pageNumber: i + 1 })));
-        setCurrentPageIndex(index + 1);
-        toast({ title: 'עמוד שוכפל' });
-    };
+  const handleDuplicatePage = (index: number) => {
+      updatePages(currentPages => {
+          const pageToDuplicate = currentPages[index];
+          const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
+          const newPages = [...currentPages.slice(0, index + 1), newPage, ...currentPages.slice(index + 1)];
+          setCurrentPageIndex(index + 1);
+          toast({ title: 'עמוד שוכפל' });
+          return newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
+      });
+  };
 
-    const handleAddNewPage = (index: number, position: 'before' | 'after') => {
-        const newPage: DesignPage = {
-            id: uuidv4(),
-            pageNumber: 0,
-            pageType: 'custom',
-            title: 'עמוד חדש',
-            elements: [],
-            templateId: currentPage?.templateId || selectedTemplateId,
-        };
-        const newIndex = position === 'before' ? index : index + 1;
-        const newPages = [...pages.slice(0, newIndex), newPage, ...pages.slice(newIndex)];
-        updatePages(newPages.map((p, i) => ({ ...p, pageNumber: i + 1 })));
-        setCurrentPageIndex(newIndex);
-    };
+  const handleAddNewPage = (index: number, position: 'before' | 'after') => {
+      updatePages(currentPages => {
+          const currentPage = currentPages[currentPageIndex];
+          const newPage: DesignPage = {
+              id: uuidv4(),
+              pageNumber: 0,
+              pageType: 'custom',
+              title: 'עמוד חדש',
+              elements: [],
+              templateId: currentPage?.templateId || selectedTemplateId,
+          };
+          const newIndex = position === 'before' ? index : index + 1;
+          const newPages = [...currentPages.slice(0, newIndex), newPage, ...currentPages.slice(newIndex)];
+          setCurrentPageIndex(newIndex);
+          return newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
+      });
+  };
 
     const handleDeletePageRequest = (index: number) => {
         setPageToDeleteIndex(index);
