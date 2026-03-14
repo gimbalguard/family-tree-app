@@ -941,6 +941,10 @@ const PersonCardElement = ({
   const textColor = element.style?.color || '#ffffff';
   const opacity = element.style?.opacity ?? 1;
 
+  // Stable font size calculation
+  const widthScale = Math.max(0.4, Math.min(2.5, (element.width || 20) / 20));
+  const fs = (base: number) => Math.round(base * widthScale);
+
   const infoRows: Array<{ icon: string; value: string }> = [];
   if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
   if (person.birthPlace) infoRows.push({ icon: '📍', value: person.birthPlace });
@@ -953,7 +957,7 @@ const PersonCardElement = ({
   if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
 
   // Show fewer rows for smaller cards
-  const maxRows = 5;
+  const maxRows = Math.max(1, Math.floor(widthScale * 5));
 
   return (
     <div
@@ -962,19 +966,19 @@ const PersonCardElement = ({
         backgroundColor: bgColor,
         opacity,
         color: textColor,
-        padding: '5px',
+        padding: `${Math.max(3, Math.round(5 * widthScale))}px`,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
-        gap: '2px',
+        gap: `${Math.max(1, Math.round(2 * widthScale))}px`,
       }}
       dir="rtl"
     >
       {/* Avatar + name row */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: Math.max(2, Math.round(4 * widthScale)), flexShrink: 0 }}>
         <div style={{
-          width: '32px',
-          height: '32px',
+          width: Math.max(16, Math.round(32 * widthScale)),
+          height: Math.max(16, Math.round(32 * widthScale)),
           borderRadius: '50%',
           overflow: 'hidden',
           flexShrink: 0,
@@ -983,16 +987,16 @@ const PersonCardElement = ({
           <img src={person.photoURL || getPlaceholderImage(person.gender)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
-          <div style={{ fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: 11, color: textColor }}>{displayName}</div>
-          {birthYear && <div style={{ opacity: 0.65, fontSize: 8.5, lineHeight: 1.1 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
-          {person.gender && <div style={{ opacity: 0.45, fontSize: 7.5, lineHeight: 1.1 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status || p.lifeStatus}` : ''}</div>}
+          <div style={{ fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(11), color: textColor }}>{displayName}</div>
+          {birthYear && <div style={{ opacity: 0.65, fontSize: fs(8.5), lineHeight: 1.1 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
+          {person.gender && <div style={{ opacity: 0.45, fontSize: fs(7.5), lineHeight: 1.1 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status}` : ''}</div>}
         </div>
       </div>
       {/* Info rows */}
       {infoRows.slice(0, maxRows).map((row, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-          <span style={{ fontSize: 7.5, lineHeight: 1 }}>{row.icon}</span>
-          <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: 8.5, color: textColor }}>{row.value}</span>
+          <span style={{ fontSize: fs(7.5), lineHeight: 1 }}>{row.icon}</span>
+          <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: fs(8.5), color: textColor }}>{row.value}</span>
         </div>
       ))}
     </div>
@@ -2238,11 +2242,11 @@ export function RootsDesignEditor({
             <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => selectedIds.forEach(id => duplicateElementById(id))}>⎘ שכפל</button>
             {[
               { l: '⊣', t: 'יישר לשמאל', a: () => updateMultipleElements(selectedIds, () => ({ x: 0 })) },
-              { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - el.width })) },
-              { l: '⊕H', t: 'מרכז אופקי', a: () => updateMultipleElements(selectedIds, el => ({ x: 50 - el.width / 2 })) },
+              { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - (el.width || 0) })) },
+              { l: '⊕H', t: 'מרכז אופקי', a: () => updateMultipleElements(selectedIds, el => ({ x: 50 - (el.width || 0) / 2 })) },
               { l: '⊤', t: 'יישר לעליון', a: () => updateMultipleElements(selectedIds, () => ({ y: 0 })) },
-              { l: '⊥', t: 'יישר לתחתון', a: () => updateMultipleElements(selectedIds, el => ({ y: 100 - el.height })) },
-              { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - el.height / 2 })) },
+              { l: '⊥', t: 'יישר לתחתון', a: () => updateMultipleElements(selectedIds, el => ({ y: 100 - (el.height || 0) })) },
+              { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - (el.height || 0) / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
                 <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
@@ -2364,27 +2368,29 @@ export function RootsDesignEditor({
           </>)}
 
           {/* SHARED single-element align + z-order + duplicate + delete */}
-          {selectedElement && selectedElement.type !== 'connection_line' && (<>
-            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            {[
-              { l: '⊣', t: 'יישר לשמאל', a: () => updateElement(selectedId!, { x: 0 }) },
-              { l: '⊢', t: 'יישר לימין', a: () => updateElement(selectedId!, el => ({ x: 100 - el.width })) },
-              { l: '⊕H', t: 'מרכז אופקי', a: () => updateElement(selectedId!, el => ({ x: 50 - el.width / 2 })) },
-              { l: '⊤', t: 'יישר לעליון', a: () => updateElement(selectedId!, { y: 0 }) },
-              { l: '⊥', t: 'יישר לתחתון', a: () => updateElement(selectedId!, el => ({ y: 100 - el.height })) },
-              { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - el.height / 2 })) },
-            ].map(({ l, t, a }) => (
-              <Tooltip key={t}><TooltipTrigger asChild>
-                <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
-              </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
-            ))}
-            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            <button onClick={() => updateElement(selectedId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronUp className="w-3.5 h-3.5" /></button>
-            <button onClick={() => updateElement(selectedId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronDown className="w-3.5 h-3.5" /></button>
-            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-            <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
-            <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
-          </>)}
+          {selectedElement && selectedElement.type !== 'connection_line' && (
+            <>
+              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+              {[
+                { l: '⊣', t: 'יישר לשמאל', a: () => updateElement(selectedId!, { x: 0 }) },
+                { l: '⊢', t: 'יישר לימין', a: () => updateElement(selectedId!, el => ({ x: 100 - (el.width || 0) })) },
+                { l: '⊕H', t: 'מרכז אופקי', a: () => updateElement(selectedId!, el => ({ x: 50 - (el.width || 0) / 2 })) },
+                { l: '⊤', t: 'יישר לעליון', a: () => updateElement(selectedId!, { y: 0 }) },
+                { l: '⊥', t: 'יישר לתחתון', a: () => updateElement(selectedId!, el => ({ y: 100 - (el.height || 0) })) },
+                { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - (el.height || 0) / 2 })) },
+              ].map(({ l, t, a }) => (
+                <Tooltip key={t}><TooltipTrigger asChild>
+                  <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
+                </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
+              ))}
+              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+              <button onClick={() => updateElement(selectedId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronUp className="w-3.5 h-3.5" /></button>
+              <button onClick={() => updateElement(selectedId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronDown className="w-3.5 h-3.5" /></button>
+              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+              <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
+              <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+            </>
+          )}
         </div>
 
         {/* ══ TEMPLATE PICKER (compact font selector + global text size) ══ */}
