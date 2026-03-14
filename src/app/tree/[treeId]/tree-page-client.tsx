@@ -436,7 +436,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     const enrichedPeopleData = peopleData.map(person => {
         const children = childrenMap.get(person.id) || [];
-        const childrenCount = children.length;
+        const childrenCount = new Set(children).size;
 
         const parents = parentMap.get(person.id) || [];
         const siblings = new Set<string>();
@@ -591,7 +591,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       }
       
       if (!ownerId) {
-        throw new Error('This tree is not public and has not been shared with you.');
+        throw new Error('עץ המשפחה לא נמצא או שאין לך גישה.');
       }
       
       const basePath = `users/${ownerId}/familyTrees/${treeId}`;
