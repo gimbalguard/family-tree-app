@@ -5,9 +5,7 @@ export default function MyFilesPage() {
   return (
     <div className="flex min-h-screen w-full flex-col">
       <AppHeader />
-      <main className="flex-1">
-        <MyFilesClient />
-      </main>
+      <MyFilesClient />
     </div>
   );
 }
