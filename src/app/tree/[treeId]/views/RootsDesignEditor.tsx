@@ -273,6 +273,10 @@ function buildTocElements(
     mk('text', { x: 5, y: 1, width: 85, height: 12, content: '📋 תוכן עניינים', style: { fontSize: 30, fontWeight: 'extrabold', textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.titleFont } }),
     mk('shape', { x: 0, y: 12.5, width: 100, height: 0.4, zIndex: 2, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.35 } }),
   ];
+  if (tmpl.layoutStyle !== 'minimal') {
+      header.push(mk('text', { x: 5, y: 1, width: 90, height: 6, content: 'פרק 1: פתיחה', style: { fontSize: 11, textAlign: 'left', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.7 } }));
+  }
+
   const footer: DesignElement[] = [
     mk('text', { x: 8, y: 94, width: 84, height: 10, content: `${studentName} | ${schoolYear} | ${hebrewYear}`, style: { fontSize: 11, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
     mk('text', { x: 2, y: 94, width: 5, height: 10, content: String(tocPageNumber), style: { fontSize: 11, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
@@ -1125,26 +1129,62 @@ function PhotoPlaceholderElement({ element, onOpenImagePicker }: { element: Desi
 // ============================================================
 // MY FILES IMAGE GRID
 // ============================================================
-function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string; onSelectImage: (url: string) => void }) {
+function MyFilesImageGrid({ treeId, people, onSelectImage }: { treeId: string; people: Person[], onSelectImage: (url: string) => void }) {
   const [files, setFiles] = useState<Array<{ name: string; url: string; key: string }>>([]);
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
   const db = useFirestore();
+  
   useEffect(() => {
     (async () => {
       if (!user || !db) { setLoading(false); return; }
+      setLoading(true);
+      const allImages = new Map<string, { name: string; url: string; key: string }>();
+
       try {
-        const snap = await getDocs(query(collection(db, 'exportedFiles'), where('userId', '==', user.uid)));
-        const mapped = snap.docs.map((d, idx) => {
+        // 1. Exported image files for this tree
+        const snap = await getDocs(query(collection(db, 'exportedFiles'), where('userId', '==', user.uid), where('treeId', '==', treeId)));
+        snap.docs.forEach(d => {
           const f = d.data() as ExportedFile;
-          return { name: f.fileName, url: f.downloadURL!, key: `${d.id}-${idx}` };
-        }).filter(f => f.url && ['png', 'jpg', 'jpeg'].some(ext => f.name?.toLowerCase().endsWith(ext)));
-        setFiles(mapped);
-      } catch { setFiles([]); } finally { setLoading(false); }
+          if (f.downloadURL && ['png', 'jpg', 'jpeg'].some(ext => f.fileName?.toLowerCase().endsWith(ext))) {
+            allImages.set(f.downloadURL, { name: f.fileName, url: f.downloadURL, key: `export-${d.id}` });
+          }
+        });
+        
+        // 2. Profile photos for all people in the tree
+        people.forEach(p => {
+            if(p.photoURL) {
+                allImages.set(p.photoURL, { name: `פרופיל - ${p.firstName}`, url: p.photoURL, key: `profile-${p.id}`});
+            }
+        });
+
+        // 3. Gallery photos for all people in the tree
+        const galleryPromises = people.map(async (p) => {
+            const galleryRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', p.id, 'gallery');
+            const gallerySnap = await getDocs(galleryRef);
+            return gallerySnap.docs.map(doc => ({ ...doc.data() as any, id: doc.id }));
+        });
+        
+        const allGalleryPhotos = (await Promise.all(galleryPromises)).flat();
+        allGalleryPhotos.forEach(photo => {
+            if(photo.url) {
+                allImages.set(photo.url, { name: 'תמונה מהגלריה', url: photo.url, key: `gallery-${photo.id}`});
+            }
+        });
+
+        setFiles(Array.from(allImages.values()));
+      } catch (err) {
+        console.error("Error fetching project images:", err);
+        setFiles([]); 
+      } finally { 
+        setLoading(false); 
+      }
     })();
-  }, [user, db, treeId]);
+  }, [user, db, treeId, people]);
+
   if (loading) return <div className="text-xs text-slate-500 text-center py-4">טוען...</div>;
   if (!files.length) return <div className="text-xs text-slate-500 text-center py-4 px-2"><p>אין תמונות</p><p className="opacity-60 mt-1">העלה קבצים דרך "הקבצים שלי"</p></div>;
+  
   return (
     <div className="grid grid-cols-2 gap-1.5">
       {files.map(f => (
@@ -1155,6 +1195,7 @@ function MyFilesImageGrid({ treeId, onSelectImage }: { treeId: string; onSelectI
     </div>
   );
 }
+
 
 // ============================================================
 // CLIPBOARD & CONTEXT MENU
@@ -1274,7 +1315,7 @@ function LayersPanel({ page, selectedIds, onSelect, onDelete, onClose }: {
 // ============================================================
 // IMAGE PICKER MODAL
 // ============================================================
-function ImagePickerModal({ treeId, onSelect, onClose }: { treeId: string; onSelect: (url: string) => void; onClose: () => void; }) {
+function ImagePickerModal({ treeId, people, onSelect, onClose }: { treeId: string; people: Person[]; onSelect: (url: string) => void; onClose: () => void; }) {
   const [tab, setTab] = useState<'upload' | 'files'>('upload');
   return (
     <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -1300,7 +1341,7 @@ function ImagePickerModal({ treeId, onSelect, onClose }: { treeId: string; onSel
               }} />
             </label>
           )}
-          {tab === 'files' && <MyFilesImageGrid treeId={treeId} onSelectImage={url => { onSelect(url); onClose(); }} />}
+          {tab === 'files' && <MyFilesImageGrid treeId={treeId} people={people} onSelectImage={url => { onSelect(url); onClose(); }} />}
         </div>
       </div>
     </div>
@@ -1784,7 +1825,7 @@ export function RootsDesignEditor({
           else if (h === 'nw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); ny = elY + (elH - nh); }
         } else {
           // Side: crop only, no aspect ratio change
-          if (h === 'e') nw = Math.max(5, elW + dx);
+          if (h === 'e') nw = Math.max(5, elW - dx);
           else if (h === 's') nh = Math.max(3, elH + dy);
           else if (h === 'w') { nw = Math.max(5, elW - dx); nx = elX + dx; }
           else if (h === 'n') { nh = Math.max(3, elH - dy); ny = elY + dy; }
@@ -2253,7 +2294,7 @@ export function RootsDesignEditor({
             )}
 
             {showImagePicker && (
-              <ImagePickerModal treeId={project.treeId} onSelect={handleImageSelected} onClose={() => { setShowImagePicker(false); setImagePlaceholderTarget(null); setActiveTool('select'); }} />
+              <ImagePickerModal treeId={project.treeId} people={people} onSelect={handleImageSelected} onClose={() => { setShowImagePicker(false); setImagePlaceholderTarget(null); setActiveTool('select'); }} />
             )}
 
             {showEmojiPicker && (
