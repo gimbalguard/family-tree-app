@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,
@@ -12,18 +11,18 @@ import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
 import Link from 'next/link';
 
-const FILE_ICONS: Record<string, { icon: React.FC<any>; color: string }> = {
-  pdf: { icon: FileText, color: 'text-red-500' },
-  xlsx: { icon: FileSpreadsheet, color: 'text-green-600' },
-  pptx: { icon: Presentation, color: 'text-orange-500' },
-  png: { icon: ImageIcon, color: 'text-blue-500' },
-  jpg: { icon: ImageIcon, color: 'text-blue-500' },
-  html: { icon: Globe, color: 'text-purple-500' },
-  docx: { icon: Book, color: 'text-teal-600' },
-  profile: { icon: User, color: 'text-indigo-500' },
-  gallery: { icon: ImageIcon, color: 'text-pink-500' },
-  presentation: { icon: Presentation, color: 'text-violet-500' },
-  general: { icon: ImageIcon, color: 'text-cyan-500' },
+const FILE_ICONS: Record<string, { icon: React.FC<any>; bg: string }> = {
+  pdf: { icon: FileText, bg: 'bg-red-500' },
+  xlsx: { icon: FileSpreadsheet, bg: 'bg-green-600' },
+  pptx: { icon: Presentation, bg: 'bg-orange-500' },
+  png: { icon: ImageIcon, bg: 'bg-blue-500' },
+  jpg: { icon: ImageIcon, bg: 'bg-blue-500' },
+  html: { icon: Globe, bg: 'bg-purple-500' },
+  docx: { icon: Book, bg: 'bg-teal-600' },
+  profile: { icon: User, bg: 'bg-indigo-500' },
+  gallery: { icon: ImageIcon, bg: 'bg-pink-500' },
+  presentation: { icon: Presentation, bg: 'bg-violet-500' },
+  general: { icon: ImageIcon, bg: 'bg-cyan-500' },
 };
 
 interface FileCardProps {
@@ -33,7 +32,7 @@ interface FileCardProps {
 
 export function FileCard({ file, onDelete }: FileCardProps) {
   const Icon = FILE_ICONS[file.type]?.icon || FileArchive;
-  const iconColor = FILE_ICONS[file.type]?.color || 'text-muted-foreground';
+  const iconBg = FILE_ICONS[file.type]?.bg || 'bg-muted';
 
   const renderDescription = () => {
     let details = [];
@@ -61,7 +60,7 @@ export function FileCard({ file, onDelete }: FileCardProps) {
   return (
     <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-sm hover:shadow-lg hover:-translate-y-0.5">
       <CardHeader className="p-4 flex-row items-start gap-4">
-        <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg bg-muted ${iconColor}`}>
+        <div className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded-lg ${iconBg}`}>
             <Icon className="w-6 h-6 text-white"/>
         </div>
         <div className="flex-1 space-y-1 text-right">

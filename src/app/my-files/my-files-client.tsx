@@ -27,7 +27,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 type FileType = 'exported' | 'profile' | 'gallery' | 'presentation' | 'general';
 
-interface DisplayFile {
+export interface DisplayFile {
   id: string;
   type: FileType;
   name: string;
@@ -69,7 +69,7 @@ export function MyFilesClient() {
       const exportsSnap = await getDocs(exportsQuery);
       exportsSnap.forEach(doc => {
         const data = doc.data() as ExportedFile;
-        if (data.downloadURL) {
+        if (data.downloadURL && data.storagePath) {
           files.push({
             id: doc.id,
             type: 'exported',
@@ -86,75 +86,77 @@ export function MyFilesClient() {
       // 2. Tree/Profile/Gallery Photos
       const treesQuery = query(collection(db, 'users', user.uid, 'familyTrees'));
       const treesSnap = await getDocs(treesQuery);
-      const peoplePromises = treesSnap.docs.map(treeDoc => {
+      
+      const treePromises = treesSnap.docs.map(async (treeDoc) => {
+        const treeData = treeDoc.data() as FamilyTree;
         const peopleRef = collection(treeDoc.ref, 'people');
-        return getDocs(peopleRef);
-      });
-      const peopleSnaps = await Promise.all(peoplePromises);
+        const peopleSnap = await getDocs(peopleRef);
+        const treeFiles: DisplayFile[] = [];
 
-      const galleryPromises: Promise<any>[] = [];
-      const personMap = new Map<string, string>();
-
-      peopleSnaps.forEach(peopleSnap => {
-        peopleSnap.forEach(personDoc => {
+        const personPromises = peopleSnap.docs.map(async (personDoc) => {
           const person = personDoc.data() as Person;
-          personMap.set(personDoc.id, `${person.firstName} ${person.lastName}`);
 
+          // Profile Photos
           if (person.photoURL) {
-             files.push({
+             treeFiles.push({
               id: `profile-${personDoc.id}`,
               type: 'profile',
-              name: `תמונת פרופיל - ${person.firstName}`,
+              name: `תמונת פרופיל - ${person.firstName} ${person.lastName}`,
               url: person.photoURL,
-              size: 0, // Size unknown for external URLs
+              size: 0,
               createdAt: person.createdAt.toDate(),
               updatedAt: person.updatedAt.toDate(),
               personName: `${person.firstName} ${person.lastName}`,
-              storagePath: '', // Cannot delete these directly
+              treeName: treeData.treeName,
+              storagePath: '', // Cannot be deleted from here
             });
           }
           
-          galleryPromises.push(getDocs(collection(personDoc.ref, 'gallery')));
-        });
-      });
-
-      const allGallerySnaps = await Promise.all(galleryPromises);
-      allGallerySnaps.forEach(gallerySnap => {
-        gallerySnap.forEach((photoDoc: any) => {
-          const photo = photoDoc.data() as GalleryPhoto;
-          files.push({
-            id: photoDoc.id,
-            type: 'gallery',
-            name: 'תמונה מהגלריה',
-            url: photo.url,
-            size: 0,
-            createdAt: photo.createdAt.toDate(),
-            personName: personMap.get(photo.personId) || 'לא ידוע',
-            storagePath: photo.storagePath,
+          // Gallery Photos
+          const galleryRef = collection(personDoc.ref, 'gallery');
+          const gallerySnap = await getDocs(galleryRef);
+          gallerySnap.forEach((photoDoc) => {
+            const photo = photoDoc.data() as GalleryPhoto;
+            treeFiles.push({
+              id: photoDoc.id,
+              type: 'gallery',
+              name: 'תמונה מהגלריה',
+              url: photo.url,
+              size: 0,
+              createdAt: photo.createdAt.toDate(),
+              personName: `${person.firstName} ${person.lastName}`,
+              treeName: treeData.treeName,
+              storagePath: photo.storagePath,
+            });
           });
         });
-      });
-      
-      // 4. Presentations (Roots Works)
-      const rootsQuery = collectionGroup(db, 'rootsProjects');
-      const rootsFilteredQuery = query(rootsQuery, where('userId', '==', user.uid));
-      const rootsSnap = await getDocs(rootsFilteredQuery);
-      rootsSnap.forEach(doc => {
-        const project = doc.data() as RootsProject;
-        files.push({
-          id: doc.id,
-          type: 'presentation',
-          name: project.projectName || 'עבודת שורשים',
-          url: `/tree/${project.treeId}?view=roots`,
-          size: 0, // Size is not applicable here
-          createdAt: project.createdAt.toDate(),
-          updatedAt: project.updatedAt.toDate(),
-          treeName: project.projectName,
-          storagePath: '', // No direct file to delete
+        await Promise.all(personPromises);
+
+         // Presentations (Roots Works)
+        const rootsQuery = query(collection(treeDoc.ref, 'rootsProjects'));
+        const rootsSnap = await getDocs(rootsQuery);
+        rootsSnap.forEach(doc => {
+            const project = doc.data() as RootsProject;
+            treeFiles.push({
+                id: doc.id,
+                type: 'presentation',
+                name: project.projectName || 'עבודת שורשים',
+                url: `/tree/${project.treeId}/?view=roots`,
+                size: 0, // Size is not applicable here
+                createdAt: project.createdAt.toDate(),
+                updatedAt: project.updatedAt.toDate(),
+                treeName: treeData.treeName,
+                storagePath: '', // No direct file to delete
+            });
         });
+
+        return treeFiles;
       });
 
-      setAllFiles(files);
+      const allTreeFiles = (await Promise.all(treePromises)).flat();
+      files.push(...allTreeFiles);
+
+      setAllFiles(files.sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime()));
     } catch (error) {
       console.error("Error fetching files:", error);
       toast({ variant: "destructive", title: "שגיאה בטעינת הקבצים" });
@@ -167,7 +169,7 @@ export function MyFilesClient() {
   }, [user, isUserLoading, fetchData]);
 
   const handleDeleteFile = async () => {
-    if (!fileToDelete || !db || !storage) return;
+    if (!fileToDelete || !db || !storage || !user) return;
     setIsDeleting(true);
     try {
         if (fileToDelete.storagePath) {
@@ -181,10 +183,10 @@ export function MyFilesClient() {
         } else if (fileToDelete.type === 'gallery') {
             const pathSegments = fileToDelete.storagePath.split('/');
             // users/{uid}/trees/{tid}/people/{pid}/gallery/{fid}
-            if(pathSegments.length >= 7) {
+             if(pathSegments.length >= 7) {
                 const treeId = pathSegments[3];
                 const personId = pathSegments[5];
-                docRef = doc(db, 'users', user!.uid, 'familyTrees', treeId, 'people', personId, 'gallery', fileToDelete.id);
+                docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personId, 'gallery', fileToDelete.id);
             }
         }
         
@@ -226,8 +228,7 @@ export function MyFilesClient() {
         };
         
         // This is a temporary solution. For a real app, you'd save this metadata to Firestore.
-        // For now, we just add it to the local state.
-        setAllFiles(prev => [...prev, { ...newFileEntry, id: uuidv4() }]);
+        setAllFiles(prev => [...prev, { ...newFileEntry, id: uuidv4() }].sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime()));
         
         toast({ title: "התמונה הועלתה לגלריה הכללית" });
 
@@ -249,15 +250,44 @@ export function MyFilesClient() {
     );
   }, [allFiles, search]);
 
-  const sections = useMemo<{ title: string; type: FileType; files: DisplayFile[] }[]>(() => [
-    { title: 'קבצים שיוצאו', type: 'exported', files: filteredFiles.filter(f => f.type === 'exported') },
-    { title: 'תמונות פרופיל', type: 'profile', files: filteredFiles.filter(f => f.type === 'profile') },
-    { title: 'תמונות נוספות מהגלריות', type: 'gallery', files: filteredFiles.filter(f => f.type === 'gallery') },
-    { title: 'מצגות עבודות שורשים', type: 'presentation', files: filteredFiles.filter(f => f.type === 'presentation') },
-    { title: 'גלריה כללית', type: 'general', files: filteredFiles.filter(f => f.type === 'general') },
+  const sections = useMemo<{ title: string; type: FileType; files: DisplayFile[], gridClass: string }[]>(() => [
+    { title: 'קבצים שיוצאו', type: 'exported', files: filteredFiles.filter(f => f.type === 'exported'), gridClass: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' },
+    { title: 'תמונות פרופיל', type: 'profile', files: filteredFiles.filter(f => f.type === 'profile'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
+    { title: 'תמונות מהגלריות', type: 'gallery', files: filteredFiles.filter(f => f.type === 'gallery'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
+    { title: 'מצגות עבודות שורשים', type: 'presentation', files: filteredFiles.filter(f => f.type === 'presentation'), gridClass: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' },
+    { title: 'גלריה כללית', type: 'general', files: filteredFiles.filter(f => f.type === 'general'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
   ], [filteredFiles]);
   
   const totalFiles = useMemo(() => allFiles.length, [allFiles]);
+
+  const renderSection = (section: typeof sections[0]) => (
+     <section key={section.type}>
+        <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold tracking-tight text-slate-900">{section.title}</h3>
+            {section.type === 'general' && (
+                <>
+                 <input type="file" ref={generalFileInputRef} onChange={handleGeneralImageUpload} className="hidden" accept="image/*" disabled={isUploading}/>
+                <Button onClick={() => generalFileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <UploadCloud className="ml-2 h-4 w-4" />}
+                    העלה לגלריה
+                </Button>
+                </>
+            )}
+        </div>
+        {section.files.length > 0 ? (
+            <div className={cn("grid gap-6", section.gridClass)}>
+                {section.files.map(file => (
+                    <FileCard key={file.id} file={file} onDelete={() => file.storagePath && setFileToDelete(file)} />
+                ))}
+            </div>
+        ) : (
+             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground text-center bg-muted/30 rounded-xl">
+                <FileArchive className="h-12 w-12 mx-auto opacity-50" />
+                <p className="mt-4 text-sm">אין קבצים להצגה בסעיף זה.</p>
+            </div>
+        )}
+    </section>
+  );
 
   if (isLoading) {
     return (
@@ -293,38 +323,8 @@ export function MyFilesClient() {
             </div>
         </div>
 
-        {totalFiles === 0 && !isLoading && (
-            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground text-center">
-                <FileArchive className="h-20 w-20 mx-auto" />
-                <h3 className="mt-6 text-xl font-semibold">עדיין לא יצרת קבצים</h3>
-                <p className="mt-2 text-sm max-w-sm">קבצים שתייצא, תמונות שתעלה ופרויקטים שתשמור יופיעו כאן.</p>
-            </div>
-        )}
-
         <div className="space-y-12">
-            {sections.map(section => (
-                (section.files.length > 0 || (section.type === 'general' && !isLoading)) && (
-                    <section key={section.type}>
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-xl font-bold tracking-tight text-slate-900">{section.title}</h3>
-                            {section.type === 'general' && (
-                                <>
-                                 <input type="file" ref={generalFileInputRef} onChange={handleGeneralImageUpload} className="hidden" accept="image/*" disabled={isUploading}/>
-                                <Button onClick={() => generalFileInputRef.current?.click()} disabled={isUploading}>
-                                    {isUploading ? <Loader2 className="ml-2 h-4 w-4 animate-spin" /> : <UploadCloud className="ml-2 h-4 w-4" />}
-                                    העלה לגלריה
-                                </Button>
-                                </>
-                            )}
-                        </div>
-                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                            {section.files.map(file => (
-                                <FileCard key={file.id} file={file} onDelete={() => setFileToDelete(file)} />
-                            ))}
-                        </div>
-                    </section>
-                )
-            ))}
+            {sections.map(renderSection)}
         </div>
       </main>
 
