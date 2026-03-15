@@ -19,12 +19,13 @@ import {
 } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
-  Loader2, Search, FileArchive, UploadCloud,
+  Loader2, Search, UploadCloud,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { FileCard } from './file-card';
 import { v4 as uuidv4 } from 'uuid';
 import { cn } from '@/lib/utils';
+import { FileArchive } from 'lucide-react';
 
 type FileType = 'exported' | 'profile' | 'gallery' | 'presentation' | 'general';
 
@@ -45,8 +46,15 @@ export interface DisplayFile {
 // Helper to safely convert Firestore timestamps or JS Dates
 const toDateSafe = (timestamp: any): Date => {
     if (!timestamp) return new Date();
+    // Firestore Timestamp
     if (timestamp.toDate) return timestamp.toDate();
-    return new Date(timestamp);
+    // ISO string or JS Date object
+    if (typeof timestamp === 'string' || timestamp instanceof Date) {
+        const date = new Date(timestamp);
+        if (!isNaN(date.getTime())) return date;
+    }
+    // Fallback for unexpected types
+    return new Date();
 };
 
 
@@ -108,7 +116,7 @@ export function MyFilesClient() {
           // Profile Photos
           if (person.photoURL) {
              treeFiles.push({
-              id: `profile-${personDoc.id}`,
+              id: `profile-${treeData.id}-${personDoc.id}`,
               type: 'profile',
               name: `תמונת פרופיל - ${person.firstName} ${person.lastName}`,
               url: person.photoURL,
@@ -147,7 +155,7 @@ export function MyFilesClient() {
         rootsSnap.forEach(doc => {
             const project = doc.data() as RootsProject;
             treeFiles.push({
-                id: doc.id,
+                id: `presentation-${treeData.id}-${doc.id}`,
                 type: 'presentation',
                 name: project.projectName || 'עבודת שורשים',
                 url: `/tree/${project.treeId}/?view=roots`,
