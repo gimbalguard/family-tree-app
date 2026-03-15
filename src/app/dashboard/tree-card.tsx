@@ -33,6 +33,7 @@ import {
   Lock,
   Upload,
   Image as ImageIcon,
+  Edit,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
@@ -49,6 +50,7 @@ type TreeCardProps = {
   onDelete?: () => void;
   onDuplicate?: () => void;
   onShare?: () => void;
+  onRename?: () => void;
   onSetPublic?: () => void;
   onSetPrivate?: () => void;
   onUploadCover?: () => void;
@@ -88,6 +90,7 @@ export function TreeCard({
   onDelete,
   onDuplicate,
   onShare,
+  onRename,
   onSetPublic,
   onSetPrivate,
   onUploadCover,
@@ -106,25 +109,27 @@ export function TreeCard({
   return (
     <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-md hover:shadow-xl hover:-translate-y-1 overflow-hidden">
       <div className="relative h-28 bg-muted">
-        {coverPhotoURL ? (
-          <Image
-            src={coverPhotoURL}
-            alt={tree.treeName}
-            layout="fill"
-            objectFit="cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <ImageIcon className="h-12 w-12 text-muted-foreground/30" />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        <Link href={linkHref} className="block w-full h-full">
+          {coverPhotoURL ? (
+            <Image
+              src={coverPhotoURL}
+              alt={tree.treeName}
+              layout="fill"
+              objectFit="cover"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <ImageIcon className="h-12 w-12 text-muted-foreground/30" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        </Link>
       </div>
 
       <CardHeader className="flex-row items-start gap-4 space-y-0 pb-2 p-4 relative -mt-10 z-10">
         <div className="flex-1 space-y-1">
           <CardTitle className="hover:text-primary transition-colors text-lg text-white [text-shadow:_0_1px_3px_var(--tw-shadow-color)]">
-            <Link href={linkHref} className="stretched-link">
+            <Link href={linkHref} className="relative z-10">
               {tree.treeName}
             </Link>
           </CardTitle>
@@ -158,6 +163,9 @@ export function TreeCard({
               <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
                  <DropdownMenuItem onClick={onDuplicate}>
                     <Copy className="ml-2 h-4 w-4" /> שכפל עץ
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={onRename}>
+                    <Edit className="ml-2 h-4 w-4" /> שנה שם
                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={onShare}>
                       <Share2 className="ml-2 h-4 w-4" /> שתף עם משתמש
@@ -237,7 +245,7 @@ export function TreeCard({
         </div>
       </CardContent>
       <CardFooter className="p-3">
-        <Button asChild variant="secondary" className="w-full">
+        <Button asChild variant="default" className="w-full">
           <Link href={linkHref}>פתח עץ</Link>
         </Button>
       </CardFooter>

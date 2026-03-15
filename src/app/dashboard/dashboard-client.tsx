@@ -18,6 +18,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { ShareTreeDialog } from './share-tree-dialog';
+import { RenameTreeDialog } from './rename-tree-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { collection, query, getDocs, writeBatch, doc, addDoc, getDoc, updateDoc, where, collectionGroup, limit, serverTimestamp, deleteDoc } from 'firebase/firestore';
@@ -44,6 +45,9 @@ export function DashboardClient() {
   
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [treeToShare, setTreeToShare] = useState<FamilyTree | null>(null);
+
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [treeToRename, setTreeToRename] = useState<FamilyTree | null>(null);
 
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [treeToDelete, setTreeToDelete] = useState<FamilyTree | null>(null);
@@ -221,6 +225,33 @@ export function DashboardClient() {
     requestAnimationFrame(() => setIsShareDialogOpen(true));
   };
   
+  const handleOpenRenameDialog = (tree: FamilyTree) => {
+    setTreeToRename(tree);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    requestAnimationFrame(() => setIsRenameDialogOpen(true));
+  };
+
+  const handleConfirmRename = async (newName: string) => {
+    if (!treeToRename || !user || !db) return;
+
+    try {
+      const treeRef = doc(db, 'users', user.uid, 'familyTrees', treeToRename.id);
+      await updateDoc(treeRef, { treeName: newName });
+
+      toast({
+        title: 'שם העץ עודכן',
+        description: `השם שונה ל-"${newName}".`,
+      });
+      setIsRenameDialogOpen(false);
+      fetchData(); // Refetch data to show the new name
+    } catch (error) {
+      console.error("Error renaming tree:", error);
+      toast({ variant: 'destructive', title: 'שגיאה בשינוי השם' });
+    }
+  };
+
   const handleShareSubmit = async (email: string) => {
     if (!treeToShare || !user || !db) return;
     try {
@@ -457,6 +488,7 @@ export function DashboardClient() {
                   onDelete={() => handleDeleteClick(tree)}
                   onDuplicate={() => handleDuplicateTree(tree)}
                   onShare={() => handleOpenShareDialog(tree)}
+                  onRename={() => handleOpenRenameDialog(tree)}
                   onSetPublic={() => handleSetPublic(tree)}
                   onSetPrivate={() => handleSetPrivate(tree)}
                   onUploadCover={() => handleUploadCoverClick(tree)}
@@ -546,6 +578,13 @@ export function DashboardClient() {
         onOpenChange={setIsShareDialogOpen}
         onShare={handleShareSubmit}
         treeName={treeToShare?.treeName || ''}
+      />
+
+      <RenameTreeDialog
+        open={isRenameDialogOpen}
+        onOpenChange={setIsRenameDialogOpen}
+        onConfirmRename={handleConfirmRename}
+        currentName={treeToRename?.treeName || ''}
       />
 
       <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
