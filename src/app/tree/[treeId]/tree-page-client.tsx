@@ -36,6 +36,7 @@ import type {
   SocialLink,
   ExportedFile,
   RootsProject,
+  DesignPage,
 } from '@/lib/types';
 import { FamilyTreeCanvas } from './family-tree-canvas';
 import { PersonEditor } from './person-editor';
@@ -317,6 +318,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [isImageExportModalOpen, setIsImageExportModalOpen] = useState(false);
   const [isPowerPointModalOpen, setIsPowerPointModalOpen] = useState(false);
   const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('free');
+  const [currentRootsPage, setCurrentRootsPage] = useState<DesignPage | undefined>(undefined);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1078,6 +1080,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     await batch.commit();
     toast({ title: "הקבוצה פורקה" });
   };
+
 
   const handleAlign = useCallback((type: string) => {
     if (selectedNodes.length < 2) return;
@@ -2104,6 +2107,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             relationships={relationships}
             tree={tree}
             onEditPerson={handleEditPerson}
+            onPageChange={(page: DesignPage) => setCurrentRootsPage(page)}
         />;
       default:
         return null;
@@ -2263,14 +2267,18 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           {selectedNodes.length > 1 && viewMode === 'tree' && !readOnly && (
             <AlignmentToolbar nodes={selectedNodes} onAlign={handleAlign} />
           )}
-           {isChatPanelOpen && user && db && tree && viewMode !== 'roots' && (
+           {isChatPanelOpen && user && db && tree && (
             <AiChatPanel
-              onClose={() => setIsChatPanelOpen(false)}
-              onDataAdded={fetchData}
-              treeId={tree.id}
+              treeId={treeId}
               treeName={tree.treeName}
               people={people}
-              context='tree-building'
+              onClose={() => setIsChatPanelOpen(false)}
+              onDataAdded={fetchData}
+              context={viewMode === 'roots' ? 'design-assistant' : 'tree-building'}
+              currentPage={viewMode === 'roots' ? currentRootsPage : undefined}
+              onApplyDesignChanges={viewMode === 'roots' ? (elements) => {
+                setCurrentRootsPage(prev => prev ? { ...prev, elements } : prev);
+              } : undefined}
             />
           )}
         </main>
