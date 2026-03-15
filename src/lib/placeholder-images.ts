@@ -23,4 +23,7 @@ export function getPlaceholderImage(gender: Person['gender']) {
       break;
     default:
       placeholder = PlaceHolderImages.find((img) => img.id === 'other-avatar');
-      
+      break;
+  }
+  return placeholder?.imageUrl || defaultImage;
+}

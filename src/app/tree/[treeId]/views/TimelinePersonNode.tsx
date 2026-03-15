@@ -4,18 +4,10 @@ import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Person } from '@/lib/types';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { cn } from '@/lib/utils';
 import { differenceInYears } from 'date-fns';
 import { Baby, Users } from 'lucide-react';
-
-function getPlaceholderImage(gender: Person['gender']) {
-    switch(gender) {
-        case 'male': return PlaceHolderImages.find(img => img.id === 'male-avatar')?.imageUrl;
-        case 'female': return PlaceHolderImages.find(img => img.id === 'female-avatar')?.imageUrl;
-        default: return PlaceHolderImages.find(img => img.id === 'other-avatar')?.imageUrl;
-    }
-}
 
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, childrenCount, siblingsCount, grandchildrenCount, greatGrandchildrenCount, gen4Count, gen5Count } = data;
@@ -56,7 +48,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
       <Handle type="target" position={Position.Left} id="target" className="!w-2 !h-2" />
       
       <Avatar className="h-9 w-9 border">
-        <AvatarImage src={photoURL || ''} data-ai-hint="person photo" />
+        <AvatarImage src={photoURL || undefined} data-ai-hint="person photo" />
         <AvatarFallback>
             <img src={getPlaceholderImage(gender)} alt={`${firstName} ${lastName}`} />
         </AvatarFallback>
