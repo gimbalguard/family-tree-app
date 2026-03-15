@@ -320,7 +320,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [isPowerPointModalOpen, setIsPowerPointModalOpen] = useState(false);
   const [canvasAspectRatio, setCanvasAspectRatio] = useState<CanvasAspectRatio>('free');
   const [currentRootsPage, setCurrentRootsPage] = useState<DesignPage | undefined>(undefined);
-
+  
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
