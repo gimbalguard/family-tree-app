@@ -24,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { FileCard } from './file-card';
 import { v4 as uuidv4 } from 'uuid';
+import { cn } from '@/lib/utils';
 
 type FileType = 'exported' | 'profile' | 'gallery' | 'presentation' | 'general';
 
@@ -40,6 +41,14 @@ export interface DisplayFile {
   storagePath: string;
   version?: number;
 }
+
+// Helper to safely convert Firestore timestamps or JS Dates
+const toDateSafe = (timestamp: any): Date => {
+    if (!timestamp) return new Date();
+    if (timestamp.toDate) return timestamp.toDate();
+    return new Date(timestamp);
+};
+
 
 export function MyFilesClient() {
   const { user, isUserLoading } = useUser();
@@ -76,7 +85,7 @@ export function MyFilesClient() {
             name: data.fileName,
             url: data.downloadURL,
             size: data.fileSizeBytes,
-            createdAt: data.createdAt.toDate(),
+            createdAt: toDateSafe(data.createdAt),
             treeName: data.treeName,
             storagePath: data.storagePath,
           });
@@ -104,8 +113,8 @@ export function MyFilesClient() {
               name: `תמונת פרופיל - ${person.firstName} ${person.lastName}`,
               url: person.photoURL,
               size: 0,
-              createdAt: person.createdAt.toDate(),
-              updatedAt: person.updatedAt.toDate(),
+              createdAt: toDateSafe(person.createdAt),
+              updatedAt: toDateSafe(person.updatedAt),
               personName: `${person.firstName} ${person.lastName}`,
               treeName: treeData.treeName,
               storagePath: '', // Cannot be deleted from here
@@ -123,7 +132,7 @@ export function MyFilesClient() {
               name: 'תמונה מהגלריה',
               url: photo.url,
               size: 0,
-              createdAt: photo.createdAt.toDate(),
+              createdAt: toDateSafe(photo.createdAt),
               personName: `${person.firstName} ${person.lastName}`,
               treeName: treeData.treeName,
               storagePath: photo.storagePath,
@@ -143,8 +152,8 @@ export function MyFilesClient() {
                 name: project.projectName || 'עבודת שורשים',
                 url: `/tree/${project.treeId}/?view=roots`,
                 size: 0, // Size is not applicable here
-                createdAt: project.createdAt.toDate(),
-                updatedAt: project.updatedAt.toDate(),
+                createdAt: toDateSafe(project.createdAt),
+                updatedAt: toDateSafe(project.updatedAt),
                 treeName: treeData.treeName,
                 storagePath: '', // No direct file to delete
             });
@@ -253,7 +262,7 @@ export function MyFilesClient() {
   const sections = useMemo<{ title: string; type: FileType; files: DisplayFile[], gridClass: string }[]>(() => [
     { title: 'קבצים שיוצאו', type: 'exported', files: filteredFiles.filter(f => f.type === 'exported'), gridClass: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' },
     { title: 'תמונות פרופיל', type: 'profile', files: filteredFiles.filter(f => f.type === 'profile'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
-    { title: 'תמונות מהגלריות', type: 'gallery', files: filteredFiles.filter(f => f.type === 'gallery'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
+    { title: 'גלריית בני המשפחה', type: 'gallery', files: filteredFiles.filter(f => f.type === 'gallery'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
     { title: 'מצגות עבודות שורשים', type: 'presentation', files: filteredFiles.filter(f => f.type === 'presentation'), gridClass: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4' },
     { title: 'גלריה כללית', type: 'general', files: filteredFiles.filter(f => f.type === 'general'), gridClass: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6' },
   ], [filteredFiles]);
