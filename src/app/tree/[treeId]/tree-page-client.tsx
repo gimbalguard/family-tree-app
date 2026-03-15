@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
@@ -2095,7 +2096,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           onEditPerson={handleEditPerson}
         />;
       case 'statistics':
-        return <StatisticsView people={people} relationships={relationships} onEditPerson={onEditPerson} />;
+        return <StatisticsView people={people} relationships={relationships} onEditPerson={handleEditPerson} />;
       case 'trivia':
         return <TriviaView people={people} relationships={relationships} setViewMode={setViewMode} />;
       case 'roots':

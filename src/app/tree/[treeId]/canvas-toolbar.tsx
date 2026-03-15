@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -39,6 +40,7 @@ import {
   Trophy,
   LayoutPanelTop,
   Wand2,
+  Files,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -203,7 +205,7 @@ export function CanvasToolbar({
         </Tooltip>
       </div>
 
-      {!readOnly && (
+      {!readOnly && viewMode !== 'roots' && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="default" size="icon" className="w-12 h-12" onClick={onAddPerson}>
@@ -211,6 +213,21 @@ export function CanvasToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right"><p>הוסף אדם חדש</p></TooltipContent>
+        </Tooltip>
+      )}
+      
+      {viewMode === 'roots' && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="w-12 h-12" asChild>
+              <Link href="/my-files">
+                <Files className="h-6 w-6" />
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p>הקבצים שלי</p>
+          </TooltipContent>
         </Tooltip>
       )}
 
