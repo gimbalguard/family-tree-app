@@ -1,7 +1,7 @@
 'use client';
 import { useState, useMemo, useRef, useEffect, forwardRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { RootsProject, Person, FamilyTree, Relationship } from '@/lib/types';
+import type { RootsProject, Person, FamilyTree, Relationship, DesignPage } from '@/lib/types';
 import { format, isValid, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -468,7 +468,7 @@ const Step1_FormalInfo = ({ projectData, onUpdate, people, onStudentChange, curr
             };
             
             const hebrewLetters = toHebrewLetters(hebrewYearNum);
-            const combined = `${hebrewLetters} (${hebrewYearNum})`;
+            const combined = `${"'"}${hebrewLetters} (${hebrewYearNum})`;
             
             if (coverPage.hebrewYear !== combined) {
               onUpdate(['coverPage', 'hebrewYear'], combined);
@@ -1312,7 +1312,7 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
 // --- Main View Component ---
 export function RootsView({
   project, people, relationships, tree, updateProject, setProject, onEditPerson,
-  rootsCurrentPageIndex, setRootsCurrentPageIndex,
+  rootsCurrentPageIndex, setRootsCurrentPageIndex, onPageChange,
 }: {
   project: RootsProject | null;
   people: Person[];
@@ -1323,6 +1323,7 @@ export function RootsView({
   onEditPerson?: (personId: string) => void;
   rootsCurrentPageIndex: number;
   setRootsCurrentPageIndex: (index: number) => void;
+  onPageChange?: (page: DesignPage) => void;
 }) {
   const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -1491,6 +1492,7 @@ export function RootsView({
         onUpdateProject={onUpdateProjectForEditor}
         currentPageIndex={rootsCurrentPageIndex}
         setCurrentPageIndex={setRootsCurrentPageIndex}
+        onCurrentPageChange={onPageChange}
       />
     );
   }
