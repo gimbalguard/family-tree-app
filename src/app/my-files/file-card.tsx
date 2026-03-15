@@ -4,7 +4,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  FileText, FileSpreadsheet, Presentation, ImageIcon, Globe, Book, Eye, Download, Edit, Trash2, User, Home, Calendar, GitBranch
+  FileText, FileSpreadsheet, Presentation, ImageIcon, Globe, Book, Eye, Download, Edit, Trash2, User, Home, Calendar, GitBranch, FileArchive
 } from 'lucide-react';
 import type { DisplayFile } from './my-files-client';
 import { format } from 'date-fns';
