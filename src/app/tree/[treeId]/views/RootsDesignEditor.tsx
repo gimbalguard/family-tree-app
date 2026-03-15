@@ -756,13 +756,29 @@ function generatePagesFromProject(
 
   // Migration map
   const mapEls: DesignElement[] = [...header('מפת נדודים משפחתית', '🗺️', 'חלק 6: נתונים ומחקר')];
-  if ((finalizationData as any).mapScreenshotUrl) {
-    mapEls.push(mk('image', { content: (finalizationData as any).mapScreenshotUrl, x: 5, y: 15, width: 90, height: 65, zIndex: 5, style: { borderRadius: 4 } }));
+  if (pd.finalPresentation?.mapScreenshotUrl) {
+    mapEls.push(mk('image', { content: pd.finalPresentation?.mapScreenshotUrl, x: 5, y: 15, width: 90, height: 65, zIndex: 5, style: { borderRadius: 4 } }));
   } else {
     mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ הוסף מפת נדודים'));
   }
   mapEls.push(mk('text', { x: 5, y: 82, width: 90, height: 12, content: 'מדינות מוצא המשפחה: ________________________\nמסלול ההגירה: ________________________ ← ישראל', style: { fontSize: 18, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }));
   addPage('מפת נדודים', 'custom', mapEls);
+
+  const selectedEvents = pd.finalPresentation?.selectedEvents || [];
+  if (selectedEvents.length > 0) {
+    const calEls: DesignElement[] = [
+      ...header('תאריכים מיוחדים', '📅', 'חלק 6: נתונים ומחקר'),
+    ];
+    const eventText = selectedEvents
+      .map((ev: any) => `• ${ev.title} — ${ev.date}`)
+      .join('\n');
+    calEls.push(mk('text', {
+      x: 5, y: 15, width: 90, height: 78,
+      content: eventText,
+      style: { fontSize: 16, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 }
+    }));
+    addPage('תאריכים מיוחדים', 'custom', calEls);
+  }
 
   const h = pd.heritage || {} as any;
   if (h.familyNameOrigin) {
@@ -782,10 +798,25 @@ function generatePagesFromProject(
     ]);
   }
 
-  addPage('סטטיסטיקה משפחתית', 'custom', [
+  const selectedStats = pd.finalPresentation?.selectedStats || [];
+  const statsEls: DesignElement[] = [
     ...header('סטטיסטיקה משפחתית', '📊', 'חלק 6: נתונים ומחקר'),
-    mk('text', { x: 5, y: 15, width: 90, height: 80, content: 'גרפים סטטיסטיים שנבחרו יופיעו כאן.', style: { fontSize: 20, color: tmpl.mutedTextColor, textAlign: 'center' } }),
-  ]);
+  ];
+  if (selectedStats.length === 0) {
+    statsEls.push(mk('text', { x: 5, y: 15, width: 90, height: 80, content: 'גרפים סטטיסטיים יופיעו כאן לאחר בחירה בשלב 13 של האשף.', style: { fontSize: 16, color: tmpl.mutedTextColor, textAlign: 'center' } }));
+  } else {
+    statsEls.push(mk('text', { x: 5, y: 15, width: 90, height: 8, content: `גרפים שנבחרו: ${selectedStats.map((s: any) => s.title).join(' | ')}`, style: { fontSize: 14, color: tmpl.textColor, textAlign: 'right', fontFamily: tmpl.bodyFont } }));
+    // Place stat chart placeholders in a grid
+    const cols = selectedStats.length <= 2 ? selectedStats.length : 2;
+    selectedStats.slice(0, 4).forEach((stat: any, i: number) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = 5 + col * 47;
+      const y = 25 + row * 38;
+      statsEls.push(...photoPlaceholder(x, y, 44, 35, `📊 ${stat.title}`));
+    });
+  }
+  addPage('סטטיסטיקה משפחתית', 'custom', statsEls);
 
   // ═══════════════════════════════════════════════════════════
   // PART 7 — HERITAGE
@@ -1371,10 +1402,11 @@ function useHistory<T>(initial: T) {
 // MAIN EDITOR
 // ============================================================
 export function RootsDesignEditor({
-  project, people, relationships, onBack, onUpdateProject,
+  project, people, relationships, onBack, onUpdateProject, onCurrentPageChange,
 }: {
   project: RootsProject; people: Person[]; relationships: Relationship[];
   onBack: () => void; onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
+  onCurrentPageChange?: (page: DesignPage) => void;
 }) {
   const initialPages = project.projectData?.designData?.pages || [];
   const { current: pages, push: pushHistory, undo, redo, canUndo, canRedo } = useHistory<DesignPage[]>(initialPages);
@@ -1430,6 +1462,14 @@ export function RootsDesignEditor({
 
   // Sync history current → localPages
   useEffect(() => { setLocalPages(pages); }, [pages]);
+  
+  const currentPage = localPages[currentPageIndex];
+
+  useEffect(() => {
+    if (currentPage && onCurrentPageChange) {
+      onCurrentPageChange(currentPage);
+    }
+  }, [currentPage, onCurrentPageChange]);
 
   // ── Init ──
   useEffect(() => {
@@ -1486,7 +1526,6 @@ export function RootsDesignEditor({
   }, []);
 
   // ── Derived ──
-  const currentPage = localPages[currentPageIndex];
   const template = DESIGN_TEMPLATES.find(t => t.id === (currentPage?.templateId || selectedTemplateId)) || DESIGN_TEMPLATES[0];
   const selectedId = selectedIds.length === 1 ? selectedIds[0] : null;
   const selectedElement = selectedId ? currentPage?.elements.find(el => el.id === selectedId) : undefined;
@@ -1745,7 +1784,7 @@ export function RootsDesignEditor({
           else if (h === 'nw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); ny = elY + (elH - nh); }
         } else {
           // Side: crop only, no aspect ratio change
-          if (h === 'e') nw = Math.max(5, elW - dx);
+          if (h === 'e') nw = Math.max(5, elW + dx);
           else if (h === 's') nh = Math.max(3, elH + dy);
           else if (h === 'w') { nw = Math.max(5, elW - dx); nx = elX + dx; }
           else if (h === 'n') { nh = Math.max(3, elH - dy); ny = elY + dy; }
@@ -2248,16 +2287,16 @@ export function RootsDesignEditor({
                 {ctxMenu.elementId ? (
                   <>
                     {currentPage?.elements.find(e => e.id === ctxMenu.elementId)?.type === 'person_card' && (<>
-                        <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2 text-indigo-300"
-                            onClick={() => {
-                            const el = currentPage?.elements.find(e => e.id === ctxMenu.elementId!);
-                            const person = people.find(p => p.id === el?.personId);
-                            if (el && person) setCardFieldPanel({ elementId: ctxMenu.elementId!, personId: person.id });
-                            setCtxMenu(null);
-                            }}>
-                            <User className="w-3.5 h-3.5" />עריכת שדות הכרטיס
-                        </button>
-                        <div className="my-1 border-t border-white/10" />
+                      <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2 text-indigo-300"
+                        onClick={() => {
+                          const el = currentPage?.elements.find(e => e.id === ctxMenu.elementId!);
+                          const person = people.find(p => p.id === el?.personId);
+                          if (el && person) setCardFieldPanel({ elementId: ctxMenu.elementId!, personId: person.id });
+                          setCtxMenu(null);
+                        }}>
+                        <User className="w-3.5 h-3.5" />עריכת שדות הכרטיס
+                      </button>
+                      <div className="my-1 border-t border-white/10" />
                     </>)}
                     <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { cutElement(ctxMenu.elementId!); setCtxMenu(null); }}><Scissors className="w-3.5 h-3.5" />גזור (Ctrl+X)</button>
                     <button className="w-full text-right px-3 py-1.5 text-xs hover:bg-white/10 flex items-center gap-2" onClick={() => { copyElement(ctxMenu.elementId!); setCtxMenu(null); }}><Copy className="w-3.5 h-3.5" />העתק (Ctrl+C)</button>
