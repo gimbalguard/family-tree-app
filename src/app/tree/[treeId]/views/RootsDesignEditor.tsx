@@ -537,76 +537,119 @@ function generatePagesFromProject(
   // ─── NUCLEAR FAMILY DIAGRAM (FIXED) ─────────────────────────
   const nucEls: DesignElement[] = [...header('המשפחה הגרעינית', '👨‍👩‍👧', 'חלק 3: המשפחה הגרעינית')];
 
-  // Layout strategy:
-  // Row 1 (y=16): Parents side by side in center
-  // Row 2 (y=55): Student in center, siblings spread around
-  // Lines: each parent → student, student — siblings (wavy)
+  // ── Layout:
+  // Row 1 (y=15): Parents centered side by side
+  // Row 2 (y=57): ALL children (student + siblings) in one row, equally spaced
+  // Lines: each parent bottom → each child top (straight)
+  // Sibling lines: horizontal bar connecting all children at y=57
 
-  const cardW = 20;
-  const cardH = 32;
+  const nucCardW = 18;
+  const nucCardH = 30;
+  const nucGap = 3;
 
-  // Place parents in row 1, centered
-  const totalParents = parents.length;
-  const parentRowW = totalParents * cardW + Math.max(0, totalParents - 1) * 5;
-  const parentStartX = (100 - parentRowW) / 2;
-  const parentCardIds: string[] = [];
+  // All children = student first, then siblings by birth order
+  const allChildren: Person[] = [];
+  if (student) allChildren.push(student);
+  siblings.forEach(s => { if (!allChildren.find(c => c.id === s.id)) allChildren.push(s); });
+
+  // Place parents row 1 — centered
+  const numParents = parents.length;
+  const parentRowTotalW = numParents * nucCardW + Math.max(0, numParents - 1) * nucGap;
+  const parentStartX = Math.max(2, (100 - parentRowTotalW) / 2);
+  const parentElementIds: string[] = [];
 
   parents.forEach((parent, idx) => {
     const cardId = uuidv4();
-    parentCardIds.push(cardId);
+    parentElementIds.push(cardId);
     nucEls.push({
-      ...mk('person_card', { personId: parent.id, x: parentStartX + idx * (cardW + 5), y: 16, width: cardW, height: cardH, zIndex: 10 }),
+      ...mk('person_card', {
+        personId: parent.id,
+        x: parentStartX + idx * (nucCardW + nucGap),
+        y: 15,
+        width: nucCardW,
+        height: nucCardH,
+        zIndex: 10,
+      }),
       id: cardId,
     });
   });
 
-  // Place student in row 2 center
-  const studentCardId = uuidv4();
-  if (student) {
+  // Place children row 2 — all equally spaced across full width
+  const numChildren = allChildren.length;
+  const childRowTotalW = numChildren * nucCardW + Math.max(0, numChildren - 1) * nucGap;
+  const childStartX = Math.max(1, (100 - childRowTotalW) / 2);
+  const childElementIds: string[] = [];
+
+  allChildren.forEach((child, idx) => {
+    const cardId = uuidv4();
+    childElementIds.push(cardId);
     nucEls.push({
-      ...mk('person_card', { personId: student.id, x: (100 - cardW) / 2, y: 58, width: cardW, height: cardH, zIndex: 10 }),
-      id: studentCardId,
+      ...mk('person_card', {
+        personId: child.id,
+        x: childStartX + idx * (nucCardW + nucGap),
+        y: 58,
+        width: nucCardW,
+        height: nucCardH,
+        zIndex: 10,
+      }),
+      id: cardId,
     });
+  });
+
+  // Horizontal connector bar between parents (if 2 parents)
+  if (numParents >= 2) {
+    const p1CenterX = parentStartX + nucCardW / 2;
+    const p2CenterX = parentStartX + (numParents - 1) * (nucCardW + nucGap) + nucCardW / 2;
+    const barY = 15 + nucCardH / 2;
+    // We draw this as a shape line element
+    nucEls.push(mk('shape', {
+      x: p1CenterX,
+      y: barY - 0.3,
+      width: p2CenterX - p1CenterX,
+      height: 0.6,
+      zIndex: 1,
+      style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.6 },
+    }));
   }
 
-  // Connection lines: parents → student (wavy, with label)
-  if (student) {
-    parentCardIds.forEach(pid => {
-      nucEls.push(mk('connection_line', {
-        fromElementId: pid,
-        toElementId: studentCardId,
-        x: 0, y: 0, width: 0, height: 0, zIndex: 2,
-        style: { color: P, borderWidth: 2, lineType: 'wavy' } as any,
-      }));
-    });
+  // Vertical drop from parent midpoint to horizontal child bar
+  const parentMidX = parentStartX + (parentRowTotalW / 2);
+  const childBarY = 58; // top of children row
+  const dropLineX = parentMidX;
+  nucEls.push(mk('shape', {
+    x: dropLineX - 0.3,
+    y: 15 + nucCardH,
+    width: 0.6,
+    height: childBarY - (15 + nucCardH),
+    zIndex: 1,
+    style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.6 },
+  }));
+
+  // Horizontal bar across tops of all children
+  if (numChildren > 1) {
+    const c1CenterX = childStartX + nucCardW / 2;
+    const cnCenterX = childStartX + (numChildren - 1) * (nucCardW + nucGap) + nucCardW / 2;
+    nucEls.push(mk('shape', {
+      x: c1CenterX,
+      y: childBarY - 0.3,
+      width: cnCenterX - c1CenterX,
+      height: 0.6,
+      zIndex: 1,
+      style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.6 },
+    }));
   }
 
-  // Place siblings: spread to the right and left of student
-  // Up to 4 siblings shown, 2 on each side
-  const sibW = 17;
-  const sibH = 28;
-  const studentCenterX = (100 - cardW) / 2 + cardW / 2;
-  const sibSpacing = 22;
-
-  siblings.slice(0, 6).forEach((sib, idx) => {
-    // Alternate left and right of student
-    const side = idx % 2 === 0 ? 1 : -1; // 1=right, -1=left
-    const offset = Math.ceil((idx + 1) / 2) * sibSpacing;
-    const sibX = Math.max(1, Math.min(100 - sibW - 1, studentCenterX + side * offset - sibW / 2));
-    const sibCardId = uuidv4();
-    nucEls.push({
-      ...mk('person_card', { personId: sib.id, x: sibX, y: 58, width: sibW, height: sibH, zIndex: 9 }),
-      id: sibCardId,
-    });
-    // Connect sibling to student with dashed line
-    if (student) {
-      nucEls.push(mk('connection_line', {
-        fromElementId: studentCardId,
-        toElementId: sibCardId,
-        x: 0, y: 0, width: 0, height: 0, zIndex: 1,
-        style: { color: accent, borderWidth: 1.5, lineType: 'dashed' } as any,
-      }));
-    }
+  // Vertical drop to each child
+  allChildren.forEach((_, idx) => {
+    const childCenterX = childStartX + idx * (nucCardW + nucGap) + nucCardW / 2;
+    nucEls.push(mk('shape', {
+      x: childCenterX - 0.3,
+      y: childBarY - 3,
+      width: 0.6,
+      height: 3,
+      zIndex: 1,
+      style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.5 },
+    }));
   });
 
   addPage('המשפחה הגרעינית', 'nuclear_family', nucEls);
@@ -643,11 +686,14 @@ function generatePagesFromProject(
   const sibBios: Array<{ personId?: string; relationshipDescription?: string }> = (nf.siblings as any[]) || [];
   siblings.forEach((sib) => {
     const sibBio = sibBios.find(b => b.personId === sib.id) || {};
-    addPage(`${sib.firstName} — אח/ות`, 'nuclear_family', [
-      ...header(`${sib.firstName} ${sib.lastName}`, sib.gender === 'female' ? '👧' : '👦', 'חלק 3: אחים ואחיות'),
+    const sibRole = sib.gender === 'female' ? 'אחות' : 'אח';
+    const sibEmoji = sib.gender === 'female' ? '👧' : '👦';
+    const sibRelLabel = sib.gender === 'female' ? 'אחות שלי' : 'אח שלי';
+    addPage(`${sib.firstName} — ${sibRole}`, 'nuclear_family', [
+      ...header(`${sib.firstName} ${sib.lastName}`, sibEmoji, 'חלק 3: אחים ואחיות'),
       mk('person_card', { personId: sib.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
-      ...pill(5, 15, 59, 6.5, 'אח/ות שלי', '💙', P),
-      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 18),
+      ...pill(5, 15, 59, 6.5, sibRelLabel, '💙', P),
+      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד ב${sib.gender === 'female' ? 'ה' : ''}${sib.firstName}.`, 18),
       ...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${sib.firstName}`),
     ]);
   });
@@ -914,9 +960,10 @@ function TemplateDecorations({ template }: { template: DesignTemplate }) {
 // PERSON CARD ELEMENT — tight layout, scales with element size
 // ============================================================
 const PersonCardElement = ({
-  element, people, relationships,
+  element, people, relationships, onDoubleClick,
 }: {
   element: DesignElement; people: Person[]; relationships: Relationship[];
+  onDoubleClick?: () => void;
 }) => {
   const person = people.find(p => p.id === element.personId);
   if (!person) return (
@@ -941,59 +988,52 @@ const PersonCardElement = ({
   const textColor = element.style?.color || '#ffffff';
   const opacity = element.style?.opacity ?? 1;
 
-  // Stable font size calculation
+  // cardTextScale: stored in element.style as (element as any)._cardTextScale, defaults to 1
+  const cardTextScale = (element as any)._cardTextScale ?? 1;
+  // hiddenFields: array of field keys to hide
+  const hiddenFields: string[] = (element as any)._hiddenFields ?? [];
+
   const widthScale = Math.max(0.4, Math.min(2.5, (element.width || 20) / 20));
-  const fs = (base: number) => Math.round(base * widthScale);
+  const fs = (base: number) => Math.round(base * widthScale * cardTextScale);
 
-  const infoRows: Array<{ icon: string; value: string }> = [];
-  if (person.birthDate) infoRows.push({ icon: '🎂', value: person.birthDate.slice(0, 10) });
-  if (person.birthPlace) infoRows.push({ icon: '📍', value: person.birthPlace });
-  if (deathYear) infoRows.push({ icon: '✝', value: String(deathYear) });
-  if (person.countryOfResidence) infoRows.push({ icon: '🌍', value: person.countryOfResidence });
-  if (p.religion) infoRows.push({ icon: '✡️', value: p.religion });
-  if (person.profession) infoRows.push({ icon: '💼', value: person.profession });
-  if (spousePerson) infoRows.push({ icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
-  if (childRels.length) infoRows.push({ icon: '👶', value: `${childRels.length} ילדים` });
-  if (siblingRels.length) infoRows.push({ icon: '👥', value: `${siblingRels.length} אחים` });
+  const allInfoRows: Array<{ key: string; icon: string; value: string }> = [];
+  if (person.birthDate) allInfoRows.push({ key: 'birthDate', icon: '🎂', value: person.birthDate.slice(0, 10) });
+  if (person.birthPlace) allInfoRows.push({ key: 'birthPlace', icon: '📍', value: person.birthPlace });
+  if (deathYear) allInfoRows.push({ key: 'deathYear', icon: '✝', value: String(deathYear) });
+  if (person.countryOfResidence) allInfoRows.push({ key: 'country', icon: '🌍', value: person.countryOfResidence });
+  if (p.religion) allInfoRows.push({ key: 'religion', icon: '✡️', value: p.religion });
+  if (person.profession) allInfoRows.push({ key: 'profession', icon: '💼', value: person.profession });
+  if (spousePerson) allInfoRows.push({ key: 'spouse', icon: '💍', value: `${spousePerson.firstName} ${spousePerson.lastName}` });
+  if (childRels.length) allInfoRows.push({ key: 'children', icon: '👶', value: `${childRels.length} ילדים` });
+  if (siblingRels.length) allInfoRows.push({ key: 'siblings', icon: '👥', value: `${person.gender === 'female' ? 'אחיות/אחים' : 'אחים'}: ${siblingRels.length}` });
 
-  // Show fewer rows for smaller cards
+  const visibleRows = allInfoRows.filter(r => !hiddenFields.includes(r.key));
   const maxRows = Math.max(1, Math.floor(widthScale * 5));
 
   return (
     <div
       className="w-full h-full rounded-xl overflow-hidden border border-white/15 backdrop-blur-sm shadow-lg"
       style={{
-        backgroundColor: bgColor,
-        opacity,
-        color: textColor,
+        backgroundColor: bgColor, opacity, color: textColor,
         padding: `${Math.max(3, Math.round(5 * widthScale))}px`,
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
+        boxSizing: 'border-box', display: 'flex', flexDirection: 'column',
         gap: `${Math.max(1, Math.round(2 * widthScale))}px`,
+        cursor: onDoubleClick ? 'pointer' : 'inherit',
       }}
       dir="rtl"
+      onDoubleClick={e => { e.stopPropagation(); onDoubleClick?.(); }}
     >
-      {/* Avatar + name row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: Math.max(2, Math.round(4 * widthScale)), flexShrink: 0 }}>
-        <div style={{
-          width: Math.max(16, Math.round(32 * widthScale)),
-          height: Math.max(16, Math.round(32 * widthScale)),
-          borderRadius: '50%',
-          overflow: 'hidden',
-          flexShrink: 0,
-          border: '1.5px solid rgba(255,255,255,0.25)',
-        }}>
+        <div style={{ width: Math.max(16, Math.round(32 * widthScale)), height: Math.max(16, Math.round(32 * widthScale)), borderRadius: '50%', overflow: 'hidden', flexShrink: 0, border: '1.5px solid rgba(255,255,255,0.25)' }}>
           <img src={person.photoURL || getPlaceholderImage(person.gender)} alt={displayName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
           <div style={{ fontWeight: 700, lineHeight: 1.15, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', fontSize: fs(11), color: textColor }}>{displayName}</div>
-          {birthYear && <div style={{ opacity: 0.65, fontSize: fs(8.5), lineHeight: 1.1 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · ${age}` : ''}</div>}
-          {person.gender && <div style={{ opacity: 0.45, fontSize: fs(7.5), lineHeight: 1.1 }}>{person.gender === 'male' ? '♂' : person.gender === 'female' ? '♀' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status}` : ''}</div>}
+          {birthYear && !hiddenFields.includes('birthDate') && <div style={{ opacity: 0.65, fontSize: fs(8.5), lineHeight: 1.1 }}>{birthYear}{deathYear ? `–${deathYear}` : ''}{age ? ` · גיל ${age}` : ''}</div>}
+          {person.gender && !hiddenFields.includes('gender') && <div style={{ opacity: 0.45, fontSize: fs(7.5), lineHeight: 1.1 }}>{person.gender === 'male' ? '♂ זכר' : person.gender === 'female' ? '♀ נקבה' : ''}{(p.status || p.lifeStatus) ? ` · ${p.status || p.lifeStatus}` : ''}</div>}
         </div>
       </div>
-      {/* Info rows */}
-      {infoRows.slice(0, maxRows).map((row, i) => (
+      {visibleRows.slice(0, maxRows).map((row, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
           <span style={{ fontSize: fs(7.5), lineHeight: 1 }}>{row.icon}</span>
           <span style={{ opacity: 0.65, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1, textAlign: 'right', fontSize: fs(8.5), color: textColor }}>{row.value}</span>
@@ -1002,6 +1042,82 @@ const PersonCardElement = ({
     </div>
   );
 };
+
+// ============================================================
+// CARD FIELD PANEL — double-click person card to open
+// ============================================================
+const CARD_FIELDS = [
+  { key: 'birthDate', label: 'תאריך לידה' },
+  { key: 'birthPlace', label: 'מקום לידה' },
+  { key: 'deathYear', label: 'שנת פטירה' },
+  { key: 'country', label: 'מדינה' },
+  { key: 'religion', label: 'דת' },
+  { key: 'profession', label: 'מקצוע' },
+  { key: 'spouse', label: 'בן/בת זוג' },
+  { key: 'children', label: 'ילדים' },
+  { key: 'siblings', label: 'אחים/אחיות' },
+  { key: 'gender', label: 'מין' },
+];
+
+function CardFieldPanel({ element, person, onUpdate, onClose }: {
+  element: DesignElement;
+  person: Person;
+  onUpdate: (updates: Partial<DesignElement>) => void;
+  onClose: () => void;
+}) {
+  const hiddenFields: string[] = (element as any)._hiddenFields ?? [];
+  const cardTextScale: number = (element as any)._cardTextScale ?? 1;
+
+  const toggleField = (key: string) => {
+    const next = hiddenFields.includes(key)
+      ? hiddenFields.filter(k => k !== key)
+      : [...hiddenFields, key];
+    onUpdate({ _hiddenFields: next } as any);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center" onClick={onClose}>
+      <div className="bg-slate-800 rounded-2xl w-72 border border-white/15 shadow-2xl" onClick={e => e.stopPropagation()} dir="rtl">
+        <div className="flex items-center justify-between p-3 border-b border-white/10">
+          <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
+          <div className="flex items-center gap-2">
+            <img src={person.photoURL || ''} alt="" className="w-6 h-6 rounded-full object-cover opacity-70" />
+            <span className="text-sm font-bold">{person.firstName} {person.lastName}</span>
+          </div>
+        </div>
+        <div className="p-3 space-y-1.5">
+          <div className="text-[10px] text-slate-400 uppercase font-bold mb-2">שדות מוצגים</div>
+          {CARD_FIELDS.map(field => (
+            <label key={field.key} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 cursor-pointer">
+              <div className={cn('w-8 h-4 rounded-full relative transition-colors', !hiddenFields.includes(field.key) ? 'bg-indigo-500' : 'bg-slate-600')}
+                onClick={() => toggleField(field.key)}>
+                <div className={cn('absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all', !hiddenFields.includes(field.key) ? 'right-0.5' : 'left-0.5')} />
+              </div>
+              <span className="text-xs flex-1 text-right">{field.label}</span>
+            </label>
+          ))}
+          <div className="border-t border-white/10 mt-3 pt-3">
+            <div className="text-[10px] text-slate-400 uppercase font-bold mb-2">גודל טקסט בכרטיס</div>
+            <div className="flex items-center gap-2 px-1">
+              <span className="text-[10px] text-slate-400">A</span>
+              <input type="range" min={0.6} max={2.0} step={0.1} className="flex-1"
+                value={cardTextScale}
+                onChange={e => onUpdate({ _cardTextScale: Number(e.target.value) } as any)} />
+              <span className="text-[10px] text-slate-400">A</span>
+              <span className="text-xs text-white w-8 text-center">{Math.round(cardTextScale * 100)}%</span>
+            </div>
+          </div>
+          <div className="border-t border-white/10 mt-3 pt-3">
+            <button className="w-full text-xs py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 flex items-center justify-center gap-2"
+              onClick={() => { onUpdate({ _syncVersion: Date.now() } as any); onClose(); }}>
+              🔄 סנכרן מידע עדכני מהכרטיס
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ============================================================
 // PHOTO PLACEHOLDER ELEMENT
@@ -1215,14 +1331,14 @@ function ImagePickerModal({ treeId, onSelect, onClose }: { treeId: string; onSel
 // RESIZE HANDLES — corners (aspect-ratio) + sides (crop)
 // ============================================================
 const HANDLES = [
-  { id: 'nw', cursor: 'nw-resize', style: { top: -5, right: -5 }, isCorner: true },
-  { id: 'ne', cursor: 'ne-resize', style: { top: -5, left: -5 }, isCorner: true },
-  { id: 'sw', cursor: 'sw-resize', style: { bottom: -5, right: -5 }, isCorner: true },
-  { id: 'se', cursor: 'se-resize', style: { bottom: -5, left: -5 }, isCorner: true },
+  { id: 'nw', cursor: 'ne-resize', style: { top: -5, right: -5 }, isCorner: true },
+  { id: 'ne', cursor: 'nw-resize', style: { top: -5, left: -5 }, isCorner: true },
+  { id: 'sw', cursor: 'se-resize', style: { bottom: -5, right: -5 }, isCorner: true },
+  { id: 'se', cursor: 'sw-resize', style: { bottom: -5, left: -5 }, isCorner: true },
   { id: 'n', cursor: 'n-resize', style: { top: -5, left: '50%', transform: 'translateX(-50%)' }, isCorner: false },
   { id: 's', cursor: 's-resize', style: { bottom: -5, left: '50%', transform: 'translateX(-50%)' }, isCorner: false },
-  { id: 'e', cursor: 'e-resize', style: { right: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
-  { id: 'w', cursor: 'w-resize', style: { left: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
+  { id: 'e', cursor: 'w-resize', style: { right: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
+  { id: 'w', cursor: 'e-resize', style: { left: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
 ];
 
 // ============================================================
@@ -1345,6 +1461,10 @@ export function RootsDesignEditor({
   const [lineDrawing, setLineDrawing] = useState<{ fromElementId: string } | null>(null);
   // Line style for new connections
   const [activeLineType, setActiveLineType] = useState<string>('straight');
+  // TOC outdated indicator
+  const [tocOutdated, setTocOutdated] = useState(false);
+  // Person card field panel
+  const [cardFieldPanel, setCardFieldPanel] = useState<{ elementId: string; personId: string } | null>(null);
 
   useEffect(() => { DESIGN_TEMPLATES.forEach(t => ensureFontLoaded(t.titleFont)); }, []);
 
@@ -1527,18 +1647,20 @@ export function RootsDesignEditor({
       setCurrentPageIndex(index + 1);
     }
     const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(rebuildToc(renumbered));
-  }, [commitPages, rebuildToc]);
+    commitPages(renumbered);
+    setTocOutdated(true);
+  }, [commitPages]);
 
   const handleDuplicatePage = useCallback((index: number) => {
     const pageToDuplicate = pagesRef.current[index];
     const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
     const newPages = [...pagesRef.current.slice(0, index + 1), newPage, ...pagesRef.current.slice(index + 1)];
     const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(rebuildToc(renumbered));
+    commitPages(renumbered);
     setCurrentPageIndex(index + 1);
+    setTocOutdated(true);
     toast({ title: 'עמוד שוכפל' });
-  }, [commitPages, rebuildToc, toast]);
+  }, [commitPages, toast]);
 
   const handleAddNewPage = useCallback((index: number, position: 'before' | 'after') => {
     const newPage: DesignPage = {
@@ -1548,21 +1670,31 @@ export function RootsDesignEditor({
     const newIndex = position === 'before' ? index : index + 1;
     const newPages = [...pagesRef.current.slice(0, newIndex), newPage, ...pagesRef.current.slice(newIndex)];
     const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(rebuildToc(renumbered));
+    commitPages(renumbered);
     setCurrentPageIndex(newIndex);
-  }, [commitPages, rebuildToc, currentPage, selectedTemplateId]);
+    setTocOutdated(true);
+  }, [commitPages, currentPage, selectedTemplateId]);
 
   const handleDeletePageRequest = useCallback((index: number) => { setPageToDeleteIndex(index); }, []);
 
   const confirmDeletePage = useCallback(() => {
     if (pageToDeleteIndex === null) return;
     const newPages = pagesRef.current.filter((_, i) => i !== pageToDeleteIndex).map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(rebuildToc(newPages));
+    commitPages(newPages);
     setCurrentPageIndex(prev => Math.max(0, Math.min(prev, newPages.length - 1)));
     setSelectedIds([]);
     setPageToDeleteIndex(null);
+    setTocOutdated(true);
     toast({ title: 'העמוד נמחק' });
-  }, [pageToDeleteIndex, commitPages, rebuildToc, toast]);
+  }, [pageToDeleteIndex, commitPages, toast]);
+
+  // Manual TOC sync — called by the red button
+  const handleSyncToc = useCallback(() => {
+    const synced = rebuildToc(pagesRef.current);
+    commitPages(synced);
+    setTocOutdated(false);
+    toast({ title: '✓ תוכן העניינים עודכן' });
+  }, [rebuildToc, commitPages, toast]);
 
   const handleResetPages = useCallback(() => {
     hasGeneratedRef.current = true;
@@ -1590,11 +1722,12 @@ export function RootsDesignEditor({
 
   // ── Drag ──
   const handleMouseDown = (e: React.MouseEvent, el: DesignElement) => {
-    if (editingElementId || activeTool !== 'select' || !canvasRef.current) return;
+    if (editingElementId) return;
+    if (!canvasRef.current) return;
     e.stopPropagation();
 
-    // Line drawing mode: clicking a card sets it as connection target
-    if (activeTool === 'line' as any) {
+    // Line drawing mode — works regardless of active tool guard
+    if (activeTool === 'line') {
       if (lineDrawing) {
         if (el.id !== lineDrawing.fromElementId) {
           addElement({
@@ -1606,13 +1739,15 @@ export function RootsDesignEditor({
           });
           setLineDrawing(null);
           setActiveTool('select');
+          toast({ title: '✓ קו חיבור נוסף' });
         }
       } else {
         setLineDrawing({ fromElementId: el.id });
-        toast({ title: `מ: ${el.type === 'person_card' ? 'כרטיס' : el.id.slice(0,6)} — לחץ על רכיב יעד` });
       }
       return;
     }
+
+    if (activeTool !== 'select') return;
 
     if (e.ctrlKey || e.metaKey) {
       const toggled = selectedIds.includes(el.id) ? selectedIds.filter(id => id !== el.id) : [...selectedIds, el.id];
@@ -1657,10 +1792,12 @@ export function RootsDesignEditor({
 
         if (isCorner) {
           // Corner: scale proportionally (lock aspect ratio)
-          if (h === 'se') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; }
-          else if (h === 'sw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); }
-          else if (h === 'ne') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; ny = elY + (elH - nh); }
-          else if (h === 'nw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); ny = elY + (elH - nh); }
+          // In RTL canvas: 'se' handle is bottom-LEFT visually, 'sw' is bottom-RIGHT
+          // dx positive = mouse moved right = element grows toward left in RTL
+          if (h === 'se') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; }
+          else if (h === 'sw') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; nx = elX - (nw - elW); }
+          else if (h === 'ne') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; ny = elY + (elH - nh); }
+          else if (h === 'nw') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; nx = elX - (nw - elW); ny = elY + (elH - nh); }
         } else {
           // Side: crop only, no aspect ratio change
           if (h === 'e') nw = Math.max(5, elW + dx);
@@ -1685,7 +1822,7 @@ export function RootsDesignEditor({
     dragStart.current.elements.forEach(({ id, x, y }) => {
       const el = pagesRef.current[currentPageIndex]?.elements.find(e2 => e2.id === id);
       if (!el) return;
-      updateElementLocal(id, () => ({ x: Math.max(0, Math.min(100 - (el.width || 0), x + dx)), y: Math.max(0, Math.min(100 - (el.height || 0), y + dy)) }));
+      updateElementLocal(id, () => ({ x: Math.max(0, Math.min(100 - el.width, x + dx)), y: Math.max(0, Math.min(100 - el.height, y + dy)) }));
     });
   };
 
@@ -1706,7 +1843,13 @@ export function RootsDesignEditor({
       addElement({ type: 'shape', x: (e.nativeEvent.offsetX / target.offsetWidth) * 100 - 10, y: (e.nativeEvent.offsetY / target.offsetHeight) * 100 - 10, width: 20, height: 20, style: { shapeType: activeShapeType as ShapeType, backgroundColor: template.primaryColor, opacity: 0.85 } });
       setActiveTool('select');
     } else if (activeTool === 'line') {
-      toast({ title: 'בחר רכיב להתחלת הקו' });
+      // Clicking empty canvas while in line mode — cancel if no source selected yet
+      if (!lineDrawing) {
+        toast({ title: '🔗 לחץ על אלמנט כדי להתחיל את הקו' });
+      } else {
+        setLineDrawing(null);
+        toast({ title: 'בוטל — לחץ על אלמנט מקור חדש' });
+      }
     } else {
       setSelectedIds([]); setEditingElementId(null);
     }
@@ -1787,12 +1930,16 @@ export function RootsDesignEditor({
     }
 
     if (lineType === 'wavy') {
-      // Cubic bezier for smooth wave
-      const cx1 = x1p;
-      const cy1 = (y1p + y2p) / 2;
-      const cx2 = x2p;
-      const cy2 = (y1p + y2p) / 2;
-      const d = `M ${x1p}% ${y1p}% C ${cx1}% ${cy1}% ${cx2}% ${cy2}% ${x2p}% ${y2p}%`;
+      // True sinusoidal wave using multiple cubic bezier segments
+      // We use percentage coordinates relative to canvas
+      const midX = (x1p + x2p) / 2;
+      const midY = (y1p + y2p) / 2;
+      const amp = Math.min(8, Math.abs(x2p - x1p) * 0.15 + 3); // wave amplitude
+      const d = [
+        `M ${x1p}% ${y1p}%`,
+        `C ${x1p}% ${y1p + (midY - y1p) * 0.3}%  ${midX - amp}% ${midY - (midY - y1p) * 0.2}%  ${midX}% ${midY}%`,
+        `C ${midX + amp}% ${midY + (y2p - midY) * 0.2}%  ${x2p}% ${y2p - (y2p - midY) * 0.3}%  ${x2p}% ${y2p}%`,
+      ].join(' ');
       return (
         <g key={el.id}>
           <path d={d} stroke="transparent" strokeWidth="12" fill="none" {...clickProps} />
@@ -1900,15 +2047,12 @@ export function RootsDesignEditor({
             {activeTool === 'line' && (
               <div className="flex gap-0.5 flex-shrink-0">
                 {LINE_TYPES.map(lt => (
-                  <Tooltip key={lt.id}>
-                    <TooltipTrigger asChild>
-                      <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                        onClick={() => setActiveLineType(lt.id)}>
-                        {lt.label}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom"><p>סוג קו: {lt.label}</p></TooltipContent>
-                  </Tooltip>
+                  <Tooltip key={lt.id}><TooltipTrigger asChild>
+                    <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+                      onClick={() => setActiveLineType(lt.id)}>
+                      {lt.label}
+                    </button>
+                  </TooltipTrigger><TooltipContent side="bottom"><p>{lt.label}</p></TooltipContent></Tooltip>
                 ))}
               </div>
             )}
@@ -1934,6 +2078,13 @@ export function RootsDesignEditor({
                 <RefreshCw className="h-3 w-3 ml-1" />צור מחדש
               </Button>
             </TooltipTrigger><TooltipContent side="bottom"><p>מחק הכל ויצור מחדש מהנתונים שלך</p></TooltipContent></Tooltip>
+            {tocOutdated && (
+              <Tooltip><TooltipTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-red-600/20 border-red-500 text-red-300 hover:bg-red-600/40 animate-pulse" onClick={handleSyncToc}>
+                  📋 עדכן תוכן עניינים
+                </Button>
+              </TooltipTrigger><TooltipContent side="bottom"><p>מספרי העמודים השתנו — לחץ לעדכון תוכן העניינים</p></TooltipContent></Tooltip>
+            )}
             <DropdownMenu>
               <Tooltip><TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
@@ -1999,13 +2150,13 @@ export function RootsDesignEditor({
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg,#333 25%,transparent 25%),linear-gradient(-45deg,#333 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#333 75%),linear-gradient(-45deg,transparent 75%,#333 75%)', backgroundSize: '16px 16px', backgroundPosition: '0 0,0 8px,8px -8px,-8px 0' }} />
 
             {activeTool === 'line' && lineDrawing && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-yellow-300 pointer-events-none z-10 bg-black/50 px-3 py-1 rounded-full">
-                ✓ מקור נבחר — עכשיו לחץ על רכיב היעד. ESC לביטול.
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-yellow-300 pointer-events-none z-10 bg-black/60 px-3 py-1.5 rounded-full border border-yellow-500/30">
+                ✓ נבחר: {currentPage?.elements.find(e => e.id === lineDrawing.fromElementId)?.type === 'person_card' ? 'כרטיס' : 'אלמנט'} — עכשיו לחץ על היעד לסגירת הקו | ESC לביטול
               </div>
             )}
             {activeTool === 'line' && !lineDrawing && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-indigo-300 pointer-events-none z-10 bg-black/50 px-3 py-1 rounded-full">
-                לחץ על רכיב מקור לצייר קו חיבור
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-indigo-300 pointer-events-none z-10 bg-black/60 px-3 py-1.5 rounded-full border border-indigo-500/30">
+                🔗 כלי קו חיבור — לחץ על אלמנט מקור כדי להתחיל לצייר קו
               </div>
             )}
 
@@ -2045,7 +2196,13 @@ export function RootsDesignEditor({
                   const isSel = selectedIds.includes(el.id);
                   return (
                     <div key={`el-${currentPageIndex}-${el.id}`}
-                      className={cn('absolute', isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '', activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '', activeTool === 'line' ? 'cursor-crosshair' : '')}
+                      className={cn(
+                        'absolute',
+                        isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '',
+                        activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '',
+                        activeTool === 'line' ? 'cursor-crosshair hover:outline hover:outline-2 hover:outline-yellow-400 hover:outline-offset-1' : '',
+                        activeTool === 'line' && lineDrawing?.fromElementId === el.id ? 'outline outline-2 outline-yellow-400 outline-offset-1' : '',
+                      )}
                       style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, height: `${el.height}%`, zIndex: (el.zIndex || 1) + 3 }}
                       onMouseDown={e => handleMouseDown(e, el)}
                       onContextMenu={e => handleContextMenu(e, el.id)}>
@@ -2080,7 +2237,17 @@ export function RootsDesignEditor({
                         )
                       )}
 
-                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
+                      {el.type === 'person_card' && (
+                        <PersonCardElement
+                          element={el}
+                          people={people}
+                          relationships={relationships}
+                          onDoubleClick={() => {
+                            const p = people.find(p2 => p2.id === el.personId);
+                            if (p) setCardFieldPanel({ elementId: el.id, personId: p.id });
+                          }}
+                        />
+                      )}
 
                       {el.type === 'image' && el.content && (
                         <div className="w-full h-full overflow-hidden" style={{ borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : 0, border: el.style?.borderWidth ? `${el.style.borderWidth}px solid ${el.style.borderColor || '#fff'}` : undefined }}>
@@ -2196,6 +2363,21 @@ export function RootsDesignEditor({
           </main>
         </div>
 
+        {/* ══ CARD FIELD PANEL ══ */}
+        {cardFieldPanel && (() => {
+          const el = currentPage?.elements.find(e => e.id === cardFieldPanel.elementId);
+          const person = people.find(p => p.id === cardFieldPanel.personId);
+          if (!el || !person) return null;
+          return (
+            <CardFieldPanel
+              element={el}
+              person={person}
+              onUpdate={updates => updateElement(cardFieldPanel.elementId, updates)}
+              onClose={() => setCardFieldPanel(null)}
+            />
+          );
+        })()}
+
         {/* ══ BOTTOM BAR ══ */}
         <div className="h-10 border-t border-white/10 bg-slate-900/90 backdrop-blur flex-shrink-0 flex items-center gap-1.5 px-3 overflow-x-auto overflow-y-hidden" style={{ minWidth: 0 }}>
 
@@ -2245,11 +2427,11 @@ export function RootsDesignEditor({
             <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => selectedIds.forEach(id => duplicateElementById(id))}>⎘ שכפל</button>
             {[
               { l: '⊣', t: 'יישר לשמאל', a: () => updateMultipleElements(selectedIds, () => ({ x: 0 })) },
-              { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - (el.width || 0) })) },
-              { l: '⊕H', t: 'מרכז אופקי', a: () => updateMultipleElements(selectedIds, el => ({ x: 50 - (el.width || 0) / 2 })) },
+              { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - el.width })) },
+              { l: '⊕H', t: 'מרכז אופקי', a: () => updateMultipleElements(selectedIds, el => ({ x: 50 - el.width / 2 })) },
               { l: '⊤', t: 'יישר לעליון', a: () => updateMultipleElements(selectedIds, () => ({ y: 0 })) },
-              { l: '⊥', t: 'יישר לתחתון', a: () => updateMultipleElements(selectedIds, el => ({ y: 100 - (el.height || 0) })) },
-              { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - (el.height || 0) / 2 })) },
+              { l: '⊥', t: 'יישר לתחתון', a: () => updateMultipleElements(selectedIds, el => ({ y: 100 - el.height })) },
+              { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - el.height / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
                 <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
@@ -2302,12 +2484,23 @@ export function RootsDesignEditor({
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) } })} />
               <span className="text-[10px] text-slate-500">{Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</span>
             </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <span className="text-[10px] text-slate-400">טקסט:</span>
+              <input type="range" min={0.5} max={2.0} step={0.1} className="w-14"
+                value={(selectedElement as any)._cardTextScale ?? 1}
+                onChange={e => updateElement(selectedId!, { _cardTextScale: Number(e.target.value) } as any)} />
+              <span className="text-[10px] text-slate-500">{Math.round(((selectedElement as any)._cardTextScale ?? 1) * 100)}%</span>
+            </div>
             <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
               value={selectedElement.style?.backgroundColor?.startsWith('#') ? selectedElement.style.backgroundColor : '#1e293b'}
               onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, backgroundColor: e.target.value } })} />
             <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
               value={selectedElement.style?.color || '#ffffff'}
               onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
+            <button className="text-[10px] px-2 py-1 border border-dashed border-white/20 rounded text-slate-400 hover:border-indigo-400 flex-shrink-0"
+              onClick={() => { const p2 = people.find(p3 => p3.id === selectedElement.personId); if (p2) setCardFieldPanel({ elementId: selectedId!, personId: p2.id }); }}>
+              ⚙️ שדות
+            </button>
           </>)}
 
           {/* SHAPE controls */}
@@ -2374,29 +2567,27 @@ export function RootsDesignEditor({
           </>)}
 
           {/* SHARED single-element align + z-order + duplicate + delete */}
-          {selectedElement && selectedElement.type !== 'connection_line' && (
-            <>
-              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-              {[
-                { l: '⊣', t: 'יישר לשמאל', a: () => updateElement(selectedId!, { x: 0 }) },
-                { l: '⊢', t: 'יישר לימין', a: () => updateElement(selectedId!, el => ({ x: 100 - (el.width || 0) })) },
-                { l: '⊕H', t: 'מרכז אופקי', a: () => updateElement(selectedId!, el => ({ x: 50 - (el.width || 0) / 2 })) },
-                { l: '⊤', t: 'יישר לעליון', a: () => updateElement(selectedId!, { y: 0 }) },
-                { l: '⊥', t: 'יישר לתחתון', a: () => updateElement(selectedId!, el => ({ y: 100 - (el.height || 0) })) },
-                { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - (el.height || 0) / 2 })) },
-              ].map(({ l, t, a }) => (
-                <Tooltip key={t}><TooltipTrigger asChild>
-                  <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
-                </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
-              ))}
-              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-              <button onClick={() => updateElement(selectedId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronUp className="w-3.5 h-3.5" /></button>
-              <button onClick={() => updateElement(selectedId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronDown className="w-3.5 h-3.5" /></button>
-              <div className="w-px h-6 bg-white/10 flex-shrink-0" />
-              <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
-              <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
-            </>
-          )}
+          {selectedElement && selectedElement.type !== 'connection_line' && (<>
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            {[
+              { l: '⊣', t: 'יישר לשמאל', a: () => updateElement(selectedId!, { x: 0 }) },
+              { l: '⊢', t: 'יישר לימין', a: () => updateElement(selectedId!, el => ({ x: 100 - el.width })) },
+              { l: '⊕H', t: 'מרכז אופקי', a: () => updateElement(selectedId!, el => ({ x: 50 - el.width / 2 })) },
+              { l: '⊤', t: 'יישר לעליון', a: () => updateElement(selectedId!, { y: 0 }) },
+              { l: '⊥', t: 'יישר לתחתון', a: () => updateElement(selectedId!, el => ({ y: 100 - el.height })) },
+              { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - el.height / 2 })) },
+            ].map(({ l, t, a }) => (
+              <Tooltip key={t}><TooltipTrigger asChild>
+                <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
+              </TooltipTrigger><TooltipContent side="top"><p>{t}</p></TooltipContent></Tooltip>
+            ))}
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            <button onClick={() => updateElement(selectedId!, el => ({ zIndex: (el.zIndex || 0) + 1 }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronUp className="w-3.5 h-3.5" /></button>
+            <button onClick={() => updateElement(selectedId!, el => ({ zIndex: Math.max(0, (el.zIndex || 0) - 1) }))} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><ChevronDown className="w-3.5 h-3.5" /></button>
+            <div className="w-px h-6 bg-white/10 flex-shrink-0" />
+            <button onClick={() => duplicateElementById(selectedId!)} className="w-7 h-7 flex items-center justify-center rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0"><Copy className="w-3.5 h-3.5" /></button>
+            <button onClick={() => { deleteElementById(selectedId!); setSelectedIds([]); }} className="w-7 h-7 flex items-center justify-center rounded bg-red-900/60 border border-red-700/40 hover:bg-red-800/60 text-red-300 flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+          </>)}
         </div>
 
         {/* ══ TEMPLATE PICKER (compact font selector + global text size) ══ */}
