@@ -31,7 +31,7 @@ import {
   DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
 import { v4 as uuidv4 } from 'uuid';
-import { useUser, useFirestore } from '@/firebase';
+import { useUser, useFirestore, useStorage } from '@/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import {
     AlertDialog,
@@ -400,7 +400,7 @@ function generatePagesFromProject(
   const introEls: DesignElement[] = [
     ...header('מבוא אישי', '✍️'),
     ...pill(55, 15, 41, 6.5, 'מבוא', '📝', P),
-    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 20),
+    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 16),
   ];
   introEls.push(...photoPlaceholder(62, 72, 33, 22, '📷 תמונה אישית'));
   addPage('מבוא אישי', 'personal', introEls);
@@ -410,7 +410,7 @@ function generatePagesFromProject(
     const dedicationEls: DesignElement[] = [
       mk('shape', { x: 0, y: 0, width: 100, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.04 } }),
       mk('text', { x: 10, y: 10, width: 80, height: 12, content: '❝', style: { fontSize: 80, textAlign: 'center', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-      mk('text', { x: 10, y: 25, width: 80, height: 50, content: intro.dedication, style: { fontSize: 24, textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont, lineHeight: 1.9, fontWeight: 'bold' } }),
+      ...textBlock(10, 25, 80, 50, intro.dedication, '', 24),
       mk('text', { x: 10, y: 78, width: 80, height: 8, content: '— הקדשה', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont } }),
     ];
     addPage('הקדשה', 'custom', dedicationEls);
@@ -439,7 +439,7 @@ function generatePagesFromProject(
     ...header('סיפור השם שלי', '✍️', 'חלק 2: אני'),
     mk('shape', { x: 0, y: 0, width: 6, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
     mk('text', { x: 72, y: 14, width: 22, height: 18, content: '❝', style: { fontSize: 70, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 20),
+    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 16),
     ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 18)] : []),
   ];
   if (student?.photoURL) nameEls.push(mk('image', { content: student.photoURL, x: 66, y: 75, width: 28, height: 22, zIndex: 5, style: { borderRadius: 12 } }));
@@ -451,7 +451,7 @@ function generatePagesFromProject(
     addPage('ביום שנולדתי', 'personal', [
       ...header('ביום שנולדתי', '🗓️', 'חלק 2: אני'),
       ...pill(55, 15, 41, 6.5, student?.birthDate?.slice(0,10) || '', '🎂', P),
-      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 20),
+      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 16),
       ...photoPlaceholder(55, 70, 40, 24, '📰 כותרות עיתון מיום הלידה'),
     ]);
   }
@@ -475,7 +475,7 @@ function generatePagesFromProject(
   // ─── HOBBIES ────────────────────────────────────────────────
   addPage('התחביבים שלי', 'personal', [
     ...header('התחביבים שלי', '🎯', 'חלק 2: אני'),
-    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 20),
+    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 16),
     ...photoPlaceholder(5, 57, 28, 35, '📷 תחביב 1'),
     ...photoPlaceholder(35, 57, 28, 35, '📷 תחביב 2'),
     ...photoPlaceholder(65, 57, 30, 35, '📷 תחביב 3'),
@@ -484,7 +484,7 @@ function generatePagesFromProject(
   if (ps.talents) {
     addPage('הכישרונות שלי', 'personal', [
       ...header('הכישרונות שלי', '⭐', 'חלק 2: אני'),
-      ...textBlock(5, 15, 90, 55, ps.talents, '', 20),
+      ...textBlock(5, 15, 90, 55, ps.talents, '', 16),
       ...photoPlaceholder(5, 72, 43, 22, '📷 הכישרון שלי בפעולה'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד דוגמה'),
     ]);
@@ -493,7 +493,7 @@ function generatePagesFromProject(
   addPage('אני מאמין', 'personal', [
     ...header('אני מאמין', '💡', 'חלק 2: אני'),
     mk('text', { x: 8, y: 13, width: 15, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 20),
+    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 16),
     ...(ps.futureLetter ? [...pill(55, 72, 41, 6.5, 'מכתב לעתיד', '📮', accent), ...textBlock(5, 72, 48, 22, ps.futureLetter, '', 18)] : [...photoPlaceholder(5, 72, 90, 22, '📷 גלריה אישית')]),
   ]);
 
@@ -517,34 +517,37 @@ function generatePagesFromProject(
 
   // Correctly identify parents using relationships
   const parentRels = relationships.filter(r =>
-    r.personBId === project.studentPersonId &&
+    (r.personAId === project.studentPersonId || r.personBId === project.studentPersonId) &&
     ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType)
   );
+  const parentIds = [...new Set(parentRels.map(r =>
+    r.personAId === project.studentPersonId ? r.personBId : r.personAId
+  ))];
+  const parents = parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
   
   // Correctly identify siblings
   const sibRels = relationships.filter(r =>
     (r.personAId === project.studentPersonId || r.personBId === project.studentPersonId) &&
     r.relationshipType === 'sibling'
   );
-  const siblingIds = [...new Set(sibRels.map(r =>
+  const directSiblingIds = sibRels.map(r =>
     r.personAId === project.studentPersonId ? r.personBId : r.personAId
-  ))];
+  );
   
   // Also find children of same parents who are not the student
-  const parentIds = parentRels.map(r => r.personAId);
   const sharedSiblingIds = relationships
     .filter(r =>
-      parentIds.includes(r.personAId) &&
+      parentIds.includes(r.personAId === project.studentPersonId ? r.personBId : r.personAId) === false &&
+      (parentIds.includes(r.personAId) || parentIds.includes(r.personBId)) &&
       ['parent', 'adoptive_parent', 'step_parent'].includes(r.relationshipType) &&
+      r.personAId !== project.studentPersonId &&
       r.personBId !== project.studentPersonId
     )
-    .map(r => r.personBId);
-
-  const allSiblingIds = [...new Set([...siblingIds, ...sharedSiblingIds])];
+    .map(r => parentIds.includes(r.personAId) ? r.personBId : r.personAId);
+  
+  const allSiblingIds = [...new Set([...directSiblingIds, ...sharedSiblingIds])];
   const siblings = allSiblingIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
 
-  const parents = parentIds.map(id => people.find(p => p.id === id)).filter(Boolean) as Person[];
-  
   // ─── OUR HOME ───────────────────────────────────────────────
   addPage('הבית שלנו', 'nuclear_family', [
     ...header('הבית שלנו', '🏡', 'חלק 3: המשפחה הגרעינית'),
@@ -640,7 +643,7 @@ function generatePagesFromProject(
   // ─── PARENTS MEETING ──────────────────────────────────────
   addPage('סיפור ההיכרות של ההורים', 'nuclear_family', [
     ...header('סיפור ההיכרות', '💑', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 20),
+    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 16),
     ...photoPlaceholder(5, 72, 43, 22, '📷 תמונת חתונה'),
     ...photoPlaceholder(52, 72, 43, 22, '📷 תמונה נוספת'),
   ]);
@@ -670,7 +673,7 @@ function generatePagesFromProject(
   if (nf.ourPets) {
     addPage('חיות המחמד שלנו', 'nuclear_family', [
       ...header('חיות המחמד שלנו', '🐾', 'חלק 3: המשפחה הגרעינית'),
-      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 20),
+      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 16),
       ...photoPlaceholder(5, 72, 43, 22, '📷 חיות המחמד שלנו'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד תמונה'),
     ]);
@@ -731,7 +734,7 @@ function generatePagesFromProject(
     if (meetingStory) {
       addPage(`ההיכרות — ${group.label}`, group.pageType, [
         ...header(`סיפור ההיכרות — ${group.label}`, '💕', group.chapterLabel),
-        ...textBlock(5, 15, 90, 65, meetingStory, '', 20),
+        ...textBlock(5, 15, 90, 65, meetingStory, '', 16),
         ...photoPlaceholder(5, 82, 43, 13, '📷 תמונה'),
         ...photoPlaceholder(52, 82, 43, 13, '📷 חתונה'),
       ]);
@@ -765,34 +768,96 @@ function generatePagesFromProject(
   // Migration map
   const mapEls: DesignElement[] = [...header('מפת נדודים משפחתית', '🗺️', 'חלק 6: נתונים ומחקר')];
   if (pd.finalPresentation?.mapScreenshotUrl) {
-    mapEls.push(mk('image', { content: pd.finalPresentation?.mapScreenshotUrl, x: 5, y: 15, width: 90, height: 65, zIndex: 5, style: { borderRadius: 4 } }));
+    mapEls.push(mk('image', {
+      content: pd.finalPresentation.mapScreenshotUrl,
+      x: 5, y: 15, width: 90, height: 65,
+      zIndex: 5,
+      style: { borderRadius: 4, opacity: 1 }
+    }));
   } else {
-    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ הוסף מפת נדודים'));
+    mapEls.push(...photoPlaceholder(5, 15, 90, 65, '🗺️ לא נבחרה מפה — חזור לשלב 13 באשף'));
   }
   mapEls.push(mk('text', { x: 5, y: 82, width: 90, height: 12, content: 'מדינות מוצא המשפחה: ________________________\nמסלול ההגירה: ________________________ ← ישראל', style: { fontSize: 18, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.8 } }));
   addPage('מפת נדודים', 'custom', mapEls);
 
   const selectedEvents = pd.finalPresentation?.selectedEvents || [];
-  if (selectedEvents.length > 0) {
-    const calEls: DesignElement[] = [
-      ...header('תאריכים מיוחדים', '📅', 'חלק 6: נתונים ומחקר'),
-    ];
-    const eventText = selectedEvents
-      .map((ev: any) => `• ${ev.title} — ${ev.date}`)
-      .join('\n');
-    calEls.push(mk('text', {
-      x: 5, y: 15, width: 90, height: 78,
-      content: eventText,
-      style: { fontSize: 16, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 2 }
-    }));
-    addPage('תאריכים מיוחדים', 'custom', calEls);
-  }
+    if (selectedEvents.length > 0) {
+      const calEls: DesignElement[] = [
+        ...header('תאריכים מיוחדים', '📅', 'חלק 6: נתונים ומחקר'),
+      ];
+
+      // Calendar-style grid layout
+      const months: Record<string, Array<{ title: string; date: string }>> = {};
+      selectedEvents.forEach((ev: any) => {
+        const d = new Date(ev.date);
+        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        if (!months[monthKey]) months[monthKey] = [];
+        months[monthKey].push({ title: ev.title, date: ev.date });
+      });
+
+      const monthLabels: Record<string, string> = {
+        '01': 'ינואר', '02': 'פברואר', '03': 'מרץ', '04': 'אפריל',
+        '05': 'מאי', '06': 'יוני', '07': 'יולי', '08': 'אוגוסט',
+        '09': 'ספטמבר', '10': 'אוקטובר', '11': 'נובמבר', '12': 'דצמבר',
+      };
+
+      const monthKeys = Object.keys(months).sort();
+      const cols = monthKeys.length <= 2 ? monthKeys.length : Math.min(3, monthKeys.length);
+      const boxW = Math.floor(88 / cols);
+
+      monthKeys.slice(0, 6).forEach((mk2, mIdx) => {
+        const col = mIdx % cols;
+        const row = Math.floor(mIdx / cols);
+        const x = 5 + col * (boxW + 2);
+        const y = 16 + row * 36;
+        const [year, month] = mk2.split('-');
+        const monthLabel = `${monthLabels[month] || month} ${year}`;
+
+        // Month header box
+        calEls.push(mk('shape', {
+          x, y, width: boxW, height: 7, zIndex: 1,
+          style: { shapeType: 'rounded_rectangle', backgroundColor: P, opacity: 0.85 }
+        }));
+        calEls.push(mk('text', {
+          x, y: y + 0.5, width: boxW, height: 6,
+          content: monthLabel,
+          style: { fontSize: 11, fontWeight: 'bold', textAlign: 'center', color: tmpl.backgroundColor, fontFamily: tmpl.titleFont }
+        }));
+
+        // Events in this month
+        calEls.push(mk('shape', {
+          x, y: y + 7, width: boxW, height: 28, zIndex: 0,
+          style: { shapeType: 'rounded_rectangle', backgroundColor: P, opacity: 0.08 }
+        }));
+
+        months[mk2].slice(0, 4).forEach((ev, eIdx) => {
+          const d = new Date(ev.date);
+          const dayNum = d.getDate();
+          calEls.push(mk('text', {
+            x: x + 1, y: y + 8 + eIdx * 6.5, width: boxW - 2, height: 6,
+            content: `${dayNum} ● ${ev.title}`,
+            style: { fontSize: 9, textAlign: 'right', color: tmpl.textColor, fontFamily: tmpl.bodyFont, lineHeight: 1.3 }
+          }));
+        });
+      });
+
+      // If events don't fit in months, show remainder as list below
+      if (selectedEvents.length > cols * 6 * 4) {
+        calEls.push(mk('text', {
+          x: 5, y: 88, width: 90, height: 6,
+          content: `+ ${selectedEvents.length - cols * 6 * 4} תאריכים נוספים`,
+          style: { fontSize: 10, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont }
+        }));
+      }
+
+      addPage('תאריכים מיוחדים', 'custom', calEls);
+    }
 
   const h = pd.heritage || {} as any;
   if (h.familyNameOrigin) {
     addPage('מקור שם המשפחה', 'custom', [
       ...header('מקור שם המשפחה', '📜', 'חלק 6: נתונים ומחקר'),
-      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 20),
+      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 16),
       ...photoPlaceholder(5, 77, 90, 17, '📜 מסמך או תמונה הקשורה לשם המשפחה'),
     ]);
   }
@@ -800,7 +865,7 @@ function generatePagesFromProject(
   if (researchData.cityOriginStory) {
     addPage('גלגולה של עיר', 'custom', [
       ...header('גלגולה של עיר', '🏙️', 'חלק 6: נתונים ומחקר'),
-      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 20),
+      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 16),
       ...photoPlaceholder(5, 77, 43, 17, '📷 תמונת העיר'),
       ...photoPlaceholder(52, 77, 43, 17, '🗺️ מפה'),
     ]);
@@ -810,18 +875,51 @@ function generatePagesFromProject(
   const statsEls: DesignElement[] = [
     ...header('סטטיסטיקה משפחתית', '📊', 'חלק 6: נתונים ומחקר'),
   ];
+  
   if (selectedStats.length === 0) {
-    statsEls.push(mk('text', { x: 5, y: 15, width: 90, height: 80, content: 'גרפים סטטיסטיים יופיעו כאן לאחר בחירה בשלב 13 של האשף.', style: { fontSize: 16, color: tmpl.mutedTextColor, textAlign: 'center' } }));
+    statsEls.push(mk('text', {
+      x: 5, y: 15, width: 90, height: 20,
+      content: 'לא נבחרו גרפים. חזור לשלב 13 באשף לבחירת סטטיסטיקות.',
+      style: { fontSize: 14, color: tmpl.mutedTextColor, textAlign: 'center', fontFamily: tmpl.bodyFont }
+    }));
   } else {
-    statsEls.push(mk('text', { x: 5, y: 15, width: 90, height: 8, content: `גרפים שנבחרו: ${selectedStats.map((s: any) => s.title).join(' | ')}`, style: { fontSize: 14, color: tmpl.textColor, textAlign: 'right', fontFamily: tmpl.bodyFont } }));
-    // Place stat chart placeholders in a grid
+    // Show a title row listing chosen stats
+    statsEls.push(mk('text', {
+      x: 5, y: 15, width: 90, height: 7,
+      content: `גרפים שנבחרו: ${selectedStats.map((s: any) => s.title).join(' | ')}`,
+      style: { fontSize: 12, color: tmpl.textColor, textAlign: 'right', fontFamily: tmpl.bodyFont, opacity: 0.8 }
+    }));
+  
+    // Stat name cards — colored boxes with the stat title, arranged in a grid
     const cols = selectedStats.length <= 2 ? selectedStats.length : 2;
+    const statColors = [P, accent, tmpl.secondaryColor || P, tmpl.mutedTextColor];
     selectedStats.slice(0, 4).forEach((stat: any, i: number) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      const x = 5 + col * 47;
-      const y = 25 + row * 38;
-      statsEls.push(...photoPlaceholder(x, y, 44, 35, `📊 ${stat.title}`));
+      const boxW = cols === 1 ? 88 : 42;
+      const x = 5 + col * (boxW + 4);
+      const y = 24 + row * 36;
+      // Background shape
+      statsEls.push(mk('shape', {
+        x, y, width: boxW, height: 33, zIndex: 1,
+        style: { shapeType: 'rounded_rectangle', backgroundColor: statColors[i % statColors.length], opacity: 0.18 }
+      }));
+      // Stat icon + title
+      statsEls.push(mk('text', {
+        x: x + 1, y: y + 2, width: boxW - 2, height: 8,
+        content: '📊',
+        style: { fontSize: 22, textAlign: 'center', fontFamily: tmpl.bodyFont }
+      }));
+      statsEls.push(mk('text', {
+        x: x + 1, y: y + 12, width: boxW - 2, height: 10,
+        content: stat.title,
+        style: { fontSize: 14, fontWeight: 'bold', textAlign: 'center', color: tmpl.textColor, fontFamily: tmpl.titleFont }
+      }));
+      statsEls.push(mk('text', {
+        x: x + 1, y: y + 23, width: boxW - 2, height: 8,
+        content: 'נתונים יוצגו בעת הצגה דיגיטלית',
+        style: { fontSize: 9, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, opacity: 0.6 }
+      }));
     });
   }
   addPage('סטטיסטיקה משפחתית', 'custom', statsEls);
@@ -832,7 +930,7 @@ function generatePagesFromProject(
   if (h.inheritedObject) {
     addPage('חפץ עובר בירושה', 'heritage', [
       ...header('חפץ עובר בירושה', '💎', 'חלק 7: מורשת'),
-      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 20),
+      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 16),
       ...photoPlaceholder(65, 15, 30, 55, '📷 תמונת החפץ'),
       ...photoPlaceholder(5, 72, 90, 22, '📷 החפץ בהקשרו'),
     ]);
@@ -862,7 +960,7 @@ function generatePagesFromProject(
   if (h.roleModels) {
     addPage('דמויות מופת', 'heritage', [
       ...header('דמויות מופת במשפחה', '⭐', 'חלק 7: מורשת'),
-      ...textBlock(5, 15, 90, 60, h.roleModels, '', 20),
+      ...textBlock(5, 15, 90, 60, h.roleModels, '', 16),
       ...photoPlaceholder(5, 77, 43, 18, '📷 תמונת הדמות'),
       ...photoPlaceholder(52, 77, 43, 18, '📷 עוד תמונה'),
     ]);
@@ -872,7 +970,7 @@ function generatePagesFromProject(
     addPage('מכתב מההורים', 'heritage', [
       ...header('מכתב אישי מההורים', '💌', 'חלק 7: מורשת'),
       mk('text', { x: 8, y: 13, width: 16, height: 20, content: '❝', style: { fontSize: 80, textAlign: 'right', color: accent, opacity: 0.15, fontFamily: 'serif' } }),
-      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 20),
+      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 16),
       mk('text', { x: 5, y: 87, width: 90, height: 8, content: '— אמא ואבא, באהבה', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.titleFont, fontWeight: 'bold' } }),
     ]);
   }
@@ -898,13 +996,13 @@ function generatePagesFromProject(
   addPage('רפלקציה אישית', 'custom', [
     ...header('רפלקציה אישית', '💭', 'חלק 8: סיכום'),
     mk('text', { x: 8, y: 13, width: 16, height: 20, content: '💭', style: { fontSize: 60, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
-    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 20),
+    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 16),
     ...photoPlaceholder(5, 85, 90, 10, '📷 תמונה מסכמת'),
   ]);
 
   addPage('תודות', 'custom', [
     ...header('תודות', '🙏', 'חלק 8: סיכום'),
-    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 20),
+    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 16),
     mk('text', { x: 5, y: 87, width: 90, height: 8, content: '❤️', style: { fontSize: 30, textAlign: 'center', fontFamily: tmpl.bodyFont } }),
   ]);
 
@@ -1449,10 +1547,16 @@ function useHistory<T>(initial: T) {
 export function RootsDesignEditor({
   project, people, relationships, onBack, onUpdateProject, onCurrentPageChange,
 }: {
-  project: RootsProject; people: Person[]; relationships: Relationship[];
-  onBack: () => void; onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
+  project: RootsProject;
+  people: Person[];
+  relationships: Relationship[];
+  onBack: () => void;
+  onUpdateProject: (updater: (p: RootsProject) => RootsProject) => void;
   onCurrentPageChange?: (page: DesignPage) => void;
 }) {
+  const { user } = useUser();
+  const db = useFirestore();
+  const storage = useStorage();
   const initialPages = project.projectData?.designData?.pages || [];
   const { current: pages, push: pushHistory, undo, redo, canUndo, canRedo } = useHistory<DesignPage[]>(initialPages);
   const [localPages, setLocalPages] = useState<DesignPage[]>(initialPages);
@@ -1769,7 +1873,7 @@ export function RootsDesignEditor({
         const dataUrl = await toPng(canvasEl, {
           quality: 1,
           pixelRatio: 2,
-          skipFonts: false,
+          skipFonts: true,
           filter: (node) => {
             // Skip export-hide elements
             return !(node as HTMLElement).dataset?.exportHide;
@@ -1793,6 +1897,36 @@ export function RootsDesignEditor({
   
       pdf.save(fileName);
       toast({ title: '✓ PDF יוצא בהצלחה!', description: `${localPages.length} עמודים` });
+      
+      // Also save to my-files
+      try {
+        const pdfBlob = pdf.output('blob');
+        const storagePath = `users/${user.uid}/trees/${project.treeId}/exports/${Date.now()}_${fileName}`;
+        const { ref: storageRef, uploadBytes, getDownloadURL } = await import('firebase/storage');
+        const { collection: fsCollection, addDoc, serverTimestamp } = await import('firebase/firestore');
+        
+        const fileRef = storageRef(storage, storagePath);
+        const snapshot = await uploadBytes(fileRef, pdfBlob);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        
+        if (db && user) {
+          await addDoc(fsCollection(db, 'exportedFiles'), {
+            userId: user.uid,
+            treeId: project.treeId,
+            treeName: project.projectData?.coverPage?.studentName || fileName,
+            fileName,
+            fileType: 'pdf',
+            storagePath,
+            downloadURL,
+            fileSizeBytes: pdfBlob.size,
+            createdAt: serverTimestamp(),
+          });
+        }
+      } catch (saveErr) {
+        console.error('Failed to save PDF to my-files:', saveErr);
+        // Don't show error to user — the PDF was already downloaded successfully
+      }
+
     } catch (error) {
       console.error('PDF export error:', error);
       toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'לא ניתן לייצא את המצגת. נסה שוב.' });
@@ -1800,7 +1934,50 @@ export function RootsDesignEditor({
       setIsExporting(false);
       setExportProgress(0);
     }
-  }, [localPages, currentPageIndex, canvasAspectRatio, people, project.studentPersonId, toast]);
+  }, [localPages, currentPageIndex, canvasAspectRatio, people, project.studentPersonId, toast, project.treeId, project.projectData?.coverPage?.studentName, user, db, storage]);
+  
+  const handleExportImages = useCallback(async () => {
+    if (!canvasRef.current || localPages.length === 0) return;
+    setIsExporting(true);
+    setExportProgress(0);
+    const savedIndex = currentPageIndex;
+  
+    try {
+      const student = people.find(p => p.id === project.studentPersonId);
+      const baseName = student ? `${student.firstName}_${student.lastName}` : 'שורשים';
+  
+      for (let i = 0; i < localPages.length; i++) {
+        setCurrentPageIndex(i);
+        setExportProgress(Math.round((i / localPages.length) * 100));
+        await new Promise(resolve => setTimeout(resolve, 350));
+  
+        const dataUrl = await toPng(canvasRef.current!, {
+          quality: 1,
+          pixelRatio: 2,
+          skipFonts: true,
+        });
+  
+        // Trigger download
+        const link = document.createElement('a');
+        link.download = `${baseName}_עמוד_${String(i + 1).padStart(2, '0')}.png`;
+        link.href = dataUrl;
+        link.click();
+  
+        // Small delay between downloads to avoid browser blocking
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+  
+      setCurrentPageIndex(savedIndex);
+      setExportProgress(100);
+      toast({ title: `✓ יוצאו ${localPages.length} תמונות בהצלחה` });
+    } catch (error) {
+      console.error('Image export error:', error);
+      toast({ variant: 'destructive', title: 'שגיאה בייצוא תמונות' });
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  }, [localPages, currentPageIndex, people, project.studentPersonId, toast]);
 
   // ── Apply global text size offset to all pages ──
   const applyGlobalTextSize = useCallback((offset: number) => {
@@ -1892,7 +2069,7 @@ export function RootsDesignEditor({
           else if (h === 'nw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); ny = elY + (elH - nh); }
         } else {
           // Side: crop only, no aspect ratio change
-          if (h === 'e') nw = Math.max(5, elW - dx);
+          if (h === 'e') nw = Math.max(5, elW + dx);
           else if (h === 's') nh = Math.max(3, elH + dy);
           else if (h === 'w') { nw = Math.max(5, elW - dx); nx = elX + dx; }
           else if (h === 'n') { nh = Math.max(3, elH - dy); ny = elY + dy; }
@@ -2185,7 +2362,9 @@ export function RootsDesignEditor({
                     <>📄 ייצא PDF</>
                   )}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="opacity-50" onClick={() => toast({ title: 'ייצוא Word בקרוב! 🚀' })}>📝 Word — בקרוב</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportImages} disabled={isExporting} className="flex items-center gap-2">
+                  🖼️ ייצא כתמונות (PNG לכל עמוד)
+                </DropdownMenuItem>
                 <DropdownMenuItem className="opacity-50" onClick={() => toast({ title: 'ייצוא PowerPoint בקרוב! 🚀' })}>📊 PowerPoint — בקרוב</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -2535,15 +2714,21 @@ export function RootsDesignEditor({
             <input type="number" min={6} max={120} className="w-12 text-[10px] bg-slate-800 border border-white/10 rounded px-1 py-1 text-center text-white focus:outline-none flex-shrink-0"
               value={selectedElement.style?.fontSize || 20}
               onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, fontSize: Number(e.target.value) } })} />
-            <div className="flex gap-0.5 flex-shrink-0">
-              {(['normal','bold','extrabold'] as const).map((w, i) => (
-                <button key={w} onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, fontWeight: w } })}
-                  className={cn('text-[10px] w-7 h-7 rounded border font-bold', selectedElement.style?.fontWeight === w ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                  style={{ fontWeight: w === 'extrabold' ? 900 : w === 'bold' ? 700 : 400 }}>
-                  {['R','B','BB'][i]}
-                </button>
-              ))}
-            </div>
+            <button
+              onClick={() => updateElement(selectedId!, {
+                style: {
+                  ...selectedElement.style,
+                  fontWeight: selectedElement.style?.fontWeight === 'bold' || selectedElement.style?.fontWeight === 'extrabold' ? 'normal' : 'bold'
+                }
+              })}
+              className={cn('text-[10px] w-7 h-7 rounded border font-bold flex-shrink-0',
+                (selectedElement.style?.fontWeight === 'bold' || selectedElement.style?.fontWeight === 'extrabold')
+                  ? 'bg-indigo-500 border-indigo-400'
+                  : 'bg-slate-700 border-slate-600 hover:border-slate-400'
+              )}
+              style={{ fontWeight: 700 }}
+              title="מודגש"
+            >B</button>
             <div className="flex gap-0.5 flex-shrink-0">
               {([['right', <AlignRight key="r" className="w-3 h-3" />], ['center', <AlignCenter key="c" className="w-3 h-3" />], ['left', <AlignLeft key="l" className="w-3 h-3" />]] as const).map(([a, icon]) => (
                 <button key={a as string} onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, textAlign: a as TextAlign } })}
@@ -2794,3 +2979,4 @@ export function RootsDesignEditor({
     </TooltipProvider>
   );
 }
+
