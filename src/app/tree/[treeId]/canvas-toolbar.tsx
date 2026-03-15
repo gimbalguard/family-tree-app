@@ -161,7 +161,7 @@ export function CanvasToolbar({
   }
 
   // Whether to show the line-style picker (only on views that have edges)
-  const showEdgeStylePicker = viewMode === 'tree' || viewMode === 'timeline' || viewMode === 'roots';
+  const showEdgeStylePicker = viewMode === 'tree' || viewMode === 'timeline';
 
   // Whether to show the AI chat button, and what icon/label to use
   const isRootsView = viewMode === 'roots';
@@ -253,7 +253,7 @@ export function CanvasToolbar({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="w-full bg-gradient-to-br from-teal-500/20 to-indigo-500/20 text-teal-300 hover:text-white hover:from-teal-500/30 hover:to-indigo-500/30 border border-teal-500/20"
+                  className="w-full bg-gradient-to-br from-teal-600/30 to-indigo-600/30 text-white hover:from-teal-500/40 hover:to-indigo-500/40 border border-teal-500/30"
                   onClick={onToggleChat}
                 >
                   <Wand2 className="ml-2 h-4 w-4" />

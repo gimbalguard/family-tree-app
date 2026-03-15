@@ -1310,7 +1310,10 @@ const WizardShell = ({ children, currentStep, totalSteps, onStepChange, studentN
 
 
 // --- Main View Component ---
-export function RootsView({ project, people, relationships, tree, updateProject, setProject, onEditPerson }: {
+export function RootsView({
+  project, people, relationships, tree, updateProject, setProject, onEditPerson,
+  rootsCurrentPageIndex, setRootsCurrentPageIndex,
+}: {
   project: RootsProject | null;
   people: Person[];
   relationships: Relationship[];
@@ -1318,6 +1321,8 @@ export function RootsView({ project, people, relationships, tree, updateProject,
   updateProject: (updater: (project: RootsProject) => RootsProject) => void;
   setProject: (project: RootsProject) => void;
   onEditPerson?: (personId: string) => void;
+  rootsCurrentPageIndex: number;
+  setRootsCurrentPageIndex: (index: number) => void;
 }) {
   const { toast } = useToast();
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -1484,6 +1489,8 @@ export function RootsView({ project, people, relationships, tree, updateProject,
         relationships={relationships}
         onBack={() => setShowDesignEditor(false)}
         onUpdateProject={onUpdateProjectForEditor}
+        currentPageIndex={rootsCurrentPageIndex}
+        setCurrentPageIndex={setRootsCurrentPageIndex}
       />
     );
   }
@@ -1622,5 +1629,3 @@ const EditableEventChip = ({ event, isSelected, onToggle, onUpdate }: {
     </div>
   )
 };
-
-    
