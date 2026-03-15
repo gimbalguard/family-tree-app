@@ -274,8 +274,8 @@ function buildTocElements(
     mk('shape', { x: 0, y: 12.5, width: 100, height: 0.4, zIndex: 2, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.35 } }),
   ];
   const footer: DesignElement[] = [
-    mk('text', { x: 8, y: 94, width: 84, height: 5, content: `${studentName} | ${schoolYear} | ${hebrewYear}`, style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
-    mk('text', { x: 2, y: 94, width: 5, height: 5, content: String(tocPageNumber), style: { fontSize: 18, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 8, y: 94, width: 84, height: 10, content: `${studentName} | ${schoolYear} | ${hebrewYear}`, style: { fontSize: 36, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 2, y: 94, width: 5, height: 10, content: String(tocPageNumber), style: { fontSize: 36, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
   ];
 
   return [
@@ -313,8 +313,8 @@ function generatePagesFromProject(
   };
 
   const footer = (pageNum: number, studentName?: string, schoolYear?: string, hebrewYear?: string): DesignElement[] => [
-    mk('text', { x: 8, y: 94, width: 84, height: 5, content: `${studentName || ''} | ${schoolYear || ''} | ${hebrewYear || ''}`, style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
-    mk('text', { x: 2, y: 94, width: 5, height: 5, content: String(pageNum), style: { fontSize: 18, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 8, y: 94, width: 84, height: 10, content: `${studentName || ''} | ${schoolYear || ''} | ${hebrewYear || ''}`, style: { fontSize: 36, textAlign: 'center', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
+    mk('text', { x: 2, y: 94, width: 5, height: 10, content: String(pageNum), style: { fontSize: 36, textAlign: 'left', color: tmpl.mutedTextColor, opacity: 0.75, fontFamily: tmpl.bodyFont } }),
   ];
 
   const pill = (x: number, y: number, w: number, h: number, text: string, icon: string, colorP: string): DesignElement[] => [
@@ -327,7 +327,7 @@ function generatePagesFromProject(
       style: { borderColor: P, borderWidth: 2, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', opacity: 0.85 } }),
   ];
 
-  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 20): DesignElement[] => [
+  const textBlock = (x: number, y: number, w: number, h: number, content: string | undefined, placeholder: string, fs = 36): DesignElement[] => [
     mk('text', { x, y, width: w, height: h, content: content || placeholder,
       style: { fontSize: fs, textAlign: 'right', color: content ? tmpl.textColor : tmpl.mutedTextColor, fontFamily: tmpl.bodyFont, lineHeight: 1.65, opacity: content ? 1 : 0.55 } }),
   ];
@@ -392,7 +392,7 @@ function generatePagesFromProject(
   const introEls: DesignElement[] = [
     ...header('מבוא אישי', '✍️'),
     ...pill(55, 15, 41, 6.5, 'מבוא', '📝', P),
-    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 20),
+    ...textBlock(5, 23, 90, 48, intro.personalIntro, 'כתוב כאן את המבוא האישי שלך — למה חשובה לך עבודה זו, מה אתה מקווה לגלות, ומה הציפיות שלך מהתהליך.', 36),
   ];
   introEls.push(...photoPlaceholder(62, 72, 33, 22, '📷 תמונה אישית'));
   addPage('מבוא אישי', 'personal', introEls);
@@ -431,7 +431,7 @@ function generatePagesFromProject(
     ...header('סיפור השם שלי', '✍️', 'חלק 2: אני'),
     mk('shape', { x: 0, y: 0, width: 6, height: 100, zIndex: 0, style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.45 } }),
     mk('text', { x: 72, y: 14, width: 22, height: 18, content: '❝', style: { fontSize: 70, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 20),
+    ...textBlock(8, 15, 88, 40, ps.nameMeaning, 'כאן יופיע סיפור השם שלי — מה המשמעות, מי בחר אותו ולמה, ומה הקשר שלו להיסטוריה המשפחתית.', 36),
     ...(ps.nameChoiceStory ? [...pill(55, 58, 41, 6.5, 'סיפור הבחירה', '💬', accent), ...textBlock(8, 66, 88, 25, ps.nameChoiceStory, '', 18)] : []),
   ];
   if (student?.photoURL) nameEls.push(mk('image', { content: student.photoURL, x: 66, y: 75, width: 28, height: 22, zIndex: 5, style: { borderRadius: 12 } }));
@@ -443,7 +443,7 @@ function generatePagesFromProject(
     addPage('ביום שנולדתי', 'personal', [
       ...header('ביום שנולדתי', '🗓️', 'חלק 2: אני'),
       ...pill(55, 15, 41, 6.5, student?.birthDate?.slice(0,10) || '', '🎂', P),
-      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 20),
+      ...textBlock(5, 23, 90, 65, ps.dayIWasBorn, '', 36),
       ...photoPlaceholder(55, 70, 40, 24, '📰 כותרות עיתון מיום הלידה'),
     ]);
   }
@@ -467,7 +467,7 @@ function generatePagesFromProject(
   // ─── HOBBIES ────────────────────────────────────────────────
   addPage('התחביבים שלי', 'personal', [
     ...header('התחביבים שלי', '🎯', 'חלק 2: אני'),
-    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 20),
+    ...textBlock(5, 15, 90, 40, ps.hobbies, 'כאן יופיעו התחביבים ותחומי העניין שלי — מה אני עושה בשעות הפנאי, מה מרגש אותי ומשמח אותי.', 36),
     ...photoPlaceholder(5, 57, 28, 35, '📷 תחביב 1'),
     ...photoPlaceholder(35, 57, 28, 35, '📷 תחביב 2'),
     ...photoPlaceholder(65, 57, 30, 35, '📷 תחביב 3'),
@@ -476,7 +476,7 @@ function generatePagesFromProject(
   if (ps.talents) {
     addPage('הכישרונות שלי', 'personal', [
       ...header('הכישרונות שלי', '⭐', 'חלק 2: אני'),
-      ...textBlock(5, 15, 90, 55, ps.talents, '', 20),
+      ...textBlock(5, 15, 90, 55, ps.talents, '', 36),
       ...photoPlaceholder(5, 72, 43, 22, '📷 הכישרון שלי בפעולה'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד דוגמה'),
     ]);
@@ -485,7 +485,7 @@ function generatePagesFromProject(
   addPage('אני מאמין', 'personal', [
     ...header('אני מאמין', '💡', 'חלק 2: אני'),
     mk('text', { x: 8, y: 13, width: 15, height: 22, content: '❝', style: { fontSize: 80, textAlign: 'right', color: P, opacity: 0.12, fontFamily: 'serif' } }),
-    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 20),
+    ...textBlock(5, 15, 90, 55, ps.myBeliefs, 'כאן יופיעו הערכים וההשקפה שלי על החיים — מה חשוב לי, מה אני מאמין בו, ומה המוטו שלי לחיים.', 36),
     ...(ps.futureLetter ? [...pill(55, 72, 41, 6.5, 'מכתב לעתיד', '📮', accent), ...textBlock(5, 72, 48, 22, ps.futureLetter, '', 18)] : [...photoPlaceholder(5, 72, 90, 22, '📷 גלריה אישית')]),
   ]);
 
@@ -537,119 +537,76 @@ function generatePagesFromProject(
   // ─── NUCLEAR FAMILY DIAGRAM (FIXED) ─────────────────────────
   const nucEls: DesignElement[] = [...header('המשפחה הגרעינית', '👨‍👩‍👧', 'חלק 3: המשפחה הגרעינית')];
 
-  // ── Layout:
-  // Row 1 (y=15): Parents centered side by side
-  // Row 2 (y=57): ALL children (student + siblings) in one row, equally spaced
-  // Lines: each parent bottom → each child top (straight)
-  // Sibling lines: horizontal bar connecting all children at y=57
+  // Layout strategy:
+  // Row 1 (y=16): Parents side by side in center
+  // Row 2 (y=55): Student in center, siblings spread around
+  // Lines: each parent → student, student — siblings (wavy)
 
-  const nucCardW = 18;
-  const nucCardH = 30;
-  const nucGap = 3;
+  const cardW = 20;
+  const cardH = 32;
 
-  // All children = student first, then siblings by birth order
-  const allChildren: Person[] = [];
-  if (student) allChildren.push(student);
-  siblings.forEach(s => { if (!allChildren.find(c => c.id === s.id)) allChildren.push(s); });
-
-  // Place parents row 1 — centered
-  const numParents = parents.length;
-  const parentRowTotalW = numParents * nucCardW + Math.max(0, numParents - 1) * nucGap;
-  const parentStartX = Math.max(2, (100 - parentRowTotalW) / 2);
-  const parentElementIds: string[] = [];
+  // Place parents in row 1, centered
+  const totalParents = parents.length;
+  const parentRowW = totalParents * cardW + Math.max(0, totalParents - 1) * 5;
+  const parentStartX = (100 - parentRowW) / 2;
+  const parentCardIds: string[] = [];
 
   parents.forEach((parent, idx) => {
     const cardId = uuidv4();
-    parentElementIds.push(cardId);
+    parentCardIds.push(cardId);
     nucEls.push({
-      ...mk('person_card', {
-        personId: parent.id,
-        x: parentStartX + idx * (nucCardW + nucGap),
-        y: 15,
-        width: nucCardW,
-        height: nucCardH,
-        zIndex: 10,
-      }),
+      ...mk('person_card', { personId: parent.id, x: parentStartX + idx * (cardW + 5), y: 16, width: cardW, height: cardH, zIndex: 10 }),
       id: cardId,
     });
   });
 
-  // Place children row 2 — all equally spaced across full width
-  const numChildren = allChildren.length;
-  const childRowTotalW = numChildren * nucCardW + Math.max(0, numChildren - 1) * nucGap;
-  const childStartX = Math.max(1, (100 - childRowTotalW) / 2);
-  const childElementIds: string[] = [];
-
-  allChildren.forEach((child, idx) => {
-    const cardId = uuidv4();
-    childElementIds.push(cardId);
+  // Place student in row 2 center
+  const studentCardId = uuidv4();
+  if (student) {
     nucEls.push({
-      ...mk('person_card', {
-        personId: child.id,
-        x: childStartX + idx * (nucCardW + nucGap),
-        y: 58,
-        width: nucCardW,
-        height: nucCardH,
-        zIndex: 10,
-      }),
-      id: cardId,
+      ...mk('person_card', { personId: student.id, x: (100 - cardW) / 2, y: 58, width: cardW, height: cardH, zIndex: 10 }),
+      id: studentCardId,
     });
-  });
-
-  // Horizontal connector bar between parents (if 2 parents)
-  if (numParents >= 2) {
-    const p1CenterX = parentStartX + nucCardW / 2;
-    const p2CenterX = parentStartX + (numParents - 1) * (nucCardW + nucGap) + nucCardW / 2;
-    const barY = 15 + nucCardH / 2;
-    // We draw this as a shape line element
-    nucEls.push(mk('shape', {
-      x: p1CenterX,
-      y: barY - 0.3,
-      width: p2CenterX - p1CenterX,
-      height: 0.6,
-      zIndex: 1,
-      style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.6 },
-    }));
   }
 
-  // Vertical drop from parent midpoint to horizontal child bar
-  const parentMidX = parentStartX + (parentRowTotalW / 2);
-  const childBarY = 58; // top of children row
-  const dropLineX = parentMidX;
-  nucEls.push(mk('shape', {
-    x: dropLineX - 0.3,
-    y: 15 + nucCardH,
-    width: 0.6,
-    height: childBarY - (15 + nucCardH),
-    zIndex: 1,
-    style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.6 },
-  }));
-
-  // Horizontal bar across tops of all children
-  if (numChildren > 1) {
-    const c1CenterX = childStartX + nucCardW / 2;
-    const cnCenterX = childStartX + (numChildren - 1) * (nucCardW + nucGap) + nucCardW / 2;
-    nucEls.push(mk('shape', {
-      x: c1CenterX,
-      y: childBarY - 0.3,
-      width: cnCenterX - c1CenterX,
-      height: 0.6,
-      zIndex: 1,
-      style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.6 },
-    }));
+  // Connection lines: parents → student (wavy, with label)
+  if (student) {
+    parentCardIds.forEach(pid => {
+      nucEls.push(mk('connection_line', {
+        fromElementId: pid,
+        toElementId: studentCardId,
+        x: 0, y: 0, width: 0, height: 0, zIndex: 2,
+        style: { color: P, borderWidth: 2, lineType: 'wavy' } as any,
+      }));
+    });
   }
 
-  // Vertical drop to each child
-  allChildren.forEach((_, idx) => {
-    const childCenterX = childStartX + idx * (nucCardW + nucGap) + nucCardW / 2;
-    nucEls.push(mk('shape', {
-      x: childCenterX - 0.3,
-      y: childBarY - 3,
-      width: 0.6,
-      height: 3,
-      zIndex: 1,
-      style: { shapeType: 'rectangle', backgroundColor: P, opacity: 0.5 },
-    }));
+  // Place siblings: spread to the right and left of student
+  // Up to 4 siblings shown, 2 on each side
+  const sibW = 17;
+  const sibH = 28;
+  const studentCenterX = (100 - cardW) / 2 + cardW / 2;
+  const sibSpacing = 22;
+
+  siblings.slice(0, 6).forEach((sib, idx) => {
+    // Alternate left and right of student
+    const side = idx % 2 === 0 ? 1 : -1; // 1=right, -1=left
+    const offset = Math.ceil((idx + 1) / 2) * sibSpacing;
+    const sibX = Math.max(1, Math.min(100 - sibW - 1, studentCenterX + side * offset - sibW / 2));
+    const sibCardId = uuidv4();
+    nucEls.push({
+      ...mk('person_card', { personId: sib.id, x: sibX, y: 58, width: sibW, height: sibH, zIndex: 9 }),
+      id: sibCardId,
+    });
+    // Connect sibling to student with dashed line
+    if (student) {
+      nucEls.push(mk('connection_line', {
+        fromElementId: studentCardId,
+        toElementId: sibCardId,
+        x: 0, y: 0, width: 0, height: 0, zIndex: 1,
+        style: { color: accent, borderWidth: 1.5, lineType: 'dashed' } as any,
+      }));
+    }
   });
 
   addPage('המשפחה הגרעינית', 'nuclear_family', nucEls);
@@ -677,7 +634,7 @@ function generatePagesFromProject(
   // ─── PARENTS MEETING ──────────────────────────────────────
   addPage('סיפור ההיכרות של ההורים', 'nuclear_family', [
     ...header('סיפור ההיכרות', '💑', 'חלק 3: המשפחה הגרעינית'),
-    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 20),
+    ...textBlock(5, 15, 90, 55, nf.parentsMeetingStory, 'כאן יופיע סיפור היכרות ההורים — איך הם נפגשו, מה קרה, וסיפור החתונה.', 36),
     ...photoPlaceholder(5, 72, 43, 22, '📷 תמונת חתונה'),
     ...photoPlaceholder(52, 72, 43, 22, '📷 תמונה נוספת'),
   ]);
@@ -686,14 +643,11 @@ function generatePagesFromProject(
   const sibBios: Array<{ personId?: string; relationshipDescription?: string }> = (nf.siblings as any[]) || [];
   siblings.forEach((sib) => {
     const sibBio = sibBios.find(b => b.personId === sib.id) || {};
-    const sibRole = sib.gender === 'female' ? 'אחות' : 'אח';
-    const sibEmoji = sib.gender === 'female' ? '👧' : '👦';
-    const sibRelLabel = sib.gender === 'female' ? 'אחות שלי' : 'אח שלי';
-    addPage(`${sib.firstName} — ${sibRole}`, 'nuclear_family', [
-      ...header(`${sib.firstName} ${sib.lastName}`, sibEmoji, 'חלק 3: אחים ואחיות'),
+    addPage(`${sib.firstName} — אח/ות`, 'nuclear_family', [
+      ...header(`${sib.firstName} ${sib.lastName}`, sib.gender === 'female' ? '👧' : '👦', 'חלק 3: אחים ואחיות'),
       mk('person_card', { personId: sib.id, x: 66, y: 15, width: 29, height: 40, zIndex: 10 }),
-      ...pill(5, 15, 59, 6.5, sibRelLabel, '💙', P),
-      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד ב${sib.gender === 'female' ? 'ה' : ''}${sib.firstName}.`, 18),
+      ...pill(5, 15, 59, 6.5, 'אח/ות שלי', '💙', P),
+      ...textBlock(5, 23, 59, 55, sibBio.relationshipDescription, `כאן יופיע סיפור על ${sib.firstName} — הקשר שלנו, חוויות משותפות, ומה מיוחד בהם.`, 18),
       ...photoPlaceholder(66, 57, 29, 36, `📷 תמונות של ${sib.firstName}`),
     ]);
   });
@@ -710,7 +664,7 @@ function generatePagesFromProject(
   if (nf.ourPets) {
     addPage('חיות המחמד שלנו', 'nuclear_family', [
       ...header('חיות המחמד שלנו', '🐾', 'חלק 3: המשפחה הגרעינית'),
-      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 20),
+      ...textBlock(5, 15, 90, 55, nf.ourPets, '', 36),
       ...photoPlaceholder(5, 72, 43, 22, '📷 חיות המחמד שלנו'),
       ...photoPlaceholder(52, 72, 43, 22, '📷 עוד תמונה'),
     ]);
@@ -771,7 +725,7 @@ function generatePagesFromProject(
     if (meetingStory) {
       addPage(`ההיכרות — ${group.label}`, group.pageType, [
         ...header(`סיפור ההיכרות — ${group.label}`, '💕', group.chapterLabel),
-        ...textBlock(5, 15, 90, 65, meetingStory, '', 20),
+        ...textBlock(5, 15, 90, 65, meetingStory, '', 36),
         ...photoPlaceholder(5, 82, 43, 13, '📷 תמונה'),
         ...photoPlaceholder(52, 82, 43, 13, '📷 חתונה'),
       ]);
@@ -816,7 +770,7 @@ function generatePagesFromProject(
   if (h.familyNameOrigin) {
     addPage('מקור שם המשפחה', 'custom', [
       ...header('מקור שם המשפחה', '📜', 'חלק 6: נתונים ומחקר'),
-      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 20),
+      ...textBlock(5, 15, 90, 60, h.familyNameOrigin, '', 36),
       ...photoPlaceholder(5, 77, 90, 17, '📜 מסמך או תמונה הקשורה לשם המשפחה'),
     ]);
   }
@@ -824,7 +778,7 @@ function generatePagesFromProject(
   if (researchData.cityOriginStory) {
     addPage('גלגולה של עיר', 'custom', [
       ...header('גלגולה של עיר', '🏙️', 'חלק 6: נתונים ומחקר'),
-      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 20),
+      ...textBlock(5, 15, 90, 60, researchData.cityOriginStory, '', 36),
       ...photoPlaceholder(5, 77, 43, 17, '📷 תמונת העיר'),
       ...photoPlaceholder(52, 77, 43, 17, '🗺️ מפה'),
     ]);
@@ -841,7 +795,7 @@ function generatePagesFromProject(
   if (h.inheritedObject) {
     addPage('חפץ עובר בירושה', 'heritage', [
       ...header('חפץ עובר בירושה', '💎', 'חלק 7: מורשת'),
-      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 20),
+      ...textBlock(5, 15, 58, 55, h.inheritedObject, '', 36),
       ...photoPlaceholder(65, 15, 30, 55, '📷 תמונת החפץ'),
       ...photoPlaceholder(5, 72, 90, 22, '📷 החפץ בהקשרו'),
     ]);
@@ -871,7 +825,7 @@ function generatePagesFromProject(
   if (h.roleModels) {
     addPage('דמויות מופת', 'heritage', [
       ...header('דמויות מופת במשפחה', '⭐', 'חלק 7: מורשת'),
-      ...textBlock(5, 15, 90, 60, h.roleModels, '', 20),
+      ...textBlock(5, 15, 90, 60, h.roleModels, '', 36),
       ...photoPlaceholder(5, 77, 43, 18, '📷 תמונת הדמות'),
       ...photoPlaceholder(52, 77, 43, 18, '📷 עוד תמונה'),
     ]);
@@ -881,7 +835,7 @@ function generatePagesFromProject(
     addPage('מכתב מההורים', 'heritage', [
       ...header('מכתב אישי מההורים', '💌', 'חלק 7: מורשת'),
       mk('text', { x: 8, y: 13, width: 16, height: 20, content: '❝', style: { fontSize: 80, textAlign: 'right', color: accent, opacity: 0.15, fontFamily: 'serif' } }),
-      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 20),
+      ...textBlock(5, 15, 90, 70, h.parentsLetter, '', 36),
       mk('text', { x: 5, y: 87, width: 90, height: 8, content: '— אמא ואבא, באהבה', style: { fontSize: 18, textAlign: 'center', color: tmpl.mutedTextColor, fontFamily: tmpl.titleFont, fontWeight: 'bold' } }),
     ]);
   }
@@ -907,13 +861,13 @@ function generatePagesFromProject(
   addPage('רפלקציה אישית', 'custom', [
     ...header('רפלקציה אישית', '💭', 'חלק 8: סיכום'),
     mk('text', { x: 8, y: 13, width: 16, height: 20, content: '💭', style: { fontSize: 60, textAlign: 'right', fontFamily: tmpl.bodyFont } }),
-    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 20),
+    ...textBlock(5, 15, 90, 68, conc.personalReflection, 'כאן אכתוב מה למדתי על עצמי ועל המשפחה שלי, מה הפתיע אותי, ומה גיליתי שלא ידעתי.', 36),
     ...photoPlaceholder(5, 85, 90, 10, '📷 תמונה מסכמת'),
   ]);
 
   addPage('תודות', 'custom', [
     ...header('תודות', '🙏', 'חלק 8: סיכום'),
-    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 20),
+    ...textBlock(5, 15, 90, 70, conc.thanks, 'תודה מיוחדת לכל מי שעזר לי בכתיבת עבודה זו:\n• סבא וסבתא על הסיפורים והזמן\n• אמא ואבא על הסיוע\n• המורה _______________ על ההנחיה', 36),
     mk('text', { x: 5, y: 87, width: 90, height: 8, content: '❤️', style: { fontSize: 30, textAlign: 'center', fontFamily: tmpl.bodyFont } }),
   ]);
 
@@ -993,7 +947,7 @@ const PersonCardElement = ({
   // hiddenFields: array of field keys to hide
   const hiddenFields: string[] = (element as any)._hiddenFields ?? [];
 
-  const widthScale = Math.max(0.4, Math.min(2.5, (element.width || 20) / 20));
+  const widthScale = Math.max(0.4, Math.min(2.5, (element.width || 0) / 20));
   const fs = (base: number) => Math.round(base * widthScale * cardTextScale);
 
   const allInfoRows: Array<{ key: string; icon: string; value: string }> = [];
@@ -1081,7 +1035,7 @@ function CardFieldPanel({ element, person, onUpdate, onClose }: {
         <div className="flex items-center justify-between p-3 border-b border-white/10">
           <button onClick={onClose} className="text-slate-400 hover:text-white">✕</button>
           <div className="flex items-center gap-2">
-            <img src={person.photoURL || ''} alt="" className="w-6 h-6 rounded-full object-cover opacity-70" />
+            <img src={person.photoURL || getPlaceholderImage(person.gender)} alt="" className="w-6 h-6 rounded-full object-cover opacity-70" />
             <span className="text-sm font-bold">{person.firstName} {person.lastName}</span>
           </div>
         </div>
@@ -1331,14 +1285,14 @@ function ImagePickerModal({ treeId, onSelect, onClose }: { treeId: string; onSel
 // RESIZE HANDLES — corners (aspect-ratio) + sides (crop)
 // ============================================================
 const HANDLES = [
-  { id: 'nw', cursor: 'ne-resize', style: { top: -5, right: -5 }, isCorner: true },
-  { id: 'ne', cursor: 'nw-resize', style: { top: -5, left: -5 }, isCorner: true },
-  { id: 'sw', cursor: 'se-resize', style: { bottom: -5, right: -5 }, isCorner: true },
-  { id: 'se', cursor: 'sw-resize', style: { bottom: -5, left: -5 }, isCorner: true },
+  { id: 'nw', cursor: 'nw-resize', style: { top: -5, right: -5 }, isCorner: true },
+  { id: 'ne', cursor: 'ne-resize', style: { top: -5, left: -5 }, isCorner: true },
+  { id: 'sw', cursor: 'sw-resize', style: { bottom: -5, right: -5 }, isCorner: true },
+  { id: 'se', cursor: 'se-resize', style: { bottom: -5, left: -5 }, isCorner: true },
   { id: 'n', cursor: 'n-resize', style: { top: -5, left: '50%', transform: 'translateX(-50%)' }, isCorner: false },
   { id: 's', cursor: 's-resize', style: { bottom: -5, left: '50%', transform: 'translateX(-50%)' }, isCorner: false },
-  { id: 'e', cursor: 'w-resize', style: { right: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
-  { id: 'w', cursor: 'e-resize', style: { left: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
+  { id: 'e', cursor: 'e-resize', style: { right: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
+  { id: 'w', cursor: 'w-resize', style: { left: -5, top: '50%', transform: 'translateY(-50%)' }, isCorner: false },
 ];
 
 // ============================================================
@@ -1463,8 +1417,6 @@ export function RootsDesignEditor({
   const [activeLineType, setActiveLineType] = useState<string>('straight');
   // TOC outdated indicator
   const [tocOutdated, setTocOutdated] = useState(false);
-  // Person card field panel
-  const [cardFieldPanel, setCardFieldPanel] = useState<{ elementId: string; personId: string } | null>(null);
 
   useEffect(() => { DESIGN_TEMPLATES.forEach(t => ensureFontLoaded(t.titleFont)); }, []);
 
@@ -1647,20 +1599,18 @@ export function RootsDesignEditor({
       setCurrentPageIndex(index + 1);
     }
     const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(renumbered);
-    setTocOutdated(true);
-  }, [commitPages]);
+    commitPages(rebuildToc(renumbered));
+  }, [commitPages, rebuildToc]);
 
   const handleDuplicatePage = useCallback((index: number) => {
     const pageToDuplicate = pagesRef.current[index];
     const newPage: DesignPage = { ...JSON.parse(JSON.stringify(pageToDuplicate)), id: uuidv4() };
     const newPages = [...pagesRef.current.slice(0, index + 1), newPage, ...pagesRef.current.slice(index + 1)];
     const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(renumbered);
+    commitPages(rebuildToc(renumbered));
     setCurrentPageIndex(index + 1);
-    setTocOutdated(true);
     toast({ title: 'עמוד שוכפל' });
-  }, [commitPages, toast]);
+  }, [commitPages, rebuildToc, toast]);
 
   const handleAddNewPage = useCallback((index: number, position: 'before' | 'after') => {
     const newPage: DesignPage = {
@@ -1670,31 +1620,21 @@ export function RootsDesignEditor({
     const newIndex = position === 'before' ? index : index + 1;
     const newPages = [...pagesRef.current.slice(0, newIndex), newPage, ...pagesRef.current.slice(newIndex)];
     const renumbered = newPages.map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(renumbered);
+    commitPages(rebuildToc(renumbered));
     setCurrentPageIndex(newIndex);
-    setTocOutdated(true);
-  }, [commitPages, currentPage, selectedTemplateId]);
+  }, [commitPages, rebuildToc, currentPage, selectedTemplateId]);
 
   const handleDeletePageRequest = useCallback((index: number) => { setPageToDeleteIndex(index); }, []);
 
   const confirmDeletePage = useCallback(() => {
     if (pageToDeleteIndex === null) return;
     const newPages = pagesRef.current.filter((_, i) => i !== pageToDeleteIndex).map((p, i) => ({ ...p, pageNumber: i + 1 }));
-    commitPages(newPages);
+    commitPages(rebuildToc(newPages));
     setCurrentPageIndex(prev => Math.max(0, Math.min(prev, newPages.length - 1)));
     setSelectedIds([]);
     setPageToDeleteIndex(null);
-    setTocOutdated(true);
     toast({ title: 'העמוד נמחק' });
-  }, [pageToDeleteIndex, commitPages, toast]);
-
-  // Manual TOC sync — called by the red button
-  const handleSyncToc = useCallback(() => {
-    const synced = rebuildToc(pagesRef.current);
-    commitPages(synced);
-    setTocOutdated(false);
-    toast({ title: '✓ תוכן העניינים עודכן' });
-  }, [rebuildToc, commitPages, toast]);
+  }, [pageToDeleteIndex, commitPages, rebuildToc, toast]);
 
   const handleResetPages = useCallback(() => {
     hasGeneratedRef.current = true;
@@ -1722,12 +1662,11 @@ export function RootsDesignEditor({
 
   // ── Drag ──
   const handleMouseDown = (e: React.MouseEvent, el: DesignElement) => {
-    if (editingElementId) return;
-    if (!canvasRef.current) return;
+    if (editingElementId || activeTool !== 'select' || !canvasRef.current) return;
     e.stopPropagation();
 
-    // Line drawing mode — works regardless of active tool guard
-    if (activeTool === 'line') {
+    // Line drawing mode: clicking a card sets it as connection target
+    if (activeTool === 'line' as any) {
       if (lineDrawing) {
         if (el.id !== lineDrawing.fromElementId) {
           addElement({
@@ -1739,15 +1678,13 @@ export function RootsDesignEditor({
           });
           setLineDrawing(null);
           setActiveTool('select');
-          toast({ title: '✓ קו חיבור נוסף' });
         }
       } else {
         setLineDrawing({ fromElementId: el.id });
+        toast({ title: `מ: ${el.type === 'person_card' ? 'כרטיס' : el.id.slice(0,6)} — לחץ על רכיב יעד` });
       }
       return;
     }
-
-    if (activeTool !== 'select') return;
 
     if (e.ctrlKey || e.metaKey) {
       const toggled = selectedIds.includes(el.id) ? selectedIds.filter(id => id !== el.id) : [...selectedIds, el.id];
@@ -1792,12 +1729,10 @@ export function RootsDesignEditor({
 
         if (isCorner) {
           // Corner: scale proportionally (lock aspect ratio)
-          // In RTL canvas: 'se' handle is bottom-LEFT visually, 'sw' is bottom-RIGHT
-          // dx positive = mouse moved right = element grows toward left in RTL
-          if (h === 'se') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; }
-          else if (h === 'sw') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; nx = elX - (nw - elW); }
-          else if (h === 'ne') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; ny = elY + (elH - nh); }
-          else if (h === 'nw') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; nx = elX - (nw - elW); ny = elY + (elH - nh); }
+          if (h === 'se') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; }
+          else if (h === 'sw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); }
+          else if (h === 'ne') { nw = Math.max(5, elW + dx); nh = nw / aspectRatio; ny = elY + (elH - nh); }
+          else if (h === 'nw') { nw = Math.max(5, elW - dx); nh = nw / aspectRatio; nx = elX + (elW - nw); ny = elY + (elH - nh); }
         } else {
           // Side: crop only, no aspect ratio change
           if (h === 'e') nw = Math.max(5, elW + dx);
@@ -1843,13 +1778,7 @@ export function RootsDesignEditor({
       addElement({ type: 'shape', x: (e.nativeEvent.offsetX / target.offsetWidth) * 100 - 10, y: (e.nativeEvent.offsetY / target.offsetHeight) * 100 - 10, width: 20, height: 20, style: { shapeType: activeShapeType as ShapeType, backgroundColor: template.primaryColor, opacity: 0.85 } });
       setActiveTool('select');
     } else if (activeTool === 'line') {
-      // Clicking empty canvas while in line mode — cancel if no source selected yet
-      if (!lineDrawing) {
-        toast({ title: '🔗 לחץ על אלמנט כדי להתחיל את הקו' });
-      } else {
-        setLineDrawing(null);
-        toast({ title: 'בוטל — לחץ על אלמנט מקור חדש' });
-      }
+      toast({ title: 'בחר רכיב להתחלת הקו' });
     } else {
       setSelectedIds([]); setEditingElementId(null);
     }
@@ -1930,16 +1859,12 @@ export function RootsDesignEditor({
     }
 
     if (lineType === 'wavy') {
-      // True sinusoidal wave using multiple cubic bezier segments
-      // We use percentage coordinates relative to canvas
-      const midX = (x1p + x2p) / 2;
-      const midY = (y1p + y2p) / 2;
-      const amp = Math.min(8, Math.abs(x2p - x1p) * 0.15 + 3); // wave amplitude
-      const d = [
-        `M ${x1p}% ${y1p}%`,
-        `C ${x1p}% ${y1p + (midY - y1p) * 0.3}%  ${midX - amp}% ${midY - (midY - y1p) * 0.2}%  ${midX}% ${midY}%`,
-        `C ${midX + amp}% ${midY + (y2p - midY) * 0.2}%  ${x2p}% ${y2p - (y2p - midY) * 0.3}%  ${x2p}% ${y2p}%`,
-      ].join(' ');
+      // Cubic bezier for smooth wave
+      const cx1 = x1p;
+      const cy1 = (y1p + y2p) / 2;
+      const cx2 = x2p;
+      const cy2 = (y1p + y2p) / 2;
+      const d = `M ${x1p}% ${y1p}% C ${cx1}% ${cy1}% ${cx2}% ${cy2}% ${x2p}% ${y2p}%`;
       return (
         <g key={el.id}>
           <path d={d} stroke="transparent" strokeWidth="12" fill="none" {...clickProps} />
@@ -2047,13 +1972,16 @@ export function RootsDesignEditor({
             {activeTool === 'line' && (
               <div className="flex gap-0.5 flex-shrink-0">
                 {LINE_TYPES.map(lt => (
-                  <Tooltip key={lt.id}><TooltipTrigger asChild>
-                    <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                      onClick={() => setActiveLineType(lt.id)}>
-                      {lt.label}
-                    </button>
-                  </TooltipTrigger><TooltipContent side="bottom"><p>{lt.label}</p></TooltipContent></Tooltip>
-                ))}
+  <Tooltip key={lt.id}>
+    <TooltipTrigger asChild>
+      <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', activeLineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+        onClick={() => setActiveLineType(lt.id)}>
+        {lt.label}
+      </button>
+    </TooltipTrigger>
+    <TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent>
+  </Tooltip>
+))}
               </div>
             )}
             {/* Layers button */}
@@ -2078,13 +2006,6 @@ export function RootsDesignEditor({
                 <RefreshCw className="h-3 w-3 ml-1" />צור מחדש
               </Button>
             </TooltipTrigger><TooltipContent side="bottom"><p>מחק הכל ויצור מחדש מהנתונים שלך</p></TooltipContent></Tooltip>
-            {tocOutdated && (
-              <Tooltip><TooltipTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs bg-red-600/20 border-red-500 text-red-300 hover:bg-red-600/40 animate-pulse" onClick={handleSyncToc}>
-                  📋 עדכן תוכן עניינים
-                </Button>
-              </TooltipTrigger><TooltipContent side="bottom"><p>מספרי העמודים השתנו — לחץ לעדכון תוכן העניינים</p></TooltipContent></Tooltip>
-            )}
             <DropdownMenu>
               <Tooltip><TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
@@ -2150,13 +2071,13 @@ export function RootsDesignEditor({
             <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'linear-gradient(45deg,#333 25%,transparent 25%),linear-gradient(-45deg,#333 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#333 75%),linear-gradient(-45deg,transparent 75%,#333 75%)', backgroundSize: '16px 16px', backgroundPosition: '0 0,0 8px,8px -8px,-8px 0' }} />
 
             {activeTool === 'line' && lineDrawing && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-yellow-300 pointer-events-none z-10 bg-black/60 px-3 py-1.5 rounded-full border border-yellow-500/30">
-                ✓ נבחר: {currentPage?.elements.find(e => e.id === lineDrawing.fromElementId)?.type === 'person_card' ? 'כרטיס' : 'אלמנט'} — עכשיו לחץ על היעד לסגירת הקו | ESC לביטול
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-yellow-300 pointer-events-none z-10 bg-black/50 px-3 py-1 rounded-full">
+                ✓ מקור נבחר — עכשיו לחץ על רכיב היעד. ESC לביטול.
               </div>
             )}
             {activeTool === 'line' && !lineDrawing && (
-              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-indigo-300 pointer-events-none z-10 bg-black/60 px-3 py-1.5 rounded-full border border-indigo-500/30">
-                🔗 כלי קו חיבור — לחץ על אלמנט מקור כדי להתחיל לצייר קו
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[11px] text-indigo-300 pointer-events-none z-10 bg-black/50 px-3 py-1 rounded-full">
+                לחץ על רכיב מקור לצייר קו חיבור
               </div>
             )}
 
@@ -2196,13 +2117,7 @@ export function RootsDesignEditor({
                   const isSel = selectedIds.includes(el.id);
                   return (
                     <div key={`el-${currentPageIndex}-${el.id}`}
-                      className={cn(
-                        'absolute',
-                        isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '',
-                        activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '',
-                        activeTool === 'line' ? 'cursor-crosshair hover:outline hover:outline-2 hover:outline-yellow-400 hover:outline-offset-1' : '',
-                        activeTool === 'line' && lineDrawing?.fromElementId === el.id ? 'outline outline-2 outline-yellow-400 outline-offset-1' : '',
-                      )}
+                      className={cn('absolute', isSel ? 'outline outline-2 outline-blue-400 outline-offset-1' : '', activeTool === 'select' && !editingElementId ? 'cursor-grab active:cursor-grabbing' : '', activeTool === 'line' ? 'cursor-crosshair' : '')}
                       style={{ left: `${el.x}%`, top: `${el.y}%`, width: `${el.width}%`, height: `${el.height}%`, zIndex: (el.zIndex || 1) + 3 }}
                       onMouseDown={e => handleMouseDown(e, el)}
                       onContextMenu={e => handleContextMenu(e, el.id)}>
@@ -2237,17 +2152,7 @@ export function RootsDesignEditor({
                         )
                       )}
 
-                      {el.type === 'person_card' && (
-                        <PersonCardElement
-                          element={el}
-                          people={people}
-                          relationships={relationships}
-                          onDoubleClick={() => {
-                            const p = people.find(p2 => p2.id === el.personId);
-                            if (p) setCardFieldPanel({ elementId: el.id, personId: p.id });
-                          }}
-                        />
-                      )}
+                      {el.type === 'person_card' && <PersonCardElement element={el} people={people} relationships={relationships} />}
 
                       {el.type === 'image' && el.content && (
                         <div className="w-full h-full overflow-hidden" style={{ borderRadius: el.style?.borderRadius ? `${el.style.borderRadius}px` : 0, border: el.style?.borderWidth ? `${el.style.borderWidth}px solid ${el.style.borderColor || '#fff'}` : undefined }}>
@@ -2363,21 +2268,6 @@ export function RootsDesignEditor({
           </main>
         </div>
 
-        {/* ══ CARD FIELD PANEL ══ */}
-        {cardFieldPanel && (() => {
-          const el = currentPage?.elements.find(e => e.id === cardFieldPanel.elementId);
-          const person = people.find(p => p.id === cardFieldPanel.personId);
-          if (!el || !person) return null;
-          return (
-            <CardFieldPanel
-              element={el}
-              person={person}
-              onUpdate={updates => updateElement(cardFieldPanel.elementId, updates)}
-              onClose={() => setCardFieldPanel(null)}
-            />
-          );
-        })()}
-
         {/* ══ BOTTOM BAR ══ */}
         <div className="h-10 border-t border-white/10 bg-slate-900/90 backdrop-blur flex-shrink-0 flex items-center gap-1.5 px-3 overflow-x-auto overflow-y-hidden" style={{ minWidth: 0 }}>
 
@@ -2427,11 +2317,11 @@ export function RootsDesignEditor({
             <button className="text-[10px] px-2 py-1 rounded bg-slate-700 border border-slate-600 hover:border-slate-400 flex-shrink-0" onClick={() => selectedIds.forEach(id => duplicateElementById(id))}>⎘ שכפל</button>
             {[
               { l: '⊣', t: 'יישר לשמאל', a: () => updateMultipleElements(selectedIds, () => ({ x: 0 })) },
-              { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - el.width })) },
-              { l: '⊕H', t: 'מרכז אופקי', a: () => updateMultipleElements(selectedIds, el => ({ x: 50 - el.width / 2 })) },
+              { l: '⊢', t: 'יישר לימין', a: () => updateMultipleElements(selectedIds, el => ({ x: 100 - (el.width || 0) })) },
+              { l: '⊕H', t: 'מרכז אופקי', a: () => updateMultipleElements(selectedIds, el => ({ x: 50 - (el.width || 0) / 2 })) },
               { l: '⊤', t: 'יישר לעליון', a: () => updateMultipleElements(selectedIds, () => ({ y: 0 })) },
-              { l: '⊥', t: 'יישר לתחתון', a: () => updateMultipleElements(selectedIds, el => ({ y: 100 - el.height })) },
-              { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - el.height / 2 })) },
+              { l: '⊥', t: 'יישר לתחתון', a: () => updateMultipleElements(selectedIds, el => ({ y: 100 - (el.height || 0) })) },
+              { l: '⊕V', t: 'מרכז אנכי', a: () => updateMultipleElements(selectedIds, el => ({ y: 50 - (el.height || 0) / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
                 <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>
@@ -2484,23 +2374,12 @@ export function RootsDesignEditor({
                 onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, opacity: Number(e.target.value) } })} />
               <span className="text-[10px] text-slate-500">{Math.round((selectedElement.style?.opacity ?? 1) * 100)}%</span>
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span className="text-[10px] text-slate-400">טקסט:</span>
-              <input type="range" min={0.5} max={2.0} step={0.1} className="w-14"
-                value={(selectedElement as any)._cardTextScale ?? 1}
-                onChange={e => updateElement(selectedId!, { _cardTextScale: Number(e.target.value) } as any)} />
-              <span className="text-[10px] text-slate-500">{Math.round(((selectedElement as any)._cardTextScale ?? 1) * 100)}%</span>
-            </div>
             <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
               value={selectedElement.style?.backgroundColor?.startsWith('#') ? selectedElement.style.backgroundColor : '#1e293b'}
               onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, backgroundColor: e.target.value } })} />
             <input type="color" className="w-7 h-7 rounded cursor-pointer border border-white/10 flex-shrink-0"
               value={selectedElement.style?.color || '#ffffff'}
               onChange={e => updateElement(selectedId!, { style: { ...selectedElement.style, color: e.target.value } })} />
-            <button className="text-[10px] px-2 py-1 border border-dashed border-white/20 rounded text-slate-400 hover:border-indigo-400 flex-shrink-0"
-              onClick={() => { const p2 = people.find(p3 => p3.id === selectedElement.personId); if (p2) setCardFieldPanel({ elementId: selectedId!, personId: p2.id }); }}>
-              ⚙️ שדות
-            </button>
           </>)}
 
           {/* SHAPE controls */}
@@ -2553,16 +2432,16 @@ export function RootsDesignEditor({
             {/* Line type — affects the SVG rendering directly via element.style.lineType */}
             <div className="flex gap-0.5 flex-shrink-0">
               {LINE_TYPES.map(lt => (
-                <Tooltip key={lt.id}>
-                  <TooltipTrigger asChild>
-                    <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', (selectedElement.style as any)?.lineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
-                      onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, lineType: lt.id } as any })}>
-                      {lt.label}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent>
-                </Tooltip>
-              ))}
+  <Tooltip key={lt.id}>
+    <TooltipTrigger asChild>
+      <button className={cn('text-[9px] px-1.5 py-1 rounded border flex-shrink-0', (selectedElement.style as any)?.lineType === lt.id ? 'bg-indigo-500 border-indigo-400' : 'bg-slate-700 border-slate-600 hover:border-slate-400')}
+        onClick={() => updateElement(selectedId!, { style: { ...selectedElement.style, lineType: lt.id } as any })}>
+        {lt.label}
+      </button>
+    </TooltipTrigger>
+    <TooltipContent side="top"><p>סוג קו: {lt.label}</p></TooltipContent>
+  </Tooltip>
+))}
             </div>
           </>)}
 
@@ -2571,11 +2450,11 @@ export function RootsDesignEditor({
             <div className="w-px h-6 bg-white/10 flex-shrink-0" />
             {[
               { l: '⊣', t: 'יישר לשמאל', a: () => updateElement(selectedId!, { x: 0 }) },
-              { l: '⊢', t: 'יישר לימין', a: () => updateElement(selectedId!, el => ({ x: 100 - el.width })) },
-              { l: '⊕H', t: 'מרכז אופקי', a: () => updateElement(selectedId!, el => ({ x: 50 - el.width / 2 })) },
+              { l: '⊢', t: 'יישר לימין', a: () => updateElement(selectedId!, el => ({ x: 100 - (el.width || 0) })) },
+              { l: '⊕H', t: 'מרכז אופקי', a: () => updateElement(selectedId!, el => ({ x: 50 - (el.width || 0) / 2 })) },
               { l: '⊤', t: 'יישר לעליון', a: () => updateElement(selectedId!, { y: 0 }) },
-              { l: '⊥', t: 'יישר לתחתון', a: () => updateElement(selectedId!, el => ({ y: 100 - el.height })) },
-              { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - el.height / 2 })) },
+              { l: '⊥', t: 'יישר לתחתון', a: () => updateElement(selectedId!, el => ({ y: 100 - (el.height || 0) })) },
+              { l: '⊕V', t: 'מרכז אנכי', a: () => updateElement(selectedId!, el => ({ y: 50 - (el.height || 0) / 2 })) },
             ].map(({ l, t, a }) => (
               <Tooltip key={t}><TooltipTrigger asChild>
                 <button title={t} onClick={a} className="w-7 h-7 flex items-center justify-center text-[10px] rounded bg-slate-700 border border-slate-600 hover:border-indigo-400 flex-shrink-0">{l}</button>

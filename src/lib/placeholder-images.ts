@@ -1,3 +1,4 @@
+'use client';
 import data from './placeholder-images.json';
 import type { Person } from '@/lib/types';
 
@@ -11,12 +12,15 @@ export type ImagePlaceholder = {
 export const PlaceHolderImages: ImagePlaceholder[] = data.placeholderImages;
 
 export function getPlaceholderImage(gender: Person['gender']) {
+  const defaultImage = "https://picsum.photos/seed/fallback-avatar/400/400";
+  let placeholder;
   switch (gender) {
     case 'male':
-      return PlaceHolderImages.find((img) => img.id === 'male-avatar')?.imageUrl;
+      placeholder = PlaceHolderImages.find((img) => img.id === 'male-avatar');
+      break;
     case 'female':
-      return PlaceHolderImages.find((img) => img.id === 'female-avatar')?.imageUrl;
+      placeholder = PlaceHolderImages.find((img) => img.id === 'female-avatar');
+      break;
     default:
-      return PlaceHolderImages.find((img) => img.id === 'other-avatar')?.imageUrl;
-  }
-}
+      placeholder = PlaceHolderImages.find((img) => img.id === 'other-avatar');
+      

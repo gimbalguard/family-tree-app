@@ -173,7 +173,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
         <div className="flex flex-row-reverse items-center gap-4">
           <div className={cn('avatar-frame rounded-full')}>
             <Avatar className="h-16 w-16 border">
-              <AvatarImage src={photoURL || ''} data-ai-hint="person photo" />
+              <AvatarImage src={photoURL || undefined} data-ai-hint="person photo" />
               <AvatarFallback>
                   <img src={getPlaceholderImage(gender)} alt={`${firstName} ${lastName}`} />
               </AvatarFallback>
