@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import type {
@@ -20,6 +21,7 @@ import {
   Undo2,
   Redo2,
   Spline,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -41,6 +43,8 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { jsPDF } from 'jspdf';
+import { toPng } from 'html-to-image';
 
 
 // ============================================================
@@ -1486,6 +1490,8 @@ export function RootsDesignEditor({
   const [activeLineType, setActiveLineType] = useState<string>('straight');
   // TOC outdated indicator
   const [tocOutdated, setTocOutdated] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
   useEffect(() => { DESIGN_TEMPLATES.forEach(t => ensureFontLoaded(t.titleFont)); }, []);
 
@@ -1734,6 +1740,67 @@ export function RootsDesignEditor({
     setShowResetConfirm(false);
     toast({ title: `✨ ההצגה נוצרה מחדש — ${generated.length} עמודים` });
   }, [project, people, relationships, selectedTemplateId, commitPages, toast]);
+
+  const handleExportPDF = useCallback(async () => {
+    if (!canvasRef.current || localPages.length === 0) return;
+    setIsExporting(true);
+    setExportProgress(0);
+  
+    try {
+      const canvasEl = canvasRef.current;
+      const savedIndex = currentPageIndex;
+  
+      // Determine PDF orientation from canvas aspect ratio
+      const isLandscape = canvasAspectRatio === 'a4-landscape' || canvasAspectRatio === '16:9-landscape' || canvasAspectRatio === 'free';
+      const pdfOrientation = isLandscape ? 'landscape' : 'portrait';
+      const pdf = new jsPDF({ orientation: pdfOrientation, unit: 'mm', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+  
+      for (let i = 0; i < localPages.length; i++) {
+        // Navigate to the page
+        setCurrentPageIndex(i);
+        setExportProgress(Math.round((i / localPages.length) * 100));
+  
+        // Wait for React to re-render the page
+        await new Promise(resolve => setTimeout(resolve, 350));
+  
+        // Capture the canvas as PNG
+        const dataUrl = await toPng(canvasEl, {
+          quality: 1,
+          pixelRatio: 2,
+          skipFonts: false,
+          filter: (node) => {
+            // Skip export-hide elements
+            return !(node as HTMLElement).dataset?.exportHide;
+          },
+        });
+  
+        // Add page to PDF
+        if (i > 0) pdf.addPage();
+        pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      }
+  
+      // Restore original page
+      setCurrentPageIndex(savedIndex);
+      setExportProgress(100);
+  
+      // Get student name for filename
+      const student = people.find(p => p.id === project.studentPersonId);
+      const fileName = student
+        ? `עבודת_שורשים_${student.firstName}_${student.lastName}.pdf`
+        : 'עבודת_שורשים.pdf';
+  
+      pdf.save(fileName);
+      toast({ title: '✓ PDF יוצא בהצלחה!', description: `${localPages.length} עמודים` });
+    } catch (error) {
+      console.error('PDF export error:', error);
+      toast({ variant: 'destructive', title: 'שגיאה בייצוא', description: 'לא ניתן לייצא את המצגת. נסה שוב.' });
+    } finally {
+      setIsExporting(false);
+      setExportProgress(0);
+    }
+  }, [localPages, currentPageIndex, canvasAspectRatio, people, project.studentPersonId, toast]);
 
   // ── Apply global text size offset to all pages ──
   const applyGlobalTextSize = useCallback((offset: number) => {
@@ -2104,7 +2171,20 @@ export function RootsDesignEditor({
                 </DropdownMenuTrigger>
               </TooltipTrigger><TooltipContent side="bottom"><p>ייצא את ההצגה לקובץ</p></TooltipContent></Tooltip>
               <DropdownMenuContent>
-                <DropdownMenuItem className="opacity-50" onClick={() => toast({ title: 'ייצוא PDF בקרוב! 🚀' })}>📄 PDF — בקרוב</DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleExportPDF}
+                  disabled={isExporting}
+                  className="flex items-center gap-2"
+                >
+                  {isExporting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      מייצא PDF... {exportProgress}%
+                    </>
+                  ) : (
+                    <>📄 ייצא PDF</>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuItem className="opacity-50" onClick={() => toast({ title: 'ייצוא Word בקרוב! 🚀' })}>📝 Word — בקרוב</DropdownMenuItem>
                 <DropdownMenuItem className="opacity-50" onClick={() => toast({ title: 'ייצוא PowerPoint בקרוב! 🚀' })}>📊 PowerPoint — בקרוב</DropdownMenuItem>
               </DropdownMenuContent>
@@ -2696,7 +2776,20 @@ export function RootsDesignEditor({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
+        {isExporting && (
+          <div className="fixed inset-0 bg-black/80 z-[999] flex flex-col items-center justify-center gap-4" dir="rtl">
+            <div className="text-5xl animate-pulse">📄</div>
+            <h2 className="text-xl font-bold text-white">מייצא PDF...</h2>
+            <p className="text-slate-400 text-sm">מעבד עמוד {Math.round((exportProgress / 100) * localPages.length)} מתוך {localPages.length}</p>
+            <div className="w-64 h-2 bg-slate-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                style={{ width: `${exportProgress}%` }}
+              />
+            </div>
+            <p className="text-xs text-slate-500">אנא המתן — אל תסגור את הדף</p>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );
