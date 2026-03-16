@@ -205,32 +205,34 @@ export function CanvasToolbar({
         </Tooltip>
       </div>
 
-      {!readOnly && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="default" size="icon" className="w-12 h-12" onClick={onAddPerson}>
-              <UserPlus className="h-6 w-6" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right"><p>הוסף אדם חדש</p></TooltipContent>
-        </Tooltip>
-      )}
+      <div className="flex w-full justify-center gap-2">
+        {!readOnly && (
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="default" size="icon" className="w-12 h-12" onClick={onAddPerson}>
+                        <UserPlus className="h-6 w-6" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>הוסף אדם חדש</p></TooltipContent>
+            </Tooltip>
+        )}
+        
+        {viewMode === 'roots' && !readOnly && (
+            <Tooltip>
+            <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="w-12 h-12" asChild>
+                <Link href="/my-files">
+                    <Files className="h-6 w-6" />
+                </Link>
+                </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+                <p>הקבצים שלי</p>
+            </TooltipContent>
+            </Tooltip>
+        )}
+      </div>
       
-      {viewMode === 'roots' && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="w-12 h-12" asChild>
-              <Link href="/my-files">
-                <Files className="h-6 w-6" />
-              </Link>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            <p>הקבצים שלי</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
-
       <Separator className="w-full my-1" />
 
       {/* View mode grid */}
