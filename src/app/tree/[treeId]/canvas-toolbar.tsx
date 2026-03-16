@@ -205,7 +205,7 @@ export function CanvasToolbar({
         </Tooltip>
       </div>
 
-      {!readOnly && viewMode !== 'roots' && (
+      {!readOnly && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button variant="default" size="icon" className="w-12 h-12" onClick={onAddPerson}>
