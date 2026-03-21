@@ -19,6 +19,7 @@ import type {
   NodeChange,
   OnSelectionChangeParams,
   XYPosition,
+  Viewport,
 } from 'reactflow';
 import {
   ReactFlowProvider,
@@ -1342,7 +1343,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       updatedAt: new Date(),
     } as Person;
 
-    // BUG FIX 1: Calculate position at the center of the currently visible canvas area.
     const vp = viewportRef.current;
     const canvasEl = document.getElementById('main-view-container');
     const rect = canvasEl?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
@@ -1350,18 +1350,16 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const screenCenterX = rect.left + rect.width / 2;
     const screenCenterY = rect.top + rect.height / 2;
     
-    // Convert screen coordinates to ReactFlow canvas coordinates:
     const canvasCenterX = (screenCenterX - vp.x) / vp.zoom;
     const canvasCenterY = (screenCenterY - vp.y) / vp.zoom;
 
     const newNodePosition: XYPosition = {
-      x: canvasCenterX - 128, // Offset by half the node width (256px)
-      y: canvasCenterY - 60,  // Offset by half the node height
+      x: canvasCenterX - 128, // Offset by half node width
+      y: canvasCenterY - 60,  // Offset by half node height
     };
     
     setPeople(ps => [...ps, newPersonData]);
 
-    // Save initial canvas position so the node renders at viewport center
     try {
       const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
       const personDocRef = doc(peopleCollection, newPersonId);
@@ -1381,7 +1379,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
       await batch.commit();
 
-      // Update local canvas positions so the useEffect picks up the new position
       setCanvasPositions(prev => [...prev, {
         id: newPosDocRef.id,
         personId: newPersonId,
@@ -1681,7 +1678,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
     } finally {
       setIsDeleting(false);
-      // This is now handled by the onCloseAutoFocus prop
       setIsDeleteAlertOpen(false);
     }
   };
@@ -2513,8 +2509,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent onCloseAutoFocus={(e) => {
-          // BUG FIX 2: Prevent Radix from returning focus into the aria-hidden ReactFlow tree.
-          // Instead, redirect to the main canvas container which has tabIndex={-1}.
           e.preventDefault();
           const mainContainer = document.getElementById('main-view-container');
           if (mainContainer) {
