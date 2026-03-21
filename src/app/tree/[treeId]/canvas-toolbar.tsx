@@ -1,6 +1,5 @@
-
 'use client';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -41,6 +40,7 @@ import {
   LayoutPanelTop,
   Wand2,
   Files,
+  Search,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
@@ -58,9 +58,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import type { Person } from '@/lib/types';
 
 const viewOptions: {
   value: ViewMode;
@@ -113,6 +116,9 @@ type CanvasToolbarProps = {
   onBack: () => void;
   canvasAspectRatio: CanvasAspectRatio;
   setCanvasAspectRatio: (ratio: CanvasAspectRatio) => void;
+  // New search props
+  people: Person[];
+  onSelectSearchResult: (nodeId: string) => void;
 };
 
 export function CanvasToolbar({
@@ -140,9 +146,32 @@ export function CanvasToolbar({
   onBack,
   canvasAspectRatio,
   setCanvasAspectRatio,
+  people,
+  onSelectSearchResult,
 }: CanvasToolbarProps) {
   const { toast } = useToast();
   const router = useRouter();
+
+  // Search state — fully self-contained, no external deps
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const filteredPeople = searchQuery.trim().length > 0
+    ? people.filter(p => {
+        const full = `${p.firstName} ${p.lastName}`.toLowerCase();
+        const query = searchQuery.toLowerCase().trim();
+        return full.includes(query) ||
+          p.firstName.toLowerCase().includes(query) ||
+          p.lastName.toLowerCase().includes(query) ||
+          (p.nickname && p.nickname.toLowerCase().includes(query));
+      })
+    : people.slice(0, 10); // Show first 10 when no query
+
+  const handleSearchSelect = useCallback((personId: string) => {
+    onSelectSearchResult(personId);
+    setIsSearchOpen(false);
+    setSearchQuery('');
+  }, [onSelectSearchResult]);
 
   const handleComingSoonClick = () => {
     toast({ title: 'בקרוב', description: 'אפשרות זו תהיה זמינה בעדכונים הבאים.' });
@@ -162,10 +191,7 @@ export function CanvasToolbar({
     exportOptions.push({ label: 'שיתוף קישור', icon: <LinkIcon />, onClick: handleComingSoonClick });
   }
 
-  // Whether to show the line-style picker (only on views that have edges)
   const showEdgeStylePicker = viewMode === 'tree' || viewMode === 'timeline';
-
-  // Whether to show the AI chat button, and what icon/label to use
   const isRootsView = viewMode === 'roots';
 
   return (
@@ -265,7 +291,6 @@ export function CanvasToolbar({
         <div className="w-full flex flex-col items-center gap-1">
           <Separator className="my-1 w-full" />
 
-          {/* AI Chat / AI Editor button — context-aware */}
           {isRootsView ? (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -297,7 +322,6 @@ export function CanvasToolbar({
             </Tooltip>
           )}
 
-          {/* Edge style picker — only for tree/timeline views */}
           {showEdgeStylePicker && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -316,10 +340,70 @@ export function CanvasToolbar({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          {/* Person search — NEW feature, separate from everything above */}
+          {viewMode === 'tree' && (
+            <Popover open={isSearchOpen} onOpenChange={(open) => {
+              setIsSearchOpen(open);
+              if (!open) setSearchQuery('');
+            }}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full">
+                      <Search className="ml-2 h-4 w-4" />
+                      <span>חפש אדם</span>
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>חפש אדם בעץ</p></TooltipContent>
+              </Tooltip>
+              <PopoverContent
+                side="right"
+                align="start"
+                className="w-72 p-2 z-[1003]"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+              >
+                <div dir="rtl" className="flex flex-col gap-2">
+                  <Input
+                    placeholder="הקלד שם לחיפוש..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="h-9 text-right"
+                    autoFocus
+                  />
+                  <ScrollArea className="max-h-64">
+                    {filteredPeople.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">לא נמצאו תוצאות</p>
+                    ) : (
+                      <div className="flex flex-col gap-0.5">
+                        {filteredPeople.map((person) => (
+                          <Button
+                            key={person.id}
+                            variant="ghost"
+                            className="w-full justify-start text-right h-9 px-2"
+                            onMouseDown={(e) => {
+                              // Use onMouseDown to fire before the popover blur closes it
+                              e.preventDefault();
+                              handleSearchSelect(person.id);
+                            }}
+                          >
+                            <span className="truncate">
+                              {person.firstName} {person.lastName}
+                              {person.nickname ? ` (${person.nickname})` : ''}
+                            </span>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       )}
 
-      {/* Timeline compact toggle */}
       {viewMode === 'timeline' && (
         <Tooltip>
           <TooltipTrigger asChild>

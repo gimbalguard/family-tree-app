@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState } from 'react';
 import ReactFlow, {
@@ -24,6 +23,7 @@ import ReactFlow, {
   type IsValidConnection,
   ConnectionMode,
   type OnSelectionChange,
+  type Viewport,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -36,7 +36,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-// Moved to module level to prevent re-creation on every render. This is critical for performance and stability.
+// Defined at module level to prevent re-creation on every render.
+// This is critical for ReactFlow performance and stability.
 const nodeTypes: NodeTypes = { personNode: PersonNode };
 
 type FamilyTreeCanvasProps = {
@@ -54,6 +55,8 @@ type FamilyTreeCanvasProps = {
   onNodeContextMenu: OnNodeContextMenu;
   isValidConnection: IsValidConnection;
   onSelectionChange: OnSelectionChange;
+  // Called on every pan/zoom so the parent can track the current viewport
+  onViewportChange?: (viewport: Viewport) => void;
 };
 
 export function FamilyTreeCanvas({
@@ -71,6 +74,7 @@ export function FamilyTreeCanvas({
   onNodeContextMenu,
   isValidConnection,
   onSelectionChange,
+  onViewportChange,
 }: FamilyTreeCanvasProps) {
   const [isMinimapVisible, setIsMinimapVisible] = useState(false);
 
@@ -101,6 +105,9 @@ export function FamilyTreeCanvas({
         multiSelectionKeyCode="Control"
         onSelectionChange={onSelectionChange}
         minZoom={0.05}
+        onMove={(_event, viewport) => {
+          if (onViewportChange) onViewportChange(viewport);
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls />

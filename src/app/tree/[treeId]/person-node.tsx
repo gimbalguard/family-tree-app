@@ -18,7 +18,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const { 
     firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, 
     nickname,
-    isOwner, isLocked, childrenCount, siblingsCount, grandchildrenCount, 
+    isOwner, isLocked, isUnconnected, childrenCount, siblingsCount, grandchildrenCount, 
     greatGrandchildrenCount, gen4Count, gen5Count,
     isGroupSelected,
     // Creator settings
@@ -154,6 +154,7 @@ export const PersonNode = memo(({ data, selected }: NodeProps<Person>) => {
         "w-64 transition-all duration-200 relative", 
         selected && 'ring-2 ring-primary ring-offset-2',
         isGroupSelected && !selected && 'ring-2 ring-dashed ring-accent',
+        isUnconnected && 'unconnected-node',
         designClasses
       )}
     >

@@ -212,3 +212,37 @@ body.pdf-export-mode .react-flow__edge.custom-edge .react-flow__edge-path {
   will-change: transform;
   animation: move-orb 40s infinite linear;
 }
+
+/* =====================================================
+   UNCONNECTED NODE HIGHLIGHT
+   High-contrast, colorblind-safe, fast pulse.
+   Uses orange (#FF6B00) — distinguishable in all major
+   types of color blindness (protanopia, deuteranopia,
+   tritanopia). Large border + strong outer glow so it's
+   visible even at minimum zoom.
+   ===================================================== */
+@keyframes unconnected-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px #FF6B00,
+      0 0 0 6px rgba(255, 107, 0, 0.6),
+      0 0 20px 8px rgba(255, 107, 0, 0.5),
+      0 0 40px 16px rgba(255, 107, 0, 0.3);
+    border-color: #FF6B00;
+  }
+  50% {
+    box-shadow:
+      0 0 0 5px #FF6B00,
+      0 0 0 10px rgba(255, 107, 0, 0.8),
+      0 0 35px 14px rgba(255, 107, 0, 0.7),
+      0 0 70px 28px rgba(255, 107, 0, 0.4);
+    border-color: #FF6B00;
+  }
+}
+
+.unconnected-node {
+  border: 3px solid #FF6B00 !important;
+  animation: unconnected-pulse 0.9s ease-in-out infinite !important;
+  /* Override any design-specific box-shadow so the glow always shows */
+  z-index: 10;
+}

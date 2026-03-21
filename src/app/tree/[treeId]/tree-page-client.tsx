@@ -143,8 +143,15 @@ function useDebounce<F extends (...args: any[]) => any>(callback: F, delay: numb
     }, [callback, delay]);
 }
 
-// This function now intelligently determines the correct source and target handles
-// based on the LOGICAL relationship type, not the handles used to draw the initial line.
+// Determines correct source/target handles based on relationship type and node positions.
+//
+// Rules (per user spec):
+//   Parent → Child : parent's BOTTOM dot → child's TOP dot (vertical)
+//   Spouse / Sibling / Half-sibling / Twin / Step-sibling :
+//     Always use LEFT/RIGHT side dots, dynamically picking the closest side
+//     so the line always takes the shortest horizontal path.
+//     If nodeA is to the LEFT of nodeB  → nodeA's RIGHT → nodeB's LEFT
+//     If nodeA is to the RIGHT of nodeB → nodeA's LEFT  → nodeB's RIGHT
 const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     const nodeA = nodes.find((n) => n.id === rel.personAId);
     const nodeB = nodes.find((n) => n.id === rel.personBId);
@@ -154,24 +161,29 @@ const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
     }
 
     const parentTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
-    const spouseTypes = ['spouse', 'ex_spouse', 'separated', 'partner', 'ex_partner', 'widowed'];
-    const siblingTypes = ['sibling', 'twin', 'step_sibling'];
 
     if (parentTypes.includes(rel.relationshipType)) {
-        return { source: rel.personAId, target: rel.personBId, sourceHandle: 'bottom', targetHandle: 'top' };
+        // personA is always the parent — connect from parent's bottom to child's top
+        return {
+            source: rel.personAId,
+            target: rel.personBId,
+            sourceHandle: 'bottom',
+            targetHandle: 'top',
+        };
     }
-    
-    // For symmetrical relationships, decide left/right based on X position to keep lines consistent.
-    const isNodeALeft = nodeA.position.x < nodeB.position.x;
-    
-    const sourceId = isNodeALeft ? rel.personAId : rel.personBId;
-    const targetId = isNodeALeft ? rel.personBId : rel.personAId;
-    
+
+    // Spouse, sibling, half_sibling, twin, step_sibling, ex_spouse, partner, etc.
+    // Use side handles. Pick closest side dynamically based on X position.
+    // nodeA center X vs nodeB center X (use position.x + half width for accuracy)
+    const aCenter = nodeA.position.x + (nodeA.width ?? 256) / 2;
+    const bCenter = nodeB.position.x + (nodeB.width ?? 256) / 2;
+    const aIsLeft = aCenter <= bCenter;
+
     return {
-        source: sourceId,
-        target: targetId,
-        sourceHandle: 'right',
-        targetHandle: 'left'
+        source: rel.personAId,
+        target: rel.personBId,
+        sourceHandle: aIsLeft ? 'right' : 'left',
+        targetHandle: aIsLeft ? 'left' : 'right',
     };
 };
 
@@ -210,7 +222,7 @@ const AlignmentToolbar = ({
     
     const toolbarStyle: React.CSSProperties = {
         position: 'absolute',
-        top: `${bbox.y * zoom + y - 48}px`, // 48px offset above the selection
+        top: `${bbox.y * zoom + y - 48}px`,
         left: `${(bbox.x + bbox.width / 2) * zoom + x}px`,
         transform: 'translateX(-50%)',
         zIndex: 100,
@@ -245,8 +257,15 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const storage = useStorage();
   const router = useRouter();
   const { toast } = useToast();
-  const { getNodes } = useReactFlow();
-  
+  const { getNodes, fitView, getViewport } = useReactFlow();
+
+  // Keep a continuously-updated ref of the viewport so proceedWithCreation
+  // always has the correct pan/zoom even when called right after a modal closes.
+  const viewportRef = useRef({ x: 0, y: 0, zoom: 1 });
+  const onViewportChange = useCallback((vp: { x: number; y: number; zoom: number }) => {
+    viewportRef.current = vp;
+  }, []);
+
   type HistoryState = { nodes: Node[]; edges: Edge[]; rootsProject: RootsProject | null; };
   const historyRef = useRef<{ past: HistoryState[]; future: HistoryState[] }>({ past: [], future: [] });
 
@@ -339,7 +358,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const recordHistory = useCallback(() => {
     if (readOnly) return;
     const currentPast = historyRef.current.past;
-    // Deep clone to prevent mutation issues
     const currentState = JSON.parse(JSON.stringify({ nodes, edges, rootsProject }));
 
     const newPast = [...currentPast, currentState];
@@ -406,9 +424,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   }, [handleUndo, handleRedo]);
 
   const fetchData = useCallback(async () => {
-    if (isUserLoading || !db) return; // Wait for user state to be known
+    if (isUserLoading || !db) return;
 
-    // A user is required for any writeable view.
     if (!readOnly && !user) {
         router.replace('/login');
         return;
@@ -442,7 +459,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             }
         }
       } else {
-        // For editable views, the current user must be the owner. `user` is guaranteed to be non-null here by the check at the top.
         ownerId = user!.uid;
       }
       
@@ -488,7 +504,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           userId: user.uid,
           treeId: treeId,
           projectName: treeData.treeName,
-          currentStep: 0, // Start at identity selection
+          currentStep: 0,
           projectData: { projectName: treeData.treeName },
           createdAt: serverTimestamp() as any,
           updatedAt: serverTimestamp() as any,
@@ -512,12 +528,19 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   }, [treeId, user, db, readOnly, isUserLoading, router]);
 
-  // New useEffect to derive UI state from raw data, preventing loops
+  // Derive UI state from raw data
   useEffect(() => {
     if (isLoading || !tree) return;
 
     const allParentalRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
-    const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling'];
+    const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling', 'half_sibling'];
+
+    // Build a set of all person IDs that have at least one relationship
+    const connectedPersonIds = new Set<string>();
+    relationships.forEach(rel => {
+      connectedPersonIds.add(rel.personAId);
+      connectedPersonIds.add(rel.personBId);
+    });
 
     const childrenMap = new Map<string, string[]>();
     relationships.forEach(rel => {
@@ -533,7 +556,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     relationships.forEach(rel => {
       if (allParentalRelTypes.includes(rel.relationshipType)) {
-        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
+        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, new Set());
         parentMap.get(rel.personBId)!.push(rel.personAId);
       }
     });
@@ -609,6 +632,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           const isOwner = person.id === tree.ownerPersonId;
           const isTwin = twinIds.has(person.id);
           const applyCreatorStyles = isOwner || isTwin;
+
+          // Determine if this person is unconnected (has no relationships at all)
+          const isUnconnected = !connectedPersonIds.has(person.id);
       
           let finalPosition: XYPosition;
           if (existingNode) {
@@ -625,6 +651,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               position: finalPosition,
               data: {
                   ...person,
+                  isUnconnected,
                   isLocked: pos?.isLocked ?? false,
                   groupIds: pos?.groupIds ?? [],
                   cardDesign: applyCreatorStyles ? tree.creatorCardDesign : tree.cardDesign,
@@ -651,9 +678,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     relLabelMap.set('partner', 'בן/בת זוג');
     relLabelMap.set('ex_partner', 'בן/בת זוג לשעבר');
     relLabelMap.set('widowed', 'אלמן/אלמנה');
+    relLabelMap.set('half_sibling', 'אחים למחצה');
 
     setEdges(currentEdges => {
-        const tempNodes = getNodes(); // Use the latest nodes for edge calculations
+        const tempNodes = getNodes();
         const newEdges = relationships.map(rel => {
           const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, tempNodes);
           const getLabel = () => {
@@ -715,6 +743,10 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       [readOnly, recordHistory, debouncedSaveRootsProject]
     );
 
+  // Improved sibling detection:
+  // - Two children sharing BOTH parents → 'sibling'
+  // - Two children sharing EXACTLY ONE parent → 'half_sibling'
+  // - Respects manuallyEdited flag
   const runSiblingDetection = useCallback(async (
     personIdsForCheck: string[], 
     currentPeople: Person[], 
@@ -722,64 +754,119 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   ) => {
     if (readOnly) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
     const parentTypes = ['parent', 'step_parent', 'adoptive_parent'];
-    const siblingTypes = ['sibling', 'twin'];
+    const autoSiblingTypes = ['sibling', 'twin', 'half_sibling'];
     
-    const parentsToCheck = new Set<string>();
+    // Build a map of personId → [parentIds]
+    const personParentsMap = new Map<string, Set<string>>();
+    currentPeople.forEach(p => personParentsMap.set(p.id, new Set()));
     currentRels.forEach(rel => {
-        if (parentTypes.includes(rel.relationshipType) && personIdsForCheck.includes(rel.personBId)) {
-            parentsToCheck.add(rel.personAId);
-        }
+      if (parentTypes.includes(rel.relationshipType)) {
+        // personAId is parent, personBId is child
+        if (!personParentsMap.has(rel.personBId)) personParentsMap.set(rel.personBId, new Set());
+        personParentsMap.get(rel.personBId)!.add(rel.personAId);
+      }
     });
 
-    if (parentsToCheck.size === 0) {
-      const personId = personIdsForCheck[0];
-      if (!personId) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
-      const siblingRels = currentRels.filter(r => (r.personAId === personId || r.personBId === personId) && siblingTypes.includes(r.relationshipType));
-      const siblingIds = siblingRels.map(r => r.personAId === personId ? r.personBId : r.personAId);
-      const allInvolvedIds = [...siblingIds, personId];
+    // Collect all parents relevant to the people we're checking
+    const parentsToCheck = new Set<string>();
+    personIdsForCheck.forEach(personId => {
+      const parents = personParentsMap.get(personId) || new Set();
+      parents.forEach(parentId => parentsToCheck.add(parentId));
+    });
+
+    // Also include parents of existing siblings of the checked people
+    // (to catch cases where sibling type needs updating)
+    personIdsForCheck.forEach(personId => {
       currentRels.forEach(rel => {
-        if (parentTypes.includes(rel.relationshipType) && allInvolvedIds.includes(rel.personBId)) {
-          parentsToCheck.add(rel.personAId);
+        if (autoSiblingTypes.includes(rel.relationshipType)) {
+          const siblingId = rel.personAId === personId ? rel.personBId : 
+                           rel.personBId === personId ? rel.personAId : null;
+          if (siblingId) {
+            const siblingParents = personParentsMap.get(siblingId) || new Set();
+            siblingParents.forEach(parentId => parentsToCheck.add(parentId));
+          }
         }
       });
-    }
+    });
 
     if (parentsToCheck.size === 0) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
+
+    // Collect all children of all relevant parents
+    const allRelevantChildIds = new Set<string>();
+    parentsToCheck.forEach(parentId => {
+      currentRels.forEach(rel => {
+        if (parentTypes.includes(rel.relationshipType) && rel.personAId === parentId) {
+          allRelevantChildIds.add(rel.personBId);
+        }
+      });
+    });
+
+    const relevantChildren = Array.from(allRelevantChildIds)
+      .map(id => currentPeople.find(p => p.id === id))
+      .filter(Boolean) as Person[];
+
+    if (relevantChildren.length < 2) return { relationshipsToAdd: [], relationshipsToUpdate: [] };
 
     const relationshipsToAdd: Relationship[] = [];
     const relationshipsToUpdate: Partial<Relationship>[] = [];
 
-    for (const parentId of parentsToCheck) {
-        const children = currentPeople.filter(p =>
-            currentRels.some(r => parentTypes.includes(r.relationshipType) && r.personAId === parentId && r.personBId === p.id)
+    for (let i = 0; i < relevantChildren.length; i++) {
+      for (let j = i + 1; j < relevantChildren.length; j++) {
+        const childA = relevantChildren[i];
+        const childB = relevantChildren[j];
+
+        const parentsOfA = personParentsMap.get(childA.id) || new Set();
+        const parentsOfB = personParentsMap.get(childB.id) || new Set();
+
+        // Count shared parents
+        let sharedParentsCount = 0;
+        parentsOfA.forEach(parentId => {
+          if (parentsOfB.has(parentId)) sharedParentsCount++;
+        });
+
+        if (sharedParentsCount === 0) continue; // No shared parent → no automatic sibling relationship
+
+        // Determine correct auto relationship type
+        let correctRelType: string;
+        if (sharedParentsCount >= 2) {
+          // Check for twin
+          const isTwin = childA.birthDate && childB.birthDate && childA.birthDate === childB.birthDate;
+          correctRelType = isTwin ? 'twin' : 'sibling';
+        } else {
+          // Exactly 1 shared parent → half sibling
+          correctRelType = 'half_sibling';
+        }
+
+        // Check for existing relationship between this pair
+        const [sortedA, sortedB] = [childA.id, childB.id].sort();
+        const existingRel = currentRels.find(r =>
+          autoSiblingTypes.includes(r.relationshipType) &&
+          ((r.personAId === childA.id && r.personBId === childB.id) ||
+           (r.personAId === childB.id && r.personBId === childA.id))
         );
 
-        if (children.length < 2) continue;
-
-        for (let i = 0; i < children.length; i++) {
-            for (let j = i + 1; j < children.length; j++) {
-                const childA = children[i];
-                const childB = children[j];
-                const existingRel = currentRels.find(r => siblingTypes.includes(r.relationshipType) && ((r.personAId === childA.id && r.personBId === childB.id) || (r.personAId === childB.id && r.personBId === childA.id)));
-                const isTwin = childA.birthDate && childA.birthDate === childB.birthDate;
-                const correctRelType = isTwin ? 'twin' : 'sibling';
-
-                if (existingRel) {
-                    if (existingRel.manuallyEdited) continue;
-                    if (existingRel.relationshipType !== correctRelType) {
-                        relationshipsToUpdate.push({ id: existingRel.id, relationshipType: correctRelType });
-                    }
-                } else {
-                    const [personAId, personBId] = [childA.id, childB.id].sort();
-                    relationshipsToAdd.push({
-                        id: uuidv4(),
-                        personAId, personBId, relationshipType: correctRelType,
-                        treeId: treeId, userId: user!.uid, manuallyEdited: false
-                    } as Relationship);
-                }
-            }
+        if (existingRel) {
+          // Don't overwrite manually edited relationships
+          if (existingRel.manuallyEdited) continue;
+          // Update if type changed
+          if (existingRel.relationshipType !== correctRelType) {
+            relationshipsToUpdate.push({ id: existingRel.id, relationshipType: correctRelType });
+          }
+        } else {
+          // Create new auto relationship
+          relationshipsToAdd.push({
+            id: uuidv4(),
+            personAId: sortedA,
+            personBId: sortedB,
+            relationshipType: correctRelType,
+            treeId: treeId,
+            userId: user!.uid,
+            manuallyEdited: false,
+          } as Relationship);
         }
+      }
     }
+
     return { relationshipsToAdd, relationshipsToUpdate };
   }, [treeId, user, readOnly]);
 
@@ -838,13 +925,11 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     (event, node) => {
       if (readOnly) return;
       event.preventDefault();
-      setContextMenu(null); // Close any existing menu
+      setContextMenu(null);
 
       const allNodes = getNodes();
       let currentSelectedNodes = allNodes.filter((n) => n.selected);
 
-      // If the right-clicked node is not part of the current selection,
-      // make it the only selected node.
       const isClickedNodeSelected = currentSelectedNodes.some((n) => n.id === node.id);
       if (!isClickedNodeSelected) {
         currentSelectedNodes = [node];
@@ -917,7 +1002,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       
       setNodes((nds) =>
         nds.map((n) => {
-          // If it's a group drag, move all non-locked nodes in the group
           if (isGroupDrag && topGroupId && (n.data.groupIds || []).includes(topGroupId) && !n.data.isLocked) {
             const initialPos = initialNodePositions.get(n.id);
             if (initialPos) {
@@ -930,7 +1014,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               };
             }
           }
-          // Always move the node being dragged (if it's not part of the group logic above)
           if (n.id === nodeId) {
             return n;
           }
@@ -1150,9 +1233,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     
     setNodes(nds => nds.map(n => updatedPositions.has(n.id) ? { ...n, position: updatedPositions.get(n.id)! } : n));
-    
-    // Debounce this save
-    // onNodeDragStop logic can be reused but needs to be adapted.
   }, [nodes, selectedNodes, recordHistory]);
 
 
@@ -1261,13 +1341,56 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       createdAt: new Date(),
       updatedAt: new Date(),
     } as Person;
+
+    // BUG FIX 1: Calculate position at the center of the currently visible canvas area.
+    const vp = viewportRef.current;
+    const canvasEl = document.getElementById('main-view-container');
+    const rect = canvasEl?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+    
+    const screenCenterX = rect.left + rect.width / 2;
+    const screenCenterY = rect.top + rect.height / 2;
+    
+    // Convert screen coordinates to ReactFlow canvas coordinates:
+    const canvasCenterX = (screenCenterX - vp.x) / vp.zoom;
+    const canvasCenterY = (screenCenterY - vp.y) / vp.zoom;
+
+    const newNodePosition: XYPosition = {
+      x: canvasCenterX - 128, // Offset by half the node width (256px)
+      y: canvasCenterY - 60,  // Offset by half the node height
+    };
     
     setPeople(ps => [...ps, newPersonData]);
 
+    // Save initial canvas position so the node renders at viewport center
     try {
       const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
       const personDocRef = doc(peopleCollection, newPersonId);
-      await setDoc(personDocRef, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+
+      const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
+      const newPosDocRef = doc(canvasPositionsRef);
+
+      const batch = writeBatch(db);
+      batch.set(personDocRef, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      batch.set(newPosDocRef, {
+        personId: newPersonId,
+        x: newNodePosition.x,
+        y: newNodePosition.y,
+        userId: user.uid,
+        treeId,
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+
+      // Update local canvas positions so the useEffect picks up the new position
+      setCanvasPositions(prev => [...prev, {
+        id: newPosDocRef.id,
+        personId: newPersonId,
+        x: newNodePosition.x,
+        y: newNodePosition.y,
+        userId: user.uid,
+        treeId,
+        updatedAt: new Date() as any,
+      }]);
 
       toast({
         title: 'אדם נוסף',
@@ -1425,7 +1548,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     const nonDbFields: (keyof Person)[] = [
         'childrenCount', 'siblingsCount', 'grandchildrenCount', 'greatGrandchildrenCount', 'gen4Count', 'gen5Count',
         'isLocked', 'groupIds', 'isOwner', 'cardDesign', 'creatorCardDesign', 'cardBackgroundColor', 'cardBorderColor', 'cardBorderWidth',
-        'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize', 'socialLinks'
+        'creatorCardBacklightIntensity', 'creatorCardBacklightDisabled', 'creatorCardSize', 'socialLinks', 'isUnconnected'
     ];
     if (nonDbFields.includes(field)) {
       console.warn(`Attempted to update non-db field "${field}". Operation blocked.`);
@@ -1504,9 +1627,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     setIsDeleting(true);
   
     const personIdToDelete = personToDelete.id;
-    const deletedPerson = personToDelete; // capture before clearing
+    const deletedPerson = personToDelete;
   
-    // Snapshot current state for revert
     const prevPeople = people;
     
     const newPeople = prevPeople.filter(p => p.id !== personIdToDelete);
@@ -1531,7 +1653,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       posSnap.docs.forEach(d => batch.delete(d.ref));
       batch.delete(personRef);
   
-      // Handle social links separately
       try {
         const socialLinksRef = collection(db, basePath, 'people', personIdToDelete, 'socialLinks');
         const socialLinksSnap = await getDocs(socialLinksRef);
@@ -1552,7 +1673,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   
     } catch (error: any) {
       console.error("Error deleting person:", error);
-      // Revert on failure
       setPeople(prevPeople);
       toast({
         variant: 'destructive',
@@ -1561,11 +1681,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
     } finally {
       setIsDeleting(false);
+      // This is now handled by the onCloseAutoFocus prop
       setIsDeleteAlertOpen(false);
-      requestAnimationFrame(() => {
-        const canvas = document.getElementById('main-view-container');
-        if (canvas) canvas.focus();
-      });
     }
   };
   
@@ -1842,7 +1959,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                 const newTreeId = uuidv4();
                 const batch = writeBatch(db);
                 
-                // Create new FamilyTree doc
                 const newTreeRef = doc(db, 'users', user.uid, 'familyTrees', newTreeId);
                 batch.set(newTreeRef, {
                     treeName: parsedExcelData.treeName,
@@ -1855,7 +1971,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
                 const oldIdToNewIdMap = new Map<string, string>();
                 
-                // Set new People
                 parsedExcelData.people.forEach((p: any) => {
                     const newId = uuidv4();
                     oldIdToNewIdMap.set(p.id, newId);
@@ -1864,7 +1979,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                     batch.set(personRef, { ...data, treeId: newTreeId, userId: user.uid });
                 });
     
-                // Set new Relationships, Events, Positions, Socials
                 parsedExcelData.relationships.forEach((r: any) => {
                     const { id, personAName, personBName, ...data } = r;
                     const newPersonAId = oldIdToNewIdMap.get(data.personAId);
@@ -1874,8 +1988,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                         batch.set(relRef, { ...data, personAId: newPersonAId, personBId: newPersonBId, treeId: newTreeId, userId: user.uid });
                     }
                 });
-
-                // ... similar loops for other collections, re-mapping IDs
     
                 await batch.commit();
                 toast({ title: 'הייבוא הושלם!', description: `עץ חדש "${parsedExcelData.treeName}" נוצר.` });
@@ -1908,7 +2020,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                     snapshot.forEach(d => deleteBatch.delete(d.ref));
                 }
                 await deleteBatch.commit();
-                // ... implementation would be similar to 'new' but using `treeId` instead of `newTreeId`
                 fetchData();
                 toast({ title: 'ההחלפה הושלמה', description: `העץ יובא מחדש.` });
             }
@@ -1931,10 +2042,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       const storagePath = `users/${user.uid}/trees/${treeId}/exports/${Date.now()}_${fileName}`;
       const fileRef = ref(storage, storagePath);
       
-      console.log('Starting upload to:', storagePath);
       const snapshot = await uploadBytes(fileRef, blob);
-      console.log('Upload success:', snapshot.ref.fullPath);
-
       const downloadURL = await getDownloadURL(snapshot.ref);
 
       await addDoc(collection(db, 'exportedFiles'), {
@@ -1976,7 +2084,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           manualEvents, canvasPositions,
       });
 
-      // Trigger local download immediately
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -1988,7 +2095,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
       toast({ title: "קובץ אקסל יוצא בהצלחה ✓" });
       
-      // Save to cloud in the background
       saveExportedFile(blob, fileName, 'xlsx');
 
     } catch (error) {
@@ -2043,6 +2149,15 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     requestAnimationFrame(() => setIsImageExportModalOpen(true));
   }, []);
 
+  // Search: pan canvas to center on a specific person's node
+  const handleSelectSearchResult = useCallback((personId: string) => {
+    fitView({
+      nodes: [{ id: personId }],
+      duration: 500,
+      padding: 0.5,
+    });
+  }, [fitView]);
+
   const isConstrainedView = (viewMode === 'tree' || viewMode === 'roots') && canvasAspectRatio !== 'free';
 
   const renderCurrentView = () => {
@@ -2064,6 +2179,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             onNodeContextMenu={onNodeContextMenu}
             isValidConnection={isValidConnection}
             onSelectionChange={onSelectionChange}
+            onViewportChange={onViewportChange}
           />
         );
       case 'timeline':
@@ -2165,6 +2281,8 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           onBack={handleBackToDashboard}
           canvasAspectRatio={canvasAspectRatio}
           setCanvasAspectRatio={setCanvasAspectRatio}
+          people={people}
+          onSelectSearchResult={handleSelectSearchResult}
         />
         <main tabIndex={-1} className={cn("flex-1 relative overflow-hidden", isConstrainedView && "flex items-center justify-center p-8")} id="main-view-container" style={{ backgroundColor: isConstrainedView ? (canvasBg || 'hsl(var(--muted))') : canvasBg }}>
           <input
@@ -2218,6 +2336,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
                     {tree?.treeName}
                 </h1>
               )}
+              {/* "Select who I am" popover — UNCHANGED */}
               <Popover
                 open={isOwnerPopoverOpen}
                 onOpenChange={setIsOwnerPopoverOpen}
@@ -2393,7 +2512,15 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         </AlertDialogContent>
       </AlertDialog>
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent onCloseAutoFocus={(e) => { e.preventDefault(); requestAnimationFrame(() => { const canvas = document.getElementById('main-view-container'); if (canvas) canvas.focus(); }); }}>
+        <AlertDialogContent onCloseAutoFocus={(e) => {
+          // BUG FIX 2: Prevent Radix from returning focus into the aria-hidden ReactFlow tree.
+          // Instead, redirect to the main canvas container which has tabIndex={-1}.
+          e.preventDefault();
+          const mainContainer = document.getElementById('main-view-container');
+          if (mainContainer) {
+            mainContainer.focus({ preventScroll: true });
+          }
+        }}>
           <AlertDialogHeader>
             <AlertDialogTitle>האם אתה בטוח?</AlertDialogTitle>
             <AlertDialogDescription>

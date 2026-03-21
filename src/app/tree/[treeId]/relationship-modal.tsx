@@ -1,11 +1,9 @@
-
 'use client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import type { Connection } from 'reactflow';
 import { useEffect, useState, useMemo } from 'react';
-
 import {
   Dialog,
   DialogContent,
@@ -51,33 +49,30 @@ export const relationshipOptions = [
     { value: 'step_father', label: 'אבא חורג', type: 'step_parent', gender: 'male', direction: 'parent', category: 'parental', dates: 'start' },
     { value: 'step_mother', label: 'אמא חורגת', type: 'step_parent', gender: 'female', direction: 'parent', category: 'parental', dates: 'start' },
     { value: 'guardian', label: 'אפוטרופוס', type: 'guardian', direction: 'parent', category: 'parental', dates: 'start' },
-
     // Children (top/bottom handles)
     { value: 'son_daughter', label: 'בן/בת', type: 'parent', direction: 'child', category: 'parental', dates: 'none' },
     { value: 'adopted_son_daughter', label: 'בן/בת מאומץ', type: 'adoptive_parent', direction: 'child', category: 'parental', dates: 'both' },
     { value: 'step_son_daughter', label: 'בן/בת חורג', type: 'step_parent', direction: 'child', category: 'parental', dates: 'start' },
-
-    // Spousal (upper side handles)
+    // Spousal (side handles)
     { value: 'married', label: 'נשואים', type: 'spouse', category: 'spousal', dates: 'both' },
     { value: 'widowed', label: 'אלמן/אלמנה', type: 'widowed', category: 'spousal', dates: 'end' },
     { value: 'divorced', label: 'גרושים', type: 'ex_spouse', category: 'spousal', dates: 'both' },
     { value: 'separated', label: 'פרודים', type: 'separated', category: 'spousal', dates: 'both' },
     { value: 'partner', label: 'בן/בת זוג', type: 'partner', category: 'spousal', dates: 'both' },
     { value: 'ex_partner', label: 'בן/בת זוג לשעבר', type: 'ex_partner', category: 'spousal', dates: 'both' },
-
-    // Sibling (lower side handles)
+    // Sibling (side handles)
     { value: 'sibling', label: 'אח/אחות', type: 'sibling', category: 'sibling', dates: 'none' },
+    { value: 'half_sibling', label: 'אחים למחצה', type: 'half_sibling', category: 'sibling', dates: 'none' },
     { value: 'twin', label: 'תאום/תאומה', type: 'twin', category: 'sibling', dates: 'none' },
     { value: 'step_sibling', label: 'אח/אחות חורג', type: 'step_sibling', category: 'sibling', dates: 'none' },
 ];
-
 
 type RelationshipModalProps = {
   isOpen: boolean;
   onClose: () => void;
   connection: Connection | null;
   relationship: Relationship | null;
-  relationshipId?: string; // Explicitly pass the ID for editing/deleting
+  relationshipId?: string;
   people: Person[];
   onSave: (data: { relData: any, genderUpdate?: { personId: string, gender: 'male' | 'female' | 'other' }}) => void;
   onDelete: (relationshipId: string) => Promise<void>;
@@ -86,16 +81,13 @@ type RelationshipModalProps = {
 function getRelationshipValue(relationship: Relationship, sourcePerson: Person) {
   const { relationshipType } = relationship;
   if (['parent', 'adoptive_parent', 'step_parent', 'guardian'].includes(relationshipType)) {
-    // It's a parent-child relationship, personA is parent. Find the option based on parent's gender.
     const option = relationshipOptions.find(o => 
         o.type === relationshipType && 
         o.gender === sourcePerson?.gender &&
         o.direction === 'parent'
     );
-    // Fallback for guardian which has no gender
     return option?.value || relationshipOptions.find(o => o.type === relationshipType)?.value || '';
   } else {
-    // For symmetrical, find the type that matches. e.g. 'spouse' -> 'married'
     return relationshipOptions.find(o => o.type === relationshipType)?.value || '';
   }
 }
@@ -122,7 +114,6 @@ export function RelationshipModal({
 
   const { sourcePerson, targetPerson } = useMemo(() => {
     let sourceId, targetId;
-
     if (isEditing && relationship) {
         sourceId = relationship.personAId;
         targetId = relationship.personBId;
@@ -130,17 +121,14 @@ export function RelationshipModal({
         sourceId = connection.source;
         targetId = connection.target;
     }
-
     return { 
         sourcePerson: people.find(p => p.id === sourceId), 
         targetPerson: people.find(p => p.id === targetId) 
     };
   }, [connection, relationship, people, isEditing]);
 
-
   useEffect(() => {
     if (isOpen) {
-      // When the modal opens, reset the delete confirmation state
       setIsConfirmingDelete(false);
       
       if (isEditing && relationship && sourcePerson) {
@@ -162,25 +150,22 @@ export function RelationshipModal({
     }
   }, [relationship, sourcePerson, form, isOpen, isEditing]);
 
-
   function onSubmit(values: z.infer<typeof relationshipSchema>) {
     const selectedOption = relationshipOptions.find(o => o.value === values.relationshipType);
     if (!selectedOption || !sourcePerson || !targetPerson) return;
     
     let personAId, personBId, genderUpdatePerson, genderForUpdate;
-
     if (selectedOption.direction === 'parent') {
-        personAId = sourcePerson.id; // Person A is parent
-        personBId = targetPerson.id; // Person B is child
+        personAId = sourcePerson.id;
+        personBId = targetPerson.id;
         genderUpdatePerson = sourcePerson;
         genderForUpdate = selectedOption.gender;
     } else if (selectedOption.direction === 'child') {
-        personAId = targetPerson.id; // Person A is parent
-        personBId = sourcePerson.id; // Person B is child
+        personAId = targetPerson.id;
+        personBId = sourcePerson.id;
         genderUpdatePerson = targetPerson;
-        // child-directed options don't have gender, so we can't infer it this way.
         genderForUpdate = undefined;
-    } else { // Symmetrical, non-parental
+    } else {
         [personAId, personBId] = [sourcePerson.id, targetPerson.id].sort();
     }
     
@@ -192,7 +177,7 @@ export function RelationshipModal({
       startDate: values.startDate || null,
       endDate: values.endDate || null,
       notes: values.notes || null,
-      manuallyEdited: true, // Mark as manually edited
+      manuallyEdited: true,
     };
     
     let genderUpdate;
@@ -214,7 +199,7 @@ export function RelationshipModal({
     setIsDeleting(true);
     try {
       await onDelete(idToDelete);
-      onClose(); // Close the modal after successful deletion
+      onClose();
     } finally {
       setIsDeleting(false);
       setIsConfirmingDelete(false);
@@ -227,7 +212,6 @@ export function RelationshipModal({
   }, [relationshipType]);
 
   const dateVisibility = currentSelectedOption?.dates || 'none';
-
   const isChildDirection = currentSelectedOption?.direction === 'child';
   const displaySubject = isChildDirection ? targetPerson : sourcePerson;
   const displayObject = isChildDirection ? sourcePerson : targetPerson;
@@ -238,7 +222,6 @@ export function RelationshipModal({
 
   const handleDialogClose = (open: boolean) => {
     if(!open) {
-      // If the dialog is closing for any reason, reset the confirmation state
       setIsConfirmingDelete(false);
       onClose();
     }
@@ -287,7 +270,6 @@ export function RelationshipModal({
                         <span className="text-muted-foreground">{isChildDirection ? 'של' : ''}</span>
                         <strong>{displayObject?.firstName}</strong>
                     </div>
-
                     <FormField
                     control={form.control}
                     name="relationshipType"

@@ -73,6 +73,7 @@ export type Person = {
   groupIds?: string[];
   isGroupSelected?: boolean;
   isOwner?: boolean;
+  isUnconnected?: boolean;
   childrenCount?: number;
   siblingsCount?: number;
   grandchildrenCount?: number;
@@ -104,6 +105,7 @@ export type Relationship = {
     | 'step_parent'
     | 'sibling'
     | 'twin'
+    | 'half_sibling'
     | 'ex_spouse'
     | 'guardian'
     | 'separated'
