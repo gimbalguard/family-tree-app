@@ -1,6 +1,5 @@
-
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ReactFlow, {
   useNodesState,
   useEdgesState,
@@ -13,6 +12,7 @@ import ReactFlow, {
   OnNodeDoubleClick,
   NodeTypes,
 } from 'reactflow';
+import dagre from '@dagrejs/dagre';
 import 'reactflow/dist/style.css';
 
 import { TimelinePersonNode } from './TimelinePersonNode';
@@ -22,102 +22,139 @@ import { BackgroundVariant } from 'reactflow';
 import type { EdgeType } from '../tree-page-client';
 import { getYear, isValid, parseISO } from 'date-fns';
 
-// Constants for layout
 const PIXELS_PER_YEAR = 80;
-const COLUMN_WIDTH = 300;
 const NODE_HEIGHT = 76;
 const MIN_VERTICAL_GAP = 16;
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
 
-// Moved to module level to prevent re-creation on every render. This is critical for performance and stability.
 const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
 
-/**
- * A robust function to assign a generation number to each person.
- * It correctly identifies all root nodes (people without parents in the tree)
- * and then assigns generation numbers downwards. Includes cycle detection.
- */
+const g = new dagre.graphlib.Graph();
+g.setDefaultEdgeLabel(() => ({}));
+
+const getCompactLayoutedElements = (
+  people: Person[],
+  relationships: Relationship[],
+  generations: Map<string, number>,
+  edgeType: EdgeType,
+) => {
+    g.setGraph({ rankdir: 'TB', ranksep: 60, nodesep: 20 });
+    
+    people.forEach((node) => g.setNode(node.id, { width: 200, height: 80 }));
+
+    const spouseMap = new Map<string, string>();
+    relationships.forEach(rel => {
+        if(rel.relationshipType === 'spouse') {
+            const [p1, p2] = [rel.personAId, rel.personBId].sort();
+            spouseMap.set(p1, p2);
+            spouseMap.set(p2, p1);
+        }
+    });
+
+    relationships.forEach((edge) => g.setEdge(edge.source, edge.target));
+
+    dagre.layout(g);
+
+    const nodes: Node<Person>[] = people.map((person) => {
+        const nodeWithPosition = g.node(person.id);
+        return {
+            id: person.id,
+            type: 'timelinePerson',
+            position: {
+                x: nodeWithPosition.x - 100,
+                y: nodeWithPosition.y - 40,
+            },
+            data: person
+        };
+    });
+
+    const generationInfo = new Map<number, { yPositions: number[], birthYears: number[] }>();
+    nodes.forEach(node => {
+        const person = node.data as Person;
+        const gen = generations.get(person.id);
+        if (gen) {
+            if (!generationInfo.has(gen)) generationInfo.set(gen, { yPositions: [], birthYears: [] });
+            generationInfo.get(gen)!.yPositions.push(node.position.y);
+            if (person.birthDate && isValid(parseISO(person.birthDate))) {
+                generationInfo.get(gen)!.birthYears.push(getYear(parseISO(person.birthDate)));
+            }
+        }
+    });
+
+    const labelNodes: Node[] = [];
+    generationInfo.forEach((info, gen) => {
+        if (info.yPositions.length === 0) return;
+        const avgY = info.yPositions.reduce((sum, y) => sum + y, 0) / info.yPositions.length + 40;
+        const minYear = info.birthYears.length ? Math.min(...info.birthYears) : null;
+        const maxYear = info.birthYears.length ? Math.max(...info.birthYears) : null;
+        let yearRangeLabel = '';
+        if (minYear && maxYear) {
+            yearRangeLabel = minYear === maxYear ? `${minYear}` : `${minYear}-${maxYear}`;
+        }
+        labelNodes.push({
+            id: `gen-label-${gen}`, type: 'default', position: { x: -160, y: avgY - 15 },
+            data: { label: `דור ${gen}` + (yearRangeLabel ? ` | ${yearRangeLabel}` : '') },
+            draggable: false, selectable: false,
+            style: { background: 'transparent', border: 'none', fontSize: '11px', fontWeight: 'bold', color: '#64748b', width: 140, textAlign: 'right' },
+            className: 'pointer-events-none'
+        });
+    });
+
+    const edges: Edge[] = relationships.map(rel => ({
+        id: rel.id, source: rel.personAId, target: rel.personBId, type: edgeType,
+        animated: PARENT_REL_TYPES.includes(rel.relationshipType),
+    }));
+
+    return { nodes: [...nodes, ...labelNodes], edges };
+};
+
 const assignGenerations = (people: Person[], relationships: Relationship[]): Map<string, number> => {
     const generations = new Map<string, number>();
     if (people.length === 0) return new Map();
-
-    const childrenMap = new Map<string, string[]>();
-    relationships.forEach(rel => {
-        if (['parent', 'adoptive_parent', 'step_parent'].includes(rel.relationshipType)) {
-            if (!childrenMap.has(rel.personAId)) childrenMap.set(rel.personAId, []);
-            childrenMap.get(rel.personAId)!.push(rel.personBId);
-        }
-    });
 
     const parentMap = new Map<string, string[]>();
     for (const person of people) {
         parentMap.set(person.id, []);
     }
-
     for (const rel of relationships) {
         if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
             const currentParents = parentMap.get(rel.personBId) || [];
             parentMap.set(rel.personBId, [...currentParents, rel.personAId]);
         }
     }
-
+    
     const memo = new Map<string, number>();
-
     function findGeneration(personId: string, path: Set<string> = new Set()): number {
-        if (path.has(personId)) {
-          // Cycle detected, treat as a root to prevent infinite loop
-          return 1;
-        }
+        if (path.has(personId)) return 1;
         if (memo.has(personId)) return memo.get(personId)!;
-
         const parents = parentMap.get(personId) || [];
         if (parents.length === 0) {
             memo.set(personId, 1);
             return 1;
         }
-
         path.add(personId);
         const parentGenerations = parents.map(pId => findGeneration(pId, new Set(path)));
         path.delete(personId);
-
         const generation = Math.max(...parentGenerations) + 1;
         memo.set(personId, generation);
         return generation;
     }
 
     for (const person of people) {
-        if (!memo.has(person.id)) {
-            findGeneration(person.id);
-        }
+        if (!memo.has(person.id)) findGeneration(person.id);
     }
     
-    // Fallback for any unassigned (should not happen with cycle detection)
     for (const person of people) {
-      if (!memo.has(person.id)) {
-        memo.set(person.id, 0);
-      }
+      if (!memo.has(person.id)) memo.set(person.id, 0);
     }
-
     return memo;
 };
 
-function TimelineViewContent({
-  people,
-  relationships,
-  edgeType,
-  isCompact,
-  onNodeDoubleClick,
-}: {
-  people: Person[];
-  relationships: Relationship[];
-  edgeType: EdgeType;
-  isCompact: boolean;
-  onNodeDoubleClick?: OnNodeDoubleClick;
-}) {
+function TimelineViewContent({ people, relationships, edgeType, isCompact, onNodeDoubleClick }: { people: Person[]; relationships: Relationship[]; edgeType: EdgeType; isCompact: boolean; onNodeDoubleClick?: OnNodeDoubleClick; }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [yearRange, setYearRange] = useState({ min: 1900, max: 2024 });
-  const { setViewport } = useReactFlow();
+  const { setViewport, fitView } = useReactFlow();
 
   useEffect(() => {
     if (people.length === 0) {
@@ -126,6 +163,16 @@ function TimelineViewContent({
       return;
     }
 
+    if (isCompact) {
+        const generations = assignGenerations(people, relationships);
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getCompactLayoutedElements(people, relationships, generations, edgeType);
+        setNodes(layoutedNodes);
+        setEdges(layoutedEdges);
+        setTimeout(() => fitView({ padding: 0.1, duration: 400 }), 100);
+        return;
+    }
+    
+    // Default (non-compact) logic
     const generations = assignGenerations(people, relationships);
     const peopleWithData = people.map(p => {
         const date = p.birthDate ? parseISO(p.birthDate) : null;
@@ -150,77 +197,36 @@ function TimelineViewContent({
     const newNodes: Node<Person>[] = [];
     const sortedGenerationKeys = Array.from(peopleByGeneration.keys()).sort((a, b) => a - b);
     
-    if (isCompact) {
-      // Shrunk / Compact View: Stack cards vertically in each column
-      for (const gen of sortedGenerationKeys) {
-        if (gen === 0) continue;
-        const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-        const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
-        let currentY = 0; // Start each column at y=0
-
-        for (const person of peopleInGen) {
-          newNodes.push({
-            id: person.id,
-            type: 'timelinePerson',
-            position: { x: xPos, y: currentY },
-            data: person,
-          });
-          currentY += NODE_HEIGHT + MIN_VERTICAL_GAP;
-        }
-      }
-    } else {
-      // Normal View: Align to year axis with overlap avoidance
-      const lastOccupiedYinColumn = new Map<number, number>();
-      for (const gen of sortedGenerationKeys) {
+    const lastOccupiedYinColumn = new Map<number, number>();
+    for (const gen of sortedGenerationKeys) {
         if (gen === 0) continue;
         const peopleInGen = (peopleByGeneration.get(gen) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
         const xPos = 100 + (gen - 1) * COLUMN_WIDTH;
         lastOccupiedYinColumn.set(gen, -Infinity);
 
         for (const person of peopleInGen) {
-          // If birth year is unknown, stack them at the top.
-          const idealY = person.birthYear !== null 
-            ? (person.birthYear - minYear) * PIXELS_PER_YEAR 
-            : lastOccupiedYinColumn.get(gen)! + NODE_HEIGHT + MIN_VERTICAL_GAP;
-          
+          const idealY = person.birthYear !== null ? (person.birthYear - minYear) * PIXELS_PER_YEAR : lastOccupiedYinColumn.get(gen)! + NODE_HEIGHT + MIN_VERTICAL_GAP;
           const lastY = lastOccupiedYinColumn.get(gen)!;
-          // Only push down if it overlaps, otherwise use ideal position
           const yPos = Math.max(idealY, lastY + NODE_HEIGHT + MIN_VERTICAL_GAP);
           
-          newNodes.push({
-            id: person.id,
-            type: 'timelinePerson',
-            position: { x: xPos, y: yPos },
-            data: person,
-          });
+          newNodes.push({ id: person.id, type: 'timelinePerson', position: { x: xPos, y: yPos }, data: person });
           lastOccupiedYinColumn.set(gen, yPos);
         }
-      }
     }
     
     setNodes(newNodes);
-
-    const newEdges: Edge[] = relationships.map(rel => ({
-      id: rel.id,
-      source: rel.personAId,
-      target: rel.personBId,
-      type: edgeType,
-      animated: PARENT_REL_TYPES.includes(rel.relationshipType),
-    }));
-    setEdges(newEdges);
+    setEdges(relationships.map(rel => ({ id: rel.id, source: rel.personAId, target: rel.personBId, type: edgeType, animated: PARENT_REL_TYPES.includes(rel.relationshipType) })));
 
     if (nodes.length === 0 && newNodes.length > 0) {
       setTimeout(() => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }), 100);
     }
-  }, [people, relationships, edgeType, isCompact, setNodes, setEdges, setViewport, nodes.length]);
+  }, [people, relationships, edgeType, isCompact, setNodes, setEdges, setViewport, nodes.length, fitView]);
 
   return (
     <div className="h-full w-full relative bg-background">
-      <TimelineAxis
-        minYear={yearRange.min}
-        maxYear={yearRange.max}
-        pixelsPerYear={PIXELS_PER_YEAR}
-      />
+      {!isCompact && (
+        <TimelineAxis minYear={yearRange.min} maxYear={yearRange.max} pixelsPerYear={PIXELS_PER_YEAR} />
+      )}
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -228,12 +234,13 @@ function TimelineViewContent({
         onEdgesChange={onEdgesChange}
         onNodeDoubleClick={onNodeDoubleClick}
         nodeTypes={nodeTypes}
-        fitView={false}
-        className="ml-20"
+        fitView={isCompact}
+        className={isCompact ? '' : "ml-20"}
         panOnDrag={true}
         zoomOnScroll={true}
         minZoom={0.05}
-        maxZoom={4}
+        maxZoom={2}
+        defaultEdgeOptions={{ style: { stroke: '#94a3b8', strokeWidth: 2 } }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls showInteractive={false} className="left-4" />
@@ -242,13 +249,7 @@ function TimelineViewContent({
   );
 }
 
-export function TimelineView(props: {
-  people: Person[];
-  relationships: Relationship[];
-  edgeType: EdgeType;
-  isCompact: boolean;
-  onNodeDoubleClick?: OnNodeDoubleClick;
-}) {
+export function TimelineView(props: { people: Person[]; relationships: Relationship[]; edgeType: EdgeType; isCompact: boolean; onNodeDoubleClick?: OnNodeDoubleClick; }) {
   return (
     <ReactFlowProvider>
       <TimelineViewContent {...props} />
