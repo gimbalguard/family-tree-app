@@ -327,7 +327,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('tree');
   const [edgeType, setEdgeType] = useState<EdgeType>('default');
-  const [isTimelineCompact, setIsTimelineCompact] = useState(false);
+  const [isTimelineCompact, setIsTimelineCompact] = useState(true);
 
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -2170,16 +2170,18 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             onViewportChange={onViewportChange}
           />
         );
-      case 'timeline':
-        return (
-          <TimelineView
-            people={people}
-            relationships={relationships}
-            edgeType={edgeType}
-            isCompact={isTimelineCompact}
-            onNodeDoubleClick={handleNodeDoubleClick}
-          />
-        );
+        case 'timeline':
+          return (
+            <TimelineView
+              people={people}
+              relationships={relationships}
+              edgeType={edgeType}
+              isCompact={isTimelineCompact}
+              onNodeDoubleClick={handleNodeDoubleClick}
+              tree={tree}
+              onUpdateTree={handleUpdateTreeDetails}
+            />
+          );
       case 'table':
         return <TableView
             data={people}
