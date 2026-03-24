@@ -12,7 +12,7 @@ import ReactFlow, {
   OnNodeDoubleClick,
   NodeTypes,
 } from 'reactflow';
-import dagre from '@dagrejs/dagre';
+import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 
 import { TimelinePersonNode } from './TimelinePersonNode';
@@ -26,6 +26,7 @@ const PIXELS_PER_YEAR = 80;
 const NODE_HEIGHT = 76;
 const MIN_VERTICAL_GAP = 16;
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
+const COLUMN_WIDTH = 300;
 
 const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
 
@@ -51,12 +52,21 @@ const getCompactLayoutedElements = (
         }
     });
 
-    relationships.forEach((edge) => g.setEdge(edge.source, edge.target));
+    relationships.forEach((edge) => {
+      // For dagre, we only want hierarchical relationships (parent-child)
+      // to determine the layout ranking. Spousal/sibling relationships
+      // are rendered but don't influence the vertical positioning.
+      if (PARENT_REL_TYPES.includes(edge.relationshipType)) {
+        g.setEdge(edge.personAId, edge.personBId);
+      }
+    });
+
 
     dagre.layout(g);
 
     const nodes: Node<Person>[] = people.map((person) => {
         const nodeWithPosition = g.node(person.id);
+        const gen = generations.get(person.id) || 0;
         return {
             id: person.id,
             type: 'timelinePerson',
@@ -64,7 +74,7 @@ const getCompactLayoutedElements = (
                 x: nodeWithPosition.x - 100,
                 y: nodeWithPosition.y - 40,
             },
-            data: person
+            data: person,
         };
     });
 
@@ -83,8 +93,8 @@ const getCompactLayoutedElements = (
 
     const labelNodes: Node[] = [];
     generationInfo.forEach((info, gen) => {
-        if (info.yPositions.length === 0) return;
-        const avgY = info.yPositions.reduce((sum, y) => sum + y, 0) / info.yPositions.length + 40;
+        if (info.yPositions.length === 0 || gen === 0) return;
+        const avgY = info.yPositions.reduce((sum, y) => sum + y, 0) / info.yPositions.length;
         const minYear = info.birthYears.length ? Math.min(...info.birthYears) : null;
         const maxYear = info.birthYears.length ? Math.max(...info.birthYears) : null;
         let yearRangeLabel = '';
