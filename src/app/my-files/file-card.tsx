@@ -18,7 +18,6 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 
 const FILE_ICONS: Record<string, { icon: React.FC<any>; bg: string }> = {
   pdf: { icon: FileText, bg: 'bg-red-500' },
@@ -60,12 +59,11 @@ export function FileCard({ file, onDelete }: FileCardProps) {
     <Card className="flex flex-col transition-all duration-300 ease-in-out bg-card rounded-xl border shadow-sm hover:shadow-lg hover:-translate-y-0.5 overflow-hidden">
       <div className="relative h-40 bg-muted/30">
         {isPhoto ? (
-          <Image
+          <img
             src={file.url}
             alt={file.name}
-            layout="fill"
-            objectFit="cover"
-            className="transition-transform group-hover:scale-105"
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform group-hover:scale-105"
           />
         ) : (
           <div className="flex items-center justify-center h-full">
