@@ -203,13 +203,11 @@ service cloud.firestore {
     }
     
     match /{path=**}/gallery/{photoId} {
-        allow list: if isSignedIn();
-        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
     
     match /{path=**}/people/{personId} {
-        allow list: if isSignedIn();
-        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
   }
 }
