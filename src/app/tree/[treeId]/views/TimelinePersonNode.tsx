@@ -1,15 +1,17 @@
 'use client';
-import { memo } from 'react';
+import { memo, useState, useCallback } from 'react';
 import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
 import { Card, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Heart, Baby, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
+
+// Context menu is rendered by TimelineView via onContextMenu callback.
+// This node fires a custom event so the parent can position the menu.
 
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const {
@@ -43,12 +45,14 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   const lifeYears = getLifeYearsDisplay();
 
-  const getGenderBadge = () => {
-    switch (gender) {
-      case 'male': return <Badge variant="outline" className="border-blue-500 text-blue-500 text-[10px] px-1 py-0">זכר</Badge>;
-      case 'female': return <Badge variant="outline" className="border-pink-500 text-pink-500 text-[10px] px-1 py-0">נקבה</Badge>;
-      default: return <Badge variant="secondary" className="text-[10px] px-1 py-0">אחר</Badge>;
-    }
+  const getGenderIcon = () => {
+    if (gender === 'male') return (
+      <span style={{ fontSize: '0.75rem', color: '#3b82f6' }} title="זכר">♂</span>
+    );
+    if (gender === 'female') return (
+      <span style={{ fontSize: '0.75rem', color: '#ec4899' }} title="נקבה">♀</span>
+    );
+    return null;
   };
 
   const getStatusIcon = () => {
@@ -57,66 +61,93 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
   };
 
   const getReligionIcon = () => {
-    const style: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' };
+    const style: React.CSSProperties = { fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' };
     switch (religion) {
-      case 'jewish': return <span style={style}>✡</span>;
-      case 'christian': return <span style={style}>✝</span>;
-      case 'muslim': return <span style={style}>☪</span>;
-      case 'buddhist': return <span style={style}>☸</span>;
+      case 'jewish': return <span style={style} title="יהדות">✡</span>;
+      case 'christian': return <span style={style} title="נצרות">✝</span>;
+      case 'muslim': return <span style={style} title="אסלאם">☪</span>;
+      case 'buddhist': return <span style={style} title="בודהיזם">☸</span>;
       default: return null;
     }
   };
 
-  const handleStyle = { width: 10, height: 10, background: 'hsl(var(--primary))' };
+  const handleStyle = {
+    width: 10,
+    height: 10,
+    background: 'hsl(var(--primary))',
+    border: '2px solid hsl(var(--background))',
+  };
 
   const descendantCounts = [
-    { count: childrenCount, label: 'ילדים', icon: Baby, opacity: 'opacity-100' },
-    { count: siblingsCount, label: 'אחים', icon: Users, opacity: 'opacity-100' },
-    { count: grandchildrenCount, label: 'נכדים', icon: Users, opacity: 'opacity-80' },
-    { count: greatGrandchildrenCount, label: 'נינים', icon: Users, opacity: 'opacity-70' },
-    { count: gen4Count, label: 'חִמֵּשׁ', icon: Users, opacity: 'opacity-60' },
-    { count: gen5Count, label: 'שִׁשַּׁשׁ', icon: Users, opacity: 'opacity-50' },
+    { count: childrenCount, label: 'ילדים', icon: Baby },
+    { count: siblingsCount, label: 'אחים', icon: Users },
+    { count: grandchildrenCount, label: 'נכדים', icon: Users },
+    { count: greatGrandchildrenCount, label: 'נינים', icon: Users },
+    { count: gen4Count, label: 'דור ה', icon: Users },
+    { count: gen5Count, label: 'דור ו', icon: Users },
   ].filter(item => (item.count || 0) > 0);
 
   return (
-    <Card className={cn(
-      'w-[220px] transition-all duration-200 relative',
-      selected && 'ring-2 ring-primary ring-offset-2',
-    )}>
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={{ ...handleStyle, top: '50%' }} />
-      <Handle type="source" position={Position.Right} id="right" style={{ ...handleStyle, top: '50%' }} />
+    <Card
+      className={cn(
+        'w-[160px] transition-all duration-200 relative overflow-visible',
+        selected && 'ring-2 ring-primary ring-offset-2',
+      )}
+      style={{
+        boxShadow: selected
+          ? undefined
+          : '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
+      }}
+    >
+      {/* Handles — top/left are TARGET, bottom/right are SOURCE */}
+      <Handle type="target" position={Position.Top} id="top" style={{ ...handleStyle, left: '50%', transform: 'translate(-50%, -50%)' }} />
+      <Handle type="source" position={Position.Bottom} id="bottom" style={{ ...handleStyle, left: '50%', transform: 'translate(-50%, 50%)' }} />
+      <Handle type="target" position={Position.Left} id="left" style={{ ...handleStyle, top: '50%', transform: 'translate(-50%, -50%)' }} />
+      <Handle type="source" position={Position.Right} id="right" style={{ ...handleStyle, top: '50%', transform: 'translate(50%, -50%)' }} />
 
-      <CardHeader className="p-3">
-        <div className="flex flex-row-reverse items-center gap-3">
-          <Avatar className="h-12 w-12 border flex-shrink-0">
-            <AvatarImage src={photoURL || undefined} />
-            <AvatarFallback>
-              <img src={getPlaceholderImage(gender)} alt={displayName} />
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 space-y-0.5 text-right min-w-0">
-            <h3 className="font-bold text-sm leading-tight truncate">{displayName}</h3>
-            {lifeYears && <p className="text-[10px] text-muted-foreground leading-tight">{lifeYears}</p>}
-            <div className="flex items-center justify-end gap-1 pt-0.5">
-              {getGenderBadge()}
-              {getStatusIcon()}
-              {getReligionIcon()}
-            </div>
-            {descendantCounts.length > 0 && (
-              <div className="pt-1 space-y-0">
-                {descendantCounts.map(({ count, label, icon: Icon, opacity }) => (
-                  <div key={label} className={cn('flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground', opacity)}>
-                    <span className="font-medium">{count} {label}</span>
-                    <Icon className="h-2.5 w-2.5" />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      <div className="p-2.5 flex flex-col items-center gap-1.5 text-center">
+        {/* Avatar centered at top */}
+        <Avatar className="h-14 w-14 border-2 border-border flex-shrink-0">
+          <AvatarImage src={photoURL || undefined} />
+          <AvatarFallback>
+            <img src={getPlaceholderImage(gender)} alt={displayName} />
+          </AvatarFallback>
+        </Avatar>
+
+        {/* Name */}
+        <h3 className="font-bold text-xs leading-tight line-clamp-2 w-full text-center px-1">
+          {displayName}
+        </h3>
+
+        {/* Dates */}
+        {lifeYears && (
+          <p className="text-[9px] text-muted-foreground leading-tight w-full text-center px-0.5">
+            {lifeYears}
+          </p>
+        )}
+
+        {/* Icons row: gender, status, religion */}
+        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+          {getGenderIcon()}
+          {getStatusIcon()}
+          {getReligionIcon()}
         </div>
-      </CardHeader>
+
+        {/* Descendant counts */}
+        {descendantCounts.length > 0 && (
+          <div className="w-full border-t border-border/40 pt-1 mt-0.5 space-y-0.5">
+            {descendantCounts.map(({ count, label, icon: Icon }) => (
+              <div
+                key={label}
+                className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground"
+              >
+                <Icon className="h-2.5 w-2.5 flex-shrink-0" />
+                <span>{count} {label}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </Card>
   );
 });
