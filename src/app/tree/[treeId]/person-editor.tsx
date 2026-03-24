@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -87,7 +86,7 @@ type PersonEditorProps = {
   onClose: () => void;
   person?: Person | null;
   treeId: string;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: any, isNew: boolean) => Promise<void>;
   onDelete: (personId: string) => void;
 };
 
@@ -121,7 +120,7 @@ export function PersonEditor({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const isEditing = !!person;
+  const isEditing = !!person?.id;
 
   const form = useForm<z.infer<typeof personSchema>>({
     resolver: zodResolver(personSchema),
@@ -186,13 +185,15 @@ export function PersonEditor({
                 hobby: person.hobby || '',
                 socialLinks: person.socialLinks || [],
             });
-            // Fetch gallery photos
-            if (user && db) {
+            // Fetch gallery photos if person has an ID
+            if (person.id && user && db) {
               const galleryRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people', person.id, 'gallery');
               getDocs(galleryRef).then(snapshot => {
                 const photos = snapshot.docs.map(d => ({id: d.id, ...d.data()}) as GalleryPhoto);
                 setGallery(photos);
               });
+            } else {
+              setGallery([]);
             }
         } else {
             form.reset(defaultValues);
@@ -210,7 +211,10 @@ export function PersonEditor({
   }, [person, isOpen, form, cameraStream, db, user, treeId]);
 
   const handleImageUpload = async (file: File | Blob, isProfile: boolean = true, isGallery: boolean = false) => {
-    if (!user || !treeId || !storage || !db || !person) return;
+    if (!user || !treeId || !storage || !db || !person?.id) {
+        toast({ variant: 'destructive', title: 'שגיאה', description: 'יש לשמור את האדם תחילה.' });
+        return;
+    };
     setIsUploading(true);
   
     try {
@@ -356,12 +360,11 @@ export function PersonEditor({
     const { socialLinks, ...personData } = values;
     const dataToSave = { id: person?.id, ...personData };
     try {
-        await onSave(dataToSave);
+        await onSave(dataToSave, !isEditing);
     } finally {
         setIsSaving(false);
     }
-    // Don't call onClose() here — let the parent handle closing
-}
+  }
   
   const buttonText = isEditing ? 'שמור שינויים' : 'צור אדם';
   const photoUrlValue = form.watch('photoURL');
@@ -383,12 +386,13 @@ export function PersonEditor({
                 <div 
                   className={cn(
                     "relative w-40 h-40 mx-auto rounded-full border-2 border-dashed flex items-center justify-center text-muted-foreground transition-colors",
-                    isAvatarDragging && "border-primary bg-primary/10"
+                    isAvatarDragging && "border-primary bg-primary/10",
+                    !isEditing && "opacity-50 cursor-not-allowed"
                   )}
-                  onDragEnter={(e) => {e.preventDefault(); e.stopPropagation(); setIsAvatarDragging(true);}}
+                  onDragEnter={(e) => {e.preventDefault(); e.stopPropagation(); if (isEditing) setIsAvatarDragging(true);}}
                   onDragLeave={(e) => {e.preventDefault(); e.stopPropagation(); setIsAvatarDragging(false);}}
                   onDragOver={(e) => {e.preventDefault(); e.stopPropagation();}}
-                  onDrop={handleAvatarDrop}
+                  onDrop={isEditing ? handleAvatarDrop : undefined}
                 >
                   <Avatar className="w-full h-full">
                     <AvatarImage src={photoUrlValue || undefined} className="object-cover" />
@@ -397,11 +401,11 @@ export function PersonEditor({
                     </AvatarFallback>
                   </Avatar>
                   
-                  <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()}>
+                  <div className={cn("absolute inset-0 bg-black/30 rounded-full opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-4", !isEditing && "pointer-events-none")}>
+                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()} disabled={!isEditing}>
                       <UploadCloud className="w-6 h-6" />
                     </Button>
-                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={openCamera}>
+                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={openCamera} disabled={!isEditing}>
                       <Camera className="w-6 h-6" />
                     </Button>
                   </div>
@@ -411,7 +415,7 @@ export function PersonEditor({
                       <Loader2 className="w-10 h-10 animate-spin text-primary" />
                     </div>
                   )}
-                  <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" />
+                  <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" disabled={!isEditing} />
                 </div>
                  
                 {isCameraOpen && (
@@ -428,7 +432,7 @@ export function PersonEditor({
                 <FormField control={form.control} name="photoURL" render={({ field }) => (
                   <FormItem className="text-right">
                     <FormLabel>כתובת URL של תמונה (חלופה)</FormLabel>
-                    <FormControl><Input placeholder="https://" {...field} value={field.value || ''} className="bg-card" /></FormControl>
+                    <FormControl><Input placeholder="https://" {...field} value={field.value || ''} className="bg-card" disabled={!isEditing} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}/>
