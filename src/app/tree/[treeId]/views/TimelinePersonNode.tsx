@@ -2,8 +2,9 @@
 import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import type { Person } from '@/lib/types';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Heart, Baby, Users } from 'lucide-react';
@@ -42,15 +43,12 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   const lifeYears = getLifeYearsDisplay();
 
-  // Small colored gender icon — no text badge
-  const getGenderIcon = () => {
-    if (gender === 'male') {
-      return <span style={{ fontSize: '0.9rem', color: '#3b82f6', lineHeight: 1 }} title="זכר">♂</span>;
+  const getGenderBadge = () => {
+    switch (gender) {
+      case 'male': return <Badge variant="outline" className="border-blue-500 text-blue-500 text-[10px] px-1 py-0">זכר</Badge>;
+      case 'female': return <Badge variant="outline" className="border-pink-500 text-pink-500 text-[10px] px-1 py-0">נקבה</Badge>;
+      default: return <Badge variant="secondary" className="text-[10px] px-1 py-0">אחר</Badge>;
     }
-    if (gender === 'female') {
-      return <span style={{ fontSize: '0.9rem', color: '#ec4899', lineHeight: 1 }} title="נקבה">♀</span>;
-    }
-    return null;
   };
 
   const getStatusIcon = () => {
@@ -59,7 +57,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
   };
 
   const getReligionIcon = () => {
-    const style: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1 };
+    const style: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))' };
     switch (religion) {
       case 'jewish': return <span style={style} title="יהדות">✡</span>;
       case 'christian': return <span style={style} title="נצרות">✝</span>;
@@ -69,16 +67,15 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     }
   };
 
-  // type="source" on all handles — same as PersonNode in free canvas
-  const handleStyle: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
+  const handleStyle = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
   const descendantCounts = [
-    { count: childrenCount, label: 'ילדים', icon: Baby },
-    { count: siblingsCount, label: 'אחים', icon: Users },
-    { count: grandchildrenCount, label: 'נכדים', icon: Users },
-    { count: greatGrandchildrenCount, label: 'נינים', icon: Users },
-    { count: gen4Count, label: 'דור 5', icon: Users },
-    { count: gen5Count, label: 'דור 6', icon: Users },
+    { count: childrenCount, label: 'ילדים', icon: Baby, opacity: 'opacity-100' },
+    { count: siblingsCount, label: 'אחים', icon: Users, opacity: 'opacity-100' },
+    { count: grandchildrenCount, label: 'נכדים', icon: Users, opacity: 'opacity-80' },
+    { count: greatGrandchildrenCount, label: 'נינים', icon: Users, opacity: 'opacity-70' },
+    { count: gen4Count, label: 'חִמֵּשׁ', icon: Users, opacity: 'opacity-60' },
+    { count: gen5Count, label: 'שִׁשַּׁשׁ', icon: Users, opacity: 'opacity-50' },
   ].filter(item => (item.count || 0) > 0);
   
   const design = data.cardDesign || 'default';
@@ -120,7 +117,6 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
         designClasses
       )}
     >
-      {/* All four handles — type="source", matching free canvas PersonNode */}
       <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
       <Handle
@@ -135,44 +131,37 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
         id="right"
         style={{ ...handleStyle, top: '50%' }}
       />
-
-      {/* Vertical layout: photo → name → dates → icons → counts */}
-      <div className="flex flex-col items-center gap-1.5 px-1 py-2 text-center">
-        {/* Profile photo centered at top */}
-        <Avatar className="h-16 w-16 border-2 border-border shadow-sm flex-shrink-0">
-          <AvatarImage src={photoURL || undefined} />
-          <AvatarFallback>
-            <img src={getPlaceholderImage(gender)} alt={displayName} />
-          </AvatarFallback>
-        </Avatar>
-
-        {/* Full name */}
-        <h3 className={cn("font-bold text-sm leading-tight w-full line-clamp-2 text-main")}>
-          {displayName}
-        </h3>
-
-        {/* Dates */}
-        {lifeYears && (
-          <p className={cn("text-[10px] text-muted-foreground leading-tight w-full text-sub")}>
-            {lifeYears}
-          </p>
-        )}
-
-        {/* Gender icon + status icon + religion icon */}
-        <div className="flex items-center justify-center gap-1.5 mt-0.5">
-          {getGenderIcon()}
-          {getStatusIcon()}
-          {getReligionIcon()}
-        </div>
-
-        {/* Descendant counts at bottom */}
-        {descendantCounts.length > 0 && (
-          <div className="w-full mt-1 pt-1 border-t border-border/40 space-y-0.5 text-sub">
-            {descendantCounts.map(({ count, label, icon: Icon }) => (
-              <div key={label} className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
-                <Icon className="h-2.5 w-2.5 flex-shrink-0" />
-                <span>{count} {label}</span>
+      <CardHeader className="p-3">
+        <div className="flex flex-row-reverse items-center gap-3">
+          <Avatar className="h-12 w-12 border flex-shrink-0">
+            <AvatarImage src={photoURL || undefined} />
+            <AvatarFallback>
+              <img src={getPlaceholderImage(gender)} alt={displayName} />
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 space-y-0.5 text-right min-w-0">
+            <h3 className="font-bold text-sm leading-tight truncate">{displayName}</h3>
+            {lifeYears && <p className="text-[10px] text-muted-foreground leading-tight">{lifeYears}</p>}
+            <div className="flex items-center justify-end gap-1 pt-0.5">
+              {getGenderBadge()}
+              {getStatusIcon()}
+              {getReligionIcon()}
+            </div>
+            {descendantCounts.length > 0 && (
+              <div className="pt-1 space-y-0">
+                {descendantCounts.map(({ count, label, icon: Icon, opacity }) => (
+                  <div key={label} className={cn('flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground', opacity)}>
+                    <Icon className="h-2.5 w-2.5 flex-shrink-0" />
+                    <span>{count} {label}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        )}
+        </div>
+      </CardHeader>
+    </Card>
+  );
+});
+
+TimelinePersonNode.displayName = 'TimelinePersonNode';
