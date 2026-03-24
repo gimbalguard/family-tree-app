@@ -7,6 +7,7 @@ import ReactFlow, {
   Controls,
   ReactFlowProvider,
   useReactFlow,
+  useStore,
   type Node,
   type Edge,
   OnNodeDoubleClick,
@@ -21,18 +22,13 @@ import { BackgroundVariant } from 'reactflow';
 import type { EdgeType } from '../tree-page-client';
 import { getYear, isValid, parseISO } from 'date-fns';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
 const PIXELS_PER_YEAR = 80;
 const NODE_HEIGHT = 76;
 const MIN_VERTICAL_GAP = 16;
 const COLUMN_WIDTH = 300;
-
-const NODE_WIDTH = 256;
+const NODE_WIDTH = 220;
 const ROW_HEIGHT = 200;
-const SPOUSE_GAP = 20;
-const SEPARATED_GAP = 60;
-const SIBLING_GAP = 40;
-const FAMILY_GROUP_GAP = 100;
+const MIN_NODE_SPACING = 20;
 
 const PARENT_REL_TYPES = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
 const PARTNER_REL_TYPES = ['spouse', 'partner', 'ex_spouse', 'ex_partner', 'separated', 'widowed'];
@@ -57,7 +53,6 @@ const assignGenerations = (
     for (const person of people) {
       const currentGen = generations.get(person.id);
 
-      // Priority 1: Parents
       const parentIds = relationships
         .filter(r => PARENT_REL_TYPES.includes(r.relationshipType) && r.personBId === person.id)
         .map(r => r.personAId);
@@ -67,14 +62,10 @@ const assignGenerations = (
 
       if (parentGens.length > 0) {
         const newGen = Math.max(...parentGens) + 1;
-        if (newGen !== currentGen) {
-          generations.set(person.id, newGen);
-          changesMade = true;
-        }
+        if (newGen !== currentGen) { generations.set(person.id, newGen); changesMade = true; }
         continue;
       }
 
-      // Priority 2: Partners
       const partnerIds = relationships
         .filter(r => PARTNER_REL_TYPES.includes(r.relationshipType) &&
           (r.personAId === person.id || r.personBId === person.id))
@@ -85,14 +76,10 @@ const assignGenerations = (
 
       if (partnerGens.length > 0) {
         const newGen = Math.max(...partnerGens);
-        if (newGen !== currentGen) {
-          generations.set(person.id, newGen);
-          changesMade = true;
-        }
+        if (newGen !== currentGen) { generations.set(person.id, newGen); changesMade = true; }
         continue;
       }
 
-      // Priority 3: Siblings
       const siblingIds = relationships
         .filter(r => SIBLING_REL_TYPES.includes(r.relationshipType) &&
           (r.personAId === person.id || r.personBId === person.id))
@@ -103,15 +90,11 @@ const assignGenerations = (
 
       if (siblingGens.length > 0) {
         const newGen = Math.max(...siblingGens);
-        if (newGen !== currentGen) {
-          generations.set(person.id, newGen);
-          changesMade = true;
-        }
+        if (newGen !== currentGen) { generations.set(person.id, newGen); changesMade = true; }
         continue;
       }
     }
 
-    // Priority 4: Default — assign gen 1 to anyone still unassigned
     for (const person of people) {
       if (!generations.has(person.id)) {
         generations.set(person.id, 1);
@@ -123,16 +106,150 @@ const assignGenerations = (
   return generations;
 };
 
-// ─── Compact Layout ───────────────────────────────────────────────────────────
-const buildCompactLayout = (
+// ─── Edge handle logic ────────────────────────────────────────────────────────
+const getEdgeProps = (
+  rel: Relationship,
+  positions: Map<string, { x: number; y: number }>
+) => {
+  const posA = positions.get(rel.personAId);
+  const posB = positions.get(rel.personBId);
+
+  if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
+    return {
+      source: rel.personAId,
+      target: rel.personBId,
+      sourceHandle: 'bottom',
+      targetHandle: 'top',
+    };
+  }
+
+  const aX = posA?.x ?? 0;
+  const bX = posB?.x ?? 0;
+  const aIsLeft = aX <= bX;
+
+  return {
+    source: rel.personAId,
+    target: rel.personBId,
+    sourceHandle: aIsLeft ? 'right' : 'left',
+    targetHandle: aIsLeft ? 'left' : 'right',
+  };
+};
+
+// ─── Tree Layout ──────────────────────────────────────────────────────────────
+const buildTreeLayout = (
   people: Person[],
   relationships: Relationship[],
   generations: Map<string, number>,
   edgeType: EdgeType
-): { nodes: Node<Person>[]; edges: Edge[]; axisInfo: { gen: number; y: number; yearRange: string }[] } => {
-  const personMap = new Map(people.map(p => [p.id, p]));
+): {
+  nodes: Node<Person>[];
+  edges: Edge[];
+  axisInfo: { gen: number; y: number; yearRange: string }[];
+} => {
+  const childrenMap = new Map<string, string[]>();
+  const parentMap = new Map<string, string[]>();
+  const partnerMap = new Map<string, string>();
 
-  // Group people by generation
+  for (const person of people) {
+    childrenMap.set(person.id, []);
+    parentMap.set(person.id, []);
+  }
+  for (const rel of relationships) {
+    if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
+      childrenMap.get(rel.personAId)?.push(rel.personBId);
+      parentMap.get(rel.personBId)?.push(rel.personAId);
+    }
+    if (PARTNER_REL_TYPES.includes(rel.relationshipType)) {
+      if (!partnerMap.has(rel.personAId)) partnerMap.set(rel.personAId, rel.personBId);
+      if (!partnerMap.has(rel.personBId)) partnerMap.set(rel.personBId, rel.personAId);
+    }
+  }
+
+  // Calculate subtree leaf count for spacing
+  const leafCountMap = new Map<string, number>();
+  const getLeafCount = (id: string, visited = new Set<string>()): number => {
+    if (visited.has(id)) return 1;
+    if (leafCountMap.has(id)) return leafCountMap.get(id)!;
+    visited.add(id);
+    const children = childrenMap.get(id) || [];
+    const partnerId = partnerMap.get(id);
+    const partnerChildren = partnerId ? (childrenMap.get(partnerId) || []) : [];
+    const allChildren = [...new Set([...children, ...partnerChildren])];
+    if (allChildren.length === 0) {
+      leafCountMap.set(id, 1);
+      return 1;
+    }
+    const count = allChildren.reduce((sum, cId) => sum + getLeafCount(cId, new Set(visited)), 0);
+    leafCountMap.set(id, Math.max(1, count));
+    return leafCountMap.get(id)!;
+  };
+  for (const p of people) getLeafCount(p.id);
+
+  // Assign X positions
+  const xPositions = new Map<string, number>();
+  let currentX = 0;
+
+  const assignX = (personId: string, visited = new Set<string>()): void => {
+    if (visited.has(personId) || xPositions.has(personId)) return;
+    visited.add(personId);
+
+    const children = childrenMap.get(personId) || [];
+    const partnerId = partnerMap.get(personId);
+    const partnerChildren = partnerId ? (childrenMap.get(partnerId) || []) : [];
+    const allChildren = [...new Set([...children, ...partnerChildren])];
+
+    if (allChildren.length === 0) {
+      xPositions.set(personId, currentX);
+      currentX += NODE_WIDTH + MIN_NODE_SPACING;
+      if (partnerId && !xPositions.has(partnerId)) {
+        xPositions.set(partnerId, currentX);
+        currentX += NODE_WIDTH + MIN_NODE_SPACING;
+      }
+      return;
+    }
+
+    const startX = currentX;
+    for (const childId of allChildren) {
+      if (!xPositions.has(childId)) assignX(childId, new Set(visited));
+    }
+
+    const childXs = allChildren.map(cId => xPositions.get(cId) ?? 0);
+    const centerX = (Math.min(...childXs) + Math.max(...childXs)) / 2;
+    xPositions.set(personId, centerX);
+
+    if (partnerId && !xPositions.has(partnerId)) {
+      xPositions.set(partnerId, centerX + NODE_WIDTH + MIN_NODE_SPACING);
+    }
+  };
+
+  const roots = people.filter(p => (parentMap.get(p.id) || []).length === 0);
+  for (const root of roots) {
+    if (!xPositions.has(root.id)) assignX(root.id);
+  }
+  for (const person of people) {
+    if (!xPositions.has(person.id)) {
+      xPositions.set(person.id, currentX);
+      currentX += NODE_WIDTH + MIN_NODE_SPACING;
+    }
+  }
+
+  // Build nodes
+  const positions = new Map<string, { x: number; y: number }>();
+  const nodes: Node<Person>[] = people.map(person => {
+    const gen = generations.get(person.id) ?? 1;
+    const y = (gen - 1) * ROW_HEIGHT;
+    const x = xPositions.get(person.id) ?? 0;
+    positions.set(person.id, { x, y });
+    return {
+      id: person.id,
+      type: 'timelinePerson',
+      position: { x, y },
+      data: person,
+      draggable: false,
+    };
+  });
+
+  // Build axis info
   const byGen = new Map<number, Person[]>();
   for (const person of people) {
     const gen = generations.get(person.id) ?? 1;
@@ -140,196 +257,69 @@ const buildCompactLayout = (
     byGen.get(gen)!.push(person);
   }
 
-  const sortedGens = Array.from(byGen.keys()).sort((a, b) => a - b);
-  const nodes: Node<Person>[] = [];
   const axisInfo: { gen: number; y: number; yearRange: string }[] = [];
-
-  // Track X position assigned to each person (for centering children)
-  const personXCenter = new Map<string, number>();
-
-  for (const gen of sortedGens) {
-    const yPos = (gen - 1) * ROW_HEIGHT;
-    const peopleInGen = byGen.get(gen) || [];
-
-    // Build birth year range label
-    const birthYears = peopleInGen
+  for (const [gen, genPeople] of Array.from(byGen.entries()).sort(([a], [b]) => a - b)) {
+    const birthYears = genPeople
       .map(p => p.birthDate && isValid(parseISO(p.birthDate)) ? getYear(parseISO(p.birthDate)) : null)
       .filter((y): y is number => y !== null);
     const minYear = birthYears.length > 0 ? Math.min(...birthYears) : null;
     const maxYear = birthYears.length > 0 ? Math.max(...birthYears) : null;
-    const yearRangeLabel = minYear && maxYear
+    const yearRange = minYear && maxYear
       ? (minYear === maxYear ? `${minYear}` : `${minYear}–${maxYear}`)
       : '';
-
-    axisInfo.push({ gen, y: yPos, yearRange: yearRangeLabel });
-
-    // Build family groups for this generation
-    // A family group = a couple (or single) + their siblings in this row
-    const processed = new Set<string>();
-    const familyGroups: { couple: Person[]; singles: Person[] }[] = [];
-
-    // First pass: find couples in this generation
-    for (const person of peopleInGen) {
-      if (processed.has(person.id)) continue;
-
-      const partnerRel = relationships.find(r =>
-        PARTNER_REL_TYPES.includes(r.relationshipType) &&
-        (r.personAId === person.id || r.personBId === person.id)
-      );
-      const partnerId = partnerRel
-        ? (partnerRel.personAId === person.id ? partnerRel.personBId : partnerRel.personAId)
-        : null;
-      const partner = partnerId ? personMap.get(partnerId) : null;
-      const partnerInSameGen = partner && (generations.get(partner.id) === gen);
-
-      if (partner && partnerInSameGen && !processed.has(partner.id)) {
-        familyGroups.push({ couple: [person, partner], singles: [] });
-        processed.add(person.id);
-        processed.add(partner.id);
-      }
-    }
-
-    // Second pass: remaining people are singles
-    const singles: Person[] = [];
-    for (const person of peopleInGen) {
-      if (!processed.has(person.id)) {
-        singles.push(person);
-        processed.add(person.id);
-      }
-    }
-
-    // Try to sort: if a person's parents are in the previous gen,
-    // place them near their parents' X center
-    // For now, attach singles to existing groups or create solo groups
-    for (const single of singles) {
-      // Check if this single has a sibling already in a group
-      const siblingGroupIndex = familyGroups.findIndex(g =>
-        [...g.couple, ...g.singles].some(p =>
-          relationships.some(r =>
-            SIBLING_REL_TYPES.includes(r.relationshipType) &&
-            ((r.personAId === p.id && r.personBId === single.id) ||
-             (r.personBId === p.id && r.personAId === single.id))
-          )
-        )
-      );
-      if (siblingGroupIndex >= 0) {
-        familyGroups[siblingGroupIndex].singles.push(single);
-      } else {
-        familyGroups.push({ couple: [], singles: [single] });
-      }
-    }
-
-    // Now lay out each family group left to right
-    let currentX = 0;
-
-    for (const group of familyGroups) {
-      const allInGroup = [...group.couple, ...group.singles];
-      const groupStartX = currentX;
-
-      for (let i = 0; i < group.couple.length; i++) {
-        const person = group.couple[i];
-        const xPos = currentX;
-        nodes.push({
-          id: person.id,
-          type: 'timelinePerson',
-          position: { x: xPos, y: yPos },
-          data: person,
-          draggable: false,
-        });
-        personXCenter.set(person.id, xPos + NODE_WIDTH / 2);
-
-        if (i < group.couple.length - 1) {
-          // Check if separated
-          const rel = relationships.find(r =>
-            PARTNER_REL_TYPES.includes(r.relationshipType) &&
-            ((r.personAId === person.id && r.personBId === group.couple[i + 1].id) ||
-             (r.personBId === person.id && r.personAId === group.couple[i + 1].id))
-          );
-          const isSeparated = rel && ['ex_spouse', 'separated', 'ex_partner'].includes(rel.relationshipType);
-          currentX += NODE_WIDTH + (isSeparated ? SEPARATED_GAP : SPOUSE_GAP);
-        } else {
-          currentX += NODE_WIDTH;
-        }
-      }
-
-      if (group.couple.length > 0 && group.singles.length > 0) {
-        currentX += SIBLING_GAP;
-      }
-
-      for (let i = 0; i < group.singles.length; i++) {
-        const person = group.singles[i];
-        const xPos = currentX;
-        nodes.push({
-          id: person.id,
-          type: 'timelinePerson',
-          position: { x: xPos, y: yPos },
-          data: person,
-          draggable: false,
-        });
-        personXCenter.set(person.id, xPos + NODE_WIDTH / 2);
-        currentX += NODE_WIDTH + (i < group.singles.length - 1 ? SIBLING_GAP : 0);
-      }
-
-      currentX += FAMILY_GROUP_GAP;
-    }
+    axisInfo.push({ gen, y: (gen - 1) * ROW_HEIGHT, yearRange });
   }
 
-  // Now reposition children to be centered under their parents
-  // Do a second pass for each generation > 1
-  for (const gen of sortedGens) {
-    if (gen <= 1) continue;
-    const peopleInGen = byGen.get(gen) || [];
-
-    for (const person of peopleInGen) {
-      const parentIds = relationships
-        .filter(r => PARENT_REL_TYPES.includes(r.relationshipType) && r.personBId === person.id)
-        .map(r => r.personAId);
-
-      const parentXCenters = parentIds
-        .map(id => personXCenter.get(id))
-        .filter((x): x is number => x !== undefined);
-
-      // We don't reposition here to avoid breaking sibling alignment
-      // This is handled by the group ordering above
-    }
-  }
-
-  // Build edges
-  const edges: Edge[] = relationships.map(rel => ({
-    id: rel.id,
-    source: rel.personAId,
-    target: rel.personBId,
-    type: edgeType,
-    style: { stroke: '#94a3b8', strokeWidth: 2 },
-    animated: PARENT_REL_TYPES.includes(rel.relationshipType),
-  }));
+  // Build edges with correct handles
+  const edges: Edge[] = relationships.map(rel => {
+    const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, positions);
+    return {
+      id: rel.id,
+      source,
+      target,
+      sourceHandle,
+      targetHandle,
+      type: edgeType,
+      style: { stroke: '#94a3b8', strokeWidth: 2 },
+      animated: false,
+    };
+  });
 
   return { nodes, edges, axisInfo };
 };
 
-// ─── Generation Axis (fixed left panel) ──────────────────────────────────────
+// ─── Generation Axis (mirrors TimelineAxis technique) ─────────────────────────
 const GenerationAxis = memo(({
   axisInfo,
+  rowHeight,
 }: {
   axisInfo: { gen: number; y: number; yearRange: string }[];
+  rowHeight: number;
 }) => {
+  const transform = useStore(s => s.transform);
+  const [viewportY, viewportZoom] = [transform[1], transform[2]];
+
   return (
-    <div
-      className="absolute left-0 top-0 bottom-0 w-28 z-10 pointer-events-none"
-      style={{ background: 'hsl(var(--muted) / 0.3)' }}
-    >
-      {axisInfo.map(({ gen, y, yearRange }) => (
-        <div
-          key={gen}
-          className="absolute right-0 left-0 flex flex-col items-end justify-center pr-3 border-b border-border/20"
-          style={{ top: y, height: ROW_HEIGHT }}
-        >
-          <span className="text-sm font-bold text-foreground">דור {gen}</span>
-          {yearRange && (
-            <span className="text-xs text-muted-foreground">{yearRange}</span>
-          )}
-        </div>
-      ))}
+    <div className="absolute left-0 top-0 h-full w-28 bg-muted/20 z-10 select-none overflow-hidden">
+      <div className="relative h-full w-full" style={{ transform: `translateY(${viewportY}px)` }}>
+        <div className="absolute right-0 top-0 bottom-0 w-px bg-border" />
+        {axisInfo.map(({ gen, y, yearRange }) => {
+          const yPos = y * viewportZoom;
+          const height = rowHeight * viewportZoom;
+          return (
+            <div
+              key={gen}
+              style={{ top: `${yPos}px`, height: `${height}px` }}
+              className="absolute right-0 left-0 flex flex-col items-end justify-center pr-3 border-b border-border/20"
+            >
+              <span className="text-sm font-bold text-foreground leading-none">דור {gen}</span>
+              {yearRange && (
+                <span className="text-[10px] text-muted-foreground mt-0.5">{yearRange}</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 });
@@ -365,7 +355,7 @@ function TimelineViewContent({
     if (isCompact) {
       const generations = assignGenerations(people, relationships);
       const { nodes: newNodes, edges: newEdges, axisInfo: newAxisInfo } =
-        buildCompactLayout(people, relationships, generations, edgeType);
+        buildTreeLayout(people, relationships, generations, edgeType);
       setNodes(newNodes);
       setEdges(newEdges);
       setAxisInfo(newAxisInfo);
@@ -373,7 +363,7 @@ function TimelineViewContent({
       return;
     }
 
-    // ── Default (non-compact) timeline mode — unchanged ──
+    // Default timeline mode — unchanged
     const generations = assignGenerations(people, relationships);
     const peopleWithData = people.map(p => {
       const date = p.birthDate ? parseISO(p.birthDate) : null;
@@ -411,13 +401,7 @@ function TimelineViewContent({
           : lastOccupiedYinColumn.get(gen)! + NODE_HEIGHT + MIN_VERTICAL_GAP;
         const lastY = lastOccupiedYinColumn.get(gen)!;
         const yPos = Math.max(idealY, lastY + NODE_HEIGHT + MIN_VERTICAL_GAP);
-
-        newNodes.push({
-          id: person.id,
-          type: 'timelinePerson',
-          position: { x: xPos, y: yPos },
-          data: person,
-        });
+        newNodes.push({ id: person.id, type: 'timelinePerson', position: { x: xPos, y: yPos }, data: person });
         lastOccupiedYinColumn.set(gen, yPos);
       }
     }
@@ -439,7 +423,7 @@ function TimelineViewContent({
 
   return (
     <div className="h-full w-full relative bg-background">
-      {isCompact && <GenerationAxis axisInfo={axisInfo} />}
+      {isCompact && <GenerationAxis axisInfo={axisInfo} rowHeight={ROW_HEIGHT} />}
       {!isCompact && (
         <TimelineAxis
           minYear={yearRange.min}
