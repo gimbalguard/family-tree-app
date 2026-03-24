@@ -1,3 +1,4 @@
+
 'use client';
 import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
@@ -24,17 +25,16 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   const getLifeYearsDisplay = () => {
     try {
-      const hasBirthDate = birthDate && !isNaN(new Date(birthDate).getTime());
-      const hasDeathDate = deathDate && !isNaN(new Date(deathDate).getTime());
-      if (hasBirthDate && !hasDeathDate && status === 'alive') {
+      const hasBirth = birthDate && !isNaN(new Date(birthDate).getTime());
+      const hasDeath = deathDate && !isNaN(new Date(deathDate).getTime());
+      if (hasBirth && !hasDeath && status === 'alive') {
         const age = differenceInYears(new Date(), new Date(birthDate!));
         return `${format(new Date(birthDate!), 'dd/MM/yyyy')} (גיל ${age})`;
       }
-      if (hasBirthDate && hasDeathDate) {
+      if (hasBirth && hasDeath)
         return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
-      }
-      if (hasBirthDate) return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ?`;
-      if (hasDeathDate) return `? – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
+      if (hasBirth) return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ?`;
+      if (hasDeath) return `? – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
     } catch (e) {}
     return '';
   };
@@ -42,32 +42,40 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
   const lifeYears = getLifeYearsDisplay();
 
   const getGenderIcon = () => {
-    if (gender === 'male') return (
-      <span style={{ fontSize: '0.9rem', color: '#3b82f6', lineHeight: 1 }} title="זכר">♂</span>
-    );
-    if (gender === 'female') return (
-      <span style={{ fontSize: '0.9rem', color: '#ec4899', lineHeight: 1 }} title="נקבה">♀</span>
-    );
+    if (gender === 'male')   return <span style={{ fontSize: '0.9rem', color: '#3b82f6', lineHeight: 1 }}>♂</span>;
+    if (gender === 'female') return <span style={{ fontSize: '0.9rem', color: '#ec4899', lineHeight: 1 }}>♀</span>;
     return null;
   };
 
-  const getStatusIcon = () => {
-    if (status === 'alive') return <Heart className="h-3 w-3 text-green-500 fill-green-500" />;
-    return null;
-  };
+  const getStatusIcon = () =>
+    status === 'alive' ? <Heart className="h-3 w-3 text-green-500 fill-green-500" /> : null;
 
   const getReligionIcon = () => {
-    const style: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1 };
+    const s: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1 };
     switch (religion) {
-      case 'jewish': return <span style={style} title="יהדות">✡</span>;
-      case 'christian': return <span style={style} title="נצרות">✝</span>;
-      case 'muslim': return <span style={style} title="אסלאם">☪</span>;
-      case 'buddhist': return <span style={style} title="בודהיזם">☸</span>;
+      case 'jewish':    return <span style={s}>✡</span>;
+      case 'christian': return <span style={s}>✝</span>;
+      case 'muslim':    return <span style={s}>☪</span>;
+      case 'buddhist':  return <span style={s}>☸</span>;
       default: return null;
     }
   };
 
-  const handleStyle: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
+  // ── Handles ──────────────────────────────────────────────────────────────
+  // CRITICAL: edges need one source end and one target end to render.
+  //
+  // Parent → Child uses:  parent.bottom (source) → child.top (target)
+  // Spouse / Sibling:     left.right (source) → right.left (target)
+  //                    OR right.left (source) → left.right (target)
+  //
+  // So:  top   = target  (receives lines FROM parents)
+  //      bottom = source  (sends lines TO children)
+  //      left  = target  (receives horizontal lines)
+  //      right = source  (sends horizontal lines)
+  //
+  // We mark BOTH left and right as both source AND target via two overlapping
+  // handles so the edge can go either direction depending on relative X position.
+  const hs: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
   return (
     <Card
@@ -77,20 +85,16 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
         selected && 'ring-2 ring-primary ring-offset-2',
       )}
     >
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle
-        type="source"
-        position={Position.Left}
-        id="left"
-        style={{ ...handleStyle, top: '50%', transform: 'translateY(-50%)' }}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="right"
-        style={{ ...handleStyle, top: '50%', transform: 'translateY(-50%)' }}
-      />
+      {/* top — TARGET: receives edges from parents */}
+      <Handle type="target" position={Position.Top}    id="top"    style={hs} />
+      {/* bottom — SOURCE: sends edges to children */}
+      <Handle type="source" position={Position.Bottom} id="bottom" style={hs} />
+      {/* left — both source and target for horizontal spouse/sibling lines */}
+      <Handle type="source" position={Position.Left}   id="left"   style={{ ...hs, top: '50%', transform: 'translateY(-50%)' }} />
+      <Handle type="target" position={Position.Left}   id="left-t" style={{ ...hs, top: '50%', transform: 'translateY(-50%)', opacity: 0 }} />
+      {/* right — both source and target */}
+      <Handle type="source" position={Position.Right}  id="right"  style={{ ...hs, top: '50%', transform: 'translateY(-50%)' }} />
+      <Handle type="target" position={Position.Right}  id="right-t" style={{ ...hs, top: '50%', transform: 'translateY(-50%)', opacity: 0 }} />
 
       <div className="flex flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center">
         <Avatar className="h-14 w-14 border-2 border-border shadow-sm flex-shrink-0">
@@ -100,14 +104,10 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
           </AvatarFallback>
         </Avatar>
 
-        <h3 className="font-bold text-xs leading-tight w-full line-clamp-2">
-          {displayName}
-        </h3>
+        <h3 className="font-bold text-xs leading-tight w-full line-clamp-2">{displayName}</h3>
 
         {lifeYears && (
-          <p className="text-[9px] text-muted-foreground leading-tight w-full">
-            {lifeYears}
-          </p>
+          <p className="text-[9px] text-muted-foreground leading-tight w-full">{lifeYears}</p>
         )}
 
         <div className="flex items-center justify-center gap-1.5 mt-0.5">
