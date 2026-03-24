@@ -11,10 +11,7 @@ import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
 
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
-  const {
-    firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion,
-    nickname,
-  } = data;
+  const { firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion, nickname } = data;
 
   const nameParts = [firstName];
   if (nickname) nameParts.push(`(${nickname})`);
@@ -27,11 +24,9 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
       const hasBirth = birthDate && !isNaN(new Date(birthDate).getTime());
       const hasDeath = deathDate && !isNaN(new Date(deathDate).getTime());
       if (hasBirth && !hasDeath && status === 'alive') {
-        const age = differenceInYears(new Date(), new Date(birthDate!));
-        return `${format(new Date(birthDate!), 'dd/MM/yyyy')} (גיל ${age})`;
+        return `${format(new Date(birthDate!), 'dd/MM/yyyy')} (גיל ${differenceInYears(new Date(), new Date(birthDate!))})`;
       }
-      if (hasBirth && hasDeath)
-        return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
+      if (hasBirth && hasDeath) return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
       if (hasBirth) return `${format(new Date(birthDate!), 'dd/MM/yyyy')} – ?`;
       if (hasDeath) return `? – ${format(new Date(deathDate!), 'dd/MM/yyyy')}`;
     } catch (e) {}
@@ -46,8 +41,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     return null;
   };
 
-  const getStatusIcon = () =>
-    status === 'alive' ? <Heart className="h-3 w-3 text-green-500 fill-green-500" /> : null;
+  const getStatusIcon = () => status === 'alive' ? <Heart className="h-3 w-3 text-green-500 fill-green-500" /> : null;
 
   const getReligionIcon = () => {
     const s: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1 };
@@ -60,20 +54,16 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     }
   };
 
-  // ── Handles ───────────────────────────────────────────────────────────────
-  // All type="source" — this matches the main canvas PersonNode.
-  // ReactFlow renders edges between two source handles fine when handle IDs
-  // are explicitly specified on the edge (sourceHandle / targetHandle).
+  // All handles type="source" — identical to main canvas PersonNode.
+  // ReactFlow renders edges between two source handles fine when sourceHandle
+  // and targetHandle IDs are explicitly specified on the edge object.
   const hs: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
   return (
-    <Card
-      className={cn(
-        'w-[160px] transition-all duration-200 relative overflow-visible',
-        'shadow-md hover:shadow-lg',
-        selected && 'ring-2 ring-primary ring-offset-2',
-      )}
-    >
+    <Card className={cn(
+      'w-[160px] transition-all duration-200 relative overflow-visible shadow-md hover:shadow-lg',
+      selected && 'ring-2 ring-primary ring-offset-2',
+    )}>
       <Handle type="source" position={Position.Top}    id="top"    style={hs} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={hs} />
       <Handle type="source" position={Position.Left}   id="left"   style={{ ...hs, top: '50%', transform: 'translateY(-50%)' }} />
@@ -82,25 +72,15 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
       <div className="flex flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center">
         <Avatar className="h-14 w-14 border-2 border-border shadow-sm flex-shrink-0">
           <AvatarImage src={photoURL || undefined} />
-          <AvatarFallback>
-            <img src={getPlaceholderImage(gender)} alt={displayName} />
-          </AvatarFallback>
+          <AvatarFallback><img src={getPlaceholderImage(gender)} alt={displayName} /></AvatarFallback>
         </Avatar>
-
         <h3 className="font-bold text-xs leading-tight w-full line-clamp-2">{displayName}</h3>
-
-        {lifeYears && (
-          <p className="text-[9px] text-muted-foreground leading-tight w-full">{lifeYears}</p>
-        )}
-
+        {lifeYears && <p className="text-[9px] text-muted-foreground leading-tight w-full">{lifeYears}</p>}
         <div className="flex items-center justify-center gap-1.5 mt-0.5">
-          {getGenderIcon()}
-          {getStatusIcon()}
-          {getReligionIcon()}
+          {getGenderIcon()}{getStatusIcon()}{getReligionIcon()}
         </div>
       </div>
     </Card>
   );
 });
-
 TimelinePersonNode.displayName = 'TimelinePersonNode';

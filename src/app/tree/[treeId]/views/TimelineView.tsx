@@ -47,61 +47,58 @@ const SEPARATED_REL_TYPES = ['ex_spouse', 'separated', 'ex_partner'];
 
 const nodeTypes: NodeTypes = { timelinePerson: TimelinePersonNode };
 
-// ─── Edge handle routing ──────────────────────────────────────────────────────
-// KEY FIX: We use pre-calculated X positions from our layout algorithm,
-// NOT node.width (which is undefined until ReactFlow renders the DOM).
-// This is the root cause of the wrong handles on first load in both this
-// view and the main canvas.
+// ─── Edge props — copied exactly from main canvas tree-page-client.tsx ────────
 //
-// personAId = parent in a parent relationship (confirmed from schema).
-// Parent→child: parent bottom → child top.
-// Spouse/sibling: compare center X positions to pick shortest horizontal path.
+// personAId is ALWAYS the parent in a parent relationship.
+// For parent-child: source=personAId (parent) bottom → target=personBId (child) top.
+// For spouse/sibling: use whichever side handle gives the shortest horizontal line.
 //
-const buildEdgeFromPositions = (
-  rel: Relationship,
-  xPositions: Map<string, number>,  // pre-calculated X from layout
-  edgeType: EdgeType
-): Edge => {
-  const aX = xPositions.get(rel.personAId) ?? 0;
-  const bX = xPositions.get(rel.personBId) ?? 0;
+const getEdgeProps = (rel: Relationship, nodes: Node<Person>[]) => {
+  const nodeA = nodes.find(n => n.id === rel.personAId);
+  const nodeB = nodes.find(n => n.id === rel.personBId);
 
-  let sourceHandle: string;
-  let targetHandle: string;
-
-  if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
-    // personAId is always the parent
-    sourceHandle = 'bottom';
-    targetHandle = 'top';
-  } else {
-    // Spouse, sibling, etc. — pick closest horizontal side
-    // Use center of each card (x + half width)
-    const aCenterX = aX + NODE_WIDTH / 2;
-    const bCenterX = bX + NODE_WIDTH / 2;
-    const aIsLeft  = aCenterX <= bCenterX;
-    sourceHandle   = aIsLeft ? 'right' : 'left';
-    targetHandle   = aIsLeft ? 'left'  : 'right';
+  if (!nodeA || !nodeB) {
+    return { source: rel.personAId, target: rel.personBId, sourceHandle: 'bottom', targetHandle: 'top' };
   }
 
+  if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
+    return {
+      source: rel.personAId,      // personA = parent
+      target: rel.personBId,      // personB = child
+      sourceHandle: 'bottom',
+      targetHandle: 'top',
+    };
+  }
+
+  // Spouse, sibling, etc. — pick the side handles that give shortest line
+  const aCenter = nodeA.position.x + NODE_WIDTH / 2;
+  const bCenter = nodeB.position.x + NODE_WIDTH / 2;
+  const aIsLeft = aCenter <= bCenter;
+
   return {
-    id:           rel.id,
-    source:       rel.personAId,
-    sourceHandle,
-    target:       rel.personBId,
-    targetHandle,
-    type:         edgeType,
-    className:    'custom-edge',
-    style:        { stroke: 'hsl(var(--primary))', strokeWidth: 1.5 },
+    source: rel.personAId,
+    target: rel.personBId,
+    sourceHandle: aIsLeft ? 'right' : 'left',
+    targetHandle: aIsLeft ? 'left'  : 'right',
   };
 };
 
 // ─── Generation Assignment ─────────────────────────────────────────────────────
-// Owner is anchor (seeded at 100). Bidirectional propagation:
-//   DOWNWARD: parent gen + 1  (always wins — re-evaluated every pass)
-//   UPWARD:   child gen  - 1  (fills ancestors with no parents in tree)
-//   PARTNER:  same gen as spouse
-//   SIBLING:  same gen as sibling
-//   ISOLATED: default gen 1  (last resort)
-// Normalize at end so minimum = 1.
+//
+// The owner person is the anchor (seeded at an internal value 100).
+// We propagate in BOTH directions every iteration:
+//
+//   DOWNWARD (parent → child):  child gen  = parent gen + 1   ← always wins
+//   UPWARD   (child → parent):  parent gen = child gen  - 1   ← fills ancestors
+//   PARTNER:                    same gen as spouse/partner
+//   SIBLING:                    same gen as sibling
+//   ISOLATED:                   default gen 1 (last resort)
+//
+// After propagation, normalize so minimum generation = 1.
+// This ensures a maternal grandfather with only 2 generations in the tree
+// lands on the SAME row as a paternal grandfather with 4 generations,
+// because both derive their row from their child's generation number.
+//
 const assignGenerations = (
   people: Person[],
   relationships: Relationship[],
@@ -121,7 +118,7 @@ const assignGenerations = (
 
   for (const rel of relationships) {
     if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
-      // personAId = parent, personBId = child
+      // personAId = parent, personBId = child (confirmed from schema)
       childrenOf.get(rel.personAId)?.push(rel.personBId);
       parentsOf.get(rel.personBId)?.push(rel.personAId);
     }
@@ -131,21 +128,25 @@ const assignGenerations = (
     }
   }
 
-  // Seed
+  // Seed the owner at 100, or fallback to root of longest chain at 1
   if (ownerId && people.some(p => p.id === ownerId)) {
     gen.set(ownerId, 100);
   } else {
     const chainLen = (id: string, vis = new Set<string>()): number => {
-      if (vis.has(id)) return 0; vis.add(id);
+      if (vis.has(id)) return 0;
+      vis.add(id);
       const ch = childrenOf.get(id) || [];
       return ch.length ? 1 + Math.max(...ch.map(c => chainLen(c, new Set(vis)))) : 1;
     };
     const roots = people.filter(p => !(parentsOf.get(p.id) || []).length);
-    if (roots.length) gen.set(roots.sort((a, b) => chainLen(b.id) - chainLen(a.id))[0].id, 1);
+    if (roots.length) {
+      const best = roots.sort((a, b) => chainLen(b.id) - chainLen(a.id))[0];
+      gen.set(best.id, 1);
+    }
   }
 
-  let changed = true; let iter = 0;
   const MAX = people.length * 6 + 30;
+  let changed = true, iter = 0;
 
   while (changed && iter++ < MAX) {
     changed = false;
@@ -153,16 +154,18 @@ const assignGenerations = (
     for (const p of people) {
       const cur = gen.get(p.id);
 
-      // 1. Downward (always wins)
-      const pg = (parentsOf.get(p.id) || []).map(id => gen.get(id)).filter((g): g is number => g !== undefined);
+      // 1. Downward: parent gen + 1 (always re-evaluated, always wins)
+      const pg = (parentsOf.get(p.id) || [])
+        .map(id => gen.get(id)).filter((g): g is number => g !== undefined);
       if (pg.length) {
         const want = Math.max(...pg) + 1;
         if (want !== cur) { gen.set(p.id, want); changed = true; }
         continue;
       }
 
-      // 2. Upward (fills ancestors)
-      const cg = (childrenOf.get(p.id) || []).map(id => gen.get(id)).filter((g): g is number => g !== undefined);
+      // 2. Upward: child gen - 1 (fills ancestors without parents in tree)
+      const cg = (childrenOf.get(p.id) || [])
+        .map(id => gen.get(id)).filter((g): g is number => g !== undefined);
       if (cg.length) {
         const want = Math.min(...cg) - 1;
         if (want !== cur) { gen.set(p.id, want); changed = true; }
@@ -171,19 +174,29 @@ const assignGenerations = (
 
       if (cur !== undefined) continue;
 
-      // 3. Partner
-      const pg2 = (partnersOf.get(p.id) || []).map(id => gen.get(id)).filter((g): g is number => g !== undefined);
-      if (pg2.length) { gen.set(p.id, Math.max(...pg2)); changed = true; continue; }
+      // 3. Partner: same gen
+      const partnerG = (partnersOf.get(p.id) || [])
+        .map(id => gen.get(id)).filter((g): g is number => g !== undefined);
+      if (partnerG.length) {
+        const want = Math.max(...partnerG);
+        if (want !== cur) { gen.set(p.id, want); changed = true; }
+        continue;
+      }
 
-      // 4. Sibling
+      // 4. Sibling: same gen
       const sibIds = relationships
-        .filter(r => SIBLING_REL_TYPES.includes(r.relationshipType) && (r.personAId === p.id || r.personBId === p.id))
+        .filter(r => SIBLING_REL_TYPES.includes(r.relationshipType) &&
+          (r.personAId === p.id || r.personBId === p.id))
         .map(r => r.personAId === p.id ? r.personBId : r.personAId);
-      const sg = sibIds.map(id => gen.get(id)).filter((g): g is number => g !== undefined);
-      if (sg.length) { gen.set(p.id, Math.max(...sg)); changed = true; continue; }
+      const sibG = sibIds.map(id => gen.get(id)).filter((g): g is number => g !== undefined);
+      if (sibG.length) {
+        const want = Math.max(...sibG);
+        if (want !== cur) { gen.set(p.id, want); changed = true; }
+        continue;
+      }
     }
 
-    // 5. Isolated fallback
+    // 5. Isolated fallback — only if no context reachable
     for (const p of people) {
       if (!gen.has(p.id)) {
         const hasCtx =
@@ -196,16 +209,24 @@ const assignGenerations = (
 
   for (const p of people) if (!gen.has(p.id)) gen.set(p.id, 1);
 
-  // Normalize: shift so min = 1
-  const minG = Math.min(...Array.from(gen.values()));
-  if (minG !== 1) { const s = 1 - minG; for (const [id, g] of gen) gen.set(id, g + s); }
+  // Normalize so minimum = 1
+  const vals = Array.from(gen.values());
+  const minG  = Math.min(...vals);
+  if (minG !== 1) {
+    const shift = 1 - minG;
+    for (const [id, g] of gen) gen.set(id, g + shift);
+  }
 
   return gen;
 };
 
 // ─── Layout algorithm ─────────────────────────────────────────────────────────
-// Returns nodes, edges, axisInfo, AND the xPositions map so edges can be
-// built from exact pre-render coordinates (not from node.width).
+// 1. Build adjacency (parentsOf, childrenOf, partnerOf).
+// 2. Compute subtree width for every person recursively.
+// 3. Walk roots left→right, assigning X by placing children first then
+//    centering parents above them.
+// 4. Y = (generation - 1) × ROW_HEIGHT.
+//
 const buildCompactLayout = (
   people: Person[],
   relationships: Relationship[],
@@ -215,13 +236,14 @@ const buildCompactLayout = (
   // ── Adjacency ──
   const parentsOf  = new Map<string, string[]>();
   const childrenOf = new Map<string, string[]>();
-  const partnerOf  = new Map<string, string>();
-  const gapOf      = new Map<string, number>();
+  const partnerOf  = new Map<string, string>();   // primary partner only
+  const gapOf      = new Map<string, number>();   // keyed by sorted "a|b"
 
   for (const p of people) { parentsOf.set(p.id, []); childrenOf.set(p.id, []); }
 
   for (const rel of relationships) {
     if (PARENT_REL_TYPES.includes(rel.relationshipType)) {
+      // personAId = parent, personBId = child
       childrenOf.get(rel.personAId)?.push(rel.personBId);
       parentsOf.get(rel.personBId)?.push(rel.personAId);
     }
@@ -239,18 +261,25 @@ const buildCompactLayout = (
 
   // ── Subtree widths ──
   const sw = new Map<string, number>();
+
   const getWidth = (id: string, vis = new Set<string>()): number => {
     if (vis.has(id)) return NODE_WIDTH;
     if (sw.has(id))  return sw.get(id)!;
     vis.add(id);
-    const pid     = partnerOf.get(id);
-    const myKids  = childrenOf.get(id) || [];
-    const pkids   = pid ? (childrenOf.get(pid) || []) : [];
-    const allKids = [...new Set([...myKids, ...pkids])].filter(c => !vis.has(c));
+
+    const pid = partnerOf.get(id);
+    const myKids      = childrenOf.get(id) || [];
+    const partnerKids = pid ? (childrenOf.get(pid) || []) : [];
+    const allKids     = [...new Set([...myKids, ...partnerKids])].filter(c => !vis.has(c));
+
     const coupleW = NODE_WIDTH + (pid ? pGap(id, pid) + NODE_WIDTH : 0);
     const w = allKids.length === 0
       ? coupleW + FAMILY_GROUP_GAP
-      : Math.max(coupleW + FAMILY_GROUP_GAP, allKids.reduce((s, c) => s + getWidth(c, new Set(vis)), 0));
+      : Math.max(
+          coupleW + FAMILY_GROUP_GAP,
+          allKids.reduce((s, c) => s + getWidth(c, new Set(vis)), 0)
+        );
+
     sw.set(id, w);
     return w;
   };
@@ -272,6 +301,7 @@ const buildCompactLayout = (
     const allKids = [...new Set([...myKids, ...pkids])].filter(c => !assigned.has(c));
 
     if (!allKids.length) {
+      // Leaf: place self then partner side-by-side
       xPos.set(id, left);
       if (pid && !assigned.has(pid)) {
         assigned.add(pid); vis.add(pid);
@@ -287,11 +317,12 @@ const buildCompactLayout = (
       cur += sw.get(kid) ?? (NODE_WIDTH + FAMILY_GROUP_GAP);
     }
 
-    // Center couple above children
+    // Center couple above their children
     const xs = allKids.map(c => xPos.get(c)).filter((x): x is number => x !== undefined);
     if (!xs.length) { xPos.set(id, left); return; }
 
     const center = (Math.min(...xs) + Math.max(...xs)) / 2;
+
     if (pid && !assigned.has(pid)) {
       assigned.add(pid); vis.add(pid);
       const gap = pGap(id, pid);
@@ -310,25 +341,39 @@ const buildCompactLayout = (
       cursor += sw.get(r.id) ?? (NODE_WIDTH + FAMILY_GROUP_GAP);
     }
   }
+  // Remaining disconnected
   for (const p of people) {
     if (!assigned.has(p.id)) {
-      xPos.set(p.id, cursor); assigned.add(p.id);
+      xPos.set(p.id, cursor);
+      assigned.add(p.id);
       cursor += NODE_WIDTH + SIBLING_GAP;
     }
   }
 
   // ── Build nodes ──
   const nodes: Node<Person>[] = people.map(p => ({
-    id: p.id, type: 'timelinePerson',
+    id: p.id,
+    type: 'timelinePerson',
     position: { x: xPos.get(p.id) ?? 0, y: ((generations.get(p.id) ?? 1) - 1) * ROW_HEIGHT },
-    data: p, draggable: false, width: NODE_WIDTH,
+    data: p,
+    draggable: false,
+    width: NODE_WIDTH,
   }));
 
-  // ── Build edges — using pre-calculated X positions, not node.width ──
-  const validPersonIds = new Set(people.map(p => p.id));
+  // ── Build edges — using exact same logic as main canvas getEdgeProps ──
   const edges: Edge[] = relationships
-    .filter(r => validPersonIds.has(r.personAId) && validPersonIds.has(r.personBId))
-    .map(rel => buildEdgeFromPositions(rel, xPos, edgeType));
+    .filter(r => people.some(p => p.id === r.personAId) && people.some(p => p.id === r.personBId))
+    .map(rel => {
+      const { source, sourceHandle, target, targetHandle } = getEdgeProps(rel, nodes);
+      return {
+        id: rel.id,
+        source, sourceHandle,
+        target, targetHandle,
+        type: edgeType,
+        className: 'custom-edge',
+        style: { stroke: 'hsl(var(--primary))', strokeWidth: 1.5 },
+      };
+    });
 
   // ── Axis info ──
   const byGen = new Map<number, Person[]>();
@@ -337,13 +382,17 @@ const buildCompactLayout = (
     if (!byGen.has(g)) byGen.set(g, []);
     byGen.get(g)!.push(p);
   }
-  const axisInfo = Array.from(byGen.entries()).sort(([a], [b]) => a - b).map(([g, gp]) => {
-    const ys = gp.map(p => p.birthDate && isValid(parseISO(p.birthDate)) ? getYear(parseISO(p.birthDate)) : null).filter((y): y is number => y !== null);
-    const mn = ys.length ? Math.min(...ys) : null;
-    const mx = ys.length ? Math.max(...ys) : null;
-    const yr = mn && mx ? (mn === mx ? `${mn}` : `${mn}–${mx}`) : '';
-    return { gen: g, y: (g - 1) * ROW_HEIGHT, yearRange: yr };
-  });
+  const axisInfo = Array.from(byGen.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([g, gp]) => {
+      const ys = gp
+        .map(p => p.birthDate && isValid(parseISO(p.birthDate)) ? getYear(parseISO(p.birthDate)) : null)
+        .filter((y): y is number => y !== null);
+      const yr = ys.length
+        ? (Math.min(...ys) === Math.max(...ys) ? `${Math.min(...ys)}` : `${Math.min(...ys)}–${Math.max(...ys)}`)
+        : '';
+      return { gen: g, y: (g - 1) * ROW_HEIGHT, yearRange: yr };
+    });
 
   return { nodes, edges, axisInfo };
 };
@@ -364,7 +413,8 @@ const GenerationAxis = memo(({
       <div className="relative w-full" style={{ transform: `translateY(${viewportY}px)`, height: '10000px' }}>
         <div className="absolute right-0 top-0 bottom-0 w-px bg-border" />
         {axisInfo.map(({ gen, y, yearRange }) => (
-          <div key={gen}
+          <div
+            key={gen}
             style={{ top: `${y * viewportZoom}px`, height: `${rowHeight * viewportZoom}px` }}
             className="absolute right-0 left-0 flex flex-col items-center justify-center px-1 border-b border-border/20 text-center"
           >
@@ -386,16 +436,22 @@ const TimelineContextMenu = ({ menu, onOpenCard, onClose }: {
 }) => {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose(); };
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
   }, [onClose]);
 
   return (
-    <div ref={ref} className="fixed z-50 bg-background border rounded-md shadow-lg py-1 min-w-[160px]"
-      style={{ top: menu.y, left: menu.x }}>
-      <button className="w-full text-right px-4 py-2 text-sm hover:bg-muted transition-colors"
-        onClick={() => { onOpenCard(menu.personId); onClose(); }}>
+    <div ref={ref}
+      className="fixed z-50 bg-background border rounded-md shadow-lg py-1 min-w-[160px]"
+      style={{ top: menu.y, left: menu.x }}
+    >
+      <button
+        className="w-full text-right px-4 py-2 text-sm hover:bg-muted transition-colors"
+        onClick={() => { onOpenCard(menu.personId); onClose(); }}
+      >
         פתח כרטיס
       </button>
     </div>
@@ -430,10 +486,12 @@ function TimelineViewContent({
     if (!people.length) { setNodes([]); setEdges([]); setAxisInfo([]); return; }
     const gens = assignGenerations(people, relationships, tree?.ownerPersonId);
     const { nodes: n, edges: e, axisInfo: a } = buildCompactLayout(people, relationships, gens, edgeType);
-    setNodes(n); setEdges(e); setAxisInfo(a);
+    setNodes(n);
+    setEdges(e);
+    setAxisInfo(a);
   }, [people, relationships, edgeType, tree?.ownerPersonId, setNodes, setEdges]);
 
-  // ── Year-based timeline mode — unchanged ──
+  // ── Year-based timeline mode — unchanged from original ──
   const buildYearBased = useCallback(() => {
     if (!people.length) { setNodes([]); setEdges([]); return; }
     const gens = assignGenerations(people, relationships, tree?.ownerPersonId);
@@ -448,23 +506,27 @@ function TimelineViewContent({
     setYearRange({ min: minY, max: maxY });
 
     const byG = new Map<number, typeof withData>();
-    for (const p of withData) { if (!byG.has(p.generation)) byG.set(p.generation, []); byG.get(p.generation)!.push(p); }
+    for (const p of withData) {
+      if (!byG.has(p.generation)) byG.set(p.generation, []);
+      byG.get(p.generation)!.push(p);
+    }
 
     const newNodes: Node<Person>[] = [];
     const lastY = new Map<number, number>();
     for (const g of Array.from(byG.keys()).sort((a, b) => a - b)) {
       if (!g) continue;
       const gp = (byG.get(g) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-      const x = 100 + (g - 1) * COLUMN_WIDTH;
+      const x  = 100 + (g - 1) * COLUMN_WIDTH;
       lastY.set(g, -Infinity);
       for (const p of gp) {
-        const ideal = p.birthYear !== null ? (p.birthYear - minY) * PIXELS_PER_YEAR : lastY.get(g)! + NODE_HEIGHT_DEFAULT + MIN_VERTICAL_GAP;
+        const ideal = p.birthYear !== null
+          ? (p.birthYear - minY) * PIXELS_PER_YEAR
+          : lastY.get(g)! + NODE_HEIGHT_DEFAULT + MIN_VERTICAL_GAP;
         const y = Math.max(ideal, lastY.get(g)! + NODE_HEIGHT_DEFAULT + MIN_VERTICAL_GAP);
         newNodes.push({ id: p.id, type: 'timelinePerson', position: { x, y }, data: p });
         lastY.set(g, y);
       }
     }
-
     const hadNone = nodes.length === 0;
     setNodes(newNodes);
     setEdges(relationships.map(r => ({
@@ -473,7 +535,8 @@ function TimelineViewContent({
       className: 'custom-edge',
       style: { stroke: 'hsl(var(--primary))', strokeWidth: 1.5 },
     })));
-    if (hadNone && newNodes.length) setTimeout(() => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }), 100);
+    if (hadNone && newNodes.length)
+      setTimeout(() => setViewport({ x: 0, y: 0, zoom: 0.75 }, { duration: 800 }), 100);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [people, relationships, edgeType, tree?.ownerPersonId, setNodes, setEdges, setViewport]);
 
@@ -517,7 +580,8 @@ function TimelineViewContent({
         <div className="absolute top-4 right-4 z-20 flex items-center gap-1 bg-background/80 backdrop-blur-sm border rounded-lg px-3 py-1.5 shadow-sm">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={centerOnOwner} disabled={!tree?.ownerPersonId}>
+              <Button variant="ghost" size="icon" className="h-7 w-7"
+                onClick={centerOnOwner} disabled={!tree?.ownerPersonId}>
                 <LocateFixed className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
@@ -526,7 +590,9 @@ function TimelineViewContent({
 
           <Popover open={ownerOpen} onOpenChange={setOwnerOpen}>
             <PopoverTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7"><User className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <User className="h-4 w-4" />
+              </Button>
             </PopoverTrigger>
             <PopoverContent className="w-64 p-0" align="end">
               <h4 className="text-sm font-medium p-2 border-b text-center">מי אתה בעץ?</h4>
@@ -539,7 +605,8 @@ function TimelineViewContent({
                       onClick={() => {
                         onUpdateTree?.({ ownerPersonId: person.id });
                         setOwnerOpen(false);
-                        setTimeout(() => fitView({ nodes: [{ id: person.id }], duration: 600, padding: 0.5 }), 100);
+                        setTimeout(() =>
+                          fitView({ nodes: [{ id: person.id }], duration: 600, padding: 0.5 }), 100);
                       }}>
                       {person.firstName} {person.lastName}
                     </Button>
@@ -552,29 +619,42 @@ function TimelineViewContent({
       )}
 
       <ReactFlow
-        nodes={nodes} edges={edges}
-        onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={handleCtxMenu}
         nodeTypes={nodeTypes}
         fitView={false}
         className="ml-20"
-        panOnDrag zoomOnScroll
-        minZoom={0.05} maxZoom={4}
-        nodesDraggable={false} nodesConnectable={false}
-        defaultEdgeOptions={{ className: 'custom-edge', style: { stroke: 'hsl(var(--primary))', strokeWidth: 1.5 } }}
+        panOnDrag
+        zoomOnScroll
+        minZoom={0.05}
+        maxZoom={4}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        defaultEdgeOptions={{
+          className: 'custom-edge',
+          style: { stroke: 'hsl(var(--primary))', strokeWidth: 1.5 },
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls showInteractive={false} className="left-4" />
       </ReactFlow>
 
       {ctxMenu && (
-        <TimelineContextMenu menu={ctxMenu} onOpenCard={handleOpenCard} onClose={() => setCtxMenu(null)} />
+        <TimelineContextMenu
+          menu={ctxMenu}
+          onOpenCard={handleOpenCard}
+          onClose={() => setCtxMenu(null)}
+        />
       )}
     </div>
   );
 }
 
+// ─── Public export ────────────────────────────────────────────────────────────
 export function TimelineView(props: {
   people: Person[]; relationships: Relationship[]; edgeType: EdgeType;
   isCompact: boolean; onNodeDoubleClick?: OnNodeDoubleClick;
