@@ -41,6 +41,7 @@ import {
   Wand2,
   Files,
   Search,
+  Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import {
