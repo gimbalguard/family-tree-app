@@ -61,7 +61,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
   };
 
   // ── Handles ───────────────────────────────────────────────────────────────
-  // All type="source" — this matches the main canvas PersonNode exactly.
+  // All type="source" — this matches the main canvas PersonNode.
   // ReactFlow renders edges between two source handles fine when handle IDs
   // are explicitly specified on the edge (sourceHandle / targetHandle).
   const hs: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
