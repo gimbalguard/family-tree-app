@@ -175,15 +175,14 @@ service cloud.firestore {
       }
     }
     
-    // This collectionGroup query allows the "My Files" page to find all people for a user
-    match /{path=**}/people/{personId} {
-        allow read: if isSignedIn();
+    match /{path=**}/gallery/{photoId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
     
-    // This collectionGroup query allows the "My Files" page to find all gallery photos for a user
-    // across all their trees, including photos for people who haven't been saved yet (orphaned).
-    match /{path=**}/gallery/{photoId} {
-        allow read: if isSignedIn();
+    match /{path=**}/people/{personId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
     
     match /userEmails/{email} {
