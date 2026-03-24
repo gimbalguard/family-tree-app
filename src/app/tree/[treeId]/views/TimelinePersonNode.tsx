@@ -42,6 +42,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   const lifeYears = getLifeYearsDisplay();
 
+  // Small colored gender icon — no text badge
   const getGenderIcon = () => {
     if (gender === 'male') {
       return <span style={{ fontSize: '0.9rem', color: '#3b82f6', lineHeight: 1 }} title="זכר">♂</span>;
@@ -68,6 +69,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     }
   };
 
+  // type="source" on all handles — same as PersonNode in free canvas
   const handleStyle: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
   const descendantCounts = [
@@ -78,7 +80,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     { count: gen4Count, label: 'דור 5', icon: Users },
     { count: gen5Count, label: 'דור 6', icon: Users },
   ].filter(item => (item.count || 0) > 0);
-
+  
   const design = data.cardDesign || 'default';
   const applyCreatorStyles = data.isOwner || (data as any).isTwin;
 
@@ -107,58 +109,70 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     design === 'natural' ? 'card-design-natural' :
     design === 'elegant' ? 'card-design-elegant' : '';
 
+
   return (
     <Card
       style={cardStyle}
       className={cn(
-        'w-[160px] transition-all duration-200 relative overflow-visible',
+        'w-[220px] transition-all duration-200 relative',
         'shadow-md hover:shadow-lg',
         selected && 'ring-2 ring-primary ring-offset-2',
         designClasses
       )}
     >
+      {/* All four handles — type="source", matching free canvas PersonNode */}
       <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={{ ...handleStyle, top: '50%' }} />
-      <Handle type="source" position={Position.Right} id="right" style={{ ...handleStyle, top: '50%' }} />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        style={{ ...handleStyle, top: '50%' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        style={{ ...handleStyle, top: '50%' }}
+      />
 
-      <div className="flex flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center">
-        <Avatar className="h-14 w-14 border-2 border-border shadow-sm flex-shrink-0">
+      {/* Vertical layout: photo → name → dates → icons → counts */}
+      <div className="flex flex-col items-center gap-1.5 px-1 py-2 text-center">
+        {/* Profile photo centered at top */}
+        <Avatar className="h-16 w-16 border-2 border-border shadow-sm flex-shrink-0">
           <AvatarImage src={photoURL || undefined} />
           <AvatarFallback>
             <img src={getPlaceholderImage(gender)} alt={displayName} />
           </AvatarFallback>
         </Avatar>
 
-        <h3 className={cn("font-bold text-xs leading-tight w-full line-clamp-2 text-main")}>
+        {/* Full name */}
+        <h3 className={cn("font-bold text-sm leading-tight w-full line-clamp-2 text-main")}>
           {displayName}
         </h3>
 
+        {/* Dates */}
         {lifeYears && (
-          <p className={cn("text-[9px] text-muted-foreground leading-tight w-full text-sub")}>
+          <p className={cn("text-[10px] text-muted-foreground leading-tight w-full text-sub")}>
             {lifeYears}
           </p>
         )}
 
+        {/* Gender icon + status icon + religion icon */}
         <div className="flex items-center justify-center gap-1.5 mt-0.5">
           {getGenderIcon()}
           {getStatusIcon()}
           {getReligionIcon()}
         </div>
 
+        {/* Descendant counts at bottom */}
         {descendantCounts.length > 0 && (
           <div className="w-full mt-1 pt-1 border-t border-border/40 space-y-0.5 text-sub">
             {descendantCounts.map(({ count, label, icon: Icon }) => (
-              <div key={label} className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground">
+              <div key={label} className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
                 <Icon className="h-2.5 w-2.5 flex-shrink-0" />
                 <span>{count} {label}</span>
               </div>
             ))}
           </div>
         )}
-      </div>
-    </Card>
-  );
-});
-
-TimelinePersonNode.displayName = 'TimelinePersonNode';
