@@ -2170,18 +2170,18 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             onViewportChange={onViewportChange}
           />
         );
-        case 'timeline':
-          return (
-            <TimelineView
-              people={people}
-              relationships={relationships}
-              edgeType={edgeType}
-              isCompact={isTimelineCompact}
-              onNodeDoubleClick={handleNodeDoubleClick}
-              tree={tree}
-              onUpdateTree={handleUpdateTreeDetails}
-            />
-          );
+      case 'timeline':
+        return (
+          <TimelineView
+            people={people}
+            relationships={relationships}
+            edgeType={edgeType}
+            isCompact={isTimelineCompact}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            tree={tree}
+            onUpdateTree={handleUpdateTreeDetails}
+          />
+        );
       case 'table':
         return <TableView
             data={people}
