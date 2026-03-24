@@ -12,7 +12,7 @@ import ReactFlow, {
   OnNodeDoubleClick,
   NodeTypes,
 } from 'reactflow';
-import dagre from 'dagre';
+import dagre from '@dagrejs/dagre';
 import 'reactflow/dist/style.css';
 
 import { TimelinePersonNode } from './TimelinePersonNode';
@@ -39,7 +39,7 @@ const getCompactLayoutedElements = (
   generations: Map<string, number>,
   edgeType: EdgeType,
 ) => {
-    g.setGraph({ rankdir: 'TB', ranksep: 60, nodesep: 20 });
+    g.setGraph({ rankdir: 'TB', ranksep: 40, nodesep: 20 });
     
     people.forEach((node) => g.setNode(node.id, { width: 200, height: 80 }));
 
