@@ -20,7 +20,7 @@ import type { Person, Relationship } from '@/lib/types';
 import { BackgroundVariant } from 'reactflow';
 import type { EdgeType } from '../tree-page-client';
 import { Button } from '@/components/ui/button';
-import { LocateFixed } from 'lucide-react';
+import { Maximize } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -28,6 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { getYear, isValid, parseISO } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const nodeTypes: NodeTypes = { personNode: PersonNode };
 
@@ -35,9 +37,9 @@ const g = new dagre.graphlib.Graph();
 g.setDefaultEdgeLabel(() => ({}));
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[], rankdir: 'TB' | 'LR' = 'TB') => {
-  g.setGraph({ rankdir, ranksep: 80, nodesep: 40 });
+  g.setGraph({ rankdir, ranksep: 40, nodesep: 20 });
 
-  nodes.forEach((node) => g.setNode(node.id, { width: 256, height: 116 }));
+  nodes.forEach((node) => g.setNode(node.id, { width: 200, height: 80 }));
   edges.forEach((edge) => g.setEdge(edge.source, edge.target));
 
   dagre.layout(g);
@@ -45,8 +47,8 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[], rankdir: 'TB' | 'LR' 
   nodes.forEach((node) => {
     const nodeWithPosition = g.node(node.id);
     node.position = {
-      x: nodeWithPosition.x - 256 / 2,
-      y: nodeWithPosition.y - 116 / 2,
+      x: nodeWithPosition.x - 200 / 2,
+      y: nodeWithPosition.y - 80 / 2,
     };
     return node;
   });
@@ -122,18 +124,24 @@ function FamilyViewContent({
     }
 
     const ownerGen = ownerPersonId ? generations.get(ownerPersonId) : undefined;
-
     let visibleGens: Set<number>;
 
     if (ownerGen !== undefined) {
-      visibleGens = new Set([ownerGen]);
-      for (let i = 1; i < depth; i++) {
-        if (ownerGen - i > 0) visibleGens.add(ownerGen - i);
-        if (ownerGen + i <= generations.size) visibleGens.add(ownerGen + i);
-      }
+        visibleGens = new Set([ownerGen]);
+        if (depth >= 3) {
+            if (ownerGen > 1) visibleGens.add(ownerGen - 1); // Parents
+            visibleGens.add(ownerGen + 1); // Children
+        }
+        if (depth >= 4) {
+            if (ownerGen > 2) visibleGens.add(ownerGen - 2); // Grandparents
+        }
+        if (depth >= 5) {
+            visibleGens.add(ownerGen + 2); // Grandchildren
+        }
     } else {
-      // If no owner, show top N generations
-      visibleGens = new Set(Array.from({ length: depth }, (_, i) => i + 1));
+      // If no owner, show top N generations from the start
+      const sortedGens = [...new Set(generations.values())].sort((a,b) => a-b);
+      visibleGens = new Set(sortedGens.slice(0, depth));
     }
     
     const visiblePeople = people.filter(p => visibleGens.has(generations.get(p.id) ?? -1));
@@ -166,20 +174,67 @@ function FamilyViewContent({
       initialEdges
     );
 
-    setNodes(layoutedNodes);
+    const generationInfo = new Map<number, { yPositions: number[], birthYears: number[] }>();
+    layoutedNodes.forEach(node => {
+        const person = node.data as Person;
+        const gen = generations.get(person.id);
+        if (gen) {
+            if (!generationInfo.has(gen)) {
+                generationInfo.set(gen, { yPositions: [], birthYears: [] });
+            }
+            generationInfo.get(gen)!.yPositions.push(node.position.y);
+            if (person.birthDate) {
+                const parsedDate = parseISO(person.birthDate);
+                if (isValid(parsedDate)) {
+                    generationInfo.get(gen)!.birthYears.push(getYear(parsedDate));
+                }
+            }
+        }
+    });
+
+    const labelNodes: Node[] = [];
+    generationInfo.forEach((info, gen) => {
+        if (info.yPositions.length === 0) return;
+        const avgY = info.yPositions.reduce((sum, y) => sum + y, 0) / info.yPositions.length + 40; // 40 is half node height
+        const minYear = info.birthYears.length ? Math.min(...info.birthYears) : null;
+        const maxYear = info.birthYears.length ? Math.max(...info.birthYears) : null;
+        let yearRangeLabel = '';
+        if (minYear && maxYear) {
+            yearRangeLabel = minYear === maxYear ? `${minYear}` : `${minYear}-${maxYear}`;
+        }
+
+        labelNodes.push({
+            id: `gen-label-${gen}`,
+            type: 'default',
+            position: { x: -160, y: avgY - 15 },
+            data: { label: `דור ${gen}` + (yearRangeLabel ? ` (${yearRangeLabel})` : '') },
+            draggable: false,
+            selectable: false,
+            style: {
+                background: 'transparent',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                color: '#64748b',
+                width: 140,
+                textAlign: 'right',
+            },
+            className: 'pointer-events-none'
+        });
+    });
+
+    setNodes([...layoutedNodes, ...labelNodes]);
     setEdges(layoutedEdges);
 
     window.setTimeout(() => {
-      fitView({ duration: 500, padding: 0.1 });
+      fitView({ duration: 400, padding: 0.1 });
     }, 100);
 
-  }, [filteredPeople, filteredRelationships, edgeType, fitView, setNodes, setEdges]);
+  }, [filteredPeople, filteredRelationships, edgeType, fitView, setNodes, setEdges, generations]);
   
-  const handleCenterOnMe = useCallback(() => {
-    if (ownerPersonId) {
-      fitView({ nodes: [{ id: ownerPersonId }], duration: 800, maxZoom: 1 });
-    }
-  }, [ownerPersonId, fitView]);
+  const handleFitView = useCallback(() => {
+    fitView({ padding: 0.1, duration: 400 });
+  }, [fitView]);
 
   return (
     <div className="h-full w-full relative bg-background">
@@ -194,17 +249,18 @@ function FamilyViewContent({
         className="family-view-flow"
         panOnDrag={true}
         zoomOnScroll={true}
+        minZoom={0.05}
+        maxZoom={2}
+        defaultEdgeOptions={{ style: { stroke: '#94a3b8', strokeWidth: 2 } }}
       >
         <Background variant={BackgroundVariant.Dots} gap={24} size={1} />
         <Controls showInteractive={false} />
       </ReactFlow>
       <div className="absolute top-4 right-4 z-10 flex gap-2">
-        {ownerPersonId && (
-          <Button variant="secondary" size="sm" onClick={handleCenterOnMe}>
-            <LocateFixed className="ml-2 h-4 w-4" />
-            מרכז אותי
+          <Button variant="secondary" size="sm" onClick={handleFitView}>
+            <Maximize className="ml-2 h-4 w-4" />
+            כל העץ
           </Button>
-        )}
         <Select value={generationDepth} onValueChange={setGenerationDepth}>
             <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="הצג דורות..." />
