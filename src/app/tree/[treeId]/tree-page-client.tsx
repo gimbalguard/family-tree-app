@@ -1,4 +1,3 @@
-
 'use client';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
@@ -92,6 +91,7 @@ import { CalendarView } from './views/CalendarView';
 import { ManualEventEditor } from './views/ManualEventEditor';
 import { StatisticsView } from './views/StatisticsView';
 import { TriviaView } from './views/TriviaView';
+import { FamilyView } from './views/FamilyView';
 import { RootsView, type RootsProjectData } from './views/RootsView';
 import { SettingsModal } from './settings-modal';
 import { AccountModal } from './account-modal';
@@ -114,6 +114,7 @@ type TreePageClientProps = {
 
 export type ViewMode =
   | 'tree'
+  | 'family'
   | 'timeline'
   | 'table'
   | 'map'
@@ -2169,6 +2170,16 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
             isValidConnection={isValidConnection}
             onSelectionChange={onSelectionChange}
             onViewportChange={onViewportChange}
+          />
+        );
+      case 'family':
+        return (
+          <FamilyView
+            people={people}
+            relationships={relationships}
+            edgeType={edgeType}
+            ownerPersonId={tree?.ownerPersonId}
+            onNodeDoubleClick={handleNodeDoubleClick}
           />
         );
       case 'timeline':

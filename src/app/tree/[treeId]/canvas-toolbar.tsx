@@ -73,6 +73,7 @@ const viewOptions: {
   iconColor?: string;
 }[] = [
   { value: 'tree', label: 'עץ', icon: <Network />, color: '#26a69a' },
+  { value: 'family', label: 'משפחה', icon: <Users />, color: '#a855f7' },
   { value: 'timeline', label: 'ציר זמן', icon: <GanttChart />, color: '#7c3aed' },
   { value: 'table', label: 'טבלה', icon: <TableIcon />, color: '#2563eb' },
   { value: 'map', label: 'מפה', icon: <MapIcon />, color: '#16a34a' },
@@ -191,7 +192,7 @@ export function CanvasToolbar({
     exportOptions.push({ label: 'שיתוף קישור', icon: <LinkIcon />, onClick: handleComingSoonClick });
   }
 
-  const showEdgeStylePicker = viewMode === 'tree' || viewMode === 'timeline';
+  const showEdgeStylePicker = viewMode === 'tree' || viewMode === 'timeline' || viewMode === 'family';
   const isRootsView = viewMode === 'roots';
 
   return (
