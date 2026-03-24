@@ -76,106 +76,125 @@ export function MyFilesClient() {
     if (!user || !db) return;
     setIsLoading(true);
 
+    const files: DisplayFile[] = [];
+
+    // Fetch all trees once to create lookup map, as it's needed by others
+    const treeNameMap = new Map<string, string>();
     try {
-      const files: DisplayFile[] = [];
-
-      // 1. Exported Files
-      const exportsQuery = query(collection(db, 'exportedFiles'), where('userId', '==', user.uid));
-      const exportsSnap = await getDocs(exportsQuery);
-      exportsSnap.forEach(doc => {
-        const data = doc.data() as ExportedFile;
-        if (data.downloadURL && data.storagePath) {
-          files.push({
-            id: doc.id,
-            type: 'exported',
-            name: data.fileName,
-            url: data.downloadURL,
-            size: data.fileSizeBytes,
-            createdAt: toDateSafe(data.createdAt),
-            treeName: data.treeName,
-            storagePath: data.storagePath,
-            exportType: data.fileType,
-          });
-        }
-      });
-      
-      // Fetch all trees and people once to create lookup maps
-      const treesQuery = query(collection(db, 'users', user.uid, 'familyTrees'));
-      const treesSnap = await getDocs(treesQuery);
-      const treeNameMap = new Map<string, string>();
-      treesSnap.docs.forEach(doc => treeNameMap.set(doc.id, (doc.data() as FamilyTree).treeName));
-      
-      const peopleQuery = query(collectionGroup(db, 'people'), where('userId', '==', user.uid));
-      const peopleSnap = await getDocs(peopleQuery);
-      const personMap = new Map<string, {name: string, treeId: string}>();
-      peopleSnap.docs.forEach(doc => {
-        const person = doc.data() as Person;
-        personMap.set(doc.id, { name: `${person.firstName} ${person.lastName}`, treeId: person.treeId });
-      });
-
-      // 2. Profile Photos from person documents
-      peopleSnap.docs.forEach(doc => {
-        const person = doc.data() as Person;
-        if (person.photoURL) {
-           files.push({
-            id: `profile-${doc.id}`,
-            type: 'profile',
-            name: `פרופיל - ${person.firstName} ${person.lastName}`,
-            url: person.photoURL,
-            size: 0,
-            createdAt: toDateSafe(person.createdAt),
-            updatedAt: toDateSafe(person.updatedAt),
-            personName: `${person.firstName} ${person.lastName}`,
-            treeName: treeNameMap.get(person.treeId) || 'עץ לא ידוע',
-            storagePath: '', // No direct storage path on person doc
-          });
-        }
-      });
-
-      // 3. Gallery Photos using a collectionGroup query
-      const galleryQuery = query(collectionGroup(db, 'gallery'), where('userId', '==', user.uid));
-      const gallerySnap = await getDocs(galleryQuery);
-      
-      gallerySnap.forEach((photoDoc) => {
-        const photo = photoDoc.data() as GalleryPhoto;
-        const personInfo = personMap.get(photo.personId);
-
-        files.push({
-          id: photoDoc.id,
-          type: 'gallery',
-          name: personInfo ? `תמונה מהגלריה` : 'תמונה (ללא שיוך)',
-          url: photo.url,
-          size: 0,
-          createdAt: toDateSafe(photo.createdAt),
-          personName: personInfo?.name || 'לא משויך',
-          treeName: treeNameMap.get(photo.treeId) || 'עץ לא ידוע',
-          storagePath: photo.storagePath,
-        });
-      });
-      
-      // 4. Roots Projects as "presentation" files
-      const rootsQuery = query(collectionGroup(db, 'rootsProjects'), where('userId', '==', user.uid));
-      const rootsSnap = await getDocs(rootsQuery);
-      rootsSnap.forEach(doc => {
-          const project = doc.data() as RootsProject;
-          files.push({
-              id: `presentation-${project.treeId}-${project.id}`,
-              type: 'presentation',
-              name: project.projectName || 'עבודת שורשים',
-              url: `/tree/${project.treeId}?view=roots`,
-              size: 0,
-              createdAt: toDateSafe(project.createdAt),
-              updatedAt: toDateSafe(project.updatedAt),
-              treeName: treeNameMap.get(project.treeId) || 'עץ לא ידוע',
-              storagePath: '',
-          });
-      });
-
-      setAllFiles(files.sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime()));
+        const treesQuery = query(collection(db, 'users', user.uid, 'familyTrees'));
+        const treesSnap = await getDocs(treesQuery);
+        treesSnap.docs.forEach(doc => treeNameMap.set(doc.id, (doc.data() as FamilyTree).treeName));
     } catch (error) {
-      console.error("Error fetching files:", error);
-      toast({ variant: "destructive", title: "שגיאה בטעינת הקבצים" });
+        console.error("Error fetching trees:", error);
+        toast({ variant: "destructive", title: "שגיאה בטעינת העצים" });
     }
+
+    // 1. Exported Files
+    try {
+        const exportsQuery = query(collection(db, 'exportedFiles'), where('userId', '==', user.uid));
+        const exportsSnap = await getDocs(exportsQuery);
+        exportsSnap.forEach(doc => {
+            const data = doc.data() as ExportedFile;
+            if (data.downloadURL && data.storagePath) {
+            files.push({
+                id: doc.id,
+                type: 'exported',
+                name: data.fileName,
+                url: data.downloadURL,
+                size: data.fileSizeBytes,
+                createdAt: toDateSafe(data.createdAt),
+                treeName: data.treeName,
+                storagePath: data.storagePath,
+                exportType: data.fileType,
+            });
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching exported files:", error);
+        toast({ variant: "destructive", title: "שגיאה בטעינת קבצים שיוצאו" });
+    }
+      
+    // Fetch people to create personMap and get profile photos
+    const personMap = new Map<string, {name: string, treeId: string}>();
+    try {
+        const peopleQuery = query(collectionGroup(db, 'people'), where('userId', '==', user.uid));
+        const peopleSnap = await getDocs(peopleQuery);
+        
+        peopleSnap.docs.forEach(doc => {
+            const person = doc.data() as Person;
+            personMap.set(doc.id, { name: `${person.firstName} ${person.lastName}`, treeId: person.treeId });
+
+            if (person.photoURL) {
+                files.push({
+                    id: `profile-${doc.id}`,
+                    type: 'profile',
+                    name: `פרופיל - ${person.firstName} ${person.lastName}`,
+                    url: person.photoURL,
+                    size: 0,
+                    createdAt: toDateSafe(person.createdAt),
+                    updatedAt: toDateSafe(person.updatedAt),
+                    personName: `${person.firstName} ${person.lastName}`,
+                    treeName: treeNameMap.get(person.treeId) || 'עץ לא ידוע',
+                    storagePath: '',
+                });
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching people / profile photos:", error);
+        toast({ variant: "destructive", title: "שגיאה בטעינת תמונות פרופיל" });
+    }
+
+
+    // 3. Gallery Photos using a collectionGroup query
+    try {
+        const galleryQuery = query(collectionGroup(db, 'gallery'), where('userId', '==', user.uid));
+        const gallerySnap = await getDocs(galleryQuery);
+        
+        gallerySnap.forEach((photoDoc) => {
+            const photo = photoDoc.data() as GalleryPhoto;
+            const personInfo = personMap.get(photo.personId);
+
+            files.push({
+              id: photoDoc.id,
+              type: 'gallery',
+              name: personInfo ? `תמונה מהגלריה` : 'תמונה (ללא שיוך)',
+              url: photo.url,
+              size: 0,
+              createdAt: toDateSafe(photo.createdAt),
+              personName: personInfo?.name || 'לא משויך',
+              treeName: treeNameMap.get(photo.treeId) || 'עץ לא ידוע',
+              storagePath: photo.storagePath,
+            });
+        });
+    } catch (error) {
+        console.error("Error fetching gallery photos:", error);
+        toast({ variant: "destructive", title: "שגיאה בטעינת תמונות גלריה" });
+    }
+      
+    // 4. Roots Projects as "presentation" files
+    try {
+        const rootsQuery = query(collectionGroup(db, 'rootsProjects'), where('userId', '==', user.uid));
+        const rootsSnap = await getDocs(rootsQuery);
+        rootsSnap.forEach(doc => {
+            const project = doc.data() as RootsProject;
+            files.push({
+                id: `presentation-${project.treeId}-${project.id}`,
+                type: 'presentation',
+                name: project.projectName || 'עבודת שורשים',
+                url: `/tree/${project.treeId}?view=roots`,
+                size: 0,
+                createdAt: toDateSafe(project.createdAt),
+                updatedAt: toDateSafe(project.updatedAt),
+                treeName: treeNameMap.get(project.treeId) || 'עץ לא ידוע',
+                storagePath: '',
+            });
+        });
+    } catch (error) {
+        console.error("Error fetching roots projects:", error);
+        toast({ variant: "destructive", title: "שגיאה בטעינת מצגות שורשים" });
+    }
+
+    setAllFiles(files.sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime()));
     setIsLoading(false);
   }, [user, db, toast]);
   
