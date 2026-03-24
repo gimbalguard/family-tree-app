@@ -211,5 +211,10 @@ service cloud.firestore {
         allow list: if isSignedIn();
         allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
+
+    match /{path=**}/rootsProjects/{projectId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
   }
 }
