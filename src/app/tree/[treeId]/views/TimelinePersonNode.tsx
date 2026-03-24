@@ -1,17 +1,14 @@
 'use client';
-import { memo, useState, useCallback } from 'react';
+import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
 import { Handle, Position } from 'reactflow';
-import { Card, CardHeader } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Person } from '@/lib/types';
 import { getPlaceholderImage } from '@/lib/placeholder-images';
 import { Heart, Baby, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, differenceInYears } from 'date-fns';
-
-// Context menu is rendered by TimelineView via onContextMenu callback.
-// This node fires a custom event so the parent can position the menu.
 
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const {
@@ -45,13 +42,14 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   const lifeYears = getLifeYearsDisplay();
 
+  // Small colored gender icon — no text badge
   const getGenderIcon = () => {
-    if (gender === 'male') return (
-      <span style={{ fontSize: '0.75rem', color: '#3b82f6' }} title="זכר">♂</span>
-    );
-    if (gender === 'female') return (
-      <span style={{ fontSize: '0.75rem', color: '#ec4899' }} title="נקבה">♀</span>
-    );
+    if (gender === 'male') {
+      return <span style={{ fontSize: '0.9rem', color: '#3b82f6', lineHeight: 1 }} title="זכר">♂</span>;
+    }
+    if (gender === 'female') {
+      return <span style={{ fontSize: '0.9rem', color: '#ec4899', lineHeight: 1 }} title="נקבה">♀</span>;
+    }
     return null;
   };
 
@@ -61,7 +59,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
   };
 
   const getReligionIcon = () => {
-    const style: React.CSSProperties = { fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))' };
+    const style: React.CSSProperties = { fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', lineHeight: 1 };
     switch (religion) {
       case 'jewish': return <span style={style} title="יהדות">✡</span>;
       case 'christian': return <span style={style} title="נצרות">✝</span>;
@@ -71,76 +69,76 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     }
   };
 
-  const handleStyle = {
-    width: 10,
-    height: 10,
-    background: 'hsl(var(--primary))',
-    border: '2px solid hsl(var(--background))',
-  };
+  // type="source" on all handles — same as PersonNode in free canvas
+  const handleStyle: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
   const descendantCounts = [
     { count: childrenCount, label: 'ילדים', icon: Baby },
     { count: siblingsCount, label: 'אחים', icon: Users },
     { count: grandchildrenCount, label: 'נכדים', icon: Users },
     { count: greatGrandchildrenCount, label: 'נינים', icon: Users },
-    { count: gen4Count, label: 'דור ה', icon: Users },
-    { count: gen5Count, label: 'דור ו', icon: Users },
+    { count: gen4Count, label: 'דור 5', icon: Users },
+    { count: gen5Count, label: 'דור 6', icon: Users },
   ].filter(item => (item.count || 0) > 0);
 
   return (
     <Card
       className={cn(
         'w-[160px] transition-all duration-200 relative overflow-visible',
+        'shadow-md hover:shadow-lg',
         selected && 'ring-2 ring-primary ring-offset-2',
       )}
-      style={{
-        boxShadow: selected
-          ? undefined
-          : '0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
-      }}
     >
-      {/* Handles — top/left are TARGET, bottom/right are SOURCE */}
-      <Handle type="target" position={Position.Top} id="top" style={{ ...handleStyle, left: '50%', transform: 'translate(-50%, -50%)' }} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={{ ...handleStyle, left: '50%', transform: 'translate(-50%, 50%)' }} />
-      <Handle type="target" position={Position.Left} id="left" style={{ ...handleStyle, top: '50%', transform: 'translate(-50%, -50%)' }} />
-      <Handle type="source" position={Position.Right} id="right" style={{ ...handleStyle, top: '50%', transform: 'translate(50%, -50%)' }} />
+      {/* All four handles — type="source", matching free canvas PersonNode */}
+      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        style={{ ...handleStyle, top: '50%', transform: 'translateY(-50%)' }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        style={{ ...handleStyle, top: '50%', transform: 'translateY(-50%)' }}
+      />
 
-      <div className="p-2.5 flex flex-col items-center gap-1.5 text-center">
-        {/* Avatar centered at top */}
-        <Avatar className="h-14 w-14 border-2 border-border flex-shrink-0">
+      {/* Vertical layout: photo → name → dates → icons → counts */}
+      <div className="flex flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center">
+        {/* Profile photo centered at top */}
+        <Avatar className="h-14 w-14 border-2 border-border shadow-sm flex-shrink-0">
           <AvatarImage src={photoURL || undefined} />
           <AvatarFallback>
             <img src={getPlaceholderImage(gender)} alt={displayName} />
           </AvatarFallback>
         </Avatar>
 
-        {/* Name */}
-        <h3 className="font-bold text-xs leading-tight line-clamp-2 w-full text-center px-1">
+        {/* Full name */}
+        <h3 className="font-bold text-xs leading-tight w-full line-clamp-2">
           {displayName}
         </h3>
 
         {/* Dates */}
         {lifeYears && (
-          <p className="text-[9px] text-muted-foreground leading-tight w-full text-center px-0.5">
+          <p className="text-[9px] text-muted-foreground leading-tight w-full">
             {lifeYears}
           </p>
         )}
 
-        {/* Icons row: gender, status, religion */}
-        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+        {/* Gender icon + status icon + religion icon */}
+        <div className="flex items-center justify-center gap-1.5 mt-0.5">
           {getGenderIcon()}
           {getStatusIcon()}
           {getReligionIcon()}
         </div>
 
-        {/* Descendant counts */}
+        {/* Descendant counts at bottom */}
         {descendantCounts.length > 0 && (
-          <div className="w-full border-t border-border/40 pt-1 mt-0.5 space-y-0.5">
+          <div className="w-full mt-1 pt-1 border-t border-border/40 space-y-0.5">
             {descendantCounts.map(({ count, label, icon: Icon }) => (
-              <div
-                key={label}
-                className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground"
-              >
+              <div key={label} className="flex items-center justify-center gap-1 text-[9px] text-muted-foreground">
                 <Icon className="h-2.5 w-2.5 flex-shrink-0" />
                 <span>{count} {label}</span>
               </div>
