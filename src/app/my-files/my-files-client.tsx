@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useUser, useFirestore, useStorage } from '@/firebase';
@@ -15,7 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import {
-  collection, query, where, getDocs, deleteDoc, doc, addDoc, serverTimestamp,
+  collection, query, where, getDocs, deleteDoc, doc, addDoc, serverTimestamp, collectionGroup,
 } from 'firebase/firestore';
 import { ref, deleteObject, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
@@ -97,68 +98,78 @@ export function MyFilesClient() {
           });
         }
       });
-
-      // 2. Tree/Profile/Gallery Photos
+      
+      // Fetch all trees and people once to create lookup maps
       const treesQuery = query(collection(db, 'users', user.uid, 'familyTrees'));
       const treesSnap = await getDocs(treesQuery);
+      const treeNameMap = new Map<string, string>();
+      treesSnap.docs.forEach(doc => treeNameMap.set(doc.id, (doc.data() as FamilyTree).treeName));
       
-      for (const treeDoc of treesSnap.docs) {
-        const treeData = { id: treeDoc.id, ...treeDoc.data() } as FamilyTree;
-        const peopleRef = collection(treeDoc.ref, 'people');
-        const peopleSnap = await getDocs(peopleRef);
+      const peopleQuery = query(collectionGroup(db, 'people'), where('userId', '==', user.uid));
+      const peopleSnap = await getDocs(peopleQuery);
+      const personMap = new Map<string, {name: string, treeId: string}>();
+      peopleSnap.docs.forEach(doc => {
+        const person = doc.data() as Person;
+        personMap.set(doc.id, { name: `${person.firstName} ${person.lastName}`, treeId: person.treeId });
+      });
 
-        for (const personDoc of peopleSnap.docs) {
-          const person = personDoc.data() as Person;
-          if (person.photoURL) {
-             files.push({
-              id: `profile-${treeData.id}-${personDoc.id}`,
-              type: 'profile',
-              name: `פרופיל - ${person.firstName} ${person.lastName}`,
-              url: person.photoURL,
-              size: 0,
-              createdAt: toDateSafe(person.createdAt),
-              updatedAt: toDateSafe(person.updatedAt),
-              personName: `${person.firstName} ${person.lastName}`,
-              treeName: treeData.treeName,
-              storagePath: '', 
-            });
-          }
-          
-          const galleryRef = collection(personDoc.ref, 'gallery');
-          const gallerySnap = await getDocs(galleryRef);
-          gallerySnap.forEach((photoDoc) => {
-            const photo = photoDoc.data() as GalleryPhoto;
-            files.push({
-              id: photoDoc.id,
-              type: 'gallery',
-              name: 'תמונה מהגלריה',
-              url: photo.url,
-              size: 0,
-              createdAt: toDateSafe(photo.createdAt),
-              personName: `${person.firstName} ${person.lastName}`,
-              treeName: treeData.treeName,
-              storagePath: photo.storagePath,
-            });
+      // 2. Profile Photos from person documents
+      peopleSnap.docs.forEach(doc => {
+        const person = doc.data() as Person;
+        if (person.photoURL) {
+           files.push({
+            id: `profile-${doc.id}`,
+            type: 'profile',
+            name: `פרופיל - ${person.firstName} ${person.lastName}`,
+            url: person.photoURL,
+            size: 0,
+            createdAt: toDateSafe(person.createdAt),
+            updatedAt: toDateSafe(person.updatedAt),
+            personName: `${person.firstName} ${person.lastName}`,
+            treeName: treeNameMap.get(person.treeId) || 'עץ לא ידוע',
+            storagePath: '', // No direct storage path on person doc
           });
         }
+      });
 
-        const rootsQuery = query(collection(treeDoc.ref, 'rootsProjects'));
-        const rootsSnap = await getDocs(rootsQuery);
-        rootsSnap.forEach(doc => {
-            const project = doc.data() as RootsProject;
-            files.push({
-                id: `presentation-${treeDoc.id}-${doc.id}`,
-                type: 'presentation',
-                name: project.projectName || 'עבודת שורשים',
-                url: `/tree/${project.treeId}/?view=roots`,
-                size: 0,
-                createdAt: toDateSafe(project.createdAt),
-                updatedAt: toDateSafe(project.updatedAt),
-                treeName: treeData.treeName,
-                storagePath: '',
-            });
+      // 3. Gallery Photos using a collectionGroup query
+      const galleryQuery = query(collectionGroup(db, 'gallery'), where('userId', '==', user.uid));
+      const gallerySnap = await getDocs(galleryQuery);
+      
+      gallerySnap.forEach((photoDoc) => {
+        const photo = photoDoc.data() as GalleryPhoto;
+        const personInfo = personMap.get(photo.personId);
+
+        files.push({
+          id: photoDoc.id,
+          type: 'gallery',
+          name: personInfo ? `תמונה מהגלריה` : 'תמונה (ללא שיוך)',
+          url: photo.url,
+          size: 0,
+          createdAt: toDateSafe(photo.createdAt),
+          personName: personInfo?.name || 'לא משויך',
+          treeName: treeNameMap.get(photo.treeId) || 'עץ לא ידוע',
+          storagePath: photo.storagePath,
         });
-      }
+      });
+      
+      // 4. Roots Projects as "presentation" files
+      const rootsQuery = query(collectionGroup(db, 'rootsProjects'), where('userId', '==', user.uid));
+      const rootsSnap = await getDocs(rootsQuery);
+      rootsSnap.forEach(doc => {
+          const project = doc.data() as RootsProject;
+          files.push({
+              id: `presentation-${project.treeId}-${project.id}`,
+              type: 'presentation',
+              name: project.projectName || 'עבודת שורשים',
+              url: `/tree/${project.treeId}?view=roots`,
+              size: 0,
+              createdAt: toDateSafe(project.createdAt),
+              updatedAt: toDateSafe(project.updatedAt),
+              treeName: treeNameMap.get(project.treeId) || 'עץ לא ידוע',
+              storagePath: '',
+          });
+      });
 
       setAllFiles(files.sort((a,b) => b.createdAt.getTime() - a.createdAt.getTime()));
     } catch (error) {
@@ -185,8 +196,10 @@ export function MyFilesClient() {
         if(fileToDelete.type === 'exported') {
             docRef = doc(db, 'exportedFiles', fileToDelete.id);
         } else if (fileToDelete.type === 'gallery') {
+            // Need to figure out the full path for deletion
             const pathSegments = fileToDelete.storagePath.split('/');
-             if(pathSegments.length >= 7) {
+            // Expected path: users/{userId}/trees/{treeId}/people/{personId}/gallery/{fileName}
+            if(pathSegments.length >= 7) {
                 const treeId = pathSegments[3];
                 const personId = pathSegments[5];
                 docRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', personId, 'gallery', fileToDelete.id);
@@ -222,6 +235,7 @@ export function MyFilesClient() {
         const downloadURL = await getDownloadURL(snapshot.ref);
 
         // This is a temporary solution for client-side display only.
+        // A proper implementation would save this to a 'general_gallery' collection.
         const newFileEntry: DisplayFile = {
             id: uuidv4(),
             type: 'general',
@@ -362,7 +376,7 @@ export function MyFilesClient() {
               {sections.presentations.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {sections.presentations.map(file => (
-                    <FileCard key={file.id} file={file} onDelete={() => file.storagePath && setFileToDelete(file)} />
+                    <FileCard key={file.id} file={file} onDelete={() => {}} />
                   ))}
                 </div>
               ) : (

@@ -1,3 +1,4 @@
+
 'use client';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import type {
@@ -121,7 +122,7 @@ export type ViewMode =
   | 'trivia'
   | 'roots';
 
-export type CanvasAspectRatio = 'free' | 'a4-landscape' | 'a4-portrait' | '16:9-landscape' | '16:9-portrait' | '1:1';
+export type CanvasAspectRatio = 'free' | 'a4-landscape' | 'a4-portrait' | '16:9-landscape' | '9:16-portrait' | '1:1';
 
 export type EdgeType = 'default' | 'step' | 'straight';
 
@@ -554,7 +555,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     relationships.forEach(rel => {
       if (allParentalRelTypes.includes(rel.relationshipType)) {
-        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
+        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, new Set());
         parentMap.get(rel.personBId)!.push(rel.personAId);
       }
     });
@@ -1319,56 +1320,55 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
   const handleOpenEditorForNew = () => {
     if (readOnly) return;
-    setSelectedPerson(null);
+    const tempId = uuidv4();
+    // Pass a shell object with the tempId to PersonEditor
+    setSelectedPerson({ id: tempId } as Person);
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
     requestAnimationFrame(() => setIsEditorOpen(true));
   };
 
-  const proceedWithCreation = async (personData: any, keepModalOpen = false) => {
+  const proceedWithCreation = async (personData: any, personId: string, keepModalOpen = false) => {
     if (!user || !db) return;
     setIsDuplicateAlertOpen(false);
     
     recordHistory();
 
-    const newPersonId = uuidv4();
     const newPersonData = {
       ...personData,
-      id: newPersonId,
+      id: personId,
       userId: user.uid,
       treeId,
       createdAt: new Date(),
       updatedAt: new Date(),
     } as Person;
 
-    const vp = viewportRef.current;
-    const canvasEl = document.getElementById('main-view-container');
-    const rect = canvasEl?.getBoundingClientRect() ?? { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
-    
-    const screenCenterX = rect.left + rect.width / 2;
-    const screenCenterY = rect.top + rect.height / 2;
-    
-    const canvasCenterX = (screenCenterX - vp.x) / vp.zoom;
-    const canvasCenterY = (screenCenterY - vp.y) / vp.zoom;
+    // Use viewport to place new node in the center of the current view
+    const { x: viewX, y: viewY, zoom } = getViewport();
+    const canvasEl = document.querySelector('.react-flow__viewport') as HTMLElement;
+    const canvasRect = canvasEl?.getBoundingClientRect() ?? { width: window.innerWidth, height: window.innerHeight };
 
+    const centerX = (canvasRect.width / 2 - viewX) / zoom;
+    const centerY = (canvasRect.height / 2 - viewY) / zoom;
+    
     // Node size is roughly 256x116, so offset by half.
     const newNodePosition: XYPosition = {
-      x: canvasCenterX - 128,
-      y: canvasCenterY - 58,
+      x: centerX - 128,
+      y: centerY - 58,
     };
     
     try {
       const peopleCollection = collection(db, 'users', user.uid, 'familyTrees', treeId, 'people');
-      const personDocRef = doc(peopleCollection, newPersonId);
+      const personDocRef = doc(peopleCollection, personId);
 
       const canvasPositionsRef = collection(db, 'users', user.uid, 'familyTrees', treeId, 'canvasPositions');
       const newPosDocRef = doc(canvasPositionsRef);
 
       const batch = writeBatch(db);
-      batch.set(personDocRef, { ...newPersonData, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      batch.set(personDocRef, { ...personData, id: personId, userId: user.uid, treeId, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       batch.set(newPosDocRef, {
-        personId: newPersonId,
+        personId: personId,
         x: newNodePosition.x,
         y: newNodePosition.y,
         userId: user.uid,
@@ -1377,19 +1377,14 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       });
       await batch.commit();
       
-      const newFullPerson = { ...newPersonData, id: newPersonId };
+      const newFullPerson = { ...newPersonData };
 
-      if (keepModalOpen) {
-        setPeople(ps => [...ps, newFullPerson]);
-        setCanvasPositions(prev => [...prev, { id: newPosDocRef.id, personId: newPersonId, ...newNodePosition, userId: user.uid, treeId, updatedAt: new Date() as any }]);
-        setSelectedPerson(newFullPerson);
-        toast({ title: 'אדם נוצר', description: 'כעת ניתן להוסיף תמונות.' });
-      } else {
-        setPeople(ps => [...ps, newFullPerson]);
-        setCanvasPositions(prev => [...prev, { id: newPosDocRef.id, personId: newPersonId, ...newNodePosition, userId: user.uid, treeId, updatedAt: new Date() as any }]);
-        toast({ title: 'אדם נוסף' });
-        handleEditorClose();
-      }
+      setPeople(ps => [...ps, newFullPerson]);
+      setCanvasPositions(prev => [...prev, { id: newPosDocRef.id, personId: personId, ...newNodePosition, userId: user.uid, treeId, updatedAt: new Date() as any }]);
+      toast({ title: 'אדם נוצר', description: 'כעת ניתן להוסיף תמונות.' });
+      
+      // Update state to reflect the new person in the editor
+      setSelectedPerson(newFullPerson);
 
     } catch (error: any) {
       const permissionError = new FirestorePermissionError({
@@ -1413,9 +1408,9 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     recordHistory();
     if (!isNew) {
       await handleUpdatePerson(personData as Partial<Person> & { id: string });
-      handleEditorClose(); // Only close on update
+      handleEditorClose();
     } else {
-      await handleCreatePerson(personData); // Create logic will keep modal open
+      await handleCreatePerson(personData);
     }
   };
 
@@ -1438,7 +1433,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       }
       requestAnimationFrame(() => setIsDuplicateAlertOpen(true));
     } else {
-      await proceedWithCreation(personData, true);
+      await proceedWithCreation(personData, personData.id, true);
     }
   };
 
@@ -2498,7 +2493,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
               ביטול
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => personToCreate && proceedWithCreation(personToCreate, false)}
+              onClick={() => personToCreate && proceedWithCreation(personToCreate, personToCreate.id, false)}
             >
               צור בכל זאת
             </AlertDialogAction>

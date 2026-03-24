@@ -175,6 +175,12 @@ service cloud.firestore {
       }
     }
     
+    // This collectionGroup query allows the "My Files" page to find all gallery photos for a user
+    // across all their trees, including photos for people who haven't been saved yet (orphaned).
+    match /{path=**}/gallery/{photoId} {
+        allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+    
     match /userEmails/{email} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;

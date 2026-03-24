@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
@@ -120,7 +121,7 @@ export function PersonEditor({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const isEditing = !!person?.id;
+  const isEditing = !!person?.createdAt;
 
   const form = useForm<z.infer<typeof personSchema>>({
     resolver: zodResolver(personSchema),
@@ -212,7 +213,7 @@ export function PersonEditor({
 
   const handleImageUpload = async (file: File | Blob, isProfile: boolean = true, isGallery: boolean = false) => {
     if (!user || !treeId || !storage || !db || !person?.id) {
-        toast({ variant: 'destructive', title: 'שגיאה', description: 'יש לשמור את האדם תחילה.' });
+        toast({ variant: 'destructive', title: 'שגיאה', description: 'ID של אדם לא נמצא.' });
         return;
     };
     setIsUploading(true);
@@ -224,7 +225,7 @@ export function PersonEditor({
       if (isGallery) {
         path = `users/${user.uid}/trees/${treeId}/people/${person.id}/gallery/${filename}`;
       } else {
-        path = `users/${user.uid}/trees/${treeId}/photos/${filename}`;
+        path = `users/${user.uid}/trees/${treeId}/people/${person.id}/profile/${filename}`;
       }
       
       const imageRef = storageRef(storage, path);
@@ -260,7 +261,7 @@ export function PersonEditor({
   };
   
   const handleGalleryPhotoDelete = async (photo: GalleryPhoto) => {
-    if (!user || !db || !storage) return;
+    if (!user || !db || !storage || !person?.id) return;
 
     try {
       // Delete from storage
@@ -268,7 +269,7 @@ export function PersonEditor({
       await deleteObject(photoStorageRef);
 
       // Delete from firestore
-      const photoDocRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', photo.personId, 'gallery', photo.id);
+      const photoDocRef = doc(db, 'users', user.uid, 'familyTrees', treeId, 'people', person.id, 'gallery', photo.id);
       await deleteDoc(photoDocRef);
 
       setGallery(prev => prev.filter(p => p.id !== photo.id));
@@ -387,12 +388,12 @@ export function PersonEditor({
                   className={cn(
                     "relative w-40 h-40 mx-auto rounded-full border-2 border-dashed flex items-center justify-center text-muted-foreground transition-colors",
                     isAvatarDragging && "border-primary bg-primary/10",
-                    !isEditing && "opacity-50 cursor-not-allowed"
+                    !person?.id && "opacity-50 cursor-not-allowed"
                   )}
-                  onDragEnter={(e) => {e.preventDefault(); e.stopPropagation(); if (isEditing) setIsAvatarDragging(true);}}
+                  onDragEnter={(e) => {e.preventDefault(); e.stopPropagation(); if (person?.id) setIsAvatarDragging(true);}}
                   onDragLeave={(e) => {e.preventDefault(); e.stopPropagation(); setIsAvatarDragging(false);}}
                   onDragOver={(e) => {e.preventDefault(); e.stopPropagation();}}
-                  onDrop={isEditing ? handleAvatarDrop : undefined}
+                  onDrop={person?.id ? handleAvatarDrop : undefined}
                 >
                   <Avatar className="w-full h-full">
                     <AvatarImage src={photoUrlValue || undefined} className="object-cover" />
@@ -401,11 +402,11 @@ export function PersonEditor({
                     </AvatarFallback>
                   </Avatar>
                   
-                  <div className={cn("absolute inset-0 bg-black/30 rounded-full opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-4", !isEditing && "pointer-events-none")}>
-                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()} disabled={!isEditing}>
+                  <div className={cn("absolute inset-0 bg-black/30 rounded-full opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-4", !person?.id && "pointer-events-none")}>
+                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={() => fileInputRef.current?.click()} disabled={!person?.id}>
                       <UploadCloud className="w-6 h-6" />
                     </Button>
-                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={openCamera} disabled={!isEditing}>
+                    <Button type="button" size="icon" variant="ghost" className="text-white hover:text-white hover:bg-white/20" onClick={openCamera} disabled={!person?.id}>
                       <Camera className="w-6 h-6" />
                     </Button>
                   </div>
@@ -415,7 +416,7 @@ export function PersonEditor({
                       <Loader2 className="w-10 h-10 animate-spin text-primary" />
                     </div>
                   )}
-                  <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" disabled={!isEditing} />
+                  <input type="file" ref={fileInputRef} onChange={(e) => e.target.files && handleImageUpload(e.target.files[0])} className="hidden" accept="image/*" disabled={!person?.id} />
                 </div>
                  
                 {isCameraOpen && (
@@ -432,7 +433,7 @@ export function PersonEditor({
                 <FormField control={form.control} name="photoURL" render={({ field }) => (
                   <FormItem className="text-right">
                     <FormLabel>כתובת URL של תמונה (חלופה)</FormLabel>
-                    <FormControl><Input placeholder="https://" {...field} value={field.value || ''} className="bg-card" disabled={!isEditing} /></FormControl>
+                    <FormControl><Input placeholder="https://" {...field} value={field.value || ''} className="bg-card" disabled={!person?.id} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}/>
@@ -610,7 +611,7 @@ export function PersonEditor({
                     </div>
                 </div>
 
-                {isEditing && (
+                {person?.id && (
                   <div 
                     className={cn(
                         "space-y-2 text-right relative border-2 border-dashed rounded-lg p-4 transition-colors",
