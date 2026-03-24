@@ -175,16 +175,6 @@ service cloud.firestore {
       }
     }
     
-    match /{path=**}/gallery/{photoId} {
-        allow list: if isSignedIn();
-        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
-    }
-    
-    match /{path=**}/people/{personId} {
-        allow list: if isSignedIn();
-        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
-    }
-    
     match /userEmails/{email} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
@@ -210,6 +200,16 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn() && request.resource.data.ownerUserId == request.auth.uid;
       allow delete: if isSignedIn() && (resource.data.ownerUserId == request.auth.uid || isRecoveryUser(resource.data.ownerUserId));
+    }
+    
+    match /{path=**}/gallery/{photoId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
+    }
+    
+    match /{path=**}/people/{personId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn() && request.auth.uid == resource.data.userId;
     }
   }
 }
