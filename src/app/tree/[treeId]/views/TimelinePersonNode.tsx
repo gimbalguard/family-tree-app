@@ -13,7 +13,12 @@ import { format, differenceInYears } from 'date-fns';
 export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) => {
   const {
     firstName, lastName, birthDate, deathDate, gender, photoURL, status, religion,
-    nickname, childrenCount, siblingsCount
+    nickname, childrenCount, siblingsCount, grandchildrenCount,
+    isOwner,
+    // Creator settings for owner/twin highlighting
+    creatorCardBacklightIntensity,
+    creatorCardBacklightDisabled,
+    creatorCardSize,
   } = data;
 
   const nameParts = [firstName];
@@ -62,8 +67,26 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
 
   const hs: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
+  const cardStyle: React.CSSProperties = {
+      backgroundColor: data.cardBackgroundColor,
+      borderColor: data.cardBorderColor,
+      borderWidth: data.cardBorderWidth ? `${data.cardBorderWidth}px` : undefined,
+  };
+
+  if (isOwner) {
+    if (creatorCardSize) {
+      cardStyle.transform = `scale(${creatorCardSize / 100})`;
+    }
+    if (!creatorCardBacklightDisabled && creatorCardBacklightIntensity) {
+      const intensity = creatorCardBacklightIntensity / 100;
+      const shadowColor = `rgba(255, 193, 7, ${intensity * 0.7})`; // Amber
+      cardStyle.boxShadow = `0 0 ${8 * intensity}px ${shadowColor}, 0 0 ${20 * intensity}px ${shadowColor}, 0 0 ${45 * intensity}px ${shadowColor}`;
+    }
+  }
+
   return (
     <Card
+      style={cardStyle}
       className={cn(
         'w-[160px] transition-all duration-200 relative overflow-visible',
         'shadow-md hover:shadow-lg',
@@ -76,6 +99,7 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
       <Handle type="target" position={Position.Left}   id="left"   style={{ ...hs, top: '50%' }} />
       <Handle type="source" position={Position.Right}  id="right"  style={{ ...hs, top: '50%' }} />
       <Handle type="target" position={Position.Right}  id="right"  style={{ ...hs, top: '50%' }} />
+
 
       <div className="flex flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center">
         <Avatar className="h-14 w-14 border-2 border-border shadow-sm flex-shrink-0">
@@ -91,26 +115,33 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
           <p className="text-[9px] text-muted-foreground leading-tight w-full">{lifeYears}</p>
         )}
 
-        <div className="flex items-center justify-center gap-2 mt-1">
+        <div className="flex items-center justify-center gap-1.5 mt-0.5">
           {getGenderIcon()}
           {getStatusIcon()}
           {getReligionIcon()}
         </div>
-
-        <div className="flex items-center justify-center gap-3 mt-1.5 border-t border-border/50 pt-1.5 w-full">
-            {(childrenCount || 0) > 0 && (
-                <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
-                    <Baby className="h-3.5 w-3.5" />
-                    <span className="font-medium">{childrenCount}</span>
-                </div>
-            )}
-            {(siblingsCount || 0) > 0 && (
-                 <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
-                    <Users className="h-3.5 w-3.5" />
-                    <span className="font-medium">{siblingsCount}</span>
-                </div>
-            )}
-        </div>
+         {(childrenCount || 0) > 0 || (siblingsCount || 0) > 0 || (grandchildrenCount || 0) > 0 ? (
+            <div className="flex items-center justify-center gap-3 mt-1.5 border-t border-border/50 pt-1.5 w-full">
+                {(childrenCount || 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${childrenCount} ילדים`}>
+                        <Baby className="h-3.5 w-3.5" />
+                        <span className="font-medium">{childrenCount}</span>
+                    </div>
+                )}
+                {(siblingsCount || 0) > 0 && (
+                     <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${siblingsCount} אחים`}>
+                        <Users className="h-3.5 w-3.5" />
+                        <span className="font-medium">{siblingsCount}</span>
+                    </div>
+                )}
+                 {(grandchildrenCount || 0) > 0 && (
+                     <div className="flex items-center gap-1 text-xs text-muted-foreground" title={`${grandchildrenCount} נכדים`}>
+                        <Users className="h-3.5 w-3.5 opacity-60" />
+                        <span className="font-medium opacity-60">{grandchildrenCount}</span>
+                    </div>
+                )}
+            </div>
+        ) : null}
       </div>
     </Card>
   );
