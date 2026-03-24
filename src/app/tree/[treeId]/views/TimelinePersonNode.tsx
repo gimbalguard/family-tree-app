@@ -1,4 +1,3 @@
-
 'use client';
 import { memo } from 'react';
 import type { NodeProps } from 'reactflow';
@@ -61,20 +60,10 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
     }
   };
 
-  // ── Handles ──────────────────────────────────────────────────────────────
-  // CRITICAL: edges need one source end and one target end to render.
-  //
-  // Parent → Child uses:  parent.bottom (source) → child.top (target)
-  // Spouse / Sibling:     left.right (source) → right.left (target)
-  //                    OR right.left (source) → left.right (target)
-  //
-  // So:  top   = target  (receives lines FROM parents)
-  //      bottom = source  (sends lines TO children)
-  //      left  = target  (receives horizontal lines)
-  //      right = source  (sends horizontal lines)
-  //
-  // We mark BOTH left and right as both source AND target via two overlapping
-  // handles so the edge can go either direction depending on relative X position.
+  // ── Handles ───────────────────────────────────────────────────────────────
+  // All type="source" — this matches the main canvas PersonNode exactly.
+  // ReactFlow renders edges between two source handles fine when handle IDs
+  // are explicitly specified on the edge (sourceHandle / targetHandle).
   const hs: React.CSSProperties = { width: 10, height: 10, background: 'hsl(var(--primary))' };
 
   return (
@@ -85,16 +74,10 @@ export const TimelinePersonNode = memo(({ data, selected }: NodeProps<Person>) =
         selected && 'ring-2 ring-primary ring-offset-2',
       )}
     >
-      {/* top — TARGET: receives edges from parents */}
-      <Handle type="target" position={Position.Top}    id="top"    style={hs} />
-      {/* bottom — SOURCE: sends edges to children */}
+      <Handle type="source" position={Position.Top}    id="top"    style={hs} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={hs} />
-      {/* left — both source and target for horizontal spouse/sibling lines */}
       <Handle type="source" position={Position.Left}   id="left"   style={{ ...hs, top: '50%', transform: 'translateY(-50%)' }} />
-      <Handle type="target" position={Position.Left}   id="left-t" style={{ ...hs, top: '50%', transform: 'translateY(-50%)', opacity: 0 }} />
-      {/* right — both source and target */}
       <Handle type="source" position={Position.Right}  id="right"  style={{ ...hs, top: '50%', transform: 'translateY(-50%)' }} />
-      <Handle type="target" position={Position.Right}  id="right-t" style={{ ...hs, top: '50%', transform: 'translateY(-50%)', opacity: 0 }} />
 
       <div className="flex flex-col items-center gap-1.5 px-2 pt-3 pb-2 text-center">
         <Avatar className="h-14 w-14 border-2 border-border shadow-sm flex-shrink-0">
