@@ -218,7 +218,7 @@ const assignGenerations = (
   }
 
   // Phase 6: HARD ENFORCE — every partner pair must be on the same row.
-  // Rule: the person derived from the bloodline (has parents in tree) wins.
+  // Rule: the person derived from a bloodline (has parents in tree) wins.
   // If both have parents, the one with deeper ancestry wins (higher gen number).
   // If neither has parents, keep the one with children.
   let enforceChanged = true;
