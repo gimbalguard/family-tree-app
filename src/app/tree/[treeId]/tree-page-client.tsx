@@ -526,14 +526,13 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
   }, [treeId, user, db, readOnly, isUserLoading, router]);
 
-  // Derive UI state from raw data
+  // Effect 1: Update nodes when people, positions, or tree settings change.
   useEffect(() => {
     if (isLoading || !tree) return;
 
     const allParentalRelTypes = ['parent', 'adoptive_parent', 'step_parent', 'guardian'];
     const directSiblingRelTypes = ['sibling', 'twin', 'step_sibling', 'half_sibling'];
 
-    // Build a set of all person IDs that have at least one relationship
     const connectedPersonIds = new Set<string>();
     relationships.forEach(rel => {
       connectedPersonIds.add(rel.personAId);
@@ -554,7 +553,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     relationships.forEach(rel => {
       if (allParentalRelTypes.includes(rel.relationshipType)) {
-        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, new Set());
+        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
         parentMap.get(rel.personBId)!.push(rel.personAId);
       }
     });
@@ -631,7 +630,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
           const isTwin = twinIds.has(person.id);
           const applyCreatorStyles = isOwner || isTwin;
 
-          // Determine if this person is unconnected (has no relationships at all)
           const isUnconnected = !connectedPersonIds.has(person.id);
       
           let finalPosition: XYPosition;
@@ -669,6 +667,14 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
       return newNodes;
     });
 
+  }, [people, relationships, canvasPositions, tree, isLoading, setNodes, readOnly]);
+
+  // Effect 2: Update edges when nodes or relationships change.
+  useEffect(() => {
+    if (isLoading || !tree || nodes.length === 0) {
+      return;
+    }
+    
     const relLabelMap = new Map(relationshipOptions.map(opt => [opt.type, opt.label]));
     relLabelMap.set('spouse', 'נשואים');
     relLabelMap.set('ex_spouse', 'גרושים');
@@ -677,36 +683,33 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     relLabelMap.set('ex_partner', 'בן/בת זוג לשעבר');
     relLabelMap.set('widowed', 'אלמן/אלמנה');
     relLabelMap.set('half_sibling', 'אחים למחצה');
-
-    setEdges(currentEdges => {
-        const tempNodes = getNodes();
-        const newEdges = relationships.map(rel => {
-          const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, tempNodes);
-          const getLabel = () => {
-            if (['parent', 'step_parent', 'adoptive_parent'].includes(rel.relationshipType)) {
-              const parent = people.find(p => p.id === rel.personAId);
-              if (parent) {
-                const parentOption = relationshipOptions.find(opt => opt.type === rel.relationshipType && opt.gender === parent.gender);
-                return parentOption?.label || 'הורה';
-              }
-              return 'הורה';
-            }
-            return relLabelMap.get(rel.relationshipType) || rel.relationshipType;
-          };
-          return {
-            id: rel.id,
-            source, target, sourceHandle, targetHandle, type: edgeType,
-            label: getLabel(),
-            labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
-            labelStyle: { fill: 'hsl(var(--foreground))' },
-            data: rel,
-            className: 'custom-edge',
-          };
-        });
-        return newEdges;
+    
+    const newEdges = relationships.map(rel => {
+      const { source, target, sourceHandle, targetHandle } = getEdgeProps(rel, nodes);
+      const getLabel = () => {
+        if (['parent', 'step_parent', 'adoptive_parent'].includes(rel.relationshipType)) {
+          const parent = people.find(p => p.id === rel.personAId);
+          if (parent) {
+            const parentOption = relationshipOptions.find(opt => opt.type === rel.relationshipType && opt.gender === parent.gender);
+            return parentOption?.label || 'הורה';
+          }
+          return 'הורה';
+        }
+        return relLabelMap.get(rel.relationshipType) || rel.relationshipType;
+      };
+      return {
+        id: rel.id, source, target, sourceHandle, targetHandle, type: edgeType,
+        label: getLabel(),
+        labelBgStyle: { fill: 'hsl(var(--background))', padding: '2px 4px' },
+        labelStyle: { fill: 'hsl(var(--foreground))' },
+        data: rel,
+        className: 'custom-edge',
+      };
     });
 
-  }, [people, relationships, canvasPositions, tree, edgeType, readOnly, isLoading, getNodes, setNodes, setEdges]);
+    setEdges(newEdges);
+
+  }, [nodes, relationships, tree, edgeType, people, isLoading, setEdges]);
   
     const debouncedSaveRootsProject = useDebounce((projectToSave: RootsProject) => {
         if (!user || !db || readOnly) return;
@@ -724,7 +727,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         recordHistory();
         setRootsProject((prev) => {
           const newState = prev ? updater(prev) : null;
-          if (newState) debouncedSaveRootsProject(newState);
+          if (newState) debouncedSave(newState);
           return newState;
         });
       },
@@ -736,7 +739,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         if (readOnly) return;
         recordHistory();
         setRootsProject(newProject);
-        debouncedSaveRootsProject(newProject);
+        debouncedSave(newProject);
       },
       [readOnly, recordHistory, debouncedSaveRootsProject]
     );
@@ -867,10 +870,6 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
 
     return { relationshipsToAdd, relationshipsToUpdate };
   }, [treeId, user, readOnly]);
-
-  useEffect(() => {
-    setEdges((eds) => eds.map((e) => ({ ...e, type: edgeType })));
-  }, [edgeType, setEdges]);
 
   const onSelectionChange = useCallback(
     ({ nodes: newSelectedNodes, edges: selectedEdges }: OnSelectionChangeParams) => {
