@@ -553,7 +553,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
     }
     relationships.forEach(rel => {
       if (allParentalRelTypes.includes(rel.relationshipType)) {
-        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, []);
+        if (!parentMap.has(rel.personBId)) parentMap.set(rel.personBId, new Set());
         parentMap.get(rel.personBId)!.push(rel.personAId);
       }
     });
@@ -727,7 +727,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         recordHistory();
         setRootsProject((prev) => {
           const newState = prev ? updater(prev) : null;
-          if (newState) debouncedSave(newState);
+          if (newState) debouncedSaveRootsProject(newState);
           return newState;
         });
       },
@@ -739,7 +739,7 @@ function TreeCanvasContainer({ treeId, readOnly = false }: TreePageClientProps) 
         if (readOnly) return;
         recordHistory();
         setRootsProject(newProject);
-        debouncedSave(newProject);
+        debouncedSaveRootsProject(newProject);
       },
       [readOnly, recordHistory, debouncedSaveRootsProject]
     );
