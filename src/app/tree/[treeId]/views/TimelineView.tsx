@@ -578,7 +578,7 @@ const HorizontalScrollbar = ({ totalWidth, leftOffset = 80 }: { totalWidth: numb
       document.removeEventListener('mouseup', onUp);
     };
     document.addEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
+    document.addEventListener('mouseup', onUp);
   };
 
   return (
@@ -617,8 +617,9 @@ function TimelineViewContent({
   people, relationships, edgeType, isCompact,
   onNodeDoubleClick, tree, onUpdateTree,
 }: {
-  people: Person[]; relationships: Relationship[]; edgeType: EdgeType; isCompact: boolean;
-  onNodeDoubleClick?: OnNodeDoubleClick; tree?: FamilyTree | null; onUpdateTree?: (d: Partial<FamilyTree>) => void;
+  people: Person[]; relationships: Relationship[]; edgeType: EdgeType;
+  isCompact: boolean; onNodeDoubleClick?: OnNodeDoubleClick;
+  tree?: FamilyTree | null; onUpdateTree?: (d: Partial<FamilyTree>) => void;
 }) {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -670,7 +671,7 @@ function TimelineViewContent({
     for (const g of Array.from(byG.keys()).sort((a, b) => a - b)) {
       if (!g) continue;
       const gp = (byG.get(g) || []).sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999));
-      const x  = 100 + (g - 1) * COLUMN_WIDTH;
+      const x = 100 + (g - 1) * COLUMN_WIDTH;
       lastY.set(g, -Infinity);
       for (const p of gp) {
         const ideal = p.birthYear !== null
